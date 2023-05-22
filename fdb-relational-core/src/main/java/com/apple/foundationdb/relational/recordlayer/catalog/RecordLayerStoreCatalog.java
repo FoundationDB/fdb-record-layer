@@ -1,5 +1,5 @@
 /*
- * RecordLayerStoreCatalogImpl.java
+ * RecordLayerStoreCatalog.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -46,7 +45,6 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
@@ -61,7 +59,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
-import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -78,97 +75,108 @@ import java.sql.SQLException;
 import java.util.Objects;
 
 /**
- * This class constructs the record store that holds the catalog metadata.
+ * This class defines and constructs the record store that holds and manipulates the catalog metadata.
  * <p>
- * We currently have two tables in this catalog: Schema, and DatabaseInfo.
- * You can find the definition of these two tables either in {@code catalog_schema_data.proto}, or
- * in the respective system tables classes {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaSystemTable},
- * resp. {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.DatabaseInfoSystemTable}.
+ * We currently have three tables in this catalog: Schema, DatabaseInfo, and SchemaTemplate.
+ * You can find the definition of these tables either in {@code catalog_schema_data.proto}, or
+ * in the respective system tables classes: e.g.
+ * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaSystemTable},
+ * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.DatabaseInfoSystemTable}, and
+ * {@link com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaTemplateSystemTable}.
  * <p>
- * Internally, here is how the is stored:
+ * Internally, here is how this is stored:
+ * <pre>
  * - We use a prefix "/__SYS/catalog".
  * - For {@code Schema}, we use '0' (zero) as a record type key.
  * - For {@code DatabaseInfo}, we use '1' (one) as a record type key.
+ * - For {@code SchemaTemplates}, we use '2' (two) as a record type key.
+ * ...
+ * </pre>
  * Here is an example on how the records are laid out:
- * <p>
+ * <pre>
  * __SYS
  * catalog
  * {0, /DB1, SCh1} Schema { name='SCh1', tables... }
- * {0, /__SYS, catalog} Schema { name='catalog', tables= {Schema, DatabaseInfo}}
+ * {0, /__SYS, catalog} Schema { name='catalog', tables={Schema, DatabaseInfo}}
  * {1, /DB1}   DatabaseInfo { name=/DB1}
  * {1, /__SYS} DatabaseInfo {name=__SYS }
+ * ...
+ * </pre>
  */
-public class RecordLayerStoreCatalogImpl implements StoreCatalog {
-
-    public static final String TEMPLATE = RelationalKeyspaceProvider.CATALOG + "_TEMPLATE";
-    public static final int TEMPLATE_VERSION = 1;
-    private StructMetaData dbTableMetaData;
+class RecordLayerStoreCatalog implements StoreCatalog {
+    private static final URI DASH_DASH_SYS = URI.create("/" + RelationalKeyspaceProvider.SYS);
+    private static final String CATALOG_TEMPLATE = RelationalKeyspaceProvider.CATALOG + "_TEMPLATE";
+    private static final int CATALOG_TEMPLATE_VERSION = 1;
 
     static {
         ExtensionRegistry defaultExtensionRegistry = ExtensionRegistry.newInstance();
         RecordMetaDataOptionsProto.registerAllExtensions(defaultExtensionRegistry);
     }
 
-    private final RelationalKeyspaceProvider.RelationalSchemaPath schemaPath;
+    private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
 
-    private final RecordMetaDataProvider metaDataProvider;
+    private final RecordMetaDataProvider catalogRecordMetaDataProvider;
 
-    private final SchemaTemplateCatalog schemaTemplateCatalog;
+    private SchemaTemplateCatalog schemaTemplateCatalog;
 
-    public RecordLayerStoreCatalogImpl(@Nonnull final KeySpace keySpace, @Nonnull SchemaTemplateCatalog schemaTemplateCatalog) throws RelationalException {
-        schemaPath = RelationalKeyspaceProvider.toDatabasePath(URI.create("/" + RelationalKeyspaceProvider.SYS), keySpace).schemaPath(RelationalKeyspaceProvider.CATALOG);
-        metaDataProvider = setupMetadataProvider();
-        this.schemaTemplateCatalog = schemaTemplateCatalog;
-    }
+    private final RecordLayerSchemaTemplate catalogSchemaTemplate;
 
-    @Nonnull
-    private RecordMetaDataProvider setupMetadataProvider() throws RelationalException {
-        final var schema = getCatalogSchemaTemplate().generateSchema("/" + RelationalKeyspaceProvider.SYS, RelationalKeyspaceProvider.CATALOG);
-        final RecordMetaDataProto.MetaData proto;
-        proto = schema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto();
-        return RecordMetaData.build(proto);
+    private final RecordLayerSchema catalogSchema;
+
+    RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
+        this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
+                .schemaPath(RelationalKeyspaceProvider.CATALOG);
+        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
+        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME).addDefinition(schemaBuilder);
+        this.catalogSchemaTemplate = schemaBuilder.setName(CATALOG_TEMPLATE).setVersion(CATALOG_TEMPLATE_VERSION).build();
+        this.catalogSchema = this.catalogSchemaTemplate.generateSchema(DASH_DASH_SYS.getPath(),
+                RelationalKeyspaceProvider.CATALOG);
+        this.catalogRecordMetaDataProvider = RecordMetaData.build(
+                catalogSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
     }
 
     /**
-     * Bootstraps the {@code __SYS} database if not already. Bootstrapping involves populating the corresponding
-     * entry in Relational catalog with information about the available tables of this database.
-     *
-     * @param transaction The transaction used to load the {@code /__SYS?schema=catalog} schema and write to Relational catalog.
-     * @throws RelationalException in case of schema parsing error.
+     * Call after construction.
+     * @param createTxn Transaction used doing setup of the CATALOG.
+     * @return Returns 'this'.
+     * @throws RelationalException If failed initialization.
      */
-    private void bootstrapSystemDatabase(Transaction transaction) throws RelationalException {
-        // TODO this needs careful design to solve a spectrum of issues pertaining concurrent bootstrapping.
-        URI dbUri = URI.create("/" + RelationalKeyspaceProvider.SYS);
-        final Schema schema = getCatalogSchemaTemplate().generateSchema(dbUri.getPath(), RelationalKeyspaceProvider.CATALOG);
-        if (!schemaTemplateCatalog.doesSchemaTemplateExist(transaction, TEMPLATE)) {
-            schemaTemplateCatalog.updateTemplate(transaction, getCatalogSchemaTemplate());
-        }
-        saveSchema(transaction, schema, true);
+    StoreCatalog initialize(@Nonnull final Transaction createTxn) throws RelationalException {
+        return initialize(createTxn,
+                new RecordLayerStoreSchemaTemplateCatalog(this.catalogSchema, this.catalogSchemaPath));
     }
 
-    public void initialize(@Nonnull final Transaction createTxn) throws RelationalException {
+    /**
+     * Call after construction.
+     * Allows passing of an {@link SchemaTemplateCatalog} other than default.
+     * @param createTxn Transaction used doing setup of the CATALOG.
+     * @return Returns 'this'.
+     * @throws RelationalException If failed initialization.
+     */
+    StoreCatalog initialize(@Nonnull final Transaction createTxn, SchemaTemplateCatalog schemaTemplateCatalog)
+            throws RelationalException {
         try {
+            // Set Catalog store's state cacheability to be true to make frequent opening of store a light operation.
             final var store = FDBRecordStore.newBuilder()
-                    .setKeySpacePath(schemaPath)
+                    .setKeySpacePath(catalogSchemaPath)
                     .setContext(createTxn.unwrap(FDBRecordContext.class))
-                    .setMetaDataProvider(metaDataProvider)
+                    .setMetaDataProvider(catalogRecordMetaDataProvider)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-
-            // Set the Catalog store's state cacheability to be true to make frequent opening of the store a light
-            // operation.
             store.setStateCacheability(true);
-
-            // Update the schema template without any existence checks for now because we depend on the in-memory schema
-            // template store that does not persist. Hence, even though the entry remains in the schema table (that is
-            // backed by the RecordStore) the catalog schema template needs to be `put`
-            if (getSchemaTemplateCatalog() instanceof InMemorySchemaTemplateCatalog) {
-                schemaTemplateCatalog.updateTemplate(createTxn, getCatalogSchemaTemplate());
+            // Make sure the catalog's schematemplate is in place. It won't be if this is initial start up or if the
+            // schemaTemplateCatalog is the non-persisting in-memory implementation.
+            if (!schemaTemplateCatalog.doesSchemaTemplateExist(createTxn, this.catalogSchemaTemplate.getName())) {
+                schemaTemplateCatalog.updateTemplate(createTxn, this.catalogSchemaTemplate);
             }
-
-            bootstrapSystemDatabase(createTxn);
+            this.schemaTemplateCatalog = schemaTemplateCatalog;
+            // Persist our hard-coded catalog schema.
+            saveSchema(createTxn, this.catalogSchema, true);
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
+        return this;
     }
 
     @Override
@@ -179,7 +187,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     @Override
     @Nonnull
     public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
-        final FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
         final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
@@ -195,8 +204,10 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     @Override
-    public void saveSchema(@Nonnull final Transaction txn, @Nonnull final Schema schema, boolean createDatabaseIfNecessary) throws RelationalException {
-        final var recordStore = openFDBRecordStore(txn);
+    public void saveSchema(@Nonnull final Transaction txn, @Nonnull final Schema schema,
+                           boolean createDatabaseIfNecessary) throws RelationalException {
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         CatalogValidator.validateSchema(schema);
         if (!doesDatabaseExist(recordStore, URI.create(schema.getDatabaseName()))) {
             if (createDatabaseIfNecessary) {
@@ -209,8 +220,11 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         Assert.that(schema instanceof RecordLayerSchema,
                 String.format("Unexpected schema type %s", schema.getClass()),
                 ErrorCode.INTERNAL_ERROR);
-        Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
-                String.format("Cannot create schema %s because schema template %s version %d does not exist.", schema.getName(), schema.getSchemaTemplate().getName(), schema.getSchemaTemplate().getVersion()),
+        Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(),
+                        schema.getSchemaTemplate().getVersion()),
+                String.format("Cannot create schema %s because schema template %s version %d does not exist.",
+                        schema.getName(), schema.getSchemaTemplate().getName(),
+                        schema.getSchemaTemplate().getVersion()),
                 ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
@@ -231,19 +245,18 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public void createDatabase(@Nonnull Transaction txn, URI dbUri) throws RelationalException {
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         try {
-            FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
-            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
-            Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
-            recordStore.saveRecord(m);
-        } catch (RecordCoreException | SQLException ex) {
+            createDatabase(recordStore, dbUri);
+        } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
     }
 
     private void createDatabase(@Nonnull FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
         try {
-            ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
+            ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
             Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
             recordStore.saveRecord(m);
         } catch (RecordCoreException | SQLException ex) {
@@ -253,15 +266,18 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
-        return new RecordLayerResultSet(dbTableMetaData, RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
+        Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
+        return new RecordLayerResultSet(getMetaData(d), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
 
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
@@ -271,7 +287,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
         RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
@@ -280,8 +297,9 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         try {
-            FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
             final var primaryKey = getSchemaKey(dbUri, schemaName);
             Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
         } catch (RecordCoreException rce) {
@@ -291,7 +309,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI databaseId) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         return doesDatabaseExist(recordStore, databaseId);
     }
 
@@ -306,7 +325,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         try {
             Tuple primaryKey = getSchemaKey(dbUri, schemaName);
             return recordStore.loadRecord(primaryKey) != null;
@@ -317,7 +337,8 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     @Override
     public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
-        FDBRecordStoreBase<Message> recordStore = openFDBRecordStore(txn);
+        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
+                this.catalogRecordMetaDataProvider);
         try {
             String dbId = dbUrl.getPath();
             final var allSchemasDeleted = deleteSchemas(recordStore, URI.create(dbId));
@@ -337,22 +358,16 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         return true;
     }
 
-    private FDBRecordStoreBase<Message> openFDBRecordStore(@Nonnull Transaction txn) throws RelationalException {
-        try {
-            return FDBRecordStore.newBuilder().setKeySpacePath(schemaPath).setContext(txn.unwrap(FDBRecordContext.class)).setMetaDataProvider(metaDataProvider).open();
-        } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-    }
-
     // delete schemas for the matching dbUri.
     // returns true if the operation completes, false when the operation cannot complete because of txn timeout
     // throws exception otherwise.
     private boolean deleteSchemas(@Nonnull FDBRecordStoreBase<Message> recordStore, @Nonnull URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
-        RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
-        try {
+        try (RecordCursor<FDBStoredRecord<Message>> cursor =
+                recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
+                                EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getUnderlyingBytes(),
+                        ScanProperties.FORWARD_SCAN);) {
+            RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
             do {
                 cursorResult = cursor.getNext();
                 if (cursorResult.getContinuation().isEnd()) {
@@ -373,7 +388,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
 
     private void putSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         try {
-            @Nonnull final ProtobufDataBuilder pmd = new ProtobufDataBuilder(metaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
+            @Nonnull final ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
             @Nonnull final Message m = pmd.setField("DATABASE_ID", schema.getDatabaseName())
                     .setField("SCHEMA_NAME", schema.getName())
                     .setField("TEMPLATE_NAME", schema.getSchemaTemplate().getName())
@@ -385,7 +400,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         }
     }
 
-    private StructMetaData getMetaData(Descriptors.Descriptor descriptor) throws RelationalException {
+    private static StructMetaData getMetaData(Descriptors.Descriptor descriptor) throws RelationalException {
         return SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(descriptor));
     }
 
@@ -400,7 +415,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
             return null;
         }
         Message m = record.getRecord();
-        final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+        final RecordMetaData recordMetaData = catalogRecordMetaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
         String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
@@ -415,7 +430,7 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
     }
 
     private RecordLayerSchema parseSchemaTable(Message m, Transaction txn) throws RelationalException {
-        final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+        final RecordMetaData recordMetaData = catalogRecordMetaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
         String dbId = (String) m.getField(descriptor.findFieldByName("DATABASE_ID"));
@@ -425,19 +440,5 @@ public class RecordLayerStoreCatalogImpl implements StoreCatalog {
         final var version = (Integer) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
         SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
         return (RecordLayerSchema) template.generateSchema(dbId, schemaName);
-    }
-
-    private RecordLayerSchemaTemplate getCatalogSchemaTemplate() throws RelationalException {
-        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
-
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
-
-        //TODO(bfines) unfortunate side effect--can we do this differently?
-        dbTableMetaData = SqlTypeSupport.typeToMetaData(DataTypeUtils.toRecordLayerType(schemaBuilder.findType(SystemTableRegistry.DATABASE_TABLE_NAME).orElseThrow()));
-        return schemaBuilder
-                .setName(TEMPLATE)
-                .setVersion(TEMPLATE_VERSION)
-                .build();
     }
 }

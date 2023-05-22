@@ -308,7 +308,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         try (Transaction txn3 = new RecordContextTransaction(fdb.openContext()); Transaction txn4 = new RecordContextTransaction(fdb.openContext())) {
             // update with 2 different schemas
             storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn3, schema1.getSchemaTemplate());
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn3, schema2.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn4, schema2.getSchemaTemplate());
             storeCatalog.saveSchema(txn3, schema1, false);
             storeCatalog.saveSchema(txn4, schema2, false);
             // commit the first write transaction

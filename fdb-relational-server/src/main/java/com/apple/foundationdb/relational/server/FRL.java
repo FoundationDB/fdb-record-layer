@@ -90,13 +90,13 @@ public class FRL implements AutoCloseable {
 
         RelationalKeyspaceProvider.registerDomainIfNotExists("FRL");
         KeySpace keySpace = RelationalKeyspaceProvider.getKeySpace();
-        RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
         StoreCatalog storeCatalog;
         try (Transaction txn = fdbDatabase.getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();
         }
 
+        RecordLayerConfig rlConfig = RecordLayerConfig.getDefault();
         RecordLayerMetadataOperationsFactory ddlFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setRlConfig(rlConfig)
                 .setBaseKeySpace(keySpace)

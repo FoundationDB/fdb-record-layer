@@ -65,7 +65,6 @@ public class PreparedStatementTests {
     @Order(1)
     public final LogAppenderRule logAppender = new LogAppenderRule("PreparedStatementsTestLogAppender", PlanGenerator.class, Level.INFO);
 
-
     public PreparedStatementTests() {
         Utils.enableCascadesDebugger();
     }

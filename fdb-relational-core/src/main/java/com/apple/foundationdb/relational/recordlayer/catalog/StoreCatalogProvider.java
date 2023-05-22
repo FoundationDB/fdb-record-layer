@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.InMemorySchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.NoOpSchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -31,28 +30,35 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
 import javax.annotation.Nonnull;
 
+/**
+ * {@link StoreCatalog} supplier.
+ * Offers variations on {@link StoreCatalog} that differ by how they implement
+ * {@link com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog}. The 'default' persists
+ * {@link com.apple.foundationdb.relational.api.metadata.SchemaTemplate}s. The other implementation offers
+ * a {@link StoreCatalog} that does no {@link com.apple.foundationdb.relational.api.metadata.SchemaTemplate}'ing.
+ * @see StoreCatalog
+ */
 public class StoreCatalogProvider {
-
+    /**
+     * Get {@link StoreCatalog} instance.
+     */
     public static StoreCatalog getCatalog(Transaction txn, KeySpace keySpace) throws RelationalException {
-        final var schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
-        final var storeCatalog = new RecordLayerStoreCatalogImpl(keySpace, schemaTemplateCatalog);
-        storeCatalog.initialize(txn);
-        return storeCatalog;
+        return new RecordLayerStoreCatalog(keySpace).initialize(txn);
     }
 
-    // This is used to support all our catalog migration efforts.
+    /**
+     * Used to support all our Catalog migration efforts.
+     */
     public static StoreCatalog getCatalogWithNoTemplateOperations(Transaction txn) throws RelationalException {
-        final var schemaTemplateCatalog = new NoOpSchemaTemplateCatalog();
-
         // Do not allow repairing Schema operation because they cannot work with NoOpSchemaTemplateCatalog.
-        final var storeCatalog = new RecordLayerStoreCatalogImpl(RelationalKeyspaceProvider.getKeySpace(), schemaTemplateCatalog) {
+        final var storeCatalog = new RecordLayerStoreCatalog(RelationalKeyspaceProvider.getKeySpace()) {
             @Override
-            public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+            public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName)
+                    throws RelationalException {
                 throw new OperationUnsupportedException("This store catalog does not support repairing schema.");
             }
         };
 
-        storeCatalog.initialize(txn);
-        return storeCatalog;
+        return storeCatalog.initialize(txn, new NoOpSchemaTemplateCatalog());
     }
 }

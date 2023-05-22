@@ -46,7 +46,7 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
     private final Class<?> clazz;
     @Nonnull
     private final Level level;
-    private Level beforeLogLevel = null;
+    private Level beforeLogLevel;
 
     private static class LogAppender extends AbstractAppender {
         private final List<String> log = new ArrayList<>();

@@ -41,14 +41,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * about all available schemas.
  */
 public class SchemaSystemTable implements SystemTable {
-
     public static final String TABLE_NAME = SystemTableRegistry.SCHEMAS_TABLE_NAME;
 
-    private static final String SCHEMA_NAME = "SCHEMA_NAME";
-
-    private static final String DATABASE_ID = "DATABASE_ID";
-    private static final String TEMPLATE_NAME = "TEMPLATE_NAME";
-    private static final String TEMPLATE_VERSION = "TEMPLATE_VERSION";
+    public static final String SCHEMA_NAME = "SCHEMA_NAME";
 
     private static final RecordLayerIndex TEMPLATES_COUNT_INDEX = RecordLayerIndex.newBuilder()
             .setName("TEMPLATES_COUNT_INDEX")

@@ -38,7 +38,6 @@ import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
-import com.google.common.base.Strings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -57,8 +56,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 /**
@@ -156,15 +154,13 @@ public class DdlRecordLayerSchemaTemplateTest {
                     oldTemplateNames.add(rs.getString(1));
                 }
             }
-            //now find ourselves a nice template name to use.
-            //apply Cantor's diagnolisation
-            final var namesAsList = oldTemplateNames
-                    .stream().map(s -> s.length() < oldTemplateNames.size() ? s = s + Strings.repeat(" ", oldTemplateNames.size() - s.length() + 1) : s)
-                    .collect(Collectors.toList());
-            final var uniqueName = IntStream.range(0, namesAsList.size())
-                    .mapToObj(i -> namesAsList.get(i).charAt(i) == Character.MAX_VALUE ? (char) i : (char) (namesAsList.get(i).charAt(i) + 1))
-                    .map(Object::toString)
-                    .collect(Collectors.joining()).concat("NEW_TEMPLATE");
+            // Create a unique String, one that doesn't clash w/ what is there already.
+            // Use the Thread ThreadLocalRandom rather than create our own -- expensive.
+            String uniqueName = ThreadLocalRandom.current().ints('A', 'Z' + 1)
+                    .limit(16)
+                    .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                    .append("NEW_TEMPLATE")
+                    .toString();
             String uniqueStatement = columnStatement.replace("<TEST_TEMPLATE>", uniqueName);
             statement.executeUpdate(uniqueStatement);
             Set<String> templateNames = new HashSet<>();

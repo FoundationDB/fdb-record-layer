@@ -32,6 +32,18 @@ import javax.annotation.Nonnull;
  * in the {@link SystemTableRegistry}.
  */
 public interface SystemTable {
+    /**
+     * Common table column name used creating, querying, and as foreign key.
+     */
+    String DATABASE_ID = "DATABASE_ID";
+    /**
+     * Common table column name used creating, querying, and as foreign key.
+     */
+    String TEMPLATE_NAME = "TEMPLATE_NAME";
+    /**
+     * Common table column name used creating, querying, and as foreign key.
+     */
+    String TEMPLATE_VERSION = "TEMPLATE_VERSION";
 
     /**
      * Returns the name of the system table.

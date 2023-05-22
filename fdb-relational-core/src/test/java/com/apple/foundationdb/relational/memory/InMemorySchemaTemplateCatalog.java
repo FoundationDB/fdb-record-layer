@@ -18,13 +18,14 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
+package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -43,8 +44,11 @@ import java.util.stream.Collectors;
 
 /**
  * Quick and dirty in-memory implementation of a SchemaTemplate catalog, for use in testing.
+ * We used to use this class as general schema template store but it has been replaced by
+ * a persisting store. This class was then moved here into this package and under test as
+ * it used by the adjacent {@link com.apple.foundationdb.relational.memory.InMemoryCatalog}
  */
-public class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
+class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     private final ConcurrentMap<String, ConcurrentMap<Integer, SchemaTemplate>> backingStore = new ConcurrentHashMap<>();
 
     @Override

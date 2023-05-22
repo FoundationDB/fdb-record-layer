@@ -31,11 +31,14 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 public class SchemaTemplateSystemTable implements SystemTable {
-
+    /**
+     * Name of this catalog system table.
+     */
     public static final String TABLE_NAME = SystemTableRegistry.SCHEMA_TEMPLATE_TABLE_NAME;
-    private static final String TEMPLATE_NAME = "TEMPLATE_NAME";
-    private static final String TEMPLATE_VERSION = "TEMPLATE_VERSION";
-    private static final String METADATA = "META_DATA";
+    /**
+     * MetaData RecordLayer Column name.
+     */
+    public static final String METADATA = "META_DATA";
 
     @Nonnull
     @Override
@@ -55,7 +58,7 @@ public class SchemaTemplateSystemTable implements SystemTable {
                 .newBuilder(false)
                 .setName(TABLE_NAME)
                 .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_NAME).setDataType(DataType.Primitives.STRING.type()).build())
-                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.LONG.type()).build())
+                .addColumn(RecordLayerColumn.newBuilder().setName(TEMPLATE_VERSION).setDataType(DataType.Primitives.INTEGER.type()).build())
                 .addColumn(RecordLayerColumn.newBuilder().setName(METADATA).setDataType(DataType.Primitives.BYTES.type()).build())
                 .addPrimaryKeyPart(List.of(TEMPLATE_NAME))
                 .addPrimaryKeyPart(List.of(TEMPLATE_VERSION))

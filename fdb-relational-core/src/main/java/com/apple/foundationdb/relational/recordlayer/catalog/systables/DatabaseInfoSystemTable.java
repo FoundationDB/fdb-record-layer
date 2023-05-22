@@ -38,10 +38,7 @@ import java.util.List;
  * about all available databases.
  */
 public class DatabaseInfoSystemTable implements SystemTable {
-
     public static final String TABLE_NAME = SystemTableRegistry.DATABASE_TABLE_NAME;
-
-    private static final String DATABASE_ID = "DATABASE_ID";
 
     private static final RecordLayerIndex DATABASES_COUNT_INDEX = RecordLayerIndex.newBuilder()
             .setName("DATABASES_COUNT_INDEX")
