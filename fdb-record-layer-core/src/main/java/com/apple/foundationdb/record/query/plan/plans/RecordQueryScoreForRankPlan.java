@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -166,7 +167,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Override
     public String toString() {
-        return getChild() + " WHERE " + ranks.stream().map(Object::toString).collect(Collectors.joining(", "));
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

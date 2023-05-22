@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -60,7 +61,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
 /**
  * A {@link RecordQueryChooserPlanBase} that selects one of its children to be executed.
@@ -158,7 +158,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     public String toString() {
-        return "SELECTOR OF " + getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(" "));
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override

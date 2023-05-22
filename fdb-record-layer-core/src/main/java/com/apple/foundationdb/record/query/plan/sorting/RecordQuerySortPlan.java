@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -143,7 +144,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Override
     public String toString() {
-        return getChild() + " ORDER BY " + getKey();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

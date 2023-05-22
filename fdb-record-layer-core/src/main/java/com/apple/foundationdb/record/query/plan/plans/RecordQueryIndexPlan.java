@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -536,25 +537,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder("Index(");
-        appendScanDetails(str);
-        str.append(")");
-        return str.toString();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_INDEX);
-    }
-
-    protected void appendScanDetails(StringBuilder str) {
-        str.append(indexName).append(" ").append(scanParameters.getScanDetails());
-        if (!scanParameters.getScanType().equals(IndexScanType.BY_VALUE)) {
-            str.append(" ").append(scanParameters.getScanType());
-        }
-        if (reverse) {
-            str.append(" REVERSE");
-        }
     }
 
     @Override

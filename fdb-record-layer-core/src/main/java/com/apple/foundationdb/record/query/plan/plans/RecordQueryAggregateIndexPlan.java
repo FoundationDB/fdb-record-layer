@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -218,6 +219,11 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         return AvailableFields.NO_FIELDS;
     }
 
+    @Nonnull
+    public IndexKeyValueToPartialRecord getToRecord() {
+        return toRecord;
+    }
+
     @Override
     public boolean hasLoadBykeys() {
         return false;
@@ -232,7 +238,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public String toString() {
-        return "AggregateIndexScan(" + indexPlan + " -> " + toRecord + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

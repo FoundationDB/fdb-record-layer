@@ -72,6 +72,12 @@ public class InValuesSource extends InSource {
         return false;
     }
 
+    @Nonnull
+    @Override
+    public String valuesString() {
+        return values.toString();
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         if (hashKind == PlanHashKind.STRUCTURAL_WITHOUT_LITERALS) {

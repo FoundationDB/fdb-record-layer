@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -147,7 +148,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     @Override
     public String toString() {
-        return "map(" + getChild() + "[" + resultValue + "])";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override

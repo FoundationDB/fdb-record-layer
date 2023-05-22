@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -164,7 +165,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | AGGREGATE BY " + aggregateValue + ", GROUP BY " + groupingKeyValue;
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull
