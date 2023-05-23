@@ -1,5 +1,5 @@
 /*
- * RecordQuerySortPlan.java
+ * RecordQueryDamPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -45,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
-import com.apple.foundationdb.record.sorting.FileSortCursor;
 import com.apple.foundationdb.record.sorting.MemorySortCursor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,26 +61,26 @@ import java.util.function.Function;
  * A query plan implementing sorting in-memory, possibly spilling to disk.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Plan");
+public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Dam-Plan");
 
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
     private final RecordQuerySortKey key;
 
-    public RecordQuerySortPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
+    public RecordQueryDamPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
         this(Quantifier.physical(GroupExpressionRef.of(plan)), key);
     }
 
-    private RecordQuerySortPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {
+    private RecordQueryDamPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {
         this.inner = inner;
         this.key = key;
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "resource"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
@@ -92,19 +90,14 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
                 innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)
-                        .map(QueryResult::<M>getQueriedRecord);
+                        .map(QueryResult::getQueriedRecord);
         final int skip = executeProperties.getSkip();
         final int limit = executeProperties.getReturnedRowLimitOrMax();
-        final int maxRecordsToRead = limit == Integer.MAX_VALUE ? limit : skip + limit;
-        final RecordQuerySortAdapter<M> adapter = key.getAdapter(store, maxRecordsToRead);
+        final RecordQuerySortAdapter<M> adapter = key.getAdapterForDam(store);
         final FDBStoreTimer timer = store.getTimer();
-        final RecordCursor<FDBQueriedRecord<M>> sorted;
-        if (adapter.isMemoryOnly()) {
-            sorted = MemorySortCursor.createSort(adapter, innerCursor, timer, continuation).skipThenLimit(skip, limit);
-        } else {
-            sorted = FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
-        }
-        return sorted.map(QueryResult::fromQueriedRecord);
+        final RecordCursor<FDBQueriedRecord<M>> dammed =
+                MemorySortCursor.createDam(adapter, innerCursor, timer, continuation).skipThenLimit(skip, limit);
+        return dammed.map(QueryResult::fromQueriedRecord);
     }
 
     @Override
@@ -144,7 +137,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Override
     public String toString() {
-        return PlanStringRepresentation.toString(this);
+        return "Dam(" + getChild() + ")";
     }
 
     @Nonnull
@@ -155,14 +148,14 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQuerySortPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQuerySortPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
+    public RecordQueryDamPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new RecordQueryDamPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQuerySortPlan(child, key);
+        return new RecordQueryDamPlan(child, key);
     }
 
     @Override
@@ -175,7 +168,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQuerySortPlan other = (RecordQuerySortPlan) otherExpression;
+        final RecordQueryDamPlan other = (RecordQueryDamPlan) otherExpression;
         return key.equals(other.key);
     }
 
@@ -202,13 +195,13 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Override
     public void logPlanStructure(StoreTimer timer) {
-        timer.increment(FDBStoreTimer.Counts.PLAN_SORT);
+        timer.increment(FDBStoreTimer.Counts.PLAN_DAM);
         getChild().logPlanStructure(timer);
     }
 
     @Override
     public int getComplexity() {
-        // TODO: Does not introduce any additional complexity, so not currently a good measure of sort vs no-sort.
+        // TODO: Does not introduce any additional complexity, so not currently a good measure of dam vs no-dam.
         return getChild().getComplexity();
     }
 
@@ -216,7 +209,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.SORT_OPERATOR),
+                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.DAM_OPERATOR),
                 childGraphs);
     }
 

@@ -93,4 +93,6 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      */
     @Nonnull
     MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode();
+
+    boolean isInsertionOrder();
 }

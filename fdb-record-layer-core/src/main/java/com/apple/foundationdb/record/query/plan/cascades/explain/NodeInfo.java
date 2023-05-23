@@ -124,6 +124,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Sort",
             "A sort operation reordering the stream of records according to a given expression.");
+    public static final NodeInfo DAM_OPERATOR = new NodeInfo(
+            "DamOperator",
+            NodeIcon.IN_MEMORY_TEMPORARY_DATA,
+            "Dam",
+            "An operation that temporarily collects all records from its input before iterating through the resulting collection.");
     public static final NodeInfo SPATIAL_INDEX_SCAN_OPERATOR = new NodeInfo(
             "SpatialIndexScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,

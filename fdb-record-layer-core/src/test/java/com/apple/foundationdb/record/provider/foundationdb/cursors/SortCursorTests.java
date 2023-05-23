@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.sorting.MemorySortCursor;
 import com.apple.foundationdb.record.sorting.MemorySorter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.beust.jcommander.internal.Lists;
+import com.google.common.base.Verify;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
@@ -72,11 +74,13 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     private SortedRecordSerializer<Message> serializer;
 
+    private List<Integer> insertedNums;
+
     private List<Integer> sortedNums;
 
     @BeforeEach
     public void setupRecords() throws Exception {
-        sortedNums = new ArrayList<>(100);
+        insertedNums = new ArrayList<>(100);
         Random random = new Random(3456);
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -85,7 +89,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
             for (int i = 0; i < 100; i++) {
                 int num = random.nextInt();
-                sortedNums.add(num);
+                insertedNums.add(num);
 
                 TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
                 record.setRecNo(i);
@@ -94,6 +98,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             }
             commit(context);
         }
+        sortedNums = Lists.newArrayList(insertedNums);
         Collections.sort(sortedNums);
     }
 
@@ -143,6 +148,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
             return MemorySorter.RecordCountInMemoryLimitMode.DISCARD;
         }
+
+        @Override
+        public boolean isInsertionOrder() {
+            return false;
+        }
     }
 
     @Test
@@ -159,11 +169,38 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, null)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, null)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
         assertEquals(sortedNums.subList(0, 20), resultNums);
+    }
+
+    @Test
+    public void memoryDam() throws Exception {
+        List<Integer> resultNums;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                    continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
+            final MemoryAdapterBase adapter = new MemoryAdapterBase() {
+                @Override
+                public int getMaxRecordCountInMemory() {
+                    return 20;
+                }
+
+                @Override
+                public boolean isInsertionOrder() {
+                    return true;
+                }
+            };
+
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, null)) {
+                resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
+            }
+        }
+        assertEquals(insertedNums.subList(0, 20), resultNums);
     }
 
     @Test
@@ -187,7 +224,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         do {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, continuation)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, continuation)) {
                     while (true) {
                         RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                         if (result.hasNext()) {
@@ -204,6 +241,51 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         } while (continuation != null);
         assertEquals(110, transactionCount);
         assertEquals(sortedNums, resultNums);
+    }
+
+    @Test
+    public void memoryDamContinuations() throws Exception {
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> {
+                    final ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(20).build();
+                    return recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, new ScanProperties(executeProperties)).map(FDBQueriedRecord::stored);
+                };
+        final MemoryAdapterBase adapter = new MemoryAdapterBase() {
+            @Override
+            public int getMaxRecordCountInMemory() {
+                return 10;
+            }
+
+            @Override
+            public boolean isInsertionOrder() {
+                return true;
+            }
+        };
+
+        List<Integer> resultNums = new ArrayList<>();
+        byte[] continuation = null;
+        int transactionCount = 0;
+
+        do {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, continuation)) {
+                    while (true) {
+                        RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
+                        if (result.hasNext()) {
+                            int num2 = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(Verify.verifyNotNull(result.get()).getRecord()).getNumValue2();
+                            resultNums.add(num2);
+                        } else {
+                            continuation = result.getContinuation().toBytes();
+                            break;
+                        }
+                    }
+                }
+                transactionCount++;
+            }
+        } while (continuation != null);
+        assertEquals(110, transactionCount);
+        assertEquals(insertedNums, resultNums);
     }
 
     abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBQueriedRecord<Message>> {

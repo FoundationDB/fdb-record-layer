@@ -35,6 +35,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -47,7 +48,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     @Nonnull
     private final RecordCursor<V> inputCursor;
     @Nonnull
-    private final MemorySorter<K, V> sorter;
+    private final MemoryScratchpad<K, V, ? extends Map<K, V>> scratchpad;
     @Nonnull
     private final MemorySortAdapter<K, V> adapter;
     @Nullable
@@ -58,10 +59,11 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     private RecordCursorContinuation inputContinuation;
     private Iterator<Map.Entry<K, V>> iterator;
     
-    private MemorySortCursor(@Nonnull final MemorySortAdapter<K, V> adapter, @Nonnull MemorySorter<K, V> sorter,
+    private MemorySortCursor(@Nonnull final MemorySortAdapter<K, V> adapter,
+                             @Nonnull MemoryScratchpad<K, V, ? extends Map<K, V>> scratchpad,
                              @Nonnull RecordCursor<V> inputCursor, @Nullable StoreTimer timer, @Nullable K minimumKey) {
         this.inputCursor = inputCursor;
-        this.sorter = sorter;
+        this.scratchpad = scratchpad;
         this.adapter = adapter;
         this.timer = timer;
         this.minimumKey = minimumKey;
@@ -73,15 +75,21 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         if (iterator != null) {
             return CompletableFuture.completedFuture(nextFromIterator());
         }
-        return sorter.load(inputCursor, minimumKey).thenApply(loadResult -> {
+        return scratchpad.load(inputCursor, minimumKey).thenApply(loadResult -> {
             inputContinuation = loadResult.getSourceContinuation();
             if (loadResult.getSourceNoNextReason().isOutOfBand()) {
                 // The input cursor did not complete; we must save the sorter state in the continuation so can pick up after.
-                MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, false, sorter.getMap().values(), minimumKey, inputContinuation);
+                final MemorySortCursorContinuation<K, V> continuation =
+                        new MemorySortCursorContinuation<>(adapter, false, scratchpad.getMap().values(),
+                                adapter.isInsertionOrder() && loadResult.hasSeenMinimumKey()
+                                ? null
+                                : minimumKey,
+                                inputContinuation);
+
                 return RecordCursorResult.withoutNextValue(continuation, loadResult.getSourceNoNextReason());
             }
             // Loaded all the records into the sorter, start returning them.
-            iterator = sorter.getMap().entrySet().iterator();
+            iterator = scratchpad.getMap().entrySet().iterator();
             return nextFromIterator();
         });
     }
@@ -93,7 +101,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
             // Return a sorted record.
             Map.Entry<K, V> next = iterator.next();
             minimumKey = next.getKey();
-            Collection<V> remainingRecords = sorter.getMap().tailMap(minimumKey, false).values();
+            Collection<V> remainingRecords = scratchpad.tailValues(minimumKey);
             MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, false, remainingRecords, minimumKey, inputContinuation);
             RecordCursorResult<V> result = RecordCursorResult.withNextValue(next.getValue(), continuation);
             if (timer != null) {
@@ -102,7 +110,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
             return result;
         }
         // If filling the sorter didn't reach the limit, none were discarded and all the records in it must be all the records period.
-        boolean exhausted = sorter.getMap().size() < adapter.getMaxRecordCountInMemory();
+        boolean exhausted = scratchpad.getMap().size() < adapter.getMaxRecordCountInMemory();
         MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, exhausted, Collections.emptyList(), minimumKey, inputContinuation);
         return RecordCursorResult.withoutNextValue(continuation, exhausted ? NoNextReason.SOURCE_EXHAUSTED : NoNextReason.RETURN_LIMIT_REACHED);
     }
@@ -127,17 +135,34 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static <K, V> MemorySortCursor<K, V> create(@Nonnull MemorySortAdapter<K, V> adapter,
-                                                       @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
-                                                       @Nullable StoreTimer timer,
-                                                       @Nullable byte[] continuation) {
+    public static <K, V, M extends Map<K, V>> MemorySortCursor<K, V> create(@Nonnull MemorySortAdapter<K, V> adapter,
+                                                                            @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+                                                                            @Nullable StoreTimer timer,
+                                                                            @Nonnull BiFunction<MemorySortAdapter<K, V>, StoreTimer, MemoryScratchpad<K, V, M>> scratchPadCreator,
+                                                                            @Nullable byte[] continuation) {
         final MemorySortCursorContinuation<K, V> parsedContinuation = MemorySortCursorContinuation.from(continuation, adapter);
         final RecordCursor<V> inputCursor = inputCursorFunction.apply(parsedContinuation.getChild().toBytes());
-        final MemorySorter<K, V> sorter = new MemorySorter<>(adapter, timer);
+        final MemoryScratchpad<K, V, M> scratchpad = scratchPadCreator.apply(adapter, timer);
         for (V record : parsedContinuation.getRecords()) {
-            sorter.addValue(record);
+            scratchpad.addValue(record);
         }
         final K minimumKey = parsedContinuation.getMinimumKey();
-        return new MemorySortCursor<>(adapter, sorter, inputCursor, timer, minimumKey);
+        return new MemorySortCursor<>(adapter, scratchpad, inputCursor, timer, minimumKey);
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    public static <K, V> MemorySortCursor<K, V> createSort(@Nonnull MemorySortAdapter<K, V> adapter,
+                                                           @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+                                                           @Nullable StoreTimer timer,
+                                                           @Nullable byte[] continuation) {
+        return create(adapter, inputCursorFunction, timer, MemorySorter::new, continuation);
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    public static <K, V> MemorySortCursor<K, V> createDam(@Nonnull MemorySortAdapter<K, V> adapter,
+                                                          @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+                                                          @Nullable StoreTimer timer,
+                                                          @Nullable byte[] continuation) {
+        return create(adapter, inputCursorFunction, timer, MemoryDam::new, continuation);
     }
 }

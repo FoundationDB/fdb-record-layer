@@ -61,6 +61,7 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     private final int memoryLimit;
     private final boolean memoryOnly;
+    private final boolean isInsertionOrder;
     @Nonnull
     private final RecordQuerySortKey key;
     @Nonnull
@@ -71,10 +72,11 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     private Key encryptionKey;
     private static final Supplier<SecureRandom> RANDOM = Suppliers.memoize(SecureRandom::new);
 
-    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly,
+    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly, boolean isInsertionOrder,
                                      @Nonnull RecordQuerySortKey key, @Nonnull FDBRecordStoreBase<M> recordStore) {
         this.memoryLimit = memoryLimit;
         this.memoryOnly = memoryOnly;
+        this.isInsertionOrder = isInsertionOrder;
         this.key = key;
         RecordSerializer<M> recordSerializer = recordStore.getSerializer();
         if (recordSerializer instanceof TransformedRecordSerializer) {
@@ -88,6 +90,11 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     public boolean isMemoryOnly() {
         return memoryOnly;
+    }
+
+    @Override
+    public boolean isInsertionOrder() {
+        return isInsertionOrder;
     }
 
     @Override
