@@ -164,6 +164,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
                                                                  @Nonnull final QueryPredicate candidatePredicate,
                                                                  @Nonnull final EvaluationContext evaluationContext) {
+        if (candidatePredicate instanceof Placeholder) {
+            return Optional.empty();
+        }
+
         if (candidatePredicate.isTautology()) {
             return Optional.of(new PredicateMapping(this,
                     candidatePredicate,

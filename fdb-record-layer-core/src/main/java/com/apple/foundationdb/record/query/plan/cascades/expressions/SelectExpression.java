@@ -406,7 +406,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         if (getPredicates().isEmpty()) {
             final var allNonFiltering = candidateSelectExpression.getPredicates()
                     .stream()
-                    .allMatch(queryPredicate -> queryPredicate instanceof PredicateWithValueAndRanges || queryPredicate.isTautology());
+                    .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), remainingValueComputationOptional)
                         .map(ImmutableList::of)
@@ -500,9 +500,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
                     // not filtering, so it does not cause records to be filtered that are not filtered on the query side.
                     //
-                    remainingUnmappedCandidatePredicates
-                            .removeIf(queryPredicate -> (queryPredicate instanceof Placeholder && !((Placeholder)queryPredicate).isConstraining()) ||
-                                                        queryPredicate.isTautology());
+                    remainingUnmappedCandidatePredicates.removeIf(QueryPredicate::isTautology);
 
                     if (!remainingUnmappedCandidatePredicates.isEmpty()) {
                         return ImmutableList.of();
