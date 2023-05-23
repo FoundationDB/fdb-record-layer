@@ -200,6 +200,9 @@ public final class PlanGenerator {
                 .build();
         // (yhatem) why is this needed? looks hacky...
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
+        // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
+        // literal and parameter values without LIMIT and CONTINUATION)
+        context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
         final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {
 

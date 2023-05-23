@@ -32,13 +32,14 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 public final class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
-    public static final Continuation BEGIN = new ContinuationImpl((byte[]) null);
+    public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);
 
-    public static final Continuation END = new ContinuationImpl(new byte[0]);
+    public static final ContinuationImpl END = new ContinuationImpl(new byte[0]);
 
     @Nonnull
     private final ContinuationProto proto;
@@ -149,7 +150,7 @@ public final class ContinuationImpl implements Continuation {
      * @return the deserialized continuation
      * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
      */
-    public static Continuation parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
+    public static ContinuationImpl parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
         if (bytes == null) {
             return BEGIN;
         } else {
@@ -187,5 +188,22 @@ public final class ContinuationImpl implements Continuation {
      */
     public ContinuationBuilder asBuilder() {
         return new ContinuationBuilder(proto);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ContinuationImpl)) {
+            return false;
+        }
+        ContinuationImpl that = (ContinuationImpl) o;
+        return proto.equals(that.proto);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(proto);
     }
 }

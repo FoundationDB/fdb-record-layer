@@ -46,6 +46,8 @@ public interface QueryExecutionParameters {
     @Nullable
     byte[] getContinuation();
 
+    int getParameterHash();
+
     @Nonnull
     PreparedStatementParameters getPreparedStatementParameters();
 

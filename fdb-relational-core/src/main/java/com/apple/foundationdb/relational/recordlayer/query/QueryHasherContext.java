@@ -50,12 +50,16 @@ public final class QueryHasherContext implements QueryExecutionParameters {
     @Nonnull
     private final int limit;
 
+    private final int parameterHash;
+
     @Nonnull
     private final int offset;
 
     private QueryHasherContext(@Nonnull List<Object> literals,
                                @Nullable byte[] continuation,
-                               @Nonnull PreparedStatementParameters preparedStatementParameters, int limit,
+                               @Nonnull PreparedStatementParameters preparedStatementParameters,
+                               int limit,
+                               int parameterHash,
                                int offset,
                                boolean isForExplain) {
         this.literals = literals;
@@ -63,6 +67,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         this.preparedStatementParameters = preparedStatementParameters;
         this.isForExplain = isForExplain;
         this.limit = limit;
+        this.parameterHash = parameterHash;
         this.offset = offset;
     }
 
@@ -90,6 +95,11 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         return continuation;
     }
 
+    @Override
+    public int getParameterHash() {
+        return parameterHash;
+    }
+
     @Nonnull
     @Override
     public PreparedStatementParameters getPreparedStatementParameters() {
@@ -114,6 +124,8 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         @Nonnull
         private Optional<Integer> limit;
 
+        private int parameterHash;
+
         @Nonnull
         private PreparedStatementParameters preparedStatementParameters;
 
@@ -130,6 +142,12 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             Assert.thatUnchecked(this.limit.isEmpty(), "setting multiple limits is not supported");
             ParserUtils.verifyIntegerBounds(limit, 1, null);
             this.limit = Optional.of(limit);
+            return this;
+        }
+
+        @Nonnull
+        public Builder setParameterHash(@Nonnull final int parameterHash) {
+            this.parameterHash = parameterHash;
             return this;
         }
 
@@ -175,8 +193,8 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
         @Nonnull
         public QueryHasherContext build() {
-            return new QueryHasherContext(literals.getLiterals(), continuation, preparedStatementParameters,
-                    limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED), 0, isForExplain);
+            return new QueryHasherContext(literals.getLiterals(), continuation, preparedStatementParameters, limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED),
+                    parameterHash, 0, isForExplain);
         }
     }
 

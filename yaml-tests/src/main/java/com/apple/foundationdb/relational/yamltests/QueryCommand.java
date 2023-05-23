@@ -184,7 +184,7 @@ class QueryCommand extends Command {
             Debugger.setDebugger(savedDebugger);
         }
         logger.debug("finished executing query '{}'", query);
-        var continuation = ContinuationImpl.END;
+        Continuation continuation = ContinuationImpl.END;
         switch (config) {
             case RESULT:
             case UNORDERED_RESULT:

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Base64;
 
 public class QueryWithContinuationTest {
@@ -70,33 +72,263 @@ public class QueryWithContinuationTest {
             }
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
-                }
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
             }
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?continuation")) {
                 ps.setBytes("continuation", continuation.serialize());
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 12L)
-                            .hasNextRow().hasColumn("REST_NO", 13L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, false);
-                }
+                continuation = assertResult(ps, 12L, 13L);
+                assertContinuation(continuation, false, false);
+
                 ps.setBytes("continuation", continuation.serialize());
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 14L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                    assertContinuation(continuation, false, true);
-                }
+                continuation = assertResult(ps, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithLimit() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?l")) {
+                ps.setInt("l", 2);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?l WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("l", 2);
+                continuation = assertResult(ps, 12L, 13L);
+                assertContinuation(continuation, false, false);
+
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithParam() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT ?l WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("l", 2);
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 12L, 13L);
+                assertContinuation(continuation, false, false);
+
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithLiteral() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT ?l WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("l", 2);
+                continuation = assertResult(ps, 12L, 13L);
+                assertContinuation(continuation, false, false);
+
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithDifferentLimit() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 4 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 12L, 13L, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithDifferentLimitParam() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT ?l")) {
+                ps.setInt("l", 2);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT ?l WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("l", 4);
+                continuation = assertResult(ps, 12L, 13L, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementInitialContEmpty() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation",  new byte[0]);
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 12L, 13L);
+                assertContinuation(continuation, false, false);
+
+                ps.setBytes("continuation", continuation.serialize());
+                continuation = assertResult(ps, 14L);
+                assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithParamChangedFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("p", 10);
+                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithLiteralChangedFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 10 LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithLiteralChangedToParamFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("p", 9);
+                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithParamNameChangedFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?otherName LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("otherName", 9);
+                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithPlanChangedFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
+                ps.setInt("p", 9);
+                continuation = assertResult(ps, 10L, 11L);
+                assertContinuation(continuation, false, false);
+            }
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                ps.setInt("p", 9);
+                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation plan does not match query");
             }
         }
     }
@@ -140,6 +372,110 @@ public class QueryWithContinuationTest {
         }
     }
 
+    @Test
+    void standardStatementWithLiterals() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    assertContinuation(continuation, false, false);
+                }
+            }
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    assertContinuation(continuation, false, false);
+                }
+                continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    assertContinuation(continuation, false, true);
+                }
+            }
+        }
+    }
+
+    @Test
+    void standardStatementWithDifferentLiteralFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    assertContinuation(continuation, false, false);
+                }
+            }
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > 10 LIMIT 2 WITH CONTINUATION '" + continuationString + "'"))
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void standardStatementWithDifferentPlanFails() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            Continuation continuation;
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    assertContinuation(continuation, false, false);
+                }
+            }
+            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'"))
+                        .hasCauseInstanceOf(RelationalException.class)
+                        .hasMessageContaining("Continuation plan does not match query");
+            }
+        }
+    }
+
+    private Continuation assertResult(RelationalPreparedStatement ps, Long ...values) throws SQLException {
+        Continuation continuation;
+        try (final RelationalResultSet resultSet = ps.executeQuery()) {
+            ResultSetAssert assertResult = ResultSetAssert.assertThat(resultSet);
+            for (Long value : values) {
+                assertResult.hasNextRow().hasColumn("REST_NO", value);
+            }
+            assertResult.hasNoNextRow();
+            continuation = resultSet.getContinuation();
+        }
+        return continuation;
+    }
+
     private void assertContinuation(Continuation continuation, boolean atBegin, boolean atEnd) throws Exception {
         ContinuationImpl impl = (ContinuationImpl) continuation;
         Assertions.assertThat(impl.atBeginning()).isEqualTo(atBegin);
@@ -148,5 +484,7 @@ public class QueryWithContinuationTest {
         ContinuationProto proto = ContinuationProto.parseFrom(continuation.serialize());
         Assertions.assertThat(proto.getBindingHash()).isNotNull();
         Assertions.assertThat(proto.getBindingHash()).isNotZero();
+        Assertions.assertThat(proto.getPlanHash()).isNotNull();
+        Assertions.assertThat(proto.getPlanHash()).isNotZero();
     }
 }

@@ -161,6 +161,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                     );
                     return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
                 } else {
+                    PlanValidator.validate(recordQueryPlan, queryExecutionParameters);
                     return executePhysicalPlan(recordQueryPlan,
                             recordLayerSchema,
                             typedEvaluationContext,
@@ -195,7 +196,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
                 throw ExceptionUtil.toRelationalException(ipbe);
             }
             final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-            return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getPreparedStatementParameters(),
+            return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
                     physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         }
     }

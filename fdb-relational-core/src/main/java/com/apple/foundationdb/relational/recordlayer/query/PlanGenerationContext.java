@@ -78,6 +78,8 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
     private boolean shouldProcessLiteral;
 
+    private int parameterHash;
+
     PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters) {
         this.context = null;
         this.metadataFactory = metadataFactory;
@@ -232,6 +234,15 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     @Override
     public byte[] getContinuation() {
         return continuation;
+    }
+
+    @Override
+    public int getParameterHash() {
+        return parameterHash;
+    }
+
+    public void setParameterHash(int parameterHash) {
+        this.parameterHash = parameterHash;
     }
 
     @Nonnull

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,10 +42,10 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     private Row currentRow;
 
     @Nullable
-    private final PreparedStatementParameters preparedStatementParameters;
+    private final Integer parameterHash;
 
     @Nullable
-    private Integer planHash;
+    private final Integer planHash;
 
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
@@ -57,12 +56,12 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection,
-                                @Nullable PreparedStatementParameters preparedStatementParameters,
+                                @Nullable Integer parameterHash,
                                 @Nullable Integer planHash) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
-        this.preparedStatementParameters = preparedStatementParameters;
+        this.parameterHash = parameterHash;
         this.planHash = planHash;
     }
 
@@ -102,18 +101,15 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
-            if (preparedStatementParameters == null) {
-                return currentCursor.getContinuation();
-            } else {
-                // When we have prepared parameters, record the parameter binding and plan hash in the continuation
-                ContinuationBuilder builder = ContinuationImpl.copyOf(currentCursor.getContinuation())
-                        .asBuilder()
-                        .withBindingHash(preparedStatementParameters.stableHash());
-                if (planHash != null) {
-                    builder.withPlanHash(planHash);
-                }
-                return builder.build();
+            ContinuationBuilder builder = ContinuationImpl.copyOf(currentCursor.getContinuation())
+                    .asBuilder();
+            if (parameterHash != null) {
+                builder.withBindingHash(parameterHash);
             }
+            if (planHash != null) {
+                builder.withPlanHash(planHash);
+            }
+            return builder.build();
         } catch (RelationalException e) {
             throw e.toSqlException();
         }

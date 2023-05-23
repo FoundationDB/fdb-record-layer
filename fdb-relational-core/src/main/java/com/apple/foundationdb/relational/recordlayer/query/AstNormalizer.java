@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.google.common.base.Suppliers;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -49,8 +50,10 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Visitor of SQL query abstract syntax tree (AST) that does the following:
@@ -80,6 +83,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private final Hasher hashFunction;
+
+    private final Hasher parameterHash;
+
+    private final Supplier<Integer> parameterHashSupplier;
 
     @Nonnull
     private final StringBuilder sqlCanonicalizer;
@@ -126,6 +133,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters) {
         hashFunction = Hashing.murmur3_32_fixed().newHasher();
+        parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
+        parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
         context = QueryHasherContext.newBuilder().setPreparedStatementParameters(preparedStatementParameters);
@@ -164,6 +173,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return hashFunction.hash().asInt();
     }
 
+    public int getParameterHash() {
+        // Hash function can only be called once, so memoizing to cache the return value after the first time it was called
+        return parameterHashSupplier.get();
+    }
+
     @Nonnull
     public String getCanonicalSqlString() {
         return sqlCanonicalizer.toString();
@@ -181,6 +195,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     public QueryExecutionParameters getQueryExecutionParameters() {
+        context.setParameterHash(getParameterHash());
         return context.build();
     }
 
@@ -366,6 +381,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
         if (allowTokenAddition) {
             sqlCanonicalizer.append(canonicalName).append(" ");
+            parameterHash.putInt(Objects.hash(canonicalName, literal));
         }
     }
 
