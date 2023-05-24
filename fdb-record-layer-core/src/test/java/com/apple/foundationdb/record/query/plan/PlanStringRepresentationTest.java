@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -63,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPla
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -311,6 +313,14 @@ public class PlanStringRepresentationTest {
     }
 
     @Nonnull
+    private static Pair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
+        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        Value resultValue = LiteralValue.ofScalar("a_value");
+        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(childPlan.getLeft())), resultValue),
+                String.format("map(%s[%s])", childPlan.getRight(), resultValue));
+    }
+
+    @Nonnull
     public static Pair<RecordQueryPlan, String> randomInJoinPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         double choice = r.nextDouble();
@@ -445,21 +455,23 @@ public class PlanStringRepresentationTest {
             // Choose a plan that has child plans
             double newDecay = decay * 0.8;
             double choice = r.nextDouble();
-            if (choice < 0.11) {
+            if (choice < 0.10) {
                 return randomIndexPlan(r);
-            } else if (choice < 0.22) {
+            } else if (choice < 0.20) {
                 return randomFetchFromPartialRecordPlan(r, newDecay);
-            } else if (choice < 0.33) {
+            } else if (choice < 0.30) {
                 return randomFilterPlan(r, newDecay);
-            } else if (choice < 0.44) {
+            } else if (choice < 0.40) {
                 return randomInJoinPlan(r, newDecay);
-            } else if (choice < 0.55) {
+            } else if (choice < 0.50) {
                 return randomPrimaryKeyUnorderedDistinctPlan(r, newDecay);
-            } else if (choice < 0.66) {
+            } else if (choice < 0.60) {
                 return randomSortPlan(r, newDecay);
-            } else if (choice < 0.77) {
+            } else if (choice < 0.70) {
                 return randomTypeFilterPlan(r, newDecay);
-            } else if (choice < 0.88) {
+            } else if (choice < 0.80) {
+                return randomMapPlan(r, newDecay);
+            } else if (choice < 0.90) {
                 return randomUnorderedDistinctPlan(r, newDecay);
             } else {
                 return randomUnionOrIntersectionPlan(r, newDecay);
