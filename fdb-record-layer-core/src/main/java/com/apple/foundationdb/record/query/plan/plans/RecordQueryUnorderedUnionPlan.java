@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -74,14 +75,14 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    String getDelimiter() {
+    public String getDelimiter() {
         return " " + UNION + " ";
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return "Unordered(" + super.toString() + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

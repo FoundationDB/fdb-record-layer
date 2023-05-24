@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -446,6 +447,10 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             Term term = termQuery.getPrefix();
             map.putIfAbsent(term.field(), new HashSet<>());
             map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT) + "*");
+        } else if (query instanceof BitSetQuery) {
+            BitSetQuery bitsetQuery = (BitSetQuery)query;
+            String field = bitsetQuery.getField();
+            map.computeIfAbsent(field, key -> new HashSet<>()).add(field.toLowerCase(Locale.ROOT));
         } else {
             throw new RecordCoreException("This lucene query is not supported for highlighting");
         }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -149,8 +150,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public String toString() {
-        // TODO provide proper explain
-        return getInnerPlan() + " | " + "UPDATE " + getTargetRecordType();
+        return PlanStringRepresentation.toString(this);
     }
 
     /**

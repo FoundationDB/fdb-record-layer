@@ -85,6 +85,8 @@ public class SystemKeyspace {
     public static final byte[] CONNECTION_STR_KEY = specialPrefixedKey("/connection_string");
     public static final byte[] CLUSTER_FILE_PATH_KEY = specialPrefixedKey("/cluster_file_path");
 
+    public static final byte[] TRANSACTION_CONFLICTING_KEYS_PREFIX = specialPrefixedKey("/transaction/conflicting_keys/");
+
     private static byte[] systemPrefixedKey(@Nonnull String key) {
         return ByteArrayUtil.join(SYSTEM_PREFIX, key.getBytes(StandardCharsets.US_ASCII));
     }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -110,17 +111,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder(getInnerPlan().toString());
-        str.append(" WHERE ").append(inSource.getBindingName())
-                .append(" IN ")
-                .append(inComparandSource().getComparison().typelessString());
-        if (inSource.isSorted()) {
-            str.append(" SORTED");
-            if (inSource.isReverse()) {
-                str.append(" DESC");
-            }
-        }
-        return str.toString();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override

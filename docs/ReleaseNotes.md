@@ -39,6 +39,24 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.376.0
+
+* **Bug fix** The plan string for `RecordQueryMapPlan` is reverted back to its value before [3.3.375.0](#333750) [(Issue #2132)](https://github.com/FoundationDB/fdb-record-layer/issues/2132)
+
+### 3.3.375.0
+
+* **Bug fix** Filtered match candidate is incorrectly considered for unfiltered scan [(Issue #2118)](https://github.com/FoundationDB/fdb-record-layer/issues/2118)
+* **Feature** The `PlanStringRepresentation` class separates out plan explain printing from `RecordQueryPlan::toString` including adding logic to create length-limited strings [(Issue #2112)](https://github.com/FoundationDB/fdb-record-layer/issues/2112)
+
+### 3.3.374.0
+
+* **Feature** Add throttling tags to context config [(Issue #2115)](https://github.com/FoundationDB/fdb-record-layer/issues/2115)
+* **Feature** Add optional conflict tracking to context config [(Issue #2116)](https://github.com/FoundationDB/fdb-record-layer/issues/2116)
+
+### 3.3.373.0
+
+* **Feature** Refactor KeySpaceTreeResolver out of KeySpaceCountTree [(Issue #2121)](https://github.com/FoundationDB/fdb-record-layer/issues/2121)
+
 ### 3.3.372.0
 
 * **Bug fix** FDBRecordStore: keep userVersionChecker during copyFrom store [(Issue #2109)](https://github.com/FoundationDB/fdb-record-layer/issues/2109)

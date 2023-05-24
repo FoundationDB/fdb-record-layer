@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -231,7 +232,7 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Nonnull
     @Override
     public String toString() {
-        return "TextIndex(" + textScan.getIndex().getName() + " " + textScan.getGroupingComparisons() + ", " + textScan.getTextComparison() + ", " + textScan.getSuffixComparisons() + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     /**

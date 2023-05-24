@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
@@ -78,6 +79,11 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
+    }
+
+    @Nonnull
+    public QueryPredicate getConjunctedPredicate() {
+        return conjunctedPredicate;
     }
 
     @Override
@@ -178,7 +184,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | " + conjunctedPredicate;
+        return PlanStringRepresentation.toString(this);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

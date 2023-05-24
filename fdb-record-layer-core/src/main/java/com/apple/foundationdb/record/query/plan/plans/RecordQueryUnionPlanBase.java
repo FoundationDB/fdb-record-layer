@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -191,13 +192,14 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         }
     }
 
+    @API(API.Status.INTERNAL)
     @Nonnull
-    abstract String getDelimiter();
+    public abstract String getDelimiter();
 
     @Nonnull
     @Override
     public String toString() {
-        return getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(getDelimiter()));
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

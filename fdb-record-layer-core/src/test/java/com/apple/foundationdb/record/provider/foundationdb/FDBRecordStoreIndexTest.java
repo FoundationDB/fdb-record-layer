@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -108,9 +109,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -2595,6 +2600,110 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
             assertEquals(0, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
             context.commit();
+        }
+    }
+
+    @Test
+    public void recreateIndexWithNewSubspaceKey() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+
+        final Object subspaceKey1 = 1L;
+        final Index index1 = new Index("MySimpleRecord$num_value_2", "num_value_2");
+        index1.setSubspaceKey(subspaceKey1);
+        metaDataBuilder.addIndex("MySimpleRecord", index1);
+        int version1;
+
+        TestRecords1Proto.MySimpleRecord record;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+            version1 = recordStore.getRecordMetaData().getVersion();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
+
+            record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue2(42)
+                    .build();
+            recordStore.saveRecord(record);
+
+            List<FDBIndexedRecord<Message>> indexedRecords = recordStore.scanIndexRecords(index1.getName())
+                    .asList()
+                    .join();
+            assertThat(indexedRecords, hasSize(1));
+            assertEquals(record, indexedRecords.get(0).getRecord());
+            assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey1))).asList().join(), hasSize(1));
+
+            commit(context);
+        }
+
+        metaDataBuilder.removeIndex(index1.getName());
+
+        int version2;
+        FormerIndex formerIndex;
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+
+            // Validate the index is no longer in the meta-data and a former index has taken its place
+            RecordMetaData metaData = recordStore.getRecordMetaData();
+            version2 = metaData.getVersion();
+            assertThat(version2, greaterThan(version1));
+            assertThat(metaData.getAllIndexes().stream().filter(index -> index1.getName().equals(index.getName())).collect(Collectors.toSet()), empty());
+            List<FormerIndex> newFormerIndexes = metaData.getFormerIndexesSince(version1);
+            assertThat(newFormerIndexes, hasSize(1));
+            formerIndex = newFormerIndexes.get(0);
+            assertEquals(index1.getName(), formerIndex.getFormerName());
+            assertEquals(index1.getAddedVersion(), formerIndex.getAddedVersion());
+            assertThat(formerIndex.getRemovedVersion(), both(greaterThan(version1)).and(lessThanOrEqualTo(version2)));
+            assertEquals(subspaceKey1, formerIndex.getSubspaceKey());
+
+            // Make sure the former indexing subspace is cleared out by checkVersion
+            timer.reset();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
+            assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey1))).asList().join(), empty());
+
+            // purposefully don't commit
+        }
+
+        final Object subspaceKey2 = 2L;
+        final Index index2 = new Index(index1.getName(), index1.getRootExpression(), index1.getType());
+        index2.setSubspaceKey(subspaceKey2);
+        metaDataBuilder.addIndex("MySimpleRecord", index2);
+
+        try (FDBRecordContext context = openContext()) {
+            uncheckedOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+
+            RecordMetaData metaData = recordStore.getRecordMetaData();
+            int version3 = metaData.getVersion();
+            assertThat(version3, greaterThan(version2));
+            assertThat(index2.getAddedVersion(), both(greaterThan(version2)).and(lessThanOrEqualTo(version3)));
+            assertThat(index2.getLastModifiedVersion(), both(greaterThan(version2)).and(lessThanOrEqualTo(version3)));
+            assertEquals(index1.getName(), index2.getName());
+            assertNotEquals(index1.getSubspaceKey(), index2.getSubspaceKey());
+            assertTrue(metaData.getIndexesSince(version1).containsKey(index2));
+
+            List<FormerIndex> newFormerIndexes = metaData.getFormerIndexesSince(version1);
+            assertThat(newFormerIndexes, hasSize(1));
+            assertEquals(formerIndex, newFormerIndexes.get(0));
+            assertThat(metaData.getFormerIndexesSince(version2), empty());
+
+            // Make sure the former index is cleared out by checkVersion
+            timer.reset();
+            recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REMOVE_FORMER_INDEX));
+            assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey1))).asList().join(), empty());
+
+            // Make sure the new index subspace key is used for the index now
+            if (!recordStore.isIndexReadable(index2)) {
+                recordStore.rebuildIndex(index2).join();
+            }
+            List<FDBIndexedRecord<Message>> indexedRecords = recordStore.scanIndexRecords(index1.getName())
+                    .asList()
+                    .join();
+            assertThat(indexedRecords, hasSize(1));
+            assertEquals(record, indexedRecords.get(0).getRecord());
+            assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey2))).asList().join(), hasSize(1));
+
+            commit(context);
         }
     }
 
