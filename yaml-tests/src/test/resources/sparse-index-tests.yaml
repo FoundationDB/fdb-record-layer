@@ -110,11 +110,15 @@
 - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
 ---
 - query: select id from t1 use index (i1)
-- result: [{ID: 1}]
+- error: "XXXXX"
 ---
 - query: select id from t1 use index (i2)
-- explain: [{!sc "map(Covering(Index(I2"}]
-- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
+- error: "XXXXX"
+---
+- query: select id from t1
+# Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
+- explain: [{!sc "Scan("}]
+- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
 ---
 - query: drop database /FRL/SPARSE_YAML
 ...

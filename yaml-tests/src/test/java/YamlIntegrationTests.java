@@ -44,7 +44,7 @@ public class YamlIntegrationTests {
     }
 
     void doRun(@Nonnull final String fileName) throws Exception {
-        try  (YamlRunner yamlRunner = new YamlRunner(fileName, createCliCommandFactory())) {
+        try (YamlRunner yamlRunner = new YamlRunner(fileName, createCliCommandFactory())) {
             yamlRunner.run();
         } catch (Exception e) {
             logger.error("‼️ running test file '{}' was not successful", fileName, e);
