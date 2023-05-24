@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -63,7 +64,7 @@ import java.util.stream.StreamSupport;
  * A query plan that reconstructs records from the entries in an aggregate index.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithConstraint {
+public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithConstraint, RecordQueryPlanWithComparisons {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
     @Nonnull
@@ -323,5 +324,11 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons getScanComparisons() {
+        return indexPlan.getScanComparisons();
     }
 }

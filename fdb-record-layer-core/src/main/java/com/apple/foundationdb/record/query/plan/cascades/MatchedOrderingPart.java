@@ -20,12 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -38,25 +35,17 @@ public class MatchedOrderingPart {
     @Nonnull
     private final ComparisonRange.Type comparisonRangeType;
 
-    @Nullable
-    private final QueryPredicate queryPredicate;
-
     /**
      * Constructor.
      * @param orderByValue value that defines what to order by
      * @param comparisonRangeType type of comparison
-     * @param queryPredicate reference to {@link QueryPredicate} on query side
      */
     private MatchedOrderingPart(@Nonnull final Value orderByValue,
                                 @Nonnull final ComparisonRange.Type comparisonRangeType,
-                                @Nullable final QueryPredicate queryPredicate,
                                 final boolean isReverse) {
-        Preconditions.checkArgument((queryPredicate == null && comparisonRangeType == ComparisonRange.Type.EMPTY) ||
-                                    (queryPredicate != null && comparisonRangeType != ComparisonRange.Type.EMPTY));
 
         this.orderingPart = OrderingPart.of(orderByValue, isReverse);
         this.comparisonRangeType = comparisonRangeType;
-        this.queryPredicate = queryPredicate;
     }
 
     @Nonnull
@@ -73,11 +62,6 @@ public class MatchedOrderingPart {
         return orderingPart.isReverse();
     }
 
-    @Nullable
-    public QueryPredicate getQueryPredicate() {
-        return queryPredicate;
-    }
-
     @Nonnull
     public ComparisonRange.Type getComparisonRangeType() {
         return comparisonRangeType;
@@ -92,20 +76,18 @@ public class MatchedOrderingPart {
             return false;
         }
         final MatchedOrderingPart that = (MatchedOrderingPart)o;
-        return getOrderingPart().equals(that.getOrderingPart()) &&
-               Objects.equals(getQueryPredicate(), that.getQueryPredicate());
+        return getOrderingPart().equals(that.getOrderingPart());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingPart().hashCode(), getQueryPredicate());
+        return Objects.hash(getOrderingPart().hashCode());
     }
 
     @Nonnull
     public static MatchedOrderingPart of(@Nonnull final Value orderByValue,
                                          @Nonnull final ComparisonRange.Type comparisonRangeType,
-                                         @Nullable final QueryPredicate queryPredicate,
                                          final boolean isReverse) {
-        return new MatchedOrderingPart(orderByValue, comparisonRangeType, queryPredicate, isReverse);
+        return new MatchedOrderingPart(orderByValue, comparisonRangeType, isReverse);
     }
 }

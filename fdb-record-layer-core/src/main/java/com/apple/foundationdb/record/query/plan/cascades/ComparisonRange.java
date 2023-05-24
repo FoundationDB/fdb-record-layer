@@ -416,7 +416,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
         ComparisonRange resultRange = this;
         for (final Comparisons.Comparison comparison : comparisons) {
-            MergeResult mergeResult = comparisonRange.merge(comparison);
+            MergeResult mergeResult = resultRange.merge(comparison);
             resultRange = mergeResult.getComparisonRange();
             residualPredicatesBuilder.addAll(mergeResult.getResidualComparisons());
         }

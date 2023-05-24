@@ -58,7 +58,6 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                                                                   @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                   boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
-        final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
@@ -74,9 +73,6 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
-            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
-
-            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -100,7 +96,6 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             builder.add(
                     MatchedOrderingPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            queryPredicate,
                             isReverse));
         }
 

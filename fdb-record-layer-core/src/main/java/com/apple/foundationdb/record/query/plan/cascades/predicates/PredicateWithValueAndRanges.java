@@ -346,7 +346,7 @@ public class PredicateWithValueAndRanges implements PredicateWithValue {
 
     @Override
     public String toString() {
-        return "(" + getValue() + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
+        return "(" + getValue() + " " + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
     }
 
     @Nonnull
