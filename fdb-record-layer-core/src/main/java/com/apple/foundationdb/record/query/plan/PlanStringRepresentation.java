@@ -420,10 +420,11 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     @Nonnull
     @Override
     public PlanStringRepresentation visitMapPlan(@Nonnull RecordQueryMapPlan element) {
-        return visit(element.getChild())
+        return append("map(")
+                .visit(element.getChild())
                 .append("[")
                 .append(element.getResultValue())
-                .append("]");
+                .append("])");
     }
 
     @Nonnull
