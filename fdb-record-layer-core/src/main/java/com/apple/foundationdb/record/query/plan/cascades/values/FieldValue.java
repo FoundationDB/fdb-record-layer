@@ -144,11 +144,11 @@ public class FieldValue implements ValueWithChild {
         // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
         // wrapper.
         //
-        return wrapPrimitive(getResultType(), NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType()));
+        return unwrapPrimitive(getResultType(), NullableArrayTypeUtils.unwrapIfArray(fieldValue, getResultType()));
     }
 
     @Nullable
-    private static Object wrapPrimitive(@Nonnull Type type, @Nullable Object fieldValue) {
+    private static Object unwrapPrimitive(@Nonnull Type type, @Nullable Object fieldValue) {
         if (fieldValue == null) {
             return null;
         }
@@ -158,7 +158,7 @@ public class FieldValue implements ValueWithChild {
             Type elementType = Objects.requireNonNull(((Type.Array)type).getElementType());
             List<Object> returnList = new ArrayList<>(list.size());
             for (Object elem : list) {
-                returnList.add(wrapPrimitive(elementType, elem));
+                returnList.add(unwrapPrimitive(elementType, elem));
             }
             return returnList;
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {

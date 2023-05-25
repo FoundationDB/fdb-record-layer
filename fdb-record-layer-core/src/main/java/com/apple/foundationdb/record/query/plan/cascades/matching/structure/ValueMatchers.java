@@ -154,6 +154,6 @@ public class ValueMatchers {
 
     @Nonnull
     public static BindingMatcher<VersionValue> versionValue() {
-        return typedWithDownstream(VersionValue.class, Extractor.identity(), anyValue());
+        return typed(VersionValue.class);
     }
 }

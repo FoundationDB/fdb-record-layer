@@ -80,7 +80,7 @@ public class VersionValue implements QuantifiedValue {
     @Nonnull
     @Override
     public String toString() {
-        return "version(" + baseAlias.getId() + ")";
+        return "version(" + baseAlias + ")";
     }
 
     @Nonnull

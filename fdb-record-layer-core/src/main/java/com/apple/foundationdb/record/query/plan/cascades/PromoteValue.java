@@ -56,8 +56,7 @@ public class PromoteValue implements ValueWithChild {
                     Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
                     Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
                     Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in)
-            );
+                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in));
     /**
      * The hash value of this expression.
      */
