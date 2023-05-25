@@ -1,9 +1,9 @@
 /*
- * AbstractValueRuleSet.java
+ * AbstractQueryPredicateRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
+package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleSet;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
@@ -31,7 +32,7 @@ import java.util.Set;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
- * @param <R> the type that {@link AbstractValueRule}s in this set yield
+ * @param <R> the type that {@link AbstractQueryPredicateRule}s in this set yield
  * @param <C> the type of the call rules in this set will receive
  *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  */

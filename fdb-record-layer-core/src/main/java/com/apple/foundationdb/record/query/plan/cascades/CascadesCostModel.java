@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.FindExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedPredicateProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
@@ -118,8 +118,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             }
         }
 
-        int unsatisfiedFilterCompare = Long.compare(NormalizedPredicateProperty.countNormalizedConjuncts(a),
-                NormalizedPredicateProperty.countNormalizedConjuncts(b));
+        int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
+                NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
         if (unsatisfiedFilterCompare != 0) {
             return unsatisfiedFilterCompare;
         }

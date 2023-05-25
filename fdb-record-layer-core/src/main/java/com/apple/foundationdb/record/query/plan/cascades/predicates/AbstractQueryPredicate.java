@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract Implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractQueryPredicate implements QueryPredicate {

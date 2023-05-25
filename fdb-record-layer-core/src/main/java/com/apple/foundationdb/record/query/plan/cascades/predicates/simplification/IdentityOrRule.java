@@ -1,9 +1,9 @@
 /*
- * MatchValueRule.java
+ * IdentityOrRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
+package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -39,17 +38,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that matches a {@link OrPredicate} (with the argument values).
+ * {@code X v F = X}
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class AnnulmentOrRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> {
+public class IdentityOrRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> {
     @Nonnull
     private static final BindingMatcher<QueryPredicate> orTermMatcher = anyPredicate();
 
     @Nonnull
     private static final BindingMatcher<OrPredicate> rootMatcher = QueryPredicateMatchers.orPredicate(all(orTermMatcher));
 
-    public AnnulmentOrRule() {
+    public IdentityOrRule() {
         super(rootMatcher);
     }
 
@@ -62,10 +62,23 @@ public class AnnulmentOrRule extends QueryPredicateComputationRule<EvaluationCon
     @Override
     public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
         final var bindings = call.getBindings();
-        final var orTerms = bindings.getAll(orTermMatcher);
+        final var terms = bindings.getAll(orTermMatcher);
 
-        if (orTerms.stream().anyMatch(QueryPredicate::isTautology)) {
-            call.yield(new ConstantPredicate(true), ImmutableList.of());
+        final var resultTermsBuilder = ImmutableList.<QueryPredicate>builder();
+        int count = 0;
+        for (final var term : terms) {
+            if (!term.isContradiction()) {
+                count ++;
+                if (count == terms.size()) {
+                    return;
+                }
+
+                // term is still needed
+                resultTermsBuilder.add(term);
+            }
         }
+        final var resultTerms = resultTermsBuilder.build();
+        final var simplifiedPredicate = OrPredicate.orOrFalse(resultTerms);
+        call.yield(simplifiedPredicate, ImmutableList.of());
     }
 }

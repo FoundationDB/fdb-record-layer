@@ -36,9 +36,10 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
- * A value representing a version stamp.
+ * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
 public class VersionValue extends AbstractValue implements QuantifiedValue {
@@ -69,6 +70,12 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.VERSION);
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
     }
 
     @Nonnull

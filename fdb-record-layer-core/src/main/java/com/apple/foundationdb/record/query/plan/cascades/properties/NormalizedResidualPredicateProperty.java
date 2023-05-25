@@ -1,5 +1,5 @@
 /*
- * NormalizedPredicateProperty.java
+ * NormalizedResidualPredicateProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,11 +40,18 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * // TODO.
+ * This property collects a {@link QueryPredicate} that represents the entirety of all accumulated residual predicates.
+ * This predicate cannot be applied in any meaningful way to a stream of data, but it can be reasoned over using boolean
+ * algebra. In addition, this approach also allows us to unify set operations such a UNION and INTERSECTION with their
+ * boolean counterparts OR and AND.
+ * One particular use of the collected residual predicate is to derive the number of effective boolean factors of its
+ * CNF which is a direct measure of the number of residual filters that have to be applied and therefore its static
+ * filter factor. Note that such a number can always be computed without actually materializing the CNF.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizedPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
-    private static final NormalizedPredicateProperty INSTANCE = new NormalizedPredicateProperty();
+public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
+    @Nonnull
+    private static final NormalizedResidualPredicateProperty INSTANCE = new NormalizedResidualPredicateProperty();
 
     @Nonnull
     @Override

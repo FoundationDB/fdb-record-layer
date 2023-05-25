@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -32,7 +31,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract Implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValue implements Value {

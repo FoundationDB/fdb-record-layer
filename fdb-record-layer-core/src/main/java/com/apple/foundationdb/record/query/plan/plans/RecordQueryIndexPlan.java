@@ -178,15 +178,15 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @VisibleForTesting
     public RecordQueryIndexPlan(@Nonnull final String indexName,
-                                 @Nullable final KeyExpression commonPrimaryKey,
-                                 @Nonnull final IndexScanParameters scanParameters,
-                                 @Nonnull final IndexFetchMethod indexFetchMethod,
-                                 @Nonnull final FetchIndexRecords fetchIndexRecords,
-                                 final boolean reverse,
-                                 final boolean strictlySorted,
-                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
-                                 @Nonnull final Type resultType,
-                                 @Nonnull final QueryPlanConstraint constraint) {
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;

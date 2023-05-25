@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -327,7 +329,7 @@ public class Simplification {
 
             final var computedCurrent = computeCurrent(current, simplifiedChildren);
             if (computedCurrent != current && resultsMap.containsKey(current)) {
-                resultsMap.put(computedCurrent, resultsMap.get(current));
+                resultsMap.put(computedCurrent, Pair.of(computedCurrent, resultsMap.get(current).getRight()));
             }
             current = computedCurrent;
 
@@ -396,4 +398,3 @@ public class Simplification {
                     @Nonnull PlannerBindings plannerBindings);
     }
 }
-

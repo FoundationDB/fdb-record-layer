@@ -1,9 +1,9 @@
 /*
- * MatchValueRule.java
+ * AbsorptionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
+package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
@@ -45,8 +44,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.ofTypeWithChildren;
 
 /**
- * A rule that matches a {@link NotPredicate} over an {@link AndPredicate} or {@link OrPredicate} and applies a
- * transformation utilizing deMorgan's law.
+ * A rule that matches an {@link AndPredicate} or {@link OrPredicate} and attempts to simplify the terms underneath
+ * according to the boolean absorption law.
+ * <ul>
+ *     <li>{@code (X^Y) v X = X}</li>
+ *     <li>{@code (XvY) ^ X = X}</li>
+ * </ul>
  * @param <P> the type representing the major of the law, i.e. {@code and} or {@code or}
  */
 @API(API.Status.EXPERIMENTAL)

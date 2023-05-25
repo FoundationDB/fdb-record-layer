@@ -39,12 +39,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of occurrences
- * of specific types of {@link RelationalExpression}.
- *
- * <p>
- * This property provides some heuristic sense of how much work is being done by a plan.
- * </p>
+ * A property that determines finds all occurrences of expressions of interest in a planner graph.
  */
 public class FindExpressionProperty implements ExpressionProperty<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>, RelationalExpressionVisitorWithDefaults<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
     private final Set<Class<? extends RelationalExpression>> expressionClasses;

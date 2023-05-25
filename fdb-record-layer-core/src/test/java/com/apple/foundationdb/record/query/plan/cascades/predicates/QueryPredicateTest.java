@@ -28,9 +28,9 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultQueryPredicateRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.QueryPredicateWithCnfRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.QueryPredicateWithDnfRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.DefaultQueryPredicateRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithCnfRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithDnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -235,7 +235,7 @@ public class QueryPredicateTest {
                 ImmutableSet.of(),
                 DefaultQueryPredicateRuleSet.ofComputationRules());
 
-        System.out.println(result.getLeft());
+        assertTrue(result.getLeft().equals(p1));
     }
 
     @Test
@@ -254,7 +254,9 @@ public class QueryPredicateTest {
                 ImmutableSet.of(),
                 DefaultQueryPredicateRuleSet.ofComputationRules());
 
-        System.out.println(result.getLeft());
+        final var notP1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "Hello"));
+        final var notP2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "World"));
+        assertTrue(result.getLeft().equals(AndPredicate.and(notP1, notP2)));
     }
 
     @Test
@@ -274,8 +276,7 @@ public class QueryPredicateTest {
         final var predicate = OrPredicate.or(p1, AndPredicate.and(p2, p22), AndPredicate.and(p3, p32));
 
         final var cnfPredicatePair = Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithCnfRuleSet.ofComputationRules());
-        System.out.println(cnfPredicatePair.getLeft());
         final var dnfPredicatePair = Simplification.optimize(cnfPredicatePair.getLeft(), EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules());
-        System.out.println(dnfPredicatePair.getLeft());
+        assertTrue(dnfPredicatePair.getLeft().equals(predicate));
     }
 }
