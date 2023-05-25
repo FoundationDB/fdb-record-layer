@@ -76,12 +76,13 @@ public class MatchedOrderingPart {
             return false;
         }
         final MatchedOrderingPart that = (MatchedOrderingPart)o;
-        return getOrderingPart().equals(that.getOrderingPart());
+        return getOrderingPart().equals(that.getOrderingPart()) &&
+               comparisonRangeType.equals(that.comparisonRangeType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingPart().hashCode());
+        return Objects.hash(getOrderingPart(), comparisonRangeType);
     }
 
     @Nonnull
