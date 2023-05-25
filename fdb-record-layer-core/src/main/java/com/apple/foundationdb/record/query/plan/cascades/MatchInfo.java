@@ -21,14 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -36,7 +32,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -150,23 +145,6 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public ImmutableMap<CorrelationIdentifier, QueryPredicate> getParameterPredicateMap() {
-        return getAccumulatedPredicateMap()
-                .entries()
-                .stream()
-                .filter(entry -> {
-                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
-                    return predicateMapping.getParameterAliasOptional().isPresent();
-                })
-                .collect(ImmutableMap.toImmutableMap(entry -> {
-                    final PredicateMultiMap.PredicateMapping predicateMapping = entry.getValue();
-                    return Objects.requireNonNull(predicateMapping
-                            .getParameterAliasOptional()
-                            .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
-                }, entry -> Objects.requireNonNull(entry.getKey())));
-    }
-
-    @Nonnull
     public List<MatchedOrderingPart> getMatchedOrderingParts() {
         return matchedOrderingParts;
     }
@@ -174,32 +152,6 @@ public class MatchInfo {
     @Nonnull
     public Optional<Value> getRemainingComputationValueOptional() {
         return remainingComputationValueOptional;
-    }
-
-    @Nullable
-    public QueryPredicate getCandidatePredicateForMatchedOrderingPart(final MatchedOrderingPart matchedOrderingPart) {
-        if (matchedOrderingPart.getQueryPredicate() == null) {
-            Verify.verify(matchedOrderingPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
-            return null;
-        }
-
-        return getAccumulatedPredicateMap()
-                .getMappingOptional(matchedOrderingPart.getQueryPredicate())
-                .map(PredicateMultiMap.PredicateMapping::getCandidatePredicate)
-                .orElseThrow(() -> new IllegalStateException("mapping must be present"));
-    }
-
-    public Optional<CorrelationIdentifier> getParameterAliasForMatchedOrderingPart(final MatchedOrderingPart matchedOrderingPart) {
-        @Nullable final var candidatePredicate = getCandidatePredicateForMatchedOrderingPart(matchedOrderingPart);
-        if (candidatePredicate == null) {
-            return Optional.empty();
-        }
-
-        if (!(candidatePredicate instanceof Placeholder)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(((Placeholder)candidatePredicate).getParameterAlias());
     }
 
     /**
@@ -314,7 +266,11 @@ public class MatchInfo {
         for (final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap : parameterBindingMaps) {
             for (final Map.Entry<CorrelationIdentifier, ComparisonRange> entry : parameterBindingMap.entrySet()) {
                 if (resultMap.containsKey(entry.getKey())) {
-                    if (!resultMap.get(entry.getKey()).equals(entry.getValue())) {
+                    // try to merge the comparisons
+                    final var mergeResult = resultMap.get(entry.getKey()).merge(entry.getValue());
+                    if (mergeResult.getResidualComparisons().isEmpty()) {
+                        resultMap.replace(entry.getKey(), mergeResult.getComparisonRange());
+                    } else if (!resultMap.get(entry.getKey()).equals(entry.getValue())) {
                         return Optional.empty();
                     }
                 } else {

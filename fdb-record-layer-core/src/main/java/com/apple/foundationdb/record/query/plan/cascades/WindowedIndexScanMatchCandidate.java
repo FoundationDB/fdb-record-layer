@@ -230,7 +230,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                  boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
-        final var parameterBindingPredicateMap = matchInfo.getParameterPredicateMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
@@ -245,9 +244,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             Objects.requireNonNull(normalizedKeyExpression);
             Objects.requireNonNull(parameterId);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
-            @Nullable final var queryPredicate = parameterBindingPredicateMap.get(parameterId);
-
-            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -273,18 +269,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 // We need to record that.
                 //
                 @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
-                @Nullable final var rankQueryPredicate = parameterBindingPredicateMap.get(rankAlias);
 
                 builder.add(
                         MatchedOrderingPart.of(normalizedValue,
                                 rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
-                                rankQueryPredicate,
                                 isReverse));
             } else {
                 builder.add(
                         MatchedOrderingPart.of(normalizedValue,
                                 comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                                queryPredicate,
                                 isReverse));
             }
         }

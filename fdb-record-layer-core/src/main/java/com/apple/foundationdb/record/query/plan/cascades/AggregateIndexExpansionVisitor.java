@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -117,13 +118,13 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         }
 
         // 1. create a SELECT-WHERE expression.
-        final var selectWhereQun = constructSelectWhere(baseQuantifier, groupingValues);
+        final var selectWhereQunAndPlaceholders = constructSelectWhereAndPlaceholders(baseQuantifier, groupingValues);
 
         // 2. create a GROUP-BY expression on top.
-        final var groupByQun = constructGroupBy(groupedValues.isEmpty() ? Optional.empty() : Optional.of(groupedValues.get(0)), selectWhereQun);
+        final var groupByQun = constructGroupBy(groupedValues.isEmpty() ? Optional.empty() : Optional.of(groupedValues.get(0)), selectWhereQunAndPlaceholders.getLeft());
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun);
+        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, selectWhereQunAndPlaceholders.getRight());
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
@@ -135,7 +136,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var traversal = ExpressionRefTraversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
                 traversal,
-                placeHolderAliases,
+                selectWhereQunAndPlaceholders.getRight().stream().map(Placeholder::getParameterAlias).collect(Collectors.toList()),
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
                 groupByQun.getRangesOver().get().getResultValue(),
@@ -143,7 +144,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Quantifier constructSelectWhere(@Nonnull final Quantifier.ForEach baseQuantifier, final List<? extends Value> groupingValues) {
+    private Pair<Quantifier, List<Placeholder>> constructSelectWhereAndPlaceholders(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                                                                    @Nonnull final List<? extends Value> groupingValues) {
+
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
@@ -151,8 +154,10 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // only these columns to properly bind to this part, similar to how value indices work.
         final var keyValues = Lists.<Value>newArrayList();
         final var valueValues = Lists.<Value>newArrayList();
-        final var state = VisitorState.of(keyValues, valueValues, baseQuantifier, ImmutableList.of(), 0, 0);
+        final var state = VisitorState.of(keyValues, valueValues, baseQuantifier, ImmutableList.of(), groupingValues.size(), 0);
         final var selectWhereGraphExpansion = pop(groupingKeyExpression.getWholeKey().expand(push(state)));
+        final ImmutableList.Builder<CorrelationIdentifier> placeholders = ImmutableList.builder();
+        placeholders.addAll(selectWhereGraphExpansion.getPlaceholderAliases());
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
@@ -199,7 +204,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(selectWhereGraphExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect()));
+        return Pair.of(Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), selectWhereGraphExpansion.getPlaceholders());
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -229,7 +234,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Pair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun) {
+    private Pair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun,
+                                                                                      @Nonnull final List<Placeholder> selectWherePlaceholders) {
         // the grouping value in GroupByExpression comes first (if set).
         @Nullable final var groupingValueReference =
                 (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
@@ -241,15 +247,16 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);
         if (groupingValueReference != null) {
-            Values.deconstructRecord(groupingValueReference).forEach(v -> {
-                final var field = (FieldValue)v;
-                final var placeholder = v.asPlaceholder(CorrelationIdentifier.uniqueID(PredicateWithValueAndRanges.class));
+            int i = 0;
+            for (final var groupingValue : Values.deconstructRecord(groupingValueReference)) {
+                final var field = (FieldValue)groupingValue;
+                final var placeholder = groupingValue.asPlaceholder(selectWherePlaceholders.get(i++).getParameterAlias());
                 placeholderAliases.add(placeholder.getParameterAlias());
                 selectHavingGraphExpansionBuilder
                         .addResultColumn(Column.unnamedOf(field))
                         .addPlaceholder(placeholder)
                         .addPredicate(placeholder);
-            });
+            }
         }
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
         return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
