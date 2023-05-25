@@ -71,17 +71,17 @@ public class QueryLoggingTest {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=miss");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
 
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=hit");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
 
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT OPTIONS(LOG QUERY, NOCACHE)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=skip");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"skip\"");
     }
 
     @Test
@@ -97,7 +97,7 @@ public class QueryLoggingTest {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)\"");
     }
 
     @Test
@@ -131,13 +131,13 @@ public class QueryLoggingTest {
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=SELECT name from restaurant where rest_no = ?");
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"SELECT name from restaurant where rest_no = ?\"");
             }
             try (Statement ps = conn.createStatement()) {
                 try (ResultSet rs = ps.executeQuery("SELECT name from restaurant")) {
                     rs.next();
                 }
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=SELECT name from restaurant");
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"SELECT name from restaurant\"");
             }
         }
     }
@@ -168,7 +168,7 @@ public class QueryLoggingTest {
             try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT")) {
                 resultSet.next();
             }
-            Assertions.assertThat(debugRule.getLastLogEntry()).contains("query=SELECT * FROM RESTAURANT");
+            Assertions.assertThat(debugRule.getLastLogEntry()).contains("query=\"SELECT * FROM RESTAURANT\"");
         }
     }
 }

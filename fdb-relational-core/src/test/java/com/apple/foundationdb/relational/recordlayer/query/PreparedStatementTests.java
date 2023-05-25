@@ -317,7 +317,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=miss");
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?val OPTIONS(LOG QUERY)")) {
                 ps.setLong("val", 12);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -327,7 +327,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=hit");
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
         }
     }
 

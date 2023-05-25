@@ -20,12 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.recordlayer.util.KeyValueLoggingMessage;
 import com.apple.foundationdb.relational.util.DistinctSampler;
 import com.apple.foundationdb.relational.util.Sampler;
 import com.apple.foundationdb.relational.util.Sampling;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -82,12 +81,13 @@ public final class QueryLogger {
     void logPlan(@Nullable Plan<?> plan, String queryString, long queryPlanTime) {
         if (plan != null && shouldLog(plan)) {
             //TODO(bfines) add more information to this
-            KeyValueLoggingMessage message = KeyValueLoggingMessage.create("Planned Query")
-                    .append("plan", plan.toString());
+            KeyValueLogMessage message = KeyValueLogMessage.build("Planned Query")
+                    .addKeyAndValue("plan", plan.toString());
             if (plan instanceof QueryPlan.LogicalQueryPlan) {
-                message.append("queryString", queryString);
+                message.addKeyAndValue("queryString", queryString);
             }
-            message.append("queryPlanTime", Long.toString(queryPlanTime));
+            message.addKeyAndValue("queryPlanTime", Long.toString(queryPlanTime));
+            logger.info(message.toString());
         }
     }
 

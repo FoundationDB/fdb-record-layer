@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -40,8 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEqu
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.recordlayer.util.KeyValueLoggingMessage;
-
 import com.google.common.base.VerifyException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -97,7 +96,7 @@ public final class PlanGenerator {
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query,
                             @Nonnull final PlanContext context) throws RelationalException {
-        KeyValueLoggingMessage message = KeyValueLoggingMessage.create("PlanGenerator");
+        KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         final var plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
                 getPlanInternal(query, context, message));
         if (options.getOption(Options.Name.LOG_QUERY)) {
@@ -110,31 +109,30 @@ public final class PlanGenerator {
 
     @Nonnull
     private Plan<?> getPlanInternal(@Nonnull final String query, @Nonnull final PlanContext context,
-                                     @Nonnull KeyValueLoggingMessage message) throws RelationalException {
+                                     @Nonnull KeyValueLogMessage message) throws RelationalException {
         resetTimer();
-        boolean logThatQuery = false;
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context, query);
-            message.append("normalizeQueryTime", stepTimeMicros());
+            message.addKeyAndValue("normalizeQueryTime", stepTimeMicros());
             options = Options.combine(astHashResult.getQueryOptions(), options);
-            logThatQuery = options.getOption(Options.Name.LOG_QUERY);
+            boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
                 context.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_BYPASS);
                 Plan<?> plan = generatePhysicalPlan(query, astHashResult, context, planner);
                 if (logThatQuery || logger.isDebugEnabled()) {
-                    message.append("planCache", "skip");
-                    message.append("generatePhysicalPlanTime", stepTimeMicros());
-                    message.append("plan", plan.explain());
+                    message.addKeyAndValue("planCache", "skip");
+                    message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
+                    message.addKeyAndValue("plan", plan.explain());
                 }
                 return plan;
             }
 
             // Default is to cache hit. This is modified later if we cache miss
             if (logThatQuery || logger.isDebugEnabled()) {
-                message.append("planCache", "hit");
+                message.addKeyAndValue("planCache", "hit");
             }
 
             // otherwise, lookup the query in the cache
@@ -146,9 +144,9 @@ public final class PlanGenerator {
                             () -> {
                                 final var plan = generatePhysicalPlan(query, astHashResult, context, planner);
                                 if (finalLogThatQuery || logger.isDebugEnabled()) {
-                                    message.append("planCache", "miss");
-                                    message.append("generatePhysicalPlanTime", stepTimeMicros());
-                                    message.append("plan", plan.explain());
+                                    message.addKeyAndValue("planCache", "miss");
+                                    message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
+                                    message.addKeyAndValue("plan", plan.explain());
                                 }
                                 return Pair.of(planEquivalence.withConstraint(plan.getConstraint()), plan);
                             },
@@ -180,8 +178,8 @@ public final class PlanGenerator {
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         } finally {
-            message.append("totalPlanTime", totalTimeMicros());
-            message.append("query", query);
+            message.addKeyAndValue("totalPlanTime", totalTimeMicros());
+            message.addKeyAndValue("query", query);
         }
     }
 
