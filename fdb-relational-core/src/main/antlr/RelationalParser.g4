@@ -409,7 +409,7 @@ rollbackStatement
 // details
 
 setAutocommitStatement
-    : SET AUTOCOMMIT '=' autocommitValue=('0' | '1')
+    : SET AUTOCOMMIT '=' autocommitValue=(ON | OFF)
     ;
 
 setTransactionStatement
@@ -578,7 +578,7 @@ nullNotnull
 
 // done
 decimalLiteral
-    : DECIMAL_LITERAL | ZERO_DECIMAL | ONE_DECIMAL | TWO_DECIMAL | REAL_LITERAL
+    : DECIMAL_LITERAL | REAL_LITERAL
     ;
 
 // done

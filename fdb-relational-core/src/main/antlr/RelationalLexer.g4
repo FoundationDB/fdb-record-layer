@@ -150,6 +150,7 @@ NO_WRITE_TO_BINLOG:                  'NO_WRITE_TO_BINLOG';
 
 NULL_LITERAL:                        'NULL';
 NUMBER:                              'NUMBER';
+OFF:                                 'OFF';
 ON:                                  'ON';
 OPTIMIZE:                            'OPTIMIZE';
 OPTION:                              'OPTION';
@@ -1229,9 +1230,6 @@ RR_CURLY:                            '}';
 COMMA:                               ',';
 SEMI:                                ';';
 AT_SIGN:                             '@';
-ZERO_DECIMAL:                        '0';
-ONE_DECIMAL:                         '1';
-TWO_DECIMAL:                         '2';
 SINGLE_QUOTE_SYMB:                   '\'';
 DOUBLE_QUOTE_SYMB:                   '"';
 COLON_SYMB:                          ':';
