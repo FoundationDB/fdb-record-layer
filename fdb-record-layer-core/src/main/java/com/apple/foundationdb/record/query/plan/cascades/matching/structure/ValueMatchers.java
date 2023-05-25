@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -149,5 +151,17 @@ public class ValueMatchers {
         return typedWithDownstream(StreamableAggregateValue.class,
                 Extractor.of(StreamableAggregateValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordTypeValue> recordTypeValue() {
+        return typed(RecordTypeValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordTypeValue> recordTypeValue(@Nonnull BindingMatcher<CorrelationIdentifier> alias) {
+        return typedWithDownstream(RecordTypeValue.class,
+                Extractor.of(RecordTypeValue::getAlias, name -> "recordType(" + name + ")"),
+                alias);
     }
 }

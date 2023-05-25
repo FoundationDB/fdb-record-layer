@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -85,6 +86,7 @@ public abstract class IndexComparison {
     public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
         return comparison instanceof Comparisons.SimpleComparison ||
                comparison instanceof Comparisons.NullComparison ||
+               comparison instanceof RecordTypeKeyComparison.RecordTypeComparison ||
                (comparison instanceof Comparisons.ValueComparison &&
                 ((Comparisons.ValueComparison)comparison).getComparandValue() instanceof ConstantObjectValue);
     }

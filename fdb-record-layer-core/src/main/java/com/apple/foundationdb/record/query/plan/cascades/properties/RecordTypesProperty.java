@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A property visitor that determines the set of record type names (as Strings) that a {@link RelationalExpression}
@@ -72,13 +75,15 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
 
         if (expression instanceof RecordQueryScanPlan) {
             final var recordTypesFromExpression = ((RecordQueryScanPlan)expression).getRecordTypes();
-            return recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
+            Set<String> byExpression = recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
+            return limitByComparison(byExpression, ((RecordQueryScanPlan)expression).getScanComparisons());
         } else if (expression instanceof FullUnorderedScanExpression) {
             return ((FullUnorderedScanExpression)expression).getRecordTypes();
         } else if (expression instanceof RecordQueryIndexPlan) {
-            return ((RecordQueryIndexPlan)expression).getMatchCandidateMaybe()
+            Set<String> byExpression = ((RecordQueryIndexPlan)expression).getMatchCandidateMaybe()
                     .map(MatchCandidate::getQueriedRecordTypeNames)
                     .orElse(ImmutableSet.of());
+            return limitByComparison(byExpression, ((RecordQueryIndexPlan)expression).getScanComparisons());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
         } else if (expression instanceof PrimaryScanExpression) {
@@ -137,6 +142,30 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
                 }
             }
         }
+    }
+
+    @Nonnull
+    private Set<String> limitByComparison(@Nonnull Set<String> recordTypes, @Nonnull ScanComparisons scanComparisons) {
+        Set<String> byComparisons = comparisonLimitedTypes(scanComparisons);
+        if (byComparisons.size() > 1) {
+            // The scan comparisons are an implicit AND. If there's more than one contradictory type, then the expression
+            // cannot return anything at all
+            return ImmutableSet.of();
+        } else if (byComparisons.isEmpty()) {
+            // No type comparisons in the scan. Return the original set of record types
+            return recordTypes;
+        } else {
+            // One type comparison in the scan. Limit the set of types to just those consistent with the scan
+            return Sets.intersection(byComparisons, recordTypes);
+        }
+    }
+
+    private Set<String> comparisonLimitedTypes(@Nonnull ScanComparisons scanComparisons) {
+        return scanComparisons.getEqualityComparisons().stream()
+                .filter(comparison -> comparison instanceof RecordTypeKeyComparison.RecordTypeComparison)
+                .map(comparison -> (RecordTypeKeyComparison.RecordTypeComparison) comparison)
+                .map(RecordTypeKeyComparison.RecordTypeComparison::getRecordTypeName)
+                .collect(Collectors.toSet());
     }
 
     @Nonnull

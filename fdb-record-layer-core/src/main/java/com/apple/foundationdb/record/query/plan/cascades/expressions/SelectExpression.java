@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Suppliers;
@@ -299,9 +301,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                           @Nonnull final AliasMap aliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        // TODO This method should be simplified by adding some structure to it.
-        final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
-
         Verify.verify(this != candidateExpression);
 
         if (getClass() != candidateExpression.getClass()) {
@@ -309,6 +308,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         }
         final var candidateSelectExpression = (SelectExpression)candidateExpression;
 
+        // TODO This method should be simplified by adding some structure to it.
+        final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
         // merge parameter maps -- early out if a binding clashes
         final var parameterBindingMaps =
                 matchInfos
@@ -758,5 +759,52 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
                 matchInfo.getRemainingComputationValueOptional());
+    }
+
+    public Iterable<SelectExpression> pushDownTypeFilterPredicates() {
+        var newSelectExpressions = ImmutableList.<SelectExpression>builder();
+        for (QueryPredicate predicate : getPredicates()) {
+            if (!(predicate instanceof PredicateWithValue)) {
+                continue;
+            }
+            PredicateWithValue predicateWithValue = (PredicateWithValue) predicate;
+            if (!(predicateWithValue.getValue() instanceof RecordTypeValue)) {
+                continue;
+            }
+            RecordTypeValue recordTypeValue = (RecordTypeValue) predicateWithValue.getValue();
+            CorrelationIdentifier recordTypeAlias = recordTypeValue.getAlias();
+            for (Quantifier quantifier : getQuantifiers()) {
+                if (quantifier.getAlias().equals(recordTypeAlias)) {
+                    if (!(quantifier instanceof Quantifier.ForEach)) {
+                        continue;
+                    }
+                    Quantifier.ForEach forEach = (Quantifier.ForEach) quantifier;
+                    for (RelationalExpression expression : forEach.getRangesOver().getMembers()) {
+                        if (!(expression instanceof LogicalTypeFilterExpression)) {
+                            continue;
+                        }
+                        LogicalTypeFilterExpression typeFilterExpression = (LogicalTypeFilterExpression) expression;
+                        Quantifier typeFilterInner = typeFilterExpression.getInner();
+                        AliasMap aliasMap = AliasMap.of(quantifier.getAlias(), typeFilterInner.getAlias());
+
+                        QueryPredicate newPredicate = predicate.rebase(aliasMap);
+                        LogicalTypeFilterExpression newExpression = typeFilterExpression.withPredicate(newPredicate);
+                        Quantifier.ForEach newForEach = Quantifier.forEach(GroupExpressionRef.of(newExpression));
+
+                        List<Quantifier> newQuantifiers = getQuantifiers().stream()
+                                .map(qun -> qun == quantifier ? newForEach : qun)
+                                .collect(ImmutableList.toImmutableList());
+                        AliasMap withNewQuantifierAlias = AliasMap.of(quantifier.getAlias(), newForEach.getAlias());
+                        List<QueryPredicate> newPredicates = getPredicates().stream()
+                                .filter(pred -> pred != predicate)
+                                .map(pred -> pred.rebase(withNewQuantifierAlias))
+                                .collect(ImmutableList.toImmutableList());
+                        Value newResultValue = getResultValue().rebase(withNewQuantifierAlias);
+                        newSelectExpressions.add(new SelectExpression(newResultValue, newQuantifiers, newPredicates));
+                    }
+                }
+            }
+        }
+        return newSelectExpressions.build();
     }
 }
