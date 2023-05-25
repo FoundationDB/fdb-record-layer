@@ -76,6 +76,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorde
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 
@@ -283,6 +284,11 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("text:\"first\" AND text2:\"second\"")))));
             assertThat(plan, matcher);
+
+            assertThat(plan.toString(), allOf(
+                    containsString(COMPLEX_BOTH_INDEX.getName()),
+                    containsString(LuceneScanTypes.BY_LUCENE.toString()),
+                    containsString("text:\"first\" AND text2:\"second\"")));
         }
     }
 
@@ -340,6 +346,13 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
                             indexScanType(LuceneScanTypes.BY_LUCENE),
                             scanParams(query(hasToString("text2:\"second\""))))));
             assertThat(plan, matcher);
+            assertThat(plan.toString(), allOf(
+                    containsString(COMPLEX_TEXT1_INDEX.getName()),
+                    containsString(COMPLEX_TEXT2_INDEX.getName()),
+                    containsString("text:\"first\""),
+                    containsString("text2:\"second\""),
+                    containsString(LuceneScanTypes.BY_LUCENE.toString())
+            ));
         }
     }
 
