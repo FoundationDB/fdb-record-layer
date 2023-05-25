@@ -350,7 +350,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-        return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
@@ -367,10 +367,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final PlanContext planContext,
-                                                                     @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                     final boolean isReverse,
-                                                                     @Nonnull final Type.Record baseRecordType) {
+                                                                @Nonnull final PlanContext planContext,
+                                                                @Nonnull final Memoizer memoizer,
+                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                                final boolean isReverse,
+                                                                @Nonnull final Type.Record baseRecordType) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -411,7 +412,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)), coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
     @Nonnull

@@ -211,6 +211,7 @@ public class ExpressionRefTraversal {
                                                  @Nonnull final Set<ExpressionRef<? extends RelationalExpression>> leafReferences,
                                                  @Nonnull final ExpressionRef<? extends RelationalExpression> reference,
                                                  final RelationalExpression expression) {
+        network.addNode(reference);
         for (final Quantifier quantifier : expression.getQuantifiers()) {
             final ExpressionRef<? extends RelationalExpression> rangesOverRef = quantifier.getRangesOver();
             collectNetwork(network, containedInMultiMap, leafReferences, rangesOverRef);

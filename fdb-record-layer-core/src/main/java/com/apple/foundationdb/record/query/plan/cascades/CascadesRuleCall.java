@@ -149,6 +149,7 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
         if (expressionReference instanceof GroupExpressionRef) {
             GroupExpressionRef<RelationalExpression> groupExpressionRef = (GroupExpressionRef<RelationalExpression>) expressionReference;
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
+                verifyMemoized(member);
                 if (root.insertFrom(member, groupExpressionRef)) {
                     newExpressions.add(member);
                     traversal.addExpression(root, member);
@@ -160,18 +161,23 @@ public class CascadesRuleCall implements PlannerRuleCall<ExpressionRef<? extends
     }
 
     public void yield(@Nonnull Set<? extends RelationalExpression> expressions) {
-        for (RelationalExpression member : expressions) {
-            if (root.insert(member)) {
-                newExpressions.add(member);
-                traversal.addExpression(root, member);
-            }
+        for (RelationalExpression expression : expressions) {
+            yield(expression);
         }
     }
 
     public void yield(@Nonnull RelationalExpression expression) {
+        verifyMemoized(expression);
         if (root.insert(expression)) {
             newExpressions.add(expression);
             traversal.addExpression(root, expression);
+        }
+    }
+
+    private void verifyMemoized(@Nonnull RelationalExpression expression) {
+        for (final var quantifier : expression.getQuantifiers()) {
+            final var rangesOver = quantifier.getRangesOver();
+            Verify.verify(traversal.getRefs().contains(rangesOver));
         }
     }
 
