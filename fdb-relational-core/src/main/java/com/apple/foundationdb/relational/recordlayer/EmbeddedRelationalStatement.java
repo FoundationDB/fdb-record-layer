@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
@@ -67,7 +68,6 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Nonnull
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
-        conn.ensureTransactionActive();
         Options options = conn.getOptions();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
@@ -79,10 +79,11 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store)
                     .fromDatabase(conn.getRecordLayerDatabase())
+                    .withMetricsCollector(conn.metricCollector)
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
             final Plan<?> plan = planGenerator.getPlan(query, planContext);
-            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn);
+            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
             if (plan instanceof QueryPlan) {
                 return Optional.of(((QueryPlan) plan).execute(executionContext));
             } else {
@@ -96,7 +97,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
+            conn.ensureTransactionActive();
+            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
             if (resultSet.isPresent()) {
                 currentResultSet = new ErrorCapturingResultSet(resultSet.get());
                 return true;
@@ -119,7 +121,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
+            conn.ensureTransactionActive();
+            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
             if (resultSet.isPresent()) {
                 return new ErrorCapturingResultSet(resultSet.get());
             } else {
@@ -137,7 +140,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeUpdate(String sql) throws SQLException {
         try {
             Assert.notNull(sql);
-            Optional<RelationalResultSet> resultSet = executeQueryInternal(sql);
+            conn.ensureTransactionActive();
+            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
             if (resultSet.isEmpty()) {
                 if (getConnection().getAutoCommit()) {
                     getConnection().commit();

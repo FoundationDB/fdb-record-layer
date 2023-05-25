@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -45,6 +46,8 @@ public final class PlanContext {
     // todo (yhatem) remove this if possible.
     @Nonnull
     private final RecordMetaData metaData;
+    @Nonnull
+    private final MetricCollector metricCollector;
     @Nonnull
     private final PlannerConfiguration plannerConfiguration;
     @Nonnull
@@ -65,6 +68,7 @@ public final class PlanContext {
      * Creates a new instance of {@link PlanContext} needed for generating plans.
      *
      * @param metaData                    The record store metadata.
+     * @param metricCollector             The metricCollector instance bound to the ongoing transaction
      * @param schemaTemplate              The schema template.
      * @param plannerConfiguration        The planner configurations.
      * @param metadataOperationsFactory   The constant action factory used for DDL and metadata queries
@@ -74,6 +78,7 @@ public final class PlanContext {
      * @param userVersion                 The user version bound to the opened record store.
      **/
     private PlanContext(@Nonnull final RecordMetaData metaData,
+                        @Nonnull final MetricCollector metricCollector,
                         @Nonnull final SchemaTemplate schemaTemplate,
                         @Nonnull final PlannerConfiguration plannerConfiguration,
                         @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
@@ -82,6 +87,7 @@ public final class PlanContext {
                         @Nonnull final PreparedStatementParameters preparedStatementParameters,
                         final int userVersion) {
         this.metaData = metaData;
+        this.metricCollector = metricCollector;
         this.schemaTemplate = schemaTemplate;
         this.plannerConfiguration = plannerConfiguration;
         this.metadataOperationsFactory = metadataOperationsFactory;
@@ -94,6 +100,11 @@ public final class PlanContext {
     @Nonnull
     public RecordMetaData getMetaData() {
         return metaData;
+    }
+
+    @Nonnull
+    public MetricCollector getMetricsCollector() {
+        return metricCollector;
     }
 
     @Nonnull
@@ -134,6 +145,8 @@ public final class PlanContext {
 
         private RecordMetaData metaData;
 
+        private MetricCollector metricCollector;
+
         private PlannerConfiguration plannerConfiguration;
 
         private int userVersion;
@@ -156,6 +169,12 @@ public final class PlanContext {
         @Nonnull
         public Builder withMetadata(@Nonnull final RecordMetaData metadata) {
             this.metaData = metadata;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withMetricsCollector(@Nonnull final MetricCollector metricCollector) {
+            this.metricCollector = metricCollector;
             return this;
         }
 
@@ -252,7 +271,7 @@ public final class PlanContext {
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, schemaTemplate, plannerConfiguration, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters, userVersion);
+            return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters, userVersion);
         }
 
         @Nonnull
@@ -264,6 +283,7 @@ public final class PlanContext {
             return create().withConstantActionFactory(planContext.metadataOperationsFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)
+                    .withMetricsCollector(planContext.metricCollector)
                     .withSchemaTemplate(planContext.schemaTemplate)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)

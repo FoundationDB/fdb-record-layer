@@ -49,6 +49,7 @@ import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
@@ -75,9 +76,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
+public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typed {
 
-    class PhysicalQueryPlan implements QueryPlan {
+    public static class PhysicalQueryPlan extends QueryPlan {
 
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
@@ -139,7 +140,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
-        public RelationalResultSet execute(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext executionContext) throws RelationalException {
             if (!(executionContext.connection instanceof EmbeddedRelationalConnection)) {
                 //this is required until TODO is resolved
                 throw new RelationalException("Cannot execute a QueryPlan without an EmbeddedRelationalConnection", ErrorCode.INTERNAL_ERROR);
@@ -204,7 +205,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
     /**
      * This represents a logical query plan that can be executed to produce a {@link java.sql.ResultSet}.
      */
-    class LogicalQueryPlan implements QueryPlan {
+    public static class LogicalQueryPlan extends QueryPlan {
 
         @Nonnull
         private final RelationalExpression relationalExpression;
@@ -224,22 +225,24 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
 
         @Override
         @Nonnull
-        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
+        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) throws RelationalException {
             if (optimizedPlan.isPresent()) {
                 return optimizedPlan.get();
             }
-            final TypeRepository.Builder builder = TypeRepository.newBuilder();
-            final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
-            usedTypes.forEach(builder::addTypeIfNeeded);
-            final var evaluationContext = context.getEvaluationContext();
-            final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
-            final var planResult = planner.planGraph(
-                    () -> GroupExpressionRef.of(relationalExpression),
-                    configuration.getReadableIndexes().map(s -> s),
-                    IndexQueryabilityFilter.TRUE,
-                    ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
-            optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
-            return optimizedPlan.get();
+            return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN, () -> {
+                final TypeRepository.Builder builder = TypeRepository.newBuilder();
+                final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
+                usedTypes.forEach(builder::addTypeIfNeeded);
+                final var evaluationContext = context.getEvaluationContext();
+                final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
+                final var planResult = planner.planGraph(() ->
+                                GroupExpressionRef.of(relationalExpression),
+                        configuration.getReadableIndexes().map(s -> s),
+                        IndexQueryabilityFilter.TRUE,
+                        ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
+                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
+                return optimizedPlan.get();
+            });
         }
 
         @Nonnull
@@ -263,7 +266,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
-        public RelationalResultSet execute(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext executionContext) throws RelationalException {
             return this.optimizedPlan.get().execute(executionContext);
         }
 
@@ -289,7 +292,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
     }
 
-    class MetadataQueryPlan implements QueryPlan {
+    public static class MetadataQueryPlan extends QueryPlan {
 
         @Nonnull
         private final CheckedFunctional<Transaction, RelationalResultSet> query;
@@ -312,7 +315,7 @@ public interface QueryPlan extends Plan<RelationalResultSet>, Typed {
         }
 
         @Override
-        public RelationalResultSet execute(@Nonnull final ExecutionContext context) throws RelationalException {
+        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext context) throws RelationalException {
             return query.apply(context.transaction);
         }
 

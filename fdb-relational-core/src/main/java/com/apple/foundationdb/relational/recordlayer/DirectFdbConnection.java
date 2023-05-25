@@ -23,12 +23,10 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.recordlayer.util.MetricRegistryStoreTimer;
 
 import com.codahale.metrics.MetricRegistry;
 
@@ -42,7 +40,7 @@ public class DirectFdbConnection implements FdbConnection {
 
     public DirectFdbConnection(FDBDatabase fdb, MetricRegistry metricsEngine) {
         this.fdb = fdb;
-        this.txnManager = new RecordLayerTransactionManager(fdb, getStoreTimer(metricsEngine));
+        this.txnManager = new RecordLayerTransactionManager(fdb, metricsEngine);
     }
 
     public static DirectFdbConnection connect(String clusterFile) {
@@ -61,9 +59,5 @@ public class DirectFdbConnection implements FdbConnection {
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }
-    }
-
-    private static FDBStoreTimer getStoreTimer(MetricRegistry registry) {
-        return new MetricRegistryStoreTimer(registry);
     }
 }

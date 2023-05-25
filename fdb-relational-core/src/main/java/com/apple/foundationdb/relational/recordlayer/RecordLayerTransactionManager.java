@@ -22,26 +22,27 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.util.MetricRegistryStoreTimer;
+import com.codahale.metrics.MetricRegistry;
 
 import javax.annotation.Nonnull;
 
 public class RecordLayerTransactionManager implements TransactionManager {
     private final FDBDatabase fdbDb;
-    private final FDBStoreTimer storeTimer;
+    private final MetricRegistry metricRegistry;
 
-    public RecordLayerTransactionManager(FDBDatabase fdbDb, FDBStoreTimer storeTimer) {
+    public RecordLayerTransactionManager(FDBDatabase fdbDb, MetricRegistry metricRegistry) {
         this.fdbDb = fdbDb;
-        this.storeTimer = storeTimer;
+        this.metricRegistry = metricRegistry;
     }
 
     @Override
     public Transaction createTransaction(@Nonnull Options connectionOptions) throws RelationalException {
-        return new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(connectionOptions, storeTimer)));
+        return new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(connectionOptions, metricRegistry)));
     }
 
     @Override
@@ -54,9 +55,9 @@ public class RecordLayerTransactionManager implements TransactionManager {
         txn.commit();
     }
 
-    private FDBRecordContextConfig getFDBRecordContextConfig(@Nonnull Options options, FDBStoreTimer storeTimer) {
+    private FDBRecordContextConfig getFDBRecordContextConfig(@Nonnull Options options, MetricRegistry metricRegistry) {
         FDBRecordContextConfig.Builder builder = FDBRecordContextConfig.newBuilder()
-                .setTimer(storeTimer);
+                .setTimer(new MetricRegistryStoreTimer(metricRegistry));
         Long transactionTimeout = options.getOption(Options.Name.TRANSACTION_TIMEOUT);
         if (transactionTimeout != null) {
             builder.setTransactionTimeoutMillis(transactionTimeout);

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Suppliers;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -386,14 +388,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final SchemaTemplate schemaTemplate,
-                                        @Nonnull final String query,
-                                        int userVersion,
-                                        @Nonnull final BitSet readableIndexes) throws RelationalException {
-        return normalizeQuery(schemaTemplate, query, PreparedStatementParameters.empty(), userVersion, readableIndexes);
+    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query) throws RelationalException {
+        return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_AST, () -> normalizeQuery(context.getSchemaTemplate(), query,
+                PreparedStatementParameters.of(context.getPreparedStatementParameters()),
+                context.getUserVersion(), context.getSchemaTemplate()
+                        .getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes())));
     }
 
     @Nonnull
+    @VisibleForTesting
     public static Result normalizeQuery(@Nonnull final SchemaTemplate schemaTemplate,
                                         @Nonnull final String query,
                                         @Nonnull final PreparedStatementParameters preparedStatementParameters,

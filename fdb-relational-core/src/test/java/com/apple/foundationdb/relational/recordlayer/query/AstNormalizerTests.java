@@ -251,7 +251,7 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, 0, emptyBitSet);
+            AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, PreparedStatementParameters.empty(), 0, emptyBitSet);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);

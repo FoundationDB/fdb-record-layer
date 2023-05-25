@@ -30,8 +30,11 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
@@ -43,7 +46,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean isClosed;
     final AbstractDatabase frl;
     final StoreCatalog backingCatalog;
-
+    MetricCollector metricCollector;
     Transaction transaction;
     private String currentSchemaLabel;
     private boolean autoCommit = true;
@@ -55,11 +58,14 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
                                       @Nonnull StoreCatalog backingCatalog,
                                       @Nullable Transaction transaction,
-                                      @Nonnull Options options) {
+                                      @Nonnull Options options) throws InternalErrorException {
         this.frl = frl;
         this.txnManager = frl.getTransactionManager();
         this.transaction = transaction;
         this.usingAnExistingTransaction = transaction != null;
+        if (usingAnExistingTransaction) {
+            this.metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+        }
         this.backingCatalog = backingCatalog;
         this.options = options;
     }
@@ -166,6 +172,11 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return backingCatalog.loadSchema(transaction, getPath(), getSchema()).getSchemaTemplate();
     }
 
+    @Nonnull
+    public MetricCollector getMetricCollector() {
+        return metricCollector;
+    }
+
     @Override
     public String getSchema() {
         return currentSchemaLabel;
@@ -210,6 +221,13 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         try {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
+                metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+                addCloseListener(() -> {
+                    if (metricCollector != null) {
+                        metricCollector.flush();
+                        metricCollector = null;
+                    }
+                });
             }
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex).toSqlException();

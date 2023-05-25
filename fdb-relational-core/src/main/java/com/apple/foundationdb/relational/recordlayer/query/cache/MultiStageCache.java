@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -28,8 +29,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Supplier;
 import com.google.common.base.Ticker;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -40,6 +39,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -140,8 +142,10 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
                     @Nonnull final S secondaryKey,
                     @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
-                    @Nonnull final Function<Stream<V>, V> reductionFunction) {
+                    @Nonnull final Function<Stream<V>, V> reductionFunction,
+                    @Nonnull final Consumer<RelationalMetric.RelationalCount> registerCacheEvent) {
         final var secondaryCache = mainCache.get(key, newKey -> {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
@@ -165,8 +169,10 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         final var result = reductionFunction.apply(secondaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(secondaryKey)).map(Map.Entry::getValue));
         if (result != null) {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_HIT);
             return valueWithEnvironmentDecorator.apply(result);
         } else {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
             final var keyValuePair = secondaryKeyValueSupplier.get();
             secondaryCache.put(keyValuePair.getKey(), keyValuePair.getValue());
             return keyValuePair.getValue();

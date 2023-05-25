@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -37,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.util.Supplier;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
 
 import com.google.protobuf.Descriptors;
@@ -71,9 +74,21 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     @Override
     public boolean execute(String sql) throws SQLException {
         try {
+            final var txn = inMemoryTransactionManager.createTransaction(Options.NONE);
+            final var metricCollector = new MetricCollector() {
+                @Override
+                public void increment(@Nonnull RelationalMetric.RelationalCount count) {
+                }
+
+                @Override
+                public <T> T clock(@Nonnull RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException {
+                    return supplier.get();
+                }
+            };
             final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(relationalConn.getConstantActionFactory())
                     .withDdlQueryFactory(relationalConn.getDdlQueryFactory())
+                    .withMetricsCollector(metricCollector)
                     .withDbUri(relationalConn.getDatabaseUri())
                     .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
                     .withSchemaTemplate(relationalConn.getSchemaTemplate())
@@ -86,7 +101,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");
             }
 
-            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(inMemoryTransactionManager.createTransaction(Options.NONE), Options.NONE, relationalConn);
+            Plan.ExecutionContext executionCtx = Plan.ExecutionContext.of(txn, Options.NONE, relationalConn, metricCollector);
             plan.execute(executionCtx);
             return true;
         } catch (RelationalException e) {

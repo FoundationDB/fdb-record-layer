@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -66,6 +67,9 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     private final PreparedStatementParameters preparedStatementParameters;
 
     @Nonnull
+    private final MetricCollector metricCollector;
+
+    @Nonnull
     private final LiteralsBuilder literals;
 
     @Nonnull
@@ -80,10 +84,12 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
     private int parameterHash;
 
-    PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters) {
+    PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters,
+                          @Nonnull MetricCollector metricCollector) {
         this.context = null;
         this.metadataFactory = metadataFactory;
         this.preparedStatementParameters = preparedStatementParameters;
+        this.metricCollector = metricCollector;
         this.literals = LiteralsBuilder.newBuilder();
         this.constantObjectValues = new LinkedList<>();
         this.forExplain = false;
@@ -251,6 +257,11 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         return preparedStatementParameters;
     }
 
+    @Nonnull
+    public MetricCollector getMetricsCollector() {
+        return metricCollector;
+    }
+
     @Override
     public boolean isForExplain() {
         return forExplain;
@@ -300,6 +311,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     public static final class Builder {
         private MetadataOperationsFactory metadataFactory;
         private PreparedStatementParameters preparedStatementParameters;
+        private MetricCollector metricCollector;
 
         private Builder() {
             this.metadataFactory = NoOpMetadataOperationsFactory.INSTANCE;
@@ -315,8 +327,13 @@ public class PlanGenerationContext implements QueryExecutionParameters {
             return this;
         }
 
+        public Builder setMetricsCollector(@Nonnull final MetricCollector metricCollector) {
+            this.metricCollector = metricCollector;
+            return this;
+        }
+
         public PlanGenerationContext build() {
-            return new PlanGenerationContext(metadataFactory, preparedStatementParameters);
+            return new PlanGenerationContext(metadataFactory, preparedStatementParameters, metricCollector);
         }
     }
 

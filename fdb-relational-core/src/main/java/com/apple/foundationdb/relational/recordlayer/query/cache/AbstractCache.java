@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Supplier;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -30,6 +29,9 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -94,13 +96,14 @@ public abstract class AbstractCache<K, S, V> {
 
     /**
      * Gets an item from the cache determined by {@code key} and {@code secondaryKey}. If the item does not exist, it adds
-     * it to the cache, and retrieves the newly construced {@code V} value.
+     * it to the cache, and retrieves the newly constructed {@code V} value.
      *
      * @param key The key of the item.
      * @param secondaryKey The secondary key of the item.
      * @param secondaryKeyValueSupplier supplier for a secondary key and value pair in case the item is not found.
      * @param valueWithEnvironmentDecorator decorates the retrieved value with an environment preparing it for execution.
      * @param reductionFunction a function for choosing one matching value from a list of matches.
+     * @param registerCacheEvent consumer to register events from interacting with the cache.
      * @return The value referenced {@code key} and {@code secondaryKey}.
      */
     @Nonnull
@@ -108,7 +111,8 @@ public abstract class AbstractCache<K, S, V> {
                              @Nonnull final S secondaryKey,
                              @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
                              @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
-                             @Nonnull final Function<Stream<V>, V> reductionFunction);
+                             @Nonnull final Function<Stream<V>, V> reductionFunction,
+                             Consumer<RelationalMetric.RelationalCount> registerCacheEvent);
 
     /**
      * Retrieves the statistics of the cache.

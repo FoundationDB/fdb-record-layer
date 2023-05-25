@@ -32,6 +32,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -120,9 +121,9 @@ public class MultiStageCacheTests {
     void cacheStoresDataCorrectly() {
         final var builder = MultiStageCache.<String, String, String>newMultiStageCacheBuilder();
         final MultiStageCache<String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
-        final var result1 = testCache.reduce("U.S.", "Animal", () -> produceAnimal("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        final var result1 = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
         Assertions.assertThat(result1).isEqualTo("American Alligator");
-        final var result2 = testCache.reduce("U.S.", "Animal", () -> produceAnimal("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        final var result2 = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
         Assertions.assertThat(result2).isEqualTo("restored American Alligator from cache");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
     }
@@ -142,17 +143,17 @@ public class MultiStageCacheTests {
                 .build();
 
         // warm up cache
-        var result = testCache.reduce("U.S.", "Animal", () -> produceAnimal("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
         Assertions.assertThat(result).isEqualTo("American Alligator");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
 
-        result = testCache.reduce("U.S.", "Landform", () -> produceLandform("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
         Assertions.assertThat(result).isEqualTo("Colorado River");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
 
         ticker.advance(Duration.of(1, ChronoUnit.MILLIS));
 
-        result = testCache.reduce("E.U.", "Landform", () -> produceLandform("E.U."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "E.U.", "Landform", () -> produceLandform("E.U."));
         Assertions.assertThat(result).isEqualTo("Southern Carpathians");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "E.U.", Map.of("Landform", "Southern Carpathians")));
 
@@ -160,14 +161,14 @@ public class MultiStageCacheTests {
 
         // let's refresh U.S. entry by accessing it.
 
-        result = testCache.reduce("U.S.", "Landform", () -> produceLandform("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
         Assertions.assertThat(result).isEqualTo("restored Colorado River from cache");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "E.U.", Map.of("Landform", "Southern Carpathians")));
 
         ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // E.U. entry should've expired ...
 
         // ... leaving space for the new entry of "Japan".
-        result = testCache.reduce("Japan", "Train", () -> produceTrain("Japan"), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "Japan", "Train", () -> produceTrain("Japan"));
         Assertions.assertThat(result).isEqualTo("Shinkansen");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "Japan", Map.of("Train", "Shinkansen")));
     }
@@ -188,7 +189,7 @@ public class MultiStageCacheTests {
 
         // warm up the cache
         // add U.S. -> Animal -> American Alligator
-        var result = testCache.reduce("U.S.", "Animal", () -> produceAnimal("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
         Assertions.assertThat(result).isEqualTo("American Alligator");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
 
@@ -196,7 +197,7 @@ public class MultiStageCacheTests {
         ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
 
         // let's add another item: U.S. -> Landform -> Colorado River
-        result = testCache.reduce("U.S.", "Landform", () -> produceLandform("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
         Assertions.assertThat(result).isEqualTo("Colorado River");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
 
@@ -204,7 +205,7 @@ public class MultiStageCacheTests {
         ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // U.S. -> Animal -> American Alligator should have expired
 
         // let's add one more item: U.S. -> Train -> the Acela
-        result = testCache.reduce("U.S.", "Train", () -> produceTrain("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "U.S.", "Train", () -> produceTrain("U.S."));
         Assertions.assertThat(result).isEqualTo("the Acela");
 
         // we're over the max size limit of secondary -> evication should take place.
@@ -229,7 +230,7 @@ public class MultiStageCacheTests {
 
         // warm up the cache
         // add U.S. -> Animal -> American Alligator
-        var result = testCache.reduce("U.S.", "Animal", () -> produceAnimal("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
         Assertions.assertThat(result).isEqualTo("American Alligator");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
 
@@ -237,7 +238,7 @@ public class MultiStageCacheTests {
         ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
 
         // let's add another item: U.S. -> Landform -> Colorado River
-        result = testCache.reduce("U.S.", "Landform", () -> produceLandform("U.S."), MultiStageCacheTests::fetchFromCache, MultiStageCacheTests::pickFirst);
+        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
         Assertions.assertThat(result).isEqualTo("Colorado River");
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
 
@@ -251,5 +252,11 @@ public class MultiStageCacheTests {
 
         // let's verify that
         shouldBe(testCache, Map.of());
+    }
+
+    private static String readCache(@Nonnull MultiStageCache<String, String, String> cache, @Nonnull String key,
+                                    @Nonnull String secondaryKey, @Nonnull Supplier<Pair<String, String>> supplier) {
+        return cache.reduce(key, secondaryKey, supplier, MultiStageCacheTests::fetchFromCache,
+                MultiStageCacheTests::pickFirst, e -> { });
     }
 }

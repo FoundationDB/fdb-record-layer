@@ -221,6 +221,7 @@ public class RelationalPlanCacheTests {
                 .fromDatabase(database)
                 .fromRecordStore(store)
                 .withSchemaTemplate(schemaTemplate)
+                .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(userVersion)
                 .build();

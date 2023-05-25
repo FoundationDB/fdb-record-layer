@@ -30,9 +30,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
@@ -46,6 +48,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Set;
@@ -93,21 +96,33 @@ public final class PlanGenerator {
      */
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query,
-                           @Nonnull final PlanContext context) throws RelationalException {
+                            @Nonnull final PlanContext context) throws RelationalException {
+        KeyValueLoggingMessage message = KeyValueLoggingMessage.create("PlanGenerator");
+        final var plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
+                getPlanInternal(query, context, message));
+        if (options.getOption(Options.Name.LOG_QUERY)) {
+            logger.info(message);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug(message);
+        }
+        return plan;
+    }
+
+    @Nonnull
+    private Plan<?> getPlanInternal(@Nonnull final String query, @Nonnull final PlanContext context,
+                                     @Nonnull KeyValueLoggingMessage message) throws RelationalException {
         resetTimer();
         boolean logThatQuery = false;
-        KeyValueLoggingMessage message = KeyValueLoggingMessage.create("PlanGenerator");
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
-            final var astHashResult = AstNormalizer.normalizeQuery(context.getSchemaTemplate(), query, PreparedStatementParameters.of(context.getPreparedStatementParameters()),
-                    context.getUserVersion(),
-                    context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()));
+            final var astHashResult = AstNormalizer.normalizeQuery(context, query);
             message.append("normalizeQueryTime", stepTimeMicros());
             options = Options.combine(astHashResult.getQueryOptions(), options);
             logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
+                context.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_BYPASS);
                 Plan<?> plan = generatePhysicalPlan(query, astHashResult, context, planner);
                 if (logThatQuery || logger.isDebugEnabled()) {
                     message.append("planCache", "skip");
@@ -125,8 +140,8 @@ public final class PlanGenerator {
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
             final boolean finalLogThatQuery = logThatQuery;
-            return cache.get()
-                    .reduce(astHashResult.getQueryCacheKey(),
+            return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
+                    cache.get().reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
                                 final var plan = generatePhysicalPlan(query, astHashResult, context, planner);
@@ -151,7 +166,10 @@ public final class PlanGenerator {
                                 } else {
                                     return candidate;
                                 }
-                            }));
+                            }),
+                            e -> context.getMetricsCollector().increment(e)
+                    )
+            );
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         } catch (MetaDataException mde) {
@@ -164,11 +182,6 @@ public final class PlanGenerator {
         } finally {
             message.append("totalPlanTime", totalTimeMicros());
             message.append("query", query);
-            if (logThatQuery) {
-                logger.info(message);
-            } else if (logger.isDebugEnabled()) {
-                logger.debug(message);
-            }
         }
     }
 
@@ -197,16 +210,15 @@ public final class PlanGenerator {
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
+                .setMetricsCollector(planContext.getMetricsCollector())
                 .build();
         // (yhatem) why is this needed? looks hacky...
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
         context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
-        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri());
         try {
-
-            final Object maybePlan = astWalker.visit(ast.getParseTree());
+            final var maybePlan = parseQuery(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri());
             Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
             return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
@@ -215,7 +227,15 @@ public final class PlanGenerator {
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve).toUncheckedWrappedException();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
         }
+    }
+
+    private static Object parseQuery(@Nonnull PlanGenerationContext planGenerationContext, @Nonnull AstNormalizer.Result ast,
+                              @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) throws RelationalException {
+        return planGenerationContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
+                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri).visit(ast.getParseTree()));
     }
 
     @Nonnull

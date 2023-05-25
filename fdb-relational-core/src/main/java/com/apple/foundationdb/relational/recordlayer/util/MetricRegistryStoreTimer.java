@@ -59,11 +59,15 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
             return counter;
         } else {
             if (event instanceof Count) {
-                return MapUtils.computeIfAbsent(counters, event,
-                        evignore -> new RegistryCounter(event.name(), registry.counter(event.name())));
+                return createIfNotExists ?
+                        MapUtils.computeIfAbsent(counters, event,
+                                ignore -> new RegistryCounter(event.title(), registry.counter(event.title()))) :
+                        counters.get(event);
             } else {
-                return MapUtils.computeIfAbsent(counters, event,
-                        evignore -> new RegistryTimer(event.name(), registry.timer(event.name())));
+                return createIfNotExists ?
+                        MapUtils.computeIfAbsent(counters, event,
+                                ignore -> new RegistryTimer(event.title(), registry.timer(event.title()))) :
+                        counters.get(event);
             }
         }
     }
@@ -73,16 +77,17 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
     protected Counter getTimeoutCounter(@Nonnull Event event, boolean createIfNotExists) {
         if (event instanceof Count) {
             return MapUtils.computeIfAbsent(counters, event,
-                    evignore -> new RegistryCounter(event.name(), registry.counter(event.name())));
+                    evignore -> new RegistryCounter(event.title(), registry.counter(event.title())));
         } else {
             return MapUtils.computeIfAbsent(counters, event,
-                    evignore -> new RegistryTimer(event.name(), registry.timer(event.name())));
+                    evignore -> new RegistryTimer(event.title(), registry.timer(event.title())));
         }
     }
 
     @Override
     public void reset() {
         registry.removeMatching(MetricFilter.ALL);
+        super.reset();
     }
 
     private static class RegistryCounter extends Counter {
@@ -103,6 +108,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
         @Override
         public void increment(int amount) {
             counter.inc(amount);
+            super.increment(amount);
         }
 
     }
@@ -121,6 +127,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
         @Override
         public void record(long timeDifferenceNanos) {
             timer.update(timeDifferenceNanos, TimeUnit.NANOSECONDS);
+            super.record(timeDifferenceNanos);
         }
 
         @Override

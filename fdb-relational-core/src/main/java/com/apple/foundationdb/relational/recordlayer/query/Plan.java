@@ -28,6 +28,8 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -37,44 +39,62 @@ import com.google.common.base.VerifyException;
 
 import javax.annotation.Nonnull;
 
-public interface Plan<T> {
+public abstract class Plan<T> {
 
-    class ExecutionContext {
+    public static class ExecutionContext {
         @Nonnull
         final Transaction transaction;
         @Nonnull
         final Options options;
         @Nonnull
         final RelationalConnection connection;
+        @Nonnull
+        final MetricCollector metricCollector;
 
         ExecutionContext(@Nonnull Transaction transaction,
                          @Nonnull Options options,
-                         @Nonnull RelationalConnection connection) {
+                         @Nonnull RelationalConnection connection,
+                         @Nonnull MetricCollector metricCollector) {
             this.transaction = transaction;
             this.options = options;
             this.connection = connection;
+            this.metricCollector = metricCollector;
         }
 
         @Nonnull
         public static ExecutionContext of(@Nonnull Transaction transaction,
                                           @Nonnull Options options,
-                                          @Nonnull RelationalConnection connection) {
-            return new ExecutionContext(transaction, options, connection);
+                                          @Nonnull RelationalConnection connection,
+                                          @Nonnull MetricCollector metricCollector) {
+            return new ExecutionContext(transaction, options, connection, metricCollector);
         }
     }
 
-    Plan<T> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration);
+    public abstract Plan<T> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration) throws RelationalException;
 
-    T execute(@Nonnull final ExecutionContext c) throws RelationalException;
+    /**
+     * Executes a particular type of Plan. If the plan "can" be executed, it should be timed and registered as
+     * {@link com.apple.foundationdb.record.provider.common.StoreTimer.Event} in the {@link MetricCollector} to be
+     * added to the observability of the system.
+     *
+     * @param c           The execution context.
+     * @return The result of the query execution, if there.
+     * @throws RelationalException if something goes wrong.
+     */
+    public final T execute(@Nonnull final ExecutionContext c) throws RelationalException {
+        return c.metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PLAN, () -> executeInternal(c));
+    }
+
+    protected abstract T executeInternal(@Nonnull final ExecutionContext c) throws RelationalException;
 
     @Nonnull
-    QueryPlanConstraint getConstraint();
+    public abstract QueryPlanConstraint getConstraint();
 
     @Nonnull
-    Plan<T> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters);
+    public abstract Plan<T> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters);
 
     @Nonnull
-    String explain();
+    public abstract String explain();
 
     /**
      * Parses a query and generates an equivalent logical plan.
@@ -86,7 +106,7 @@ public interface Plan<T> {
      */
     @Nonnull
     @VisibleForTesting
-    static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
+    public static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())

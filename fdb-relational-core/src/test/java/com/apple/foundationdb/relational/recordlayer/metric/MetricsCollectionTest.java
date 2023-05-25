@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.recordlayer.metric;
 
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 
@@ -49,10 +50,10 @@ public class MetricsCollectionTest {
          */
         MetricSet ms = relational.getEngine().getEngineMetrics();
         Assertions.assertThat(ms.getMetrics())
-                .containsKey("JNI_CALLS")
-                .containsKey("FETCHES")
-                .containsKey("BYTES_WRITTEN")
-                .containsKey("RANGE_READS");
+                .containsKey("jni calls")
+                .containsKey("fetches")
+                .containsKey("bytes written")
+                .containsKey("range reads");
     }
 
     @Test
@@ -66,10 +67,10 @@ public class MetricsCollectionTest {
          */
         MetricSet ms = relational.getEngine().getEngineMetrics();
         Assertions.assertThat(ms.getMetrics())
-                .containsKey("WAIT_LOAD_RECORD")
-                .containsKey("CREATE_RECORD_STORE")
-                .containsKey("INDEXES_NEED_REBUILDING")
-                .containsKey("WAIT_CHECK_VERSION")
-                .containsKey("OPEN_CONTEXT");
+                .containsKey("wait for load record")
+                .containsKey("create record store")
+                .containsKey("indexes need rebuilding")
+                .containsKey("wait for check version")
+                .containsKey("open record context");
     }
 }
