@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.sorting.MemorySortAdapter;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -69,7 +70,8 @@ public class RecordQuerySortKey implements PlanHashable {
     public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int maxRecordsToRead) {
         final int memoryLimit = Math.min(maxRecordsToRead, RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY);
         final boolean memoryOnly = memoryLimit == maxRecordsToRead;
-        return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, false, this, recordStore);
+        return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, MemorySortAdapter.OrderComparator::new, this,
+                recordStore);
     }
 
     /**
@@ -80,7 +82,8 @@ public class RecordQuerySortKey implements PlanHashable {
      */
     @Nonnull
     public <M extends Message> RecordQuerySortAdapter<M> getAdapterForDam(@Nonnull FDBRecordStoreBase<M> recordStore) {
-        return new RecordQuerySortAdapter<>(RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY, true, true, this, recordStore);
+        return new RecordQuerySortAdapter<>(RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY, true,
+                MemorySortAdapter.InsertionOrderComparator::new, this, recordStore);
     }
 
     @Override

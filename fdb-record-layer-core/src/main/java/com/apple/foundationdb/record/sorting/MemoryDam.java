@@ -33,11 +33,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 
 /**
- * Collect keyed values into a {@link TreeMap} so that they end up sorted.
+ * Collect keyed values into a {@link LinkedHashMap} so that they end up sorted in insertion order.
  * @param <K> type of key
  * @param <V> type of value
  */

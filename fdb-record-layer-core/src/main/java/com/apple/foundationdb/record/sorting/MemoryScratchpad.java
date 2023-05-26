@@ -26,13 +26,13 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.sorting.MemorySortAdapter.MemorySortComparator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Collect keyed values into an in-memory data structure.
@@ -49,7 +49,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
     @Nullable
     private final StoreTimer timer;
 
-    private LoadResult loadResult;
+    private LoadResult<K> loadResult;
 
     protected MemoryScratchpad(@Nonnull final MemorySortAdapter<K, V> adapter,
                                @Nonnull final M map,
@@ -85,18 +85,21 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
         STOP
     }
 
-    /** The result of {@link #load}. */
-    public static class LoadResult {
+    /** The result of {@link #load}.
+     * @param <K> the type of key
+     */
+    public static class LoadResult<K> {
         private final boolean full;
-        private final boolean hasSeenMinimumKey;
+        @Nullable
+        private final K nextMinimumKey;
         @Nonnull
         private final RecordCursorContinuation sourceContinuation;
         @Nonnull
         private final RecordCursor.NoNextReason sourceNoNextReason;
 
-        public LoadResult(final boolean full, final boolean hasSeenMinimumKey, @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
+        public LoadResult(final boolean full, @Nullable final K nextMinimumKey, @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
             this.full = full;
-            this.hasSeenMinimumKey = hasSeenMinimumKey;
+            this.nextMinimumKey = nextMinimumKey;
             this.sourceContinuation = sourceContinuation;
             this.sourceNoNextReason = sourceNoNextReason;
         }
@@ -105,8 +108,9 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
             return full;
         }
 
-        public boolean hasSeenMinimumKey() {
-            return hasSeenMinimumKey;
+        @Nullable
+        public K getNextMinimumKey() {
+            return nextMinimumKey;
         }
 
         @Nonnull
@@ -126,38 +130,23 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
      * @param minimumKey ignore cursor entries that are not greater than this key
      * @return the reason the load stopped
      */
-    public CompletableFuture<LoadResult> load(@Nonnull RecordCursor<V> source, @Nullable K minimumKey) {
+    public CompletableFuture<LoadResult<K>> load(@Nonnull RecordCursor<V> source, @Nullable K minimumKey) {
         loadResult = null;
-        final AtomicBoolean hasSeenMinimumKeyBoolean = new AtomicBoolean(false);
+        final MemorySortComparator<K> comparator = adapter.getComparator(minimumKey);
         return AsyncUtil.whileTrue(() -> source.onNext().thenApply(sourceResult -> {
             if (!sourceResult.hasNext()) {
-                loadResult = new LoadResult(false, hasSeenMinimumKeyBoolean.get(), sourceResult.getContinuation(), sourceResult.getNoNextReason());
+                loadResult = new LoadResult<>(false, comparator.nextMinimumKey(), sourceResult.getContinuation(), sourceResult.getNoNextReason());
                 return false;
             }
             final long startTime = System.nanoTime();
             try {
                 V value = sourceResult.get();
                 K key = adapter.generateKey(value);
-                if (minimumKey == null) {
+
+                if (comparator.compareToMinimumKey(key) > 0) {
                     addKeyValue(key, value);
-                } else {
-                    if (adapter.isInsertionOrder()) {
-                        if (hasSeenMinimumKeyBoolean.get()) {
-                            addKeyValue(key, value);
-                        } else {
-                            if (adapter.compare(key, minimumKey) == 0) {
-                                hasSeenMinimumKeyBoolean.set(true);
-                            }
-                            return true;
-                        }
-                    } else {
-                        if (adapter.compare(key, minimumKey) > 0) {
-                            addKeyValue(key, value);
-                        } else {
-                            return true;
-                        }
-                    }
                 }
+
                 if (map.size() <= adapter.getMaxRecordCountInMemory()) {
                     return true;
                 }
@@ -167,7 +156,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
                         return true;
                     case STOP:
                         // TODO: Need some more NoNextReason's
-                        loadResult = new LoadResult(true, hasSeenMinimumKeyBoolean.get(), sourceResult.getContinuation(), RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+                        loadResult = new LoadResult<>(true, comparator.nextMinimumKey(), sourceResult.getContinuation(), RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
                         return false;
                     default:
                         throw new RecordCoreArgumentException("Unknown size limit mode: " + adapter.getRecordCountInMemoryLimitMode());

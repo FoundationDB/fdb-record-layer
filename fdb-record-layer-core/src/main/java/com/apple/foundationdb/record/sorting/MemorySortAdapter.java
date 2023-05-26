@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Comparator;
 
 /**
@@ -93,6 +95,99 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      */
     @Nonnull
     MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode();
+    
+    @Nonnull
+    MemorySortComparator<K> getComparator(@Nullable K minimumKey);
 
-    boolean isInsertionOrder();
+    /**
+     * An extended version of a comparator that can be stateful.
+     * @param <K> the type of the key to be compared
+     */
+    interface MemorySortComparator<K> extends Comparator<K> {
+        int compareToMinimumKey(@Nonnull K key);
+        
+        @Nullable
+        K nextMinimumKey();
+    }
+
+    /**
+     * Stateful comparator to support orderings based on regular comparisons delegated to a {@link Comparator}.
+     * @param <K> the type of key
+     */
+    class OrderComparator<K> implements MemorySortComparator<K> {
+        @Nonnull
+        final Comparator<K> comparator;
+
+        @Nullable
+        final K minimumKey;
+
+        public OrderComparator(@Nonnull Comparator<K> comparator, @Nullable final K minimumKey) {
+            this.comparator = comparator;
+            this.minimumKey = minimumKey;
+        }
+
+        @Override
+        public int compareToMinimumKey(@Nonnull final K key) {
+            if (minimumKey == null) {
+                return 1;
+            }
+            return comparator.compare(key, minimumKey);
+        }
+
+        @Nullable
+        @Override
+        public K nextMinimumKey() {
+            return minimumKey;
+        }
+
+        @Override
+        public int compare(@Nonnull final K o1, @Nonnull final K o2) {
+            return comparator.compare(o1, o2);
+        }
+    }
+
+    /**
+     * Stateful comparator supporting insertion order and delegating to a regular {@link Comparator} to establish
+     * equality between the minimum key and a probe.
+     * @param <K> the type of key
+     */
+    class InsertionOrderComparator<K> implements MemorySortComparator<K> {
+        @Nonnull
+        final Comparator<K> comparator;
+
+        @Nullable
+        final K minimumKey;
+
+        boolean hasSeenMinimumKey;
+
+        public InsertionOrderComparator(@Nonnull Comparator<K> comparator, @Nullable final K minimumKey) {
+            this.comparator = comparator;
+            this.minimumKey = minimumKey;
+            this.hasSeenMinimumKey = false;
+        }
+
+        @Override
+        public int compareToMinimumKey(@Nonnull final K key) {
+            if (minimumKey == null) {
+                return 1;
+            }
+            int result = comparator.compare(key, minimumKey);
+            if (result == 0) {
+                hasSeenMinimumKey = true;
+                return -1;
+            }
+            return hasSeenMinimumKey ? 1 : -1;
+        }
+
+        @Nullable
+        @Override
+        public K nextMinimumKey() {
+            return hasSeenMinimumKey ? null : minimumKey;
+        }
+
+        @Override
+        public int compare(@Nonnull final K o1, @Nonnull final K o2) {
+            throw new RecordCoreException("insertion order does not rely on a Comparator");
+        }
+    }
 }

@@ -149,9 +149,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return MemorySorter.RecordCountInMemoryLimitMode.DISCARD;
         }
 
+        @Nonnull
         @Override
-        public boolean isInsertionOrder() {
-            return false;
+        public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
+            return new OrderComparator<>(this, minimumKey);
         }
     }
 
@@ -190,9 +191,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                     return 20;
                 }
 
+                @Nonnull
                 @Override
-                public boolean isInsertionOrder() {
-                    return true;
+                public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
+                    return new InsertionOrderComparator<>(this, minimumKey);
                 }
             };
 
@@ -256,9 +258,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 return 10;
             }
 
+            @Nonnull
             @Override
-            public boolean isInsertionOrder() {
-                return true;
+            public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
+                return new InsertionOrderComparator<>(this, minimumKey);
             }
         };
 

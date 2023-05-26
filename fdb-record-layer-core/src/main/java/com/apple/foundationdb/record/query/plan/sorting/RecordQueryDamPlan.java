@@ -58,7 +58,10 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * A query plan implementing sorting in-memory, possibly spilling to disk.
+ * A query plan implementing a dam in-memory.
+ * A dam consumes the last record from the inner before it produces records which introduces a before and after
+ * into the data flow. A consumer of this plan knows that when the first record is observed, the last record of the dam's
+ * input has been consumed already.
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
@@ -66,6 +69,14 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     private final Quantifier.Physical inner;
+
+    /**
+     * The <em>sort</em> key. This key is used to create an instance of {@link RecordQuerySortAdapter} to extract
+     * the actual key information from the incoming records. Keys, identify records, but, unlike in
+     * {@link RecordQuerySortPlan}, keys are not needed to define an order among records as a dam iterates its records
+     * in insertion order. The actual key comparison defined by {@link RecordQuerySortAdapter} is only used to establish
+     * equality.
+     */
     @Nonnull
     private final RecordQuerySortKey key;
 
@@ -85,8 +96,12 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        // Since we are sorting, we need to feed through everything from the inner plan,
-        // even just to get the top few.
+        //
+        // We need to feed through everything from the inner plan, even just to get the top few.
+        // If the in-memory-dam is in-memory-limited, we may actually go over the input multiple times which is not
+        // desirable for a proper dam. However, in reality we use that plan operator in a way that we are
+        // in-memory-unlimited which in turn ensures that we go over the input exactly once.
+        //
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
                 innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)

@@ -81,9 +81,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
                 // The input cursor did not complete; we must save the sorter state in the continuation so can pick up after.
                 final MemorySortCursorContinuation<K, V> continuation =
                         new MemorySortCursorContinuation<>(adapter, false, scratchpad.getMap().values(),
-                                adapter.isInsertionOrder() && loadResult.hasSeenMinimumKey()
-                                ? null
-                                : minimumKey,
+                                loadResult.getNextMinimumKey(),
                                 inputContinuation);
 
                 return RecordCursorResult.withoutNextValue(continuation, loadResult.getSourceNoNextReason());
