@@ -96,10 +96,20 @@ public final class PlanGenerator {
     @Nonnull
     public Plan<?> getPlan(@Nonnull final String query,
                             @Nonnull final PlanContext context) throws RelationalException {
+        resetTimer();
         KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         final var plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
                 getPlanInternal(query, context, message));
-        if (options.getOption(Options.Name.LOG_QUERY)) {
+        long totalTime = totalTimeMicros();
+        final boolean isSlow = totalTime > (long) options.getOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS);
+        final boolean logQuery = options.getOption(Options.Name.LOG_QUERY);
+
+        if (logQuery || logger.isDebugEnabled() || isSlow) {
+            message.addKeyAndValue("plan", plan.explain());
+            message.addKeyAndValue("totalPlanTime", totalTime);
+            message.addKeyAndValue("query", query);
+        }
+        if (logQuery || isSlow) {
             logger.info(message);
         } else if (logger.isDebugEnabled()) {
             logger.debug(message);
@@ -110,7 +120,6 @@ public final class PlanGenerator {
     @Nonnull
     private Plan<?> getPlanInternal(@Nonnull final String query, @Nonnull final PlanContext context,
                                      @Nonnull KeyValueLogMessage message) throws RelationalException {
-        resetTimer();
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context, query);
@@ -137,18 +146,14 @@ public final class PlanGenerator {
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
-            final boolean finalLogThatQuery = logThatQuery;
             return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
-                                final var plan = generatePhysicalPlan(query, astHashResult, context, planner);
-                                if (finalLogThatQuery || logger.isDebugEnabled()) {
-                                    message.addKeyAndValue("planCache", "miss");
-                                    message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
-                                    message.addKeyAndValue("plan", plan.explain());
-                                }
-                                return Pair.of(planEquivalence.withConstraint(plan.getConstraint()), plan);
+                                final var physicalPlan = generatePhysicalPlan(query, astHashResult, context, planner);
+                                message.addKeyAndValue("planCache", "miss");
+                                message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
+                                return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
@@ -177,9 +182,6 @@ public final class PlanGenerator {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
-        } finally {
-            message.addKeyAndValue("totalPlanTime", totalTimeMicros());
-            message.addKeyAndValue("query", query);
         }
     }
 
@@ -200,6 +202,7 @@ public final class PlanGenerator {
         return new PlanGenerator(cache, createPlanner(metaData, recordStoreState, options), options);
     }
 
+    @Nonnull
     private static Plan<?> generatePhysicalPlan(@Nonnull final String query,
                                                 @Nonnull final AstNormalizer.Result ast,
                                                 @Nonnull final PlanContext planContext,
@@ -289,14 +292,14 @@ public final class PlanGenerator {
         beginTime = currentTime;
     }
 
-    private String stepTimeMicros() {
+    private long stepTimeMicros() {
         final long time = System.nanoTime();
         final long result = TimeUnit.NANOSECONDS.toMicros(time - currentTime);
         currentTime = time;
-        return Long.toString(result);
+        return result;
     }
 
-    private String totalTimeMicros() {
-        return Long.toString(TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime));
+    private long totalTimeMicros() {
+        return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
     }
 }

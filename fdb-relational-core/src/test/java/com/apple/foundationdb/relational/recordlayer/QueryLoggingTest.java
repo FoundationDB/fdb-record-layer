@@ -171,4 +171,21 @@ public class QueryLoggingTest {
             Assertions.assertThat(debugRule.getLastLogEntry()).contains("query=\"SELECT * FROM RESTAURANT\"");
         }
     }
+
+    @Test
+    void testLogQueryBecauseQueryIsSlow() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT")) {
+            resultSet.next();
+        }
+        Assertions.assertThat(logAppender.getLogs()).isEmpty();
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+            conn.setSchema(database.getSchemaName());
+            try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("SELECT NAME FROM RESTAURANT");
+            }
+        }
+    }
 }

@@ -115,7 +115,12 @@ public final class Options {
         /**
          * The maximum size of the Query logging cache.
          */
-        MAX_QUERY_LOGGING_CACHE_SIZE;
+        MAX_QUERY_LOGGING_CACHE_SIZE,
+
+        /**
+         * Log a query at info level if it is slower than `LOG_SLOW_QUERY_THRESHOLD` microseconds.
+         */
+        LOG_SLOW_QUERY_THRESHOLD_MICROS
     }
 
     public enum IndexFetchMethod {
@@ -142,6 +147,7 @@ public final class Options {
         builder.put(Name.SAMPLING_TIME_UNIT, TimeUnit.MINUTES);
         builder.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, 128);
         builder.put(Name.LOG_QUERY, false);
+        builder.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 2_000_000L);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -264,6 +270,7 @@ public final class Options {
         data.put(Name.SAMPLING_TIME_UNIT, List.of(new TypeContract<>(TimeUnit.class)));
         data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.LOG_QUERY, List.of(new TypeContract<>(Boolean.class)));
+        data.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
 
         return Collections.unmodifiableMap(data);
     }
