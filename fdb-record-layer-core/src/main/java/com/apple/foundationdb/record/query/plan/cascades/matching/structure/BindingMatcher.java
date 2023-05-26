@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
 
@@ -65,12 +66,13 @@ public interface BindingMatcher<T> {
      * Note that implementations should only attempt to match the given object with this matcher and delegate
      * all other matching activity to other matchers.
      *
+     * @param plannerConfiguration a planner configuration
      * @param outerBindings preexisting bindings to be used by the matcher
      * @param in the object we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in);
+    Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull T in);
 
     /**
      * A matcher is completely agnostic to the actual class of an object that is being passed in meaning that
@@ -79,16 +81,17 @@ public interface BindingMatcher<T> {
      * This method is implemented as a {@code default} which should be {@code final} as well if Java allowed
      * {@code default}s to be {@code final}. The implementation checks the class of the object that is passed in to be
      * at least of the class returned by {@link #getRootClass()} and then calls
-     * {@link #bindMatchesSafely(PlannerBindings, Object)} with a down-casted {@code in} argument (to {@code T)}.
+     * {@link #bindMatchesSafely(RecordQueryPlannerConfiguration, PlannerBindings, Object)} with a down-casted {@code in} argument (to {@code T)}.
+     * @param plannerConfiguration a planner configuration
      * @param outerBindings the outer bindings passed in from the caller
      * @param in the object to match against
      * @return a stream of planner bindings
      */
     @SuppressWarnings("unchecked")
     @Nonnull
-    default Stream<PlannerBindings> bindMatches(@Nonnull PlannerBindings outerBindings, @Nonnull Object in) {
+    default Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull Object in) {
         if (getRootClass().isInstance(in)) {
-            return bindMatchesSafely(outerBindings, (T)in);
+            return bindMatchesSafely(plannerConfiguration, outerBindings, (T)in);
         } else {
             return Stream.empty();
         }
@@ -165,7 +168,7 @@ public interface BindingMatcher<T> {
      *         {@code false} otherwise
      */
     default boolean matches(@Nonnull Object in) {
-        return bindMatches(PlannerBindings.empty(), in).findAny().isPresent();
+        return bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), in).findAny().isPresent();
     }
 
     /**
@@ -180,7 +183,7 @@ public interface BindingMatcher<T> {
      */
     default boolean matchesExactly(@Nonnull Object in) {
         final List<PlannerBindings> plannerBindings =
-                bindMatches(PlannerBindings.empty(), in)
+                bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), in)
                         .collect(ImmutableList.toImmutableList());
         return plannerBindings.size() == 1;
     }
@@ -219,7 +222,7 @@ public interface BindingMatcher<T> {
 
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
                 throw new RecordCoreException("bindMatchesSafely() should not be called");
             }
 

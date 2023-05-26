@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
@@ -54,13 +54,14 @@ import java.util.Set;
  * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsPredicate implements LeafQueryPredicate {
+public class ExistsPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Predicate");
 
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
 
     public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias) {
+        super(false);
         this.existentialAlias = existentialAlias;
     }
 
@@ -108,12 +109,12 @@ public class ExistsPredicate implements LeafQueryPredicate {
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias);
+        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override
@@ -122,7 +123,12 @@ public class ExistsPredicate implements LeafQueryPredicate {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int computeSemanticHashCode() {
+        return LeafQueryPredicate.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return planHash();
     }
 
@@ -178,15 +184,13 @@ public class ExistsPredicate implements LeafQueryPredicate {
     }
 
     @Nonnull
-    private GraphExpansion injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
+    private Set<QueryPredicate> injectCompensation(@Nonnull final PartialMatch partialMatch, @Nonnull final TranslationMap translationMap) {
         Verify.verify(!translationMap.containsSourceAlias(existentialAlias));
 
         final var containingExpression = partialMatch.getQueryExpression();
         Verify.verify(containingExpression.canCorrelate());
 
-        return GraphExpansion.builder()
-                .addPredicate(this)
-                .build();
+        return LinkedIdentitySet.of(this);
     }
     
     @Override

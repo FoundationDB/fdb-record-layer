@@ -153,9 +153,15 @@ public class DebuggerWithSymbolTables implements Debugger {
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
                 final var newExpressions = ruleCall.getNewExpressions();
                 if (!newExpressions.isEmpty()) {
-                    logger.debug(KeyValueLogMessage.of("rule yielded new expression(s)",
-                            "rule", transformRuleCallEvent.getRule().getClass().getSimpleName(),
-                            "expressions", newExpressions.stream().map(this::nameForObject).collect(Collectors.joining(", "))));
+                    final var logMessage = KeyValueLogMessage.build("rule yielded new expression(s)",
+                            "rule", transformRuleCallEvent.getRule().getClass().getSimpleName());
+                    final var name  = nameForObject(transformRuleCallEvent.getBindable());
+                    if (name != null) {
+                        logMessage.addKeyAndValue("name", name);
+                    }
+
+                    logMessage.addKeyAndValue("expressions", newExpressions.stream().map(this::nameForObject).collect(Collectors.joining(", ")));
+                    logger.debug(logMessage.toString());
                 }
             }
         }

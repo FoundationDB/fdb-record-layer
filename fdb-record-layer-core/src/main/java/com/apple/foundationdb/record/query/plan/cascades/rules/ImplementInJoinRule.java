@@ -25,11 +25,10 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -46,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.google.common.collect.HashMultimap;
@@ -148,13 +146,13 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 }
                 final var reverseSources = Lists.reverse(sources);
 
-                GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
+                var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
                 for (final InSource inSource : reverseSources) {
-                    final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference));
-                    newInnerPlanReference = GroupExpressionRef.of(inJoinPlan);
+                    final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
+                    newInnerPlanReference = call.memoizePlansBuilder(inJoinPlan);
                 }
 
-                call.yield(newInnerPlanReference);
+                call.yield(newInnerPlanReference.members());
             }
         }
     }

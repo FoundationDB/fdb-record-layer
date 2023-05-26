@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -200,21 +199,26 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
         // for case 2 and case 3 we can at least build a FILTER(inner, pushedPredicates) as that is
         // required both for case 2 and 3
 
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(GroupExpressionRef.of(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
 
         final RecordQueryPredicatesFilterPlan pushedFilterPlan =
                 new RecordQueryPredicatesFilterPlan(newInnerQuantifier, pushedPredicates);
 
+        final Quantifier.Physical newQuantifierOverFilter = Quantifier.physical(call.memoizePlans(pushedFilterPlan));
+
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedFilterPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
+                new RecordQueryFetchFromPartialRecordPlan(newQuantifierOverFilter,
+                        fetchPlan.getPushValueFunction(),
+                        Type.Relation.scalarOf(fetchPlan.getResultType()),
+                        fetchPlan.getFetchIndexRecords());
 
         if (residualPredicates.isEmpty()) {
             // case 2
-            call.yield(GroupExpressionRef.of(newFetchPlan));
+            call.yield(newFetchPlan);
         } else {
             // case 3
             // create yet another physical quantifier on top of the fetch
-            final Quantifier.Physical newQuantifierOverFetch = Quantifier.physical(GroupExpressionRef.of(newFetchPlan));
+            final Quantifier.Physical newQuantifierOverFetch = Quantifier.physical(call.memoizePlans(newFetchPlan));
 
             final AliasMap translationMap = AliasMap.of(quantifierOverFetch.getAlias(), newQuantifierOverFetch.getAlias());
 
@@ -223,7 +227,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                     .map(residualPredicate -> residualPredicate.rebase(translationMap))
                     .collect(ImmutableList.toImmutableList());
 
-            call.yield(GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates)));
+            call.yield(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
         }
     }
 

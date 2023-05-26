@@ -42,13 +42,14 @@ import java.util.Set;
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePredicate implements PredicateWithValue {
+public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
     private final Comparison comparison;
 
     public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
+        super(false);
         this.value = value;
         this.comparison = comparison;
     }
@@ -115,18 +116,23 @@ public class ValuePredicate implements PredicateWithValue {
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public int computeSemanticHashCode() {
+        return PredicateWithValue.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!PredicateWithValue.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ValuePredicate that = (ValuePredicate)other;
-        return value.semanticEquals(that.value, equivalenceMap) &&
-               comparison.semanticEquals(that.comparison, equivalenceMap);
-    }
-    
-    @Override
-    public int semanticHashCode() {
-        return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
+        return value.semanticEquals(that.value, aliasMap) &&
+               comparison.semanticEquals(that.comparison, aliasMap);
     }
 
     @Override

@@ -67,7 +67,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -253,21 +252,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        return fold(Value::getCorrelatedToWithoutChildren,
-                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
-                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
-                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
-                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
-                    return correlatedToBuilder.build();
-                });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull
     @Override
@@ -309,17 +294,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      *         incorporate the children of this value
      */
     int hashCodeWithoutChildren();
-
-    /**
-     * Overridden method to compute the semantic hash code of this tree of values. This method uses
-     * {@link #hashCodeWithoutChildren()} to fold over the tree.
-     * @return the semantic hash code
-     */
-    @Override
-    default int semanticHashCode() {
-        return fold(Value::hashCodeWithoutChildren,
-                (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
-    }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -491,13 +465,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .identitiesFor(correlatedToIntersection)
                 .build();
 
-        final var valueWitResult =
+        final var resultPair =
                 Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
-        if (valueWitResult == null) {
+        if (resultPair == null) {
             return ImmutableMap.of();
         }
 
-        final var matchedValuesMap = valueWitResult.getResult();
+        final var matchedValuesMap = resultPair.getRight();
         final var resultsMap = new LinkedIdentityMap<Value, Value>();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);

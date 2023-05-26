@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -339,17 +340,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
-                                                       @Nonnull final PlanContext planContext,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final PlanContext planContext,
+                                            @Nonnull final Memoizer memoizer,
+                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
 
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-
-        return tryFetchCoveringIndexScan(partialMatch, planContext, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
@@ -358,17 +359,19 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
                                 false,
-                                (ScanWithFetchMatchCandidate)partialMatch.getMatchCandidate(),
-                                baseRecordType));
+                                partialMatch.getMatchCandidate(),
+                                baseRecordType,
+                                QueryPlanConstraint.tautology()));
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final PlanContext planContext,
-                                                                     @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                     final boolean isReverse,
-                                                                     @Nonnull final Type.Record baseRecordType) {
+    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+                                                                @Nonnull final PlanContext planContext,
+                                                                @Nonnull final Memoizer memoizer,
+                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                                final boolean isReverse,
+                                                                @Nonnull final Type.Record baseRecordType) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -400,15 +403,16 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                         isReverse,
                         false,
-                        (WindowedIndexScanMatchCandidate)partialMatch.getMatchCandidate(),
-                        baseRecordType);
+                        partialMatch.getMatchCandidate(),
+                        baseRecordType,
+                        QueryPlanConstraint.tautology());
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)), coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
     @Nonnull

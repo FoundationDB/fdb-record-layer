@@ -37,6 +37,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * A value representing the quantifier as an object.
@@ -44,7 +45,7 @@ import javax.annotation.Nullable;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedObjectValue implements QuantifiedValue {
+public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
     @Nonnull
@@ -91,6 +92,12 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public CorrelationIdentifier getAlias() {
         return alias;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
     }
 
     @Nonnull

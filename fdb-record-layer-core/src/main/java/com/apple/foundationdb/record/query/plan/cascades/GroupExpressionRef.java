@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -174,20 +175,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      *         otherwise.
      */
     private boolean insert(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
-        final boolean containsInMemo;
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
-            containsInMemo = containsInMemo(newValue);
-        } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
-        }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
+            final boolean containsInMemo = containsInMemo(newValue);
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
 
-        if (!containsInMemo) {
-            insertUnchecked(newValue, precomputedPropertiesMap);
-            return true;
+            if (!containsInMemo) {
+                insertUnchecked(newValue, precomputedPropertiesMap);
+                return true;
+            }
+            return false;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        return false;
     }
 
     /**
@@ -268,85 +268,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             }
         }
         return false;
-    }
-
-    public static boolean containsInMember(@Nonnull final RelationalExpression expression,
-                                           @Nonnull final RelationalExpression otherExpression) {
-        final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
-        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
-
-        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
-        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
-
-        return containsInMember(expression, otherExpression, identityMap);
-    }
-
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static boolean containsInMember(@Nonnull final RelationalExpression member,
-                                            @Nonnull final RelationalExpression otherExpression,
-                                            @Nonnull final AliasMap equivalenceMap) {
-        if (member == otherExpression) {
-            return true;
-        }
-        if (member.getClass() != otherExpression.getClass()) {
-            return false;
-        }
-
-        final List<? extends Quantifier> quantifiers = member.getQuantifiers();
-        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
-        if (member.getQuantifiers().size() != otherQuantifiers.size()) {
-            return false;
-        }
-
-        if (member.hashCodeWithoutChildren() != otherExpression.hashCodeWithoutChildren()) {
-            return false;
-        }
-
-        // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
-        Verify.verify(member.canCorrelate() == otherExpression.canCorrelate());
-
-        // Bind all unbound correlated aliases in this member and otherMember that refer to the same
-        // quantifier by alias.
-        final AliasMap identitiesMap = member.bindIdentities(otherExpression, equivalenceMap);
-        final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
-
-        final Iterable<AliasMap> aliasMapIterable;
-        if (member instanceof RelationalExpressionWithChildren.ChildrenAsSet) {
-            // Use match the contained quantifier list against the quantifier list of other in order to find
-            // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
-            // containsAllInMemo() and early out on that map if such a correspondence cannot be established
-            // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
-            // possible that there is more than one match, this iterable should mostly contain at most one
-            // match.
-            aliasMapIterable =
-                    Quantifiers.findMatches(
-                            combinedEquivalenceMap,
-                            member.getQuantifiers(),
-                            otherExpression.getQuantifiers(),
-                            ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
-                                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-                                final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
-                                return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
-                            }));
-        } else {
-            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
-            for (int i = 0; i < quantifiers.size(); i++) {
-                final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
-                final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
-                if (!quantifier.getRangesOver()
-                        .containsAllInMemo(otherQuantifier.getRangesOver(), aliasMapBuilder.build())) {
-                    return false;
-                }
-                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
-            }
-
-            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
-        }
-
-        // if there is more than one match we only need one such match that also satisfies the equality condition between
-        // member and otherMember (no children considered).
-        return StreamSupport.stream(aliasMapIterable.spliterator(), false)
-                .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
     @Nonnull
@@ -431,6 +352,27 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return members;
     }
 
+    /**
+     * Re-reference members of this group, i.e., use a subset of members to from a new {@link GroupExpressionRef}.
+     * Note that {@code this} group must not need exploration.
+     *
+     * @param expressions a collection of expressions that all have to be members of this group
+     * @return a new explored {@link GroupExpressionRef}
+     */
+    @SuppressWarnings({"SuspiciousMethodCalls", "unchecked"})
+    @Nonnull
+    @Override
+    public ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        Verify.verify(!needsExploration());
+        Verify.verify(getMembers().containsAll(expressions));
+
+        final var members = new LinkedIdentitySet<T>();
+        expressions.forEach(expression -> members.add((T)expression));
+        final var newRef = new GroupExpressionRef<>(members);
+        newRef.getConstraintsMap().setExplored();
+        return newRef;
+    }
+
     @Nonnull
     @Override
     public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
@@ -460,33 +402,14 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return null;
     }
 
+    @SuppressWarnings("checkstyle:Indentation")
     @Override
     public String toString() {
-        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")";
-    }
-
-    public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
-        return new GroupExpressionRef<>();
-    }
-
-    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
-        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
-        // Call debugger hook to potentially register this new expression.
-        Debugger.registerExpression(expression);
-        members.add(expression);
-        return new GroupExpressionRef<>(members);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T... expressions) {
-        return from(Arrays.asList(expressions));
-    }
-
-    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
-        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
-        expressions.forEach(Debugger::registerExpression);
-        members.addAll(expressions);
-        return new GroupExpressionRef<>(members);
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+                                    getMembers().stream()
+                       .map(debugger::nameForObject)
+                       .collect(Collectors.joining(",")) + "]")
+                .orElse("ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
     }
 
     @Override
@@ -509,7 +432,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             final T next = iterator.next();
             expressionsMapBuilder.put(next.semanticHashCode(), next);
         }
-
         final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
 
         for (final T otherMember : otherRef.getMembers()) {
@@ -517,7 +439,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 return true;
             }
         }
-
         return false;
     }
 
@@ -573,5 +494,108 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nonnull
     public String show(final boolean renderSingleGroups) {
         return PlannerGraphProperty.show(renderSingleGroups, this);
+    }
+
+    public static boolean containsInMember(@Nonnull final RelationalExpression expression,
+                                           @Nonnull final RelationalExpression otherExpression) {
+        final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
+        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
+
+        return containsInMember(expression, otherExpression, identityMap);
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static boolean containsInMember(@Nonnull final RelationalExpression member,
+                                            @Nonnull final RelationalExpression otherExpression,
+                                            @Nonnull final AliasMap equivalenceMap) {
+        if (member == otherExpression) {
+            return true;
+        }
+        if (member.getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        final List<? extends Quantifier> quantifiers = member.getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
+        if (member.getQuantifiers().size() != otherQuantifiers.size()) {
+            return false;
+        }
+
+        if (member.hashCodeWithoutChildren() != otherExpression.hashCodeWithoutChildren()) {
+            return false;
+        }
+
+        // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
+        Verify.verify(member.canCorrelate() == otherExpression.canCorrelate());
+
+        // Bind all unbound correlated aliases in this member and otherMember that refer to the same
+        // quantifier by alias.
+        final AliasMap identitiesMap = member.bindIdentities(otherExpression, equivalenceMap);
+        final AliasMap combinedEquivalenceMap = equivalenceMap.combine(identitiesMap);
+
+        final Iterable<AliasMap> aliasMapIterable;
+        if (member instanceof RelationalExpressionWithChildren.ChildrenAsSet) {
+            // Use match the contained quantifier list against the quantifier list of other in order to find
+            // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
+            // containsAllInMemo() and early out on that map if such a correspondence cannot be established
+            // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
+            // possible that there is more than one match, this iterable should mostly contain at most one
+            // match.
+            aliasMapIterable =
+                    Quantifiers.findMatches(
+                            combinedEquivalenceMap,
+                            member.getQuantifiers(),
+                            otherExpression.getQuantifiers(),
+                            ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
+                                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                                final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
+                                return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
+                            }));
+        } else {
+            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
+            for (int i = 0; i < quantifiers.size(); i++) {
+                final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
+                final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));
+                if (!quantifier.getRangesOver()
+                        .containsAllInMemo(otherQuantifier.getRangesOver(), aliasMapBuilder.build())) {
+                    return false;
+                }
+                aliasMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+            }
+
+            aliasMapIterable = ImmutableList.of(aliasMapBuilder.build());
+        }
+
+        // if there is more than one match we only need one such match that also satisfies the equality condition between
+        // member and otherMember (no children considered).
+        return StreamSupport.stream(aliasMapIterable.spliterator(), false)
+                .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
+    }
+
+    public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
+        return new GroupExpressionRef<>();
+    }
+
+    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
+        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
+        members.add(expression);
+        return new GroupExpressionRef<>(members);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull T... expressions) {
+        return from(Arrays.asList(expressions));
+    }
+
+    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
+        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+        expressions.forEach(Debugger::registerExpression);
+        members.addAll(expressions);
+        return new GroupExpressionRef<>(members);
     }
 }

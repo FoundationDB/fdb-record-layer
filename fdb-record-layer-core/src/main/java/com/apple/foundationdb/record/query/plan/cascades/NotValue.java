@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
@@ -48,7 +49,7 @@ import java.util.Optional;
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue implements BooleanValue {
+public class NotValue extends AbstractValue implements BooleanValue {
     /**
      * The hash value of this expression.
      */

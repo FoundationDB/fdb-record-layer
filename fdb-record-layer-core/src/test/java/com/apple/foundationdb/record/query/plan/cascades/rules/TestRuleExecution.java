@@ -73,7 +73,7 @@ public class TestRuleExecution {
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {
-            final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(PlannerBindings.empty(), expression)
+            final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
                     .map(bindings -> new CascadesRuleCall(context, rule, group, ExpressionRefTraversal.withRoot(group), bindings, evaluationContext))
                     .iterator();
             while (ruleCalls.hasNext()) {

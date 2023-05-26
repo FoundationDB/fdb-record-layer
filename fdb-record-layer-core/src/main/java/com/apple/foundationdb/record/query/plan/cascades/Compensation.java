@@ -103,13 +103,13 @@ import java.util.function.Supplier;
  * </pre>
  * The query fragment that needs to be inserted to correct for extra records the index scan produces, that is
  * the {@code WHERE x = 5} is compensation.
- *
+ * <br>
  * Compensation is computed either during the matching process or is computed after a complete match has been found
  * utilizing helper structures such as {@link PartialMatch} and {@link MatchInfo}, which are themselves
  * built during matching. Logic in
  * {@link DataAccessRule} computes and applies compensation
  * as needed when a complete index match has been found.
- *
+ * <br>
  * A query sub graph can have multiple matches that could be utilized. In the example above, another index on {@code b}
  * would also match but use {@code b} for the index scan and a predicate {@code WHERE a = 3}. Both match the query,
  * and in fact both indexes can be utilized together by intersecting the index scans. For those cases, it becomes
@@ -140,8 +140,9 @@ public interface Compensation {
             return this;
         }
 
+        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -149,7 +150,7 @@ public interface Compensation {
     /**
      * Identity element for the intersection monoid defined by {@link #intersect(Compensation)}.
      * Example for the usage pattern for that monoid:
-     *
+     * <br>
      * Let {@code compensations} be a {@link Collection} of {@link Compensation}.
      * You can use {@link java.util.stream.Stream#reduce} to create an intersection of
      * all compensations in that collection.
@@ -175,13 +176,23 @@ public interface Compensation {
             return otherCompensation;
         }
 
+        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
             throw new RecordCoreException("this method should not be called");
         }
     };
 
-    RelationalExpression apply(@Nonnull RelationalExpression relationalExpression);
+    /**
+     * When applied to a reference this method returns a {@link RelationalExpression} consuming the
+     * reference passed in that applies additional predicates as expressed by the predicate compensation map.
+     * @param memoizer the memoizer for new {@link ExpressionRef}s
+     * @param relationalExpression root of graph to apply compensation to
+     * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
+     *         filters and/or transformations
+     */
+    @Nonnull
+    RelationalExpression apply(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -250,8 +261,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(otherCompensation.apply(relationalExpression));
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
             }
         };
     }
@@ -270,8 +281,8 @@ public interface Compensation {
         return new Compensation() {
             @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final RelationalExpression relationalExpression) {
-                return Compensation.this.apply(otherCompensation.apply(relationalExpression));
+            public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull final RelationalExpression relationalExpression) {
+                return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression));
             }
         };
     }
@@ -583,7 +594,6 @@ public interface Compensation {
      * Regular compensation class for matches based on query predicates.
      */
     class ForMatch implements WithSelectCompensation {
-        @Nonnull
         final boolean isImpossible;
 
         @Nonnull
@@ -703,17 +713,19 @@ public interface Compensation {
         }
 
         /**
-         * When applied to a reference this method returns a {@link LogicalFilterExpression} consuming the
+         * When applied to a reference this method returns a {@link RelationalExpression} consuming the
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
+         * @param memoizer the the memoizer for new {@link ExpressionRef}s
          * @param relationalExpression root of graph to apply compensation to
-         * @return a new relational expression that corrects the result of {@code reference} by applying an additional
-         * filter
+         * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
+         * filters and/or transformations
          */
+        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull RelationalExpression relationalExpression) {
+        public RelationalExpression apply(@Nonnull final Memoizer memoizer, @Nonnull RelationalExpression relationalExpression) {
             // apply the child as needed
             if (childCompensation.isNeeded()) {
-                relationalExpression = childCompensation.apply(relationalExpression);
+                relationalExpression = childCompensation.apply(memoizer, relationalExpression);
             }
 
             if (predicateCompensationMap.isEmpty()) {
@@ -739,21 +751,16 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var newBaseQuantifier = Quantifier.forEach(GroupExpressionRef.of(relationalExpression), matchedForEachQuantifierAlias);
-            final var compensationExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
+            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(GroupExpressionRef.of(relationalExpression)), matchedForEachQuantifierAlias);
+            final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
 
             final var injectCompensationFunctions = predicateCompensationMap.values();
             for (final var injectCompensationFunction : injectCompensationFunctions) {
-                compensationExpansionsBuilder.add(injectCompensationFunction.applyCompensation(TranslationMap.empty()));
+                compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
             }
 
-            final var compensatedPredicatesExpansion =
-                    GraphExpansion.ofOthers(compensationExpansionsBuilder.build()).seal();
-            Verify.verify(compensatedPredicatesExpansion.getQuantifiers().isEmpty());
-            Verify.verify(compensatedPredicatesExpansion.getResultColumns().isEmpty());
-
             final var compensatedPredicatesCorrelatedTo =
-                    compensatedPredicatesExpansion.getPredicates()
+                    compensatedPredicates
                             .stream()
                             .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                             .collect(ImmutableSet.toImmutableSet());
@@ -769,6 +776,8 @@ public interface Compensation {
                             .filter(quantifier -> compensatedPredicatesCorrelatedTo.contains(quantifier.getAlias()))
                             .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
+            Verify.verify(compensatedAliases.equals(matchedAliases));
+
             //
             // TODO In the vast majority of cases the then branch is taken where the compensation does not create
             //      a join. If the compensation, however, has to reapply the predicate, then in addition to using
@@ -780,17 +789,16 @@ public interface Compensation {
             //      in the logical filter expression are left alone by other rules.
             //
             if (toBePulledUpQuantifiers.isEmpty()) {
-                return new LogicalFilterExpression(compensatedPredicatesExpansion.getPredicates(), newBaseQuantifier);
+                return new LogicalFilterExpression(compensatedPredicates, newBaseQuantifier);
             } else {
-                compensationExpansionsBuilder.add(
-                        GraphExpansion.builder().addAllQuantifiers(toBePulledUpQuantifiers).build());
+                final var completeExpansionBuilder = GraphExpansion.builder();
+                completeExpansionBuilder.addAllQuantifiers(toBePulledUpQuantifiers);
 
                 // add base quantifier
-                compensationExpansionsBuilder.add(GraphExpansion.ofQuantifier(newBaseQuantifier));
+                completeExpansionBuilder.addQuantifier(newBaseQuantifier);
+                completeExpansionBuilder.addAllPredicates(compensatedPredicates);
 
-                final var completeExpansion = GraphExpansion.ofOthers(compensationExpansionsBuilder.build());
-
-                return completeExpansion.buildSimpleSelectOverQuantifier(newBaseQuantifier);
+                return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
         }
     }

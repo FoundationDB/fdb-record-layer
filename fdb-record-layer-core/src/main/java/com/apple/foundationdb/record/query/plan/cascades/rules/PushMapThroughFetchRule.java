@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -150,13 +149,13 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
         if (pushedResultValueOptional.isEmpty()) {
             return;
         }
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(GroupExpressionRef.of(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
 
         // construct a new map plan that ranges over the plan the fetch ranges over
         final var pushedMapPlan =
                 new RecordQueryMapPlan(newInnerQuantifier, pushedResultValueOptional.get());
 
         // effectively throw away the fetch
-        call.yield(GroupExpressionRef.of(pushedMapPlan));
+        call.yield(pushedMapPlan);
     }
 }

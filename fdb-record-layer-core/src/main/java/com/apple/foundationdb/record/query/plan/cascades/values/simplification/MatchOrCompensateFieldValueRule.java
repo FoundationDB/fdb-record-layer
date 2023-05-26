@@ -64,9 +64,9 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
         final var fieldValue = bindings.get(rootMatcher);
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var valueWithResultFromChild = call.getResult(fieldValue.getChild());
+        final var resultPairFromChild = call.getResult(fieldValue.getChild());
         final var matchedValuesMap =
-                valueWithResultFromChild == null ? null : valueWithResultFromChild.getResult();
+                resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
         final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 

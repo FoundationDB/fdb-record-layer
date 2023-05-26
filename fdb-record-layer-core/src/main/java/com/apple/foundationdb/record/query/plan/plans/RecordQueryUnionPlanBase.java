@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -233,8 +233,8 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Override
-    public QueryPlan<FDBQueriedRecord<Message>> strictlySorted() {
-        return withChildrenReferences(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
+    public QueryPlan<FDBQueriedRecord<Message>> strictlySorted(@Nonnull final Memoizer memoizer) {
+        return withChildrenReferences(getChildren().stream().map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
     }
 
 }

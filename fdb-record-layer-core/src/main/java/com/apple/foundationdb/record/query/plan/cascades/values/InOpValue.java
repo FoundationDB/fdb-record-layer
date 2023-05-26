@@ -56,7 +56,7 @@ import java.util.Optional;
  * A {@link Value} that checks if the left child is in the list of values.
  */
 @API(API.Status.EXPERIMENTAL)
-public class InOpValue implements BooleanValue {
+public class InOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Op-Value");
 
     @Nonnull

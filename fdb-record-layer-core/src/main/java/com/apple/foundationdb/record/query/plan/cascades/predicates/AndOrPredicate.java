@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -31,27 +33,38 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Common base class for predicates with many children, such as {@link AndPredicate} and {@link OrPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AndOrPredicate implements QueryPredicate {
+public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @Nonnull
     private final List<QueryPredicate> children;
 
-    protected AndOrPredicate(@Nonnull List<QueryPredicate> children) {
+    private final Supplier<Set<Equivalence.Wrapper<QueryPredicate>>> childrenAsSetSupplier;
+
+    protected AndOrPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+        super(isAtomic);
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
 
         this.children = children;
+        this.childrenAsSetSupplier = Suppliers.memoize(() -> computeChildrenAsSet(children, AliasMap.identitiesFor(getCorrelatedTo())));
     }
 
     @Nonnull
     @Override
     public List<? extends QueryPredicate> getChildren() {
         return children;
+    }
+
+    @Nonnull
+    private Set<Equivalence.Wrapper<QueryPredicate>> getChildrenAsSet() {
+        return childrenAsSetSupplier.get();
     }
 
     @Override
@@ -62,15 +75,29 @@ public abstract class AndOrPredicate implements QueryPredicate {
     }
 
     @Override
+    public boolean equalsForChildren(@Nonnull final QueryPredicate otherPred, @Nonnull final AliasMap aliasMap) {
+        final var andOrPredicateOptional = otherPred.narrowMaybe(AndOrPredicate.class);
+        if (andOrPredicateOptional.isEmpty()) {
+            return false;
+        }
+        final var andOrPredicate = andOrPredicateOptional.get();
+
+        if (aliasMap.definesOnlyIdentities() && getCorrelatedTo().containsAll(aliasMap.sources())) {
+            return getChildrenAsSet().equals(andOrPredicate.getChildrenAsSet());
+        }
+        return super.equalsForChildren(otherPred, aliasMap);
+    }
+
+    @Override
     public int hashCode() {
         return semanticHashCode();
     }
 
     @Override
-    public int semanticHashCode() {
-        return Objects.hash(ImmutableSet.of(getChildren()));
+    public int computeSemanticHashCode() {
+        return Objects.hash(hashCodeWithoutChildren(), ImmutableSet.copyOf(getChildren()));
     }
-
+    
     protected static List<? extends QueryPredicate> toList(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                                            @Nonnull QueryPredicate... operands) {
         List<QueryPredicate> children = new ArrayList<>(operands.length + 2);
@@ -78,5 +105,15 @@ public abstract class AndOrPredicate implements QueryPredicate {
         children.add(second);
         Collections.addAll(children, operands);
         return children;
+    }
+
+    @Nonnull
+    private static Set<Equivalence.Wrapper<QueryPredicate>> computeChildrenAsSet(@Nonnull final List<QueryPredicate> children, @Nonnull final AliasMap aliasMap)  {
+        final var equivalence = new BoundEquivalence<QueryPredicate>(aliasMap);
+        final var resultBuilder = ImmutableSet.<Equivalence.Wrapper<QueryPredicate>>builder();
+        children.forEach(child -> {
+            resultBuilder.add(equivalence.wrap(child));
+        });
+        return resultBuilder.build();
     }
 }

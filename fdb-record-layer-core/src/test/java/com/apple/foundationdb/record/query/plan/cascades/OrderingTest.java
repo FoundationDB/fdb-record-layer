@@ -24,10 +24,10 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -48,10 +48,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class OrderingTest {
     @Test
     void testOrdering() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -70,10 +70,10 @@ class OrderingTest {
 
     @Test
     void testOrdering2() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
 
         final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
@@ -93,10 +93,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -116,10 +116,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys2() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -138,10 +138,10 @@ class OrderingTest {
 
     @Test
     void testMergeKeys3() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
@@ -158,16 +158,16 @@ class OrderingTest {
 
     @Test
     void testPullUp1() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
         final var rcv2 = rcvWrapper("a", "b", "c");
         final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(field(qov, "ap"));
-        final var bp = of(field(qov, "bp"));
-        final var cp = of(field(qov, "cp"));
+        final var ap = of(ValueTestHelpers.field(qov, "ap"));
+        final var bp = of(ValueTestHelpers.field(qov, "bp"));
+        final var cp = of(ValueTestHelpers.field(qov, "cp"));
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
         final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
         assertEquals(
@@ -177,17 +177,17 @@ class OrderingTest {
 
     @Test
     void testPullUp2() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var d = of(field(rcv, "d"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var d = of(ValueTestHelpers.field(rcv, "d"));
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
         final var rcv2 = rcvWrapper("a", "b", "c");
         final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(field(qov, "ap"));
-        final var bp = of(field(qov, "bp"));
-        final var cp = of(field(qov, "cp"));
+        final var ap = of(ValueTestHelpers.field(qov, "ap"));
+        final var bp = of(ValueTestHelpers.field(qov, "bp"));
+        final var cp = of(ValueTestHelpers.field(qov, "cp"));
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
         final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
         assertEquals(
@@ -197,10 +197,10 @@ class OrderingTest {
 
     @Test
     void testPullUp3() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c")); // a <- b <- c
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c")); // a <- b <- c
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
         final var rcv2 = rcvWrapper("b", "c");
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
@@ -212,18 +212,18 @@ class OrderingTest {
 
     @Test
     void testPullUp4() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var d = of(field(rcv, "d"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var d = of(ValueTestHelpers.field(rcv, "d"));
         // a <- b <- c
         //   <- d
         final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b, d, a));
         final var rcv2 = rcvWrapper("a", "d");
         final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(field(qov, "ap"));
-        final var dp = of(field(qov, "dp"));
+        final var ap = of(ValueTestHelpers.field(qov, "ap"));
+        final var dp = of(ValueTestHelpers.field(qov, "dp"));
         final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
         final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
         assertEquals(
@@ -233,12 +233,12 @@ class OrderingTest {
 
     @Test
     void testMergePartialOrdersNAry() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var d = of(field(rcv, "d"));
-        final var e = of(field(rcv, "e"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var d = of(ValueTestHelpers.field(rcv, "d"));
+        final var e = of(ValueTestHelpers.field(rcv, "e"));
 
         final var one =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
@@ -266,12 +266,12 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var d = of(field(rcv, "d"));
-        final var e = of(field(rcv, "e"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var d = of(ValueTestHelpers.field(rcv, "d"));
+        final var e = of(ValueTestHelpers.field(rcv, "e"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -310,11 +310,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering2() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var x = of(field(rcv, "x"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var x = of(ValueTestHelpers.field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -342,11 +342,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering3() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var x = of(field(rcv, "x"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var x = of(ValueTestHelpers.field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -374,11 +374,11 @@ class OrderingTest {
 
     @Test
     void testCommonOrdering4() {
-        final var rcv = rcv();
-        final var a = of(field(rcv, "a"));
-        final var b = of(field(rcv, "b"));
-        final var c = of(field(rcv, "c"));
-        final var x = of(field(rcv, "x"));
+        final var rcv = ValueTestHelpers.rcv();
+        final var a = of(ValueTestHelpers.field(rcv, "a"));
+        final var b = of(ValueTestHelpers.field(rcv, "b"));
+        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var x = of(ValueTestHelpers.field(rcv, "x"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -401,33 +401,9 @@ class OrderingTest {
     }
 
     @Nonnull
-    private static Value field(@Nonnull final Value value, @Nonnull final String fieldName) {
-        return FieldValue.ofFieldName(value, fieldName);
-    }
-
-    @Nonnull
-    private static RecordConstructorValue rcv() {
-        final ImmutableList<Column<? extends Value>> columns =
-                ImmutableList.of(
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
-                                LiteralValue.ofScalar("fieldValueA")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b")),
-                                LiteralValue.ofScalar("fieldValueB")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
-                                LiteralValue.ofScalar("fieldValueC")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("d")),
-                                LiteralValue.ofScalar("fieldValueD")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("e")),
-                                LiteralValue.ofScalar("fieldValueE")),
-                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("x")),
-                                LiteralValue.ofScalar("fieldValueX")));
-        return RecordConstructorValue.ofColumns(columns);
-    }
-
-    @Nonnull
     private static RecordConstructorValue rcvWrapper(@Nonnull final String... projection) {
 
-        final var rcv = rcv();
+        final var rcv = ValueTestHelpers.rcv();
         final List<Column<? extends Value>> columns = Arrays.stream(projection)
                 .map(field -> FieldValue.ofFieldName(rcv, field))
                 .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getLastFieldName().orElseThrow() + "p")), field))

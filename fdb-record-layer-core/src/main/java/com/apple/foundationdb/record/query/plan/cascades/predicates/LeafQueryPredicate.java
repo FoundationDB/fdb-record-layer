@@ -43,4 +43,19 @@ public interface LeafQueryPredicate extends QueryPredicate {
     default QueryPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return this;
     }
+
+    /**
+     * Default implementation to be mixed in.
+     * @return the result of invoking {@link #hashCodeWithoutChildren()}
+     */
+    default int computeSemanticHashCode() {
+        return hashCodeWithoutChildren();
+    }
+
+    @Nonnull
+    @Override
+    default QueryPredicate withAtomicity(boolean isAtomic) {
+        return this;
+    }
+
 }

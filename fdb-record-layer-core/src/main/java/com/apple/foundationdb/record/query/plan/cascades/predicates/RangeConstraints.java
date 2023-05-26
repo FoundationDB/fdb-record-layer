@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -47,11 +46,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Represents a compile-time range that can be evaluated against other compile-time ranges with an optional list
- * of deferred ranges that can not be evaluated at compile-time but can still be used as scan index prefix.
+ * of deferred ranges that cannot be evaluated at compile-time but can still be used as scan index prefix.
  */
 public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints> {
 
@@ -63,7 +63,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     /**
      * Amortized checker which checks whether any of the underlying range {@link Comparisons.Comparison}
-     * is a {@link com.apple.foundationdb.record.query.expressions.Comparisons.ValueComparison} with a
+     * is a {@link Comparisons.ValueComparison} with a
      * {@link ConstantObjectValue} comparand. This check is needed for situations where we want to compile-time
      * evaluate this {@link RangeConstraints}.
      */
@@ -85,7 +85,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * Creates a new instance of the {@link RangeConstraints}.
      *
      * @param evaluableRange the compile-time evaluable range.
-     * @param deferredRanges a list of none compile-time evaluable ranges but can still be used in a scan prefix.
+     * @param deferredRanges a list of ranges that are not compile-time evaluable but can still be used in a scan prefix.
      */
     private RangeConstraints(@Nullable final CompilableRange evaluableRange,
                              @Nonnull final Set<Comparisons.Comparison> deferredRanges) {
@@ -620,10 +620,10 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             if (!canBeUsedInScanPrefix(comparison)) {
                 return false;
             }
-            if (!isCompileTime(comparison)) {
-                nonCompilableComparisons.add(comparison);
-            } else {
+            if (isCompileTime(comparison)) {
                 compilableComparisons.add(comparison);
+            } else {
+                nonCompilableComparisons.add(comparison);
             }
             return true;
         }

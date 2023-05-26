@@ -61,8 +61,8 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
         final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
-        final var valueWithResult = call.getResult(value);
-        final var matchedValuesMap = valueWithResult == null ? null : valueWithResult.getResult();
+        final var resultPair = call.getResult(value);
+        final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
         if (matchedValuesMap != null) {
             newMatchedValuesMap.putAll(matchedValuesMap);
         }

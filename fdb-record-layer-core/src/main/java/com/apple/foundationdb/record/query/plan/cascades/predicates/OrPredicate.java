@@ -28,10 +28,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,7 +51,7 @@ import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when any of its child components is satisfied.
- *
+ * <br>
  * For tri-valued logic:
  * <ul>
  * <li>If any child is {@code true}, then {@code true}.</li>
@@ -64,8 +63,8 @@ import java.util.stream.Collectors;
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
-    public OrPredicate(@Nonnull List<QueryPredicate> operands) {
-        super(operands);
+    private OrPredicate(@Nonnull final List<QueryPredicate> operands, final boolean isAtomic) {
+        super(operands, isAtomic);
     }
 
     @Nullable
@@ -92,6 +91,11 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
+    }
+
+    @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
@@ -109,7 +113,7 @@ public class OrPredicate extends AndOrPredicate {
     @Nonnull
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
-        return new OrPredicate(ImmutableList.copyOf(newChildren));
+        return new OrPredicate(ImmutableList.copyOf(newChildren), isAtomic());
     }
 
     @Nonnull
@@ -264,37 +268,58 @@ public class OrPredicate extends AndOrPredicate {
         }
 
         return Optional.of(translationMap -> {
-            final var childGraphExpansions = childrenInjectCompensationFunctions.stream()
-                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensation(translationMap))
+            final var childPredicatesList = childrenInjectCompensationFunctions.stream()
+                    .map(childrenInjectCompensationFunction -> childrenInjectCompensationFunction.applyCompensationForPredicate(translationMap))
                     .collect(ImmutableList.toImmutableList());
             // take the predicates from each individual expansion, "and" them, and then "or" them
-            final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
-            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
-            for (final var childGraphExpansion : childGraphExpansions) {
-                quantifiersBuilder.addAll(childGraphExpansion.getQuantifiers());
-                predicatesBuilder.add(childGraphExpansion.asAndPredicate());
+            final var predicates = LinkedIdentitySet.<QueryPredicate>of();
+            for (final var childPredicates : childPredicatesList) {
+                predicates.add(AndPredicate.andOrTrue(childPredicates));
             }
-
-            return GraphExpansion.of(ImmutableList.of(),
-                    ImmutableList.of(or(predicatesBuilder.build())),
-                    quantifiersBuilder.build(),
-                    ImmutableList.of());
+            return LinkedIdentitySet.of(OrPredicate.or(predicates));
         });
+    }
+
+    @Nonnull
+    @Override
+    public OrPredicate withAtomicity(final boolean isAtomic) {
+        return new OrPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
     @Nonnull
     public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                     @Nonnull QueryPredicate... operands) {
-        return or(toList(first, second, operands));
+        return of(toList(first, second, operands), false);
     }
 
     @Nonnull
-    public static QueryPredicate or(@Nonnull Collection<? extends QueryPredicate> children) {
-        Verify.verify(!children.isEmpty());
-        if (children.size() == 1) {
-            return Iterables.getOnlyElement(children);
+    public static QueryPredicate or(@Nonnull final Collection<? extends QueryPredicate> children) {
+        return of(children, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate orOrTrue(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+        if (disjuncts.isEmpty()) {
+            return ConstantPredicate.TRUE;
+        }
+        return of(disjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate orOrFalse(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+        if (disjuncts.isEmpty()) {
+            return ConstantPredicate.FALSE;
+        }
+        return of(disjuncts, false);
+    }
+
+    @Nonnull
+    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> disjuncts, final boolean isAtomic) {
+        Verify.verify(!disjuncts.isEmpty());
+        if (disjuncts.size() == 1) {
+            return Iterables.getOnlyElement(disjuncts);
         }
 
-        return new OrPredicate(ImmutableList.copyOf(children));
+        return new OrPredicate(ImmutableList.copyOf(disjuncts), isAtomic);
     }
 }

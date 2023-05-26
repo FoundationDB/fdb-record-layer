@@ -145,7 +145,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
      * @param predicate The predicate of the filtered index.
      */
     private static void setupIndex(@Nonnull final RecordMetaDataBuilder metaData, @Nonnull final QueryPredicate predicate) {
-        final var normalized = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(predicate).orElse(predicate);
+        final var normalized = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalizeAndSimplify(predicate, true).orElse(predicate);
         final var protoIndexBuilder = RecordMetaDataProto.Index.newBuilder()
                 .setName("SparseIndex")
                 .addRecordType("MySimpleRecord")

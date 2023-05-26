@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import javax.annotation.Nonnull;
 
 /**
- * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
- * @param <T> the type of the object that this rule helps simplify
+ * Intermediate class that fixes the base type of the {@link AbstractRuleCall} to be {@link Value}.
+ * @param <TYPE> the type of the object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueSimplificationRule<T extends Value> extends AbstractValueRule<Value, ValueSimplificationRuleCall, T> {
-    public ValueSimplificationRule(@Nonnull final BindingMatcher<T> matcher) {
+public abstract class ValueSimplificationRule<TYPE extends Value> extends AbstractValueRule<Value, ValueSimplificationRuleCall, TYPE> {
+    public ValueSimplificationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

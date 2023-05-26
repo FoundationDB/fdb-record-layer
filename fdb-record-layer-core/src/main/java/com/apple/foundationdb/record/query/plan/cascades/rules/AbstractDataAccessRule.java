@@ -23,21 +23,23 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -49,6 +51,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScan
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,9 +84,9 @@ import java.util.stream.StreamSupport;
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
- * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(PartialMatch, PlanContext)}.
- * @param <R> sub type of {@link RelationalExpression}
+ * The logic that this rules delegates to and actually creates the expressions can be found in
+ * {@link MatchCandidate#toEquivalentPlan(PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext, Memoizer)}.
+ * @param <R> subtype of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"java:S3776", "java:S4738"})
@@ -110,7 +115,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     /**
      * Method that does the leg work to create the appropriate expression dag for data access using value indexes or
      * value index-like scans (primary scans).
-     *
+     * <br>
      * Conceptually we do the following work:
      *
      * <ul>
@@ -128,17 +133,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *
      * The work described above is semantically correct in a sense that it creates a search space that can be explored
      * and pruned in suitable ways that will eventually converge into an optimal data access plan.
-     *
+     * <br>
      * We can choose to create an index scan for every index that is available regardless what the coverage
      * of an index is. The coverage of an index is a measurement that tells us how well an index can answer what a
      * filter (or by extension a query) asks for. For instance, a high number of search arguments used in the index scan
      * can be associated with high coverage (as in the index scan covers more of the query) and vice versa.
-     *
+     * <br>
      * Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
      * (that we have matches for). Since we create a logical intersection of these access plans we can leave it up to
      * the respective implementation rules (e.g., {@link ImplementIntersectionRule}) to do the right thing and implement
      * the physical plan for the intersection if possible (e.g. ensuring compatibly ordered legs, etc.).
-     *
+     * <br>
      * In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
      * the guaranteed creation of the optimal plan. However, in reality using this approach, although valid and probably
      * the conceptually better and more orthogonal approach, will result in a ballooning of the search space very quickly.
@@ -146,8 +151,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * are potentially dozens of indexes, memory footprint and the sheer number of tasks that would be created for
      * subsequent exploration and implementation of all these alternatives make the purist approach to planning these
      * indexes infeasible.
-     *
-     * Thus we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
+     * <br>
+     * Thus, we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
      * either in creating a successful executable plan (e.g. logical expression may not ever be able to produce a
      * compatible ordering) or cannot ever create an optimal plan. In a nutshell, we try to utilize additional
      * information that is available in addition to the matching partition in order to make decisions about which
@@ -169,7 +174,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *      {@code INDEX SCAN(i2, x = ["hello", "hello"], y = ["world", "world"], z = [10, inf])} even though
      *      the latter utilizes three search arguments while the former one only uses two. However, an index scan
      *      {@code INDEX SCAN(i1, a = [5, 5], b = [10, 10])} is not created (and yielded) if there we also
-     *      have a choice to plan {@code INDEX SCAN(i2, b = [10, 10], a = [5, 5], c = ["Guten", "Morgen"])} as that
+     *      have a choice to plan {@code INDEX SCAN(i2, b = [10, 10], a = [5, 5], c = ["good", "morning"])} as that
      *      index {@code i2} has a higher coverage compared to {@code i1} <em>and</em> all bound arguments in the scan
      *      over {@code i2} are also bound in the scan over {@code i1}.
      * <li>
@@ -180,16 +185,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * </li>
      * </ul>
      *
-     * @param planContext the plan context associated with this planner rule execution
+     * @param call the {@link CascadesRuleCall} that this invocation is a part of
      * @param requestedOrderings a set of requested orderings
      * @param matchPartition a match partition of compatibly-matching {@link PartialMatch}es
      * @return an expression reference that contains all compensated data access plans for the given match partition.
      *         Note that the reference can also include index-ANDed plans for match intersections and that other matches
      *         contained in the match partition passed in may not be planned at all.
      */
-    protected ExpressionRef<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull PlanContext planContext,
-                                                                                        @Nonnull Set<RequestedOrdering> requestedOrderings,
-                                                                                        @Nonnull Collection<? extends PartialMatch> matchPartition) {
+    protected Set<? extends RelationalExpression> dataAccessForMatchPartition(@Nonnull CascadesRuleCall call,
+                                                                              @Nonnull Set<RequestedOrdering> requestedOrderings,
+                                                                              @Nonnull Collection<? extends PartialMatch> matchPartition) {
         //
         // return if there are no complete matches
         //
@@ -197,23 +202,23 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final var bestMaximumCoverageMatches = maximumCoverageMatches(matchPartition, requestedOrderings);
         if (bestMaximumCoverageMatches.isEmpty()) {
-            return GroupExpressionRef.empty();
+            return LinkedIdentitySet.of();
         }
 
         // create scans for all best matches
-        final var bestMatchToExpressionMap =
-                createScansForMatches(bestMaximumCoverageMatches, planContext);
+        final var bestMatchToPlanMap =
+                createScansForMatches(call.getContext(), call, bestMaximumCoverageMatches);
 
-        final var toBeInjectedReference = GroupExpressionRef.empty();
+        final var resultSet = new LinkedIdentitySet<RelationalExpression>();
 
         // create single scan accesses
         for (final var bestMatch : bestMaximumCoverageMatches) {
-            applyCompensationForSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch.getPartialMatch()))
-                    .ifPresent(toBeInjectedReference::insertUnchecked);
+            applyCompensationForSingleDataAccess(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()))
+                    .ifPresent(resultSet::add);
         }
 
-        final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
-                distinctMatchToScanMap(bestMatchToExpressionMap);
+        final var bestMatchToDistinctPlanMap =
+                distinctMatchToScanMap(call, bestMatchToPlanMap);
 
         final var commonPrimaryKeyValuesOptional =
                 WithPrimaryKeyMatchCandidate.commonPrimaryKeyValuesMaybe(
@@ -233,13 +238,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     .stream()
                     .flatMap(partition ->
                             createIntersectionAndCompensation(
+                                    call,
                                     commonPrimaryKeyValues,
-                                    bestMatchToDistinctExpressionMap,
+                                    bestMatchToDistinctPlanMap,
                                     partition,
                                     requestedOrderings).stream())
-                    .forEach(toBeInjectedReference::insertUnchecked);
+                    .forEach(resultSet::add);
         });
-        return toBeInjectedReference;
+        return resultSet;
     }
 
     /**
@@ -357,12 +363,15 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     * @param planContext plan context
+     * @param memoizer the memoizer for {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionRef}s
      * @param matches a collection of matches
      * @return a map of the matches where a match is associated with a scan expression created based on that match
      */
     @Nonnull
-    private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull final Collection<PartialMatchWithCompensation> matches,
-                                                                                 @Nonnull final PlanContext planContext) {
+    private static Map<PartialMatch, RecordQueryPlan> createScansForMatches(@Nonnull final PlanContext planContext,
+                                                                            @Nonnull final Memoizer memoizer,
+                                                                            @Nonnull final Collection<PartialMatchWithCompensation> matches) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
@@ -370,27 +379,35 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         partialMatchWithCompensation -> {
                             final var partialMatch = partialMatchWithCompensation.getPartialMatch();
                             return partialMatch.getMatchCandidate()
-                                    .toEquivalentExpression(partialMatch, planContext);
+                                    .toEquivalentPlan(partialMatch, planContext, memoizer);
                         }));
     }
 
     /**
      * Private helper method to compute a new match to scan map by applying a {@link LogicalDistinctExpression} on each
      * scan.
+     * @param memoizer the memoizer for {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionRef}s
      * @param matchToExpressionMap a map of matches to {@link RelationalExpression}s
-     * @return a map of the matches where a match is associated with a {@link LogicalDistinctExpression} ranging over a
-     *         scan expression that was created based on that match
+     * @return a map of the matches where a match is associated with a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
+     *         ranging over a {@link RecordQueryPlan} that was created based on that match
      */
     @Nonnull
-    private static Map<PartialMatch, RelationalExpression> distinctMatchToScanMap(@Nonnull Map<PartialMatch, RelationalExpression> matchToExpressionMap) {
+    private static Map<PartialMatch, RecordQueryPlan> distinctMatchToScanMap(@Nonnull final Memoizer memoizer,
+                                                                             @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToExpressionMap) {
         return matchToExpressionMap
                 .entrySet()
                 .stream()
                 .collect(
                         ImmutableMap.toImmutableMap(Map.Entry::getKey,
                                 entry -> {
-                                    final RelationalExpression dataAccessExpression = entry.getValue();
-                                    return new LogicalDistinctExpression(dataAccessExpression);
+                                    final var partialMatch = entry.getKey();
+                                    final var matchCandidate = partialMatch.getMatchCandidate();
+                                    final var dataAccessPlan = entry.getValue();
+                                    if (matchCandidate.createsDuplicates()) {
+                                        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                                                Quantifier.physical(memoizer.memoizePlans(dataAccessPlan)));
+                                    }
+                                    return dataAccessPlan;
                                 }));
     }
 
@@ -402,19 +419,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * intersection. For single data scans that will not be used in an intersection we still follow the same
      * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
+     * @param memoizer the memoizer of this call
      * @param partialMatchWithCompensation the match the caller wants to apply compensation for
-     * @param scanExpression the scan expression the caller would like to create compensation for.
+     * @param plan the plan the caller would like to create compensation for.
      * @return a new {@link RelationalExpression} that represents the data access and its compensation
      */
     @Nonnull
-    private static Optional<RelationalExpression> applyCompensationForSingleDataAccess(@Nonnull final PartialMatchWithCompensation partialMatchWithCompensation,
-                                                                                       @Nonnull final RelationalExpression scanExpression) {
+    private static Optional<RelationalExpression> applyCompensationForSingleDataAccess(@Nonnull final Memoizer memoizer,
+                                                                                       @Nonnull final PartialMatchWithCompensation partialMatchWithCompensation,
+                                                                                       @Nonnull final RecordQueryPlan plan) {
         final var compensation = partialMatchWithCompensation.getCompensation();
         return compensation.isImpossible()
                ? Optional.empty()
                : Optional.of(compensation.isNeeded()
-                             ? compensation.apply(scanExpression)
-                             : scanExpression);
+                             ? compensation.apply(memoizer, plan)
+                             : plan);
     }
     
     /**
@@ -424,17 +443,19 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
+     * @param memoizer the memoizer
      * @param commonPrimaryKeyValues normalized common primary key
-     * @param matchToExpressionMap a map from match to single data access expression
+     * @param matchToPlanMap a map from match to single data access expression
      * @param partition a partition (i.e. a list of {@link PartialMatch}es that the caller would like to compute
      *        and intersected data access for
      * @param requestedOrderings a set of ordering that have been requested by consuming expressions/plan operators
-     * @return a optional containing a new {@link RelationalExpression} that represents the data access and its
+     * @return an optional containing a new {@link RelationalExpression} that represents the data access and its
      *         compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
      */
     @Nonnull
-    private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<Value> commonPrimaryKeyValues,
-                                                                                @Nonnull final Map<PartialMatch, RelationalExpression> matchToExpressionMap,
+    private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
+                                                                                @Nonnull final List<Value> commonPrimaryKeyValues,
+                                                                                @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                                 @Nonnull final List<PartialMatchWithCompensation> partition,
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
@@ -475,18 +496,20 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                 .map(PartialMatchWithCompensation::getCompensation)
                                 .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
-                final var scans =
-                        partition
-                                .stream()
-                                .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch.getPartialMatch())))
-                                .collect(ImmutableList.toImmutableList());
-
                 if (!compensation.isImpossible()) {
-                    final var logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, ImmutableList.copyOf(comparisonKeyValues));
+                    final var newQuantifiers =
+                            partition
+                                    .stream()
+                                    .map(partialMatch -> Objects.requireNonNull(matchToPlanMap.get(partialMatch.getPartialMatch())))
+                                    .map(memoizer::memoizePlans)
+                                    .map(Quantifier::physical)
+                                    .collect(ImmutableList.toImmutableList());
+
+                    final var intersectionPlan = RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues));
                     final var compensatedIntersection =
                             compensation.isNeeded()
-                            ? compensation.apply(logicalIntersectionExpression)
-                            : logicalIntersectionExpression;
+                            ? compensation.apply(memoizer, intersectionPlan)
+                            : intersectionPlan;
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }

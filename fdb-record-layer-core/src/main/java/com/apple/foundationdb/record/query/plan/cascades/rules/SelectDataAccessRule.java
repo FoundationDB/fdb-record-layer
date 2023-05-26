@@ -163,25 +163,25 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                 // as well as all predicates in matchedPredicates. In other words we now have to compensate
                 // for all the remaining quantifiers and all remaining predicates.
                 //
-                final var dataAccessReference =
-                        dataAccessForMatchPartition(call.getContext(),
+                final var dataAccessExpressions =
+                        dataAccessForMatchPartition(call,
                                 pushedRequestedOrderings,
                                 matchPartition);
 
-                if (dataAccessReference.getMembers().isEmpty()) {
+                if (dataAccessExpressions.isEmpty()) {
                     continue;
                 }
 
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
-                        .build(dataAccessReference);
+                        .build(call.memoizeReference(GroupExpressionRef.from(dataAccessExpressions)));
                 
                 final var compensatedDataAccessExpression =
                         GraphExpansion.builder()
                                 .addQuantifier(dataAccessQuantifier)
                                 .build()
                                 .buildSelectWithResultValue(expression.getResultValue());
-                call.yield(GroupExpressionRef.of(compensatedDataAccessExpression));
+                call.yield(compensatedDataAccessExpression);
             }
         }
     }

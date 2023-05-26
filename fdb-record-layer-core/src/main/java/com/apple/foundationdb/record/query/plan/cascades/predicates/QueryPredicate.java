@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
@@ -42,8 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -66,7 +64,6 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate> {
-
     @Nonnull
     @Override
     default QueryPredicate getThis() {
@@ -190,7 +187,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     default Optional<ExpandCompensationFunction> injectCompensationFunctionMaybe(@Nonnull final PartialMatch partialMatch,
                                                                                  @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                                                                  @Nonnull final List<Optional<ExpandCompensationFunction>> childrenResults) {
-        return Optional.of(translationMap -> GraphExpansion.ofPredicate(toResidualPredicate().translateCorrelations(translationMap)));
+        return Optional.of(translationMap -> LinkedIdentitySet.of(toResidualPredicate().translateCorrelations(translationMap)));
     }
 
     /**
@@ -265,21 +262,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        return fold(QueryPredicate::getCorrelatedToWithoutChildren,
-                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
-                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
-                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
-                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
-                    return correlatedToBuilder.build();
-                });
-    }
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
-    @Nonnull
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
+    @Override
+    int semanticHashCode();
+
+    int hashCodeWithoutChildren();
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -293,17 +281,22 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return true;
         }
 
-        if (!(other instanceof QueryPredicate)) {
+        if (this.getClass() != other.getClass()) {
             return false;
         }
 
-        final QueryPredicate otherAndOrPred = (QueryPredicate)other;
-        if (!equalsWithoutChildren(otherAndOrPred, aliasMap)) {
+        final QueryPredicate otherPred = (QueryPredicate)other;
+        if (!equalsWithoutChildren(otherPred, aliasMap)) {
             return false;
         }
 
+        return equalsForChildren(otherPred, aliasMap);
+    }
+
+    default boolean equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                      @Nonnull final AliasMap aliasMap) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
-        final Iterator<? extends QueryPredicate> otherPreds = otherAndOrPred.getChildren().iterator();
+        final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
         while (preds.hasNext()) {
             if (!otherPreds.hasNext()) {
@@ -320,13 +313,22 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
     default boolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                          @Nonnull final AliasMap equivalenceMap) {
+                                          @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
 
-        return other.getClass() == getClass();
+        if (other.getClass() != getClass()) {
+            return false;
+        }
+
+        return other.isAtomic() == isAtomic();
     }
+
+    boolean isAtomic();
+
+    @Nonnull
+    QueryPredicate withAtomicity(boolean isAtomic);
 
     @Nonnull
     @Override
@@ -358,15 +360,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     .map(predicateWithValue::withValue)
                     .orElse(null);
         });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getTransitivelyCorrelatedTo(@Nonnull final Set<CorrelationIdentifier> aliases, @Nonnull final SetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap) {
-        final var predicateCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
-        final var predicateDirectlyCorrelatedTo = Sets.filter(getCorrelatedTo(), aliases::contains);
-        predicateCorrelatedToBuilder.addAll(predicateDirectlyCorrelatedTo);
-        predicateDirectlyCorrelatedTo.forEach(alias -> predicateCorrelatedToBuilder.addAll(dependsOnMap.get(alias)));
-        return predicateCorrelatedToBuilder.build();
     }
 
     @Nonnull

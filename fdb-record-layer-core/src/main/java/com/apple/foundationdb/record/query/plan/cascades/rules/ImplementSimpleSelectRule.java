@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -84,11 +83,12 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var planPartition = bindings.get(innerPlanPartitionMatcher);
-
+        final var innerReference = bindings.get(innerReferenceMatcher);
+        final var quantifier = bindings.get(innerQuantifierMatcher);
         final var predicates = bindings.getAll(predicateMatcher);
-        Quantifier quantifier = bindings.get(innerQuantifierMatcher);
+
         var resultValue = selectExpression.getResultValue();
-        var reference = GroupExpressionRef.from(planPartition.getPlans());
+        var referenceBuilder = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
 
         final var isSimpleResultValue =
                 resultValue instanceof QuantifiedObjectValue &&
@@ -97,13 +97,17 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         if (quantifier instanceof Quantifier.ForEach &&
                 predicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yield(reference);
+            call.yield(referenceBuilder.members());
             return;
         }
 
         if (quantifier instanceof Quantifier.Existential) {
-            reference = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(reference),
-                    new NullValue(quantifier.getFlowedObjectType())));
+            referenceBuilder = call.memoizePlansBuilder(
+                    new RecordQueryFirstOrDefaultPlan(
+                            Quantifier.physicalBuilder()
+                                    .withAlias(quantifier.getAlias())
+                                    .build(referenceBuilder.reference()),
+                            new NullValue(quantifier.getFlowedObjectType())));
         }
 
         final var nonTautologyPredicates =
@@ -112,37 +116,36 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .collect(ImmutableList.toImmutableList());
         if (nonTautologyPredicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yield(reference);
+            call.yield(referenceBuilder.members());
             return;
         }
 
         if (!nonTautologyPredicates.isEmpty()) {
-            reference = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(
-                    Quantifier.physicalBuilder()
-                            .withAlias(quantifier.getAlias())
-                            .build(reference),
-                    nonTautologyPredicates.stream()
-                            .map(QueryPredicate::toResidualPredicate)
-                            .collect(ImmutableList.toImmutableList())));
+            referenceBuilder = call.memoizePlansBuilder(
+                    new RecordQueryPredicatesFilterPlan(
+                            Quantifier.physicalBuilder()
+                                    .withAlias(quantifier.getAlias())
+                                    .build(referenceBuilder.reference()),
+                            nonTautologyPredicates.stream()
+                                    .map(QueryPredicate::toResidualPredicate)
+                                    .collect(ImmutableList.toImmutableList())));
         }
 
         if (!isSimpleResultValue) {
             final Quantifier.Physical beforeMapQuantifier;
             if (!nonTautologyPredicates.isEmpty()) {
                 final var lowerAlias = quantifier.getAlias();
-                beforeMapQuantifier = Quantifier.physical(reference);
+                beforeMapQuantifier = Quantifier.physical(referenceBuilder.reference());
                 resultValue = resultValue.rebase(AliasMap.of(lowerAlias, beforeMapQuantifier.getAlias()));
             } else {
                 beforeMapQuantifier = Quantifier.physicalBuilder()
                         .withAlias(quantifier.getAlias())
-                        .build(reference);
+                        .build(referenceBuilder.reference());
             }
 
-            reference = GroupExpressionRef.of(
-                    new RecordQueryMapPlan(beforeMapQuantifier,
-                            resultValue));
+            referenceBuilder = call.memoizePlansBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
         }
 
-        call.yield(reference);
+        call.yield(referenceBuilder.members());
     }
 }

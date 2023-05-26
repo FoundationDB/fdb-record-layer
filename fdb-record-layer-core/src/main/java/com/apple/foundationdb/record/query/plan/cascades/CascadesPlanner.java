@@ -547,11 +547,17 @@ public class CascadesPlanner implements QueryPlanner {
                 // the second time around we want to visit the else and prune the plan space
                 group.startExploration();
             } else {
-                // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
                     if (bestMember == null || new CascadesCostModel(configuration).compare(member, bestMember) < 0) {
+                        if (bestMember != null) {
+                            // best member is being pruned
+                            traversal.removeExpression(group, bestMember);
+                        }
                         bestMember = member;
+                    } else {
+                        // member is being pruned
+                        traversal.removeExpression(group, member);
                     }
                 }
                 if (bestMember == null) {
@@ -897,7 +903,7 @@ public class CascadesPlanner implements QueryPlanner {
             final AtomicInteger numMatches = new AtomicInteger(0);
 
             rule.getMatcher()
-                    .bindMatches(initialBindings, getBindable())
+                    .bindMatches(getConfiguration(), initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, bindings, evaluationContext))
                     .forEach(ruleCall -> {
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {

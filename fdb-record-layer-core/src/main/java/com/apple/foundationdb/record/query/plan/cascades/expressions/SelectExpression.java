@@ -549,14 +549,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
-                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.andOrTrue(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
+        return "SELECT " + resultValue + " WHERE " + AndPredicate.andOrTrue(getPredicates());
     }
 
     /**
@@ -588,7 +588,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet()));
 
-        final var boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
+        final var boundEquivalence = new BoundEquivalence<Value>(boundIdentitiesMap);
 
         final var partitionedPredicatesWithValues =
                 predicateWithValues
@@ -638,7 +638,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
         // If the compile-time range is defined, create a sargable from it.
         final var rangeMaybe = rangeBuilder.build();
-        rangeMaybe.ifPresent(compileTimeRange -> result.add(PredicateWithValueAndRanges.sargable(value, compileTimeRange)));
+        rangeMaybe.ifPresent(range -> result.add(PredicateWithValueAndRanges.sargable(value, range)));
 
         return result.build();
     }
@@ -655,20 +655,24 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                          @Nonnull final QueryPredicate predicate) {
         final var result = ImmutableList.<QueryPredicate>builder();
 
-        if (classToLift.isInstance(predicate)) {
-            for (final var child : ((AndOrPredicate)predicate).getChildren()) {
-                result.addAll(flattenPredicate(classToLift, child));
-            }
+        if (predicate.isAtomic()) {
+            result.add(predicate);
         } else {
-            final QueryPredicate flattenedChildPredicate;
-            if (predicate instanceof AndPredicate) {
-                flattenedChildPredicate = AndPredicate.and(flattenPredicate(AndPredicate.class, predicate));
-            } else if (predicate instanceof OrPredicate) {
-                flattenedChildPredicate = OrPredicate.or(flattenPredicate(OrPredicate.class, predicate));
+            if (classToLift.isInstance(predicate)) {
+                for (final var child : ((AndOrPredicate)predicate).getChildren()) {
+                    result.addAll(flattenPredicate(classToLift, child));
+                }
             } else {
-                flattenedChildPredicate = predicate;
+                final QueryPredicate flattenedChildPredicate;
+                if (predicate instanceof AndPredicate) {
+                    flattenedChildPredicate = AndPredicate.and(flattenPredicate(AndPredicate.class, predicate));
+                } else if (predicate instanceof OrPredicate) {
+                    flattenedChildPredicate = OrPredicate.or(flattenPredicate(OrPredicate.class, predicate));
+                } else {
+                    flattenedChildPredicate = predicate;
+                }
+                result.add(flattenedChildPredicate);
             }
-            result.add(flattenedChildPredicate);
         }
         return result.build();
     }

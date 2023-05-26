@@ -93,6 +93,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -277,12 +278,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))))),
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[4],[4]]"))))))
-                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
+                                    .where(comparisonKeyValues(exactlyInAnyOrder(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1974121674, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1183017507, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1883761614, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1974122514, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1183017387, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1883761494, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1003,7 +1004,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that an OR query on the same field with a sort on that field is implemented as a union of index scans,
      * where the union ordering is the field (and not the primary key, as it would normally be for equality predicates).
      * TODO The planner could be smarter here:
-     * TODO: Add RecordQueryConcatenationPlan for non-overlapping unions (https://github.com/FoundationDB/fdb-record-layer/issues/13)
+     * TODO:(<a href="https://github.com/FoundationDB/fdb-record-layer/issues/13">Add RecordQueryConcatenationPlan for non-overlapping unions</a>)
      * Note that the ordering planner property evaluation now understands that num_value_3_indexed is equality-bound
      * and does not need to partake in the ordering.
      */
@@ -1541,12 +1542,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))))),
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[5],[5]]"))))))
-                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
+                                    .where(comparisonKeyValues(exactlyInAnyOrder(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1974121450, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2099150339, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1883761614, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1974122290, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2099150219, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1883761494, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);

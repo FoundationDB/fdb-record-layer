@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -110,11 +109,13 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
         final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
 
-        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(innerPlan);
+        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlans(innerPlan));
 
         final var newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedInJoinPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedInJoinPlan)),
+                        fetchPlan.getPushValueFunction(),
+                        Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
-        call.yield(GroupExpressionRef.of(newFetchPlan));
+        call.yield(newFetchPlan);
     }
 }

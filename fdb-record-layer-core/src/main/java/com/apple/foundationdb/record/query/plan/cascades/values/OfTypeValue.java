@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.Message;
 
@@ -34,7 +35,7 @@ import javax.annotation.Nullable;
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
-public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChild {
+public class OfTypeValue extends AbstractValue implements Value.CompileTimeValue, ValueWithChild {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
@@ -50,7 +51,7 @@ public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChil
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, child);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, expectedType, child);
     }
 
     @Nonnull
@@ -85,8 +86,20 @@ public class OfTypeValue implements Value, Value.CompileTimeValue, ValueWithChil
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(final Object o) {
+        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, expectedType);
     }
 
     @Override

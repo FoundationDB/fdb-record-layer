@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -141,8 +141,8 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
 
     @Nonnull
     @Override
-    public RecordQueryDeletePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryDeletePlan(Quantifier.physical(GroupExpressionRef.of(child)),
+    public RecordQueryDeletePlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryDeletePlan(Quantifier.physical(childRef),
                 getTargetRecordType());
     }
 

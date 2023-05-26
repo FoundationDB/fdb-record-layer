@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -43,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -265,7 +265,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch, @Nonnull final PlanContext planContext, @Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
+                                            @Nonnull final PlanContext planContext,
+                                            @Nonnull final Memoizer memoizer,
+                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
@@ -288,7 +291,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 reverseScanOrder,
                 false,
                 partialMatch.getMatchCandidate(),
-                baseRecordType);
+                baseRecordType,
+                QueryPlanConstraint.tautology());
 
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),

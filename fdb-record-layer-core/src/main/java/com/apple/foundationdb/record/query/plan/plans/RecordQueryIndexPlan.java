@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -159,10 +160,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 @Nonnull final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any());
+        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any(), QueryPlanConstraint.tautology());
     }
 
-    @VisibleForTesting
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
@@ -171,22 +171,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final MatchCandidate matchCandidate,
-                                @Nonnull final Type.Record resultType) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType);
+                                @Nonnull final Type.Record resultType,
+                                @Nonnull final QueryPlanConstraint constraint) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType, constraint);
     }
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
-                                @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod indexFetchMethod,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
-                                final boolean reverse,
-                                final boolean strictlySorted,
-                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
-                                @Nonnull final Type resultType) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, QueryPlanConstraint.tautology());
-    }
-
+    @VisibleForTesting
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
@@ -430,8 +420,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType);
+    public RecordQueryIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+        return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint);
     }
 
     @Override
@@ -463,7 +453,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 reverse,
                 strictlySorted,
                 matchCandidateOptional,
-                resultType);
+                resultType,
+                constraint);
     }
 
     @Nonnull

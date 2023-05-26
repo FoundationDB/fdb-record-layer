@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -127,8 +127,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public RecordQueryUpdatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryUpdatePlan(Quantifier.physical(GroupExpressionRef.of(child)),
+    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryUpdatePlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
                 getTargetType(),
                 getTargetDescriptor(),
@@ -221,7 +221,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Nonnull
-    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         // this brings together all paths that share the same prefixes
         final var orderedFieldPaths =
                 transformMap.keySet()
@@ -248,13 +248,13 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      */
     @Nonnull
     public static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                                  @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+                                                                  @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
     @Nonnull
     private static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
+                                                                   @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap,
                                                                    @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (transformMap.containsKey(prefix)) {
             orderedFieldPathIterator.next();

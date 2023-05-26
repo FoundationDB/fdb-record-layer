@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
@@ -99,7 +100,7 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
 
     @SuppressWarnings("ConstantConditions")
-    static class ThrowsValue implements BooleanValue {
+    static class ThrowsValue extends AbstractValue implements BooleanValue {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
@@ -613,7 +614,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), AndPredicate.and(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
@@ -633,7 +634,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), OrPredicate.or(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.FALSE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),

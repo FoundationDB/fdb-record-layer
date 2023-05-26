@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -40,6 +41,8 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
+    @Nonnull
+    private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
@@ -59,7 +62,6 @@ public class RecordQueryPlannerConfiguration {
     private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
     private final boolean deferCrossProducts;
     private final IndexFetchMethod indexFetchMethod;
-    private final int maxNumReplansForInToJoin;
 
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
@@ -67,6 +69,8 @@ public class RecordQueryPlannerConfiguration {
      */
     private final Set<String> valueIndexesOverScanNeeded;
     private final boolean planOtherAttemptWholeFilter;
+    private final int maxNumReplansForInToJoin;
+    private final int orToUnionMaxNumConjuncts;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -84,8 +88,9 @@ public class RecordQueryPlannerConfiguration {
                                             final boolean deferCrossProducts,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
-                                            boolean planOtherAttemptWholeFilter,
-                                            int maxNumReplansForInToJoin) {
+                                            final boolean planOtherAttemptWholeFilter,
+                                            final int maxNumReplansForInToJoin,
+                                            final int orToUnionMaxNumConjuncts) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -104,6 +109,7 @@ public class RecordQueryPlannerConfiguration {
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
         this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
         this.maxNumReplansForInToJoin = maxNumReplansForInToJoin;
+        this.orToUnionMaxNumConjuncts = orToUnionMaxNumConjuncts;
     }
 
     /**
@@ -284,6 +290,15 @@ public class RecordQueryPlannerConfiguration {
         return maxNumReplansForInToJoin;
     }
 
+    /**
+     * Returns the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
+     * applied.
+     * @return the maximum number of conjuncts
+     */
+    public int getOrToUnionMaxNumConjuncts() {
+        return orToUnionMaxNumConjuncts;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -292,6 +307,11 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Nonnull
+    public static RecordQueryPlannerConfiguration defaultPlannerConfiguration() {
+        return DEFAULT_PLANNER_CONFIGURATION;
     }
 
     /**
@@ -323,6 +343,8 @@ public class RecordQueryPlannerConfiguration {
         private boolean planOtherAttemptWholeFilter;
         private int maxNumReplansForInToJoin = 0;
 
+        private int orToUnionMaxNumConjuncts = PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
+
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
@@ -339,6 +361,7 @@ public class RecordQueryPlannerConfiguration {
             this.disabledTransformationRules = configuration.disabledTransformationRules;
             this.indexFetchMethod = configuration.indexFetchMethod;
             this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
+            this.orToUnionMaxNumConjuncts = configuration.orToUnionMaxNumConjuncts;
         }
 
         public Builder() {
@@ -546,6 +569,17 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
+         * applied. This option only applies to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
+         * @param orToUnionMaxNumConjuncts the maximum number of conjuncts
+         * @return this builder
+         */
+        public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
+            this.orToUnionMaxNumConjuncts = orToUnionMaxNumConjuncts;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -564,7 +598,8 @@ public class RecordQueryPlannerConfiguration {
                     indexFetchMethod,
                     valueIndexesOverScanNeeded,
                     planOtherAttemptWholeFilter,
-                    maxNumReplansForInToJoin);
+                    maxNumReplansForInToJoin,
+                    orToUnionMaxNumConjuncts);
         }
     }
 }

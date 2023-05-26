@@ -40,7 +40,7 @@ import java.util.Set;
  * A predicate with a constant boolean value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantPredicate implements LeafQueryPredicate {
+public class ConstantPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
     @Nonnull
@@ -54,6 +54,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
     private final Boolean value;
 
     public ConstantPredicate(@Nullable Boolean value) {
+        super(false);
         this.value = value;
     }
 
@@ -75,7 +76,7 @@ public class ConstantPredicate implements LeafQueryPredicate {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Collections.emptySet();
     }
 
@@ -86,8 +87,8 @@ public class ConstantPredicate implements LeafQueryPredicate {
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ConstantPredicate that = (ConstantPredicate)other;
@@ -95,7 +96,12 @@ public class ConstantPredicate implements LeafQueryPredicate {
     }
 
     @Override
-    public int semanticHashCode() {
+    public int computeSemanticHashCode() {
+        return LeafQueryPredicate.super.computeSemanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(value);
     }
 

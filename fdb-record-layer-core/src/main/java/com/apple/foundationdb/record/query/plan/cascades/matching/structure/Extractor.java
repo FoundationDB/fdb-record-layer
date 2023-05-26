@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+
 import javax.annotation.Nonnull;
 import java.util.function.UnaryOperator;
 
@@ -28,21 +30,25 @@ import java.util.function.UnaryOperator;
  * @param <T> the type that is extracted from
  * @param <U> the type that is extracted into
  */
-public class Extractor<T, U> implements Unapply<T, U> {
+public class Extractor<T, U> implements UnapplyWithConfiguration<T, U> {
     @Nonnull
-    private final Unapply<T, U> unapplyFn;
+    private final UnapplyWithConfiguration<T, U> unapplyFn;
     @Nonnull
     private final UnaryOperator<String> explainFn;
 
     public Extractor(@Nonnull final Unapply<T, U> unapplyFn, @Nonnull final UnaryOperator<String> explainFn) {
+        this((plannerConfiguration, t) -> unapplyFn.unapply(t), explainFn);
+    }
+
+    public Extractor(@Nonnull final UnapplyWithConfiguration<T, U> unapplyFn, @Nonnull final UnaryOperator<String> explainFn) {
         this.unapplyFn = unapplyFn;
         this.explainFn = explainFn;
     }
 
     @Override
     @Nonnull
-    public U unapply(@Nonnull T t) {
-        return unapplyFn.unapply(t);
+    public U unapply(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final T t) {
+        return unapplyFn.unapply(plannerConfiguration, t);
     }
 
     @Nonnull
@@ -55,6 +61,10 @@ public class Extractor<T, U> implements Unapply<T, U> {
     }
 
     public static <T, U> Extractor<T, U> of(@Nonnull final Unapply<T, U> unapply, final UnaryOperator<String> explainFn) {
+        return new Extractor<>(unapply, explainFn);
+    }
+
+    public static <T, U> Extractor<T, U> of(@Nonnull final UnapplyWithConfiguration<T, U> unapply, final UnaryOperator<String> explainFn) {
         return new Extractor<>(unapply, explainFn);
     }
 }

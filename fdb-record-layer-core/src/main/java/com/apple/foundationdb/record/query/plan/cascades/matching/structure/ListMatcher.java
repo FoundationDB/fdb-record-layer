@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -53,7 +54,7 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
     @Override
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
         if (in.size() != downstreams.size()) {
             return Stream.empty();
         }
@@ -62,7 +63,7 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
         final Iterator<? extends BindingMatcher<?>> downstreamIterator = downstreams.iterator();
         for (final T item : in) {
             final BindingMatcher<?> downstream = downstreamIterator.next();
-            final List<PlannerBindings> individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
+            final List<PlannerBindings> individualBindings = downstream.bindMatches(plannerConfiguration, outerBindings, item).collect(Collectors.toList());
             if (individualBindings.isEmpty()) {
                 return Stream.empty();
             } else {

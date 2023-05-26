@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -54,9 +55,9 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Iterable<? extends T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull Iterable<? extends T> in) {
         return StreamSupport.stream(in.spliterator(), false)
-                .flatMap(item -> downstream.bindMatches(outerBindings, item));
+                .flatMap(item -> downstream.bindMatches(plannerConfiguration, outerBindings, item));
     }
 
     @Override
@@ -75,8 +76,8 @@ public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>>
         return new CollectionMatcher<T>() {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
-                return anyMatcher.bindMatchesSafely(outerBindings, in);
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+                return anyMatcher.bindMatchesSafely(plannerConfiguration, outerBindings, in);
             }
 
             @Override

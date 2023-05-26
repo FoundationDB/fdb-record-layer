@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -37,7 +38,7 @@ import java.util.Set;
 /**
  * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
-public class ConstantObjectValue implements LeafValue, Value.CompileTimeValue {
+public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.CompileTimeValue {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Object-Value");
@@ -73,33 +74,22 @@ public class ConstantObjectValue implements LeafValue, Value.CompileTimeValue {
         return Set.of();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (other == null) {
-            return false;
-        }
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(final Object o) {
+        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
 
-        if (this == other) {
-            return true;
-        }
-
-        if (!(other instanceof Value)) {
-            return false;
-        }
-
-        final Value otherValue = (Value)other;
-        return equalsWithoutChildren(otherValue, aliasMap);
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap ignored) {
-        if (this == other) {
-            return true;
-        }
-
-        if (!(other instanceof ConstantObjectValue)) {
+    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap aliasMap) {
+        if (!super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
 
@@ -119,12 +109,12 @@ public class ConstantObjectValue implements LeafValue, Value.CompileTimeValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return planHash(PlanHashKind.FOR_CONTINUATION);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.planHash(hashKind, BASE_HASH);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, ordinal);
     }
 
     @Nonnull

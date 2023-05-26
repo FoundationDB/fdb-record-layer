@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -46,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
@@ -194,14 +192,12 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(planPartition.getPlans());
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
-                    call.yield(GroupExpressionRef.of(
-                            RecordQueryInUnionPlan.from(newInnerQuantifier,
+                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
+                    call.yield(RecordQueryInUnionPlan.from(newInnerQuantifier,
                                     inSources,
                                     ImmutableList.copyOf(satisfyingComparisonKeyValues),
                                     attemptFailedInJoinAsUnionMaxSize,
-                                    CORRELATION)));
+                                    CORRELATION));
                 }
             }
         }

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -48,7 +47,6 @@ public class ImplementExplodeRule extends CascadesRule<ExplodeExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var explodeExpression = call.get(root);
-        call.yield(GroupExpressionRef.of(
-                new RecordQueryExplodePlan(explodeExpression.getCollectionValue())));
+        call.yield(new RecordQueryExplodePlan(explodeExpression.getCollectionValue()));
     }
 }

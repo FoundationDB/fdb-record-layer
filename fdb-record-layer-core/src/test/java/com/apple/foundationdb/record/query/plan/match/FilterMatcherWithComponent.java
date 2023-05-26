@@ -66,7 +66,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
 
             // we lazily convert the given component to a predicate and let semantic equals establish equality
             // under the given equivalence: baseAlias <-> planBaseAlias
-            final QueryPredicate predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
+            final QueryPredicate predicate = AndPredicate.andOrTrue(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
             
             if (predicate instanceof PredicateWithValue) {
                 final Set<CorrelationIdentifier> predicateCorrelatedTo = predicate.getCorrelatedTo();
