@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -253,6 +254,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public RelationalExpression visitQueryOptions(RelationalParser.QueryOptionsContext ctx) {
+        for (final var opt : ctx.queryOption()) {
+            visit(opt);
+        }
+        return null;
+    }
+
+    @Override
     public Object visitQueryOption(RelationalParser.QueryOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
@@ -261,7 +270,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             if (ctx.LOG() != null) {
                 queryOptions.withOption(Options.Name.LOG_QUERY, true);
             }
-            return visitChildren(ctx);
+            return null;
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }

@@ -299,6 +299,36 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
+
+            // Same but with logs
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(LOG QUERY)")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(LOG QUERY) WITH CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                }
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+                ps.setBytes("continuation", continuation.serialize());
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+            }
         }
     }
 

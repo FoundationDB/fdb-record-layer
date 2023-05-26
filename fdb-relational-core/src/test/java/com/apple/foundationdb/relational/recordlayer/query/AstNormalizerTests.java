@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -203,6 +204,17 @@ public class AstNormalizerTests {
                                  @Nullable final String expectedContinuation,
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) throws RelationalException {
+        validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, queryCachingFlags, null);
+    }
+
+    private static void validate(@Nonnull final List<String> queries,
+                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final String expectedCanonicalRepresentation,
+                                 @Nonnull final List<List<Object>> expectedParametersList,
+                                 @Nullable final String expectedContinuation,
+                                 int limit,
+                                 @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags,
+                                 @Nullable Map<Options.Name, Object> queryOptions) throws RelationalException {
         Assert.thatUnchecked(!queries.isEmpty());
         Assert.thatUnchecked(queries.size() == expectedParametersList.size());
         Integer queryHash = null;
@@ -245,6 +257,13 @@ public class AstNormalizerTests {
             // verify query caching flags, if explicitly expected in the test.
             if (queryCachingFlags != null) {
                 Assertions.assertThat(hashResults.getQueryCachingFlags()).isEqualTo(queryCachingFlags);
+            }
+            if (queryOptions != null) {
+                for (final var expectedOption : queryOptions.entrySet()) {
+                    final Object actualOption = hashResults.getQueryOptions().getOption(expectedOption.getKey());
+                    Assertions.assertThat(actualOption).isNotNull();
+                    Assertions.assertThat(actualOption).isEqualTo(expectedOption.getValue());
+                }
             }
         }
     }
@@ -520,7 +539,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (nocache)", "  select * from t1   where   col1 > 42 options (  nocache    )"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 where col1 > ? options ( nocache ) ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from t1 where col1 > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -549,6 +568,32 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UTILITY_STATEMENT));
+    }
+
+    @Test
+    void parseDqlStatementWithoutLogQuerySetLogQueryFalseFlag() throws Exception {
+        // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
+        validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
+                PreparedStatementParameters.empty(),
+                "select * from t1 where col1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(42), List.of(42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false));
+    }
+
+    @Test
+    void parseDqlStatementWithLogQuerySetLogQueryFlag() throws Exception {
+        // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
+        validate(List.of("select * from t1 where col1 > 42 options (log query)", "  select * from t1   where   col1 > 42 options (  log    query)"),
+                PreparedStatementParameters.empty(),
+                "select * from t1 where col1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(42), List.of(42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, true));
     }
 
     @Test
@@ -735,12 +780,36 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (nocache)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  nocache    )"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from t1 where col1 > ?namedParam1 and col2 > ? options ( nocache ) ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT,
                         AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
+    void parseDqlStatementWithoutLogQuerySetsOptionsLogQueryFalseWithPreparedParameters() throws Exception {
+        validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
+                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(43, 42), List.of(43, 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false));
+    }
+
+    @Test
+    void parseDqlStatementWithLogQuerySetsOptionsLogQueryTrueWithPreparedParameters() throws Exception {
+        validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (log query)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  log       query)"),
+                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(43, 42), List.of(43, 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, true));
     }
 
     // (yhatem) we do not have administration statements that can be prepared with parameters.
