@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -503,6 +504,9 @@ public class RelOpValue implements BooleanValue {
         EQ_UF(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         EQ_UD(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         EQ_US(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        EQ_UV(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        EQ_VU(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        EQ_VV(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, Object::equals),
 
         NEQ_BU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_BB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l != (boolean)r),
@@ -543,6 +547,9 @@ public class RelOpValue implements BooleanValue {
         NEQ_UF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         NEQ_UD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         NEQ_US(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        NEQ_UV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        NEQ_VU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        NEQ_VV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> !l.equals(r)),
 
         LT_IU(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_II(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l < (int)r),
@@ -581,6 +588,9 @@ public class RelOpValue implements BooleanValue {
         LT_UF(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         LT_UD(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         LT_US(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        LT_UV(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        LT_VU(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LT_VV(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) < 0),
 
         LTE_IU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_II(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l <= (int)r),
@@ -619,6 +629,9 @@ public class RelOpValue implements BooleanValue {
         LTE_UF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         LTE_UD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         LTE_US(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        LTE_UV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        LTE_VU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LTE_VV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) <= 0),
 
         GT_IU(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_II(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l > (int)r),
@@ -657,6 +670,9 @@ public class RelOpValue implements BooleanValue {
         GT_UF(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         GT_UD(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
         GT_US(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        GT_UV(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        GT_VU(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GT_VV(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) > 0),
 
         GTE_IU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_II(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l >= (int)r),
@@ -694,7 +710,12 @@ public class RelOpValue implements BooleanValue {
         GTE_UL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.LONG, (l, r) -> null),
         GTE_UF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT, (l, r) -> null),
         GTE_UD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE, (l, r) -> null),
-        GTE_US(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null);
+        GTE_US(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
+        GTE_UV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
+        GTE_VU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),
+        ;
+
         @Nonnull
         private final Comparisons.Type type;
 

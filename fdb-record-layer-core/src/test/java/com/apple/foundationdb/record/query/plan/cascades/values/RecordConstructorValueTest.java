@@ -20,18 +20,31 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test cases to test {@link RecordConstructorValue#deepCopyIfNeeded}.
@@ -65,12 +78,12 @@ public class RecordConstructorValueTest {
         var message = messageBuilder.build();
 
         var copiedMessage = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, type, message);
-        Assertions.assertNotNull(copiedMessage);
-        Assertions.assertNotSame(message, copiedMessage);
+        assertNotNull(copiedMessage);
+        assertNotSame(message, copiedMessage);
         var enumFieldTargetValue = ((Message)copiedMessage).getField(Objects.requireNonNull(typeRepoTarget.getMessageDescriptor("simpleType")).findFieldByName("suit"));
-        Assertions.assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
-        Assertions.assertEquals(((Descriptors.EnumValueDescriptor) message.getField(enumFieldSrc)).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
-        Assertions.assertNotSame(message.getField(enumFieldSrc), enumFieldTargetValue);
+        assertThat(enumFieldTargetValue, instanceOf(Descriptors.EnumValueDescriptor.class));
+        assertEquals(((Descriptors.EnumValueDescriptor) message.getField(enumFieldSrc)).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
+        assertNotSame(message.getField(enumFieldSrc), enumFieldTargetValue);
     }
 
     @Test
@@ -85,9 +98,9 @@ public class RecordConstructorValueTest {
         final var enumValueSrc = typeRepoSrc.getEnumValue("enumType", "SPADES");
 
         final var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, enumType, enumValueSrc);
-        Assertions.assertTrue(copied instanceof Descriptors.EnumValueDescriptor);
-        Assertions.assertEquals(enumValueSrc.getName(), ((Descriptors.EnumValueDescriptor) copied).getName());
-        Assertions.assertNotSame(enumValueSrc, copied);
+        assertTrue(copied instanceof Descriptors.EnumValueDescriptor);
+        assertEquals(enumValueSrc.getName(), ((Descriptors.EnumValueDescriptor) copied).getName());
+        assertNotSame(enumValueSrc, copied);
     }
 
     @Test
@@ -111,13 +124,13 @@ public class RecordConstructorValueTest {
         var message = messageBuilder.build();
 
         var copiedMessage = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, type, message);
-        Assertions.assertNotNull(copiedMessage);
+        assertNotNull(copiedMessage);
         var enumFieldTarget = Objects.requireNonNull(typeRepoTarget.getMessageDescriptor("simpleType")).findFieldByName("suits");
         for (int i = 0; i < 4; i++) {
             var enumFieldTargetValue = ((Message) copiedMessage).getRepeatedField(enumFieldTarget, i);
-            Assertions.assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
-            Assertions.assertEquals(((Descriptors.EnumValueDescriptor) message.getRepeatedField(enumFieldSrc, i)).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
-            Assertions.assertNotSame(message.getRepeatedField(enumFieldSrc, i), enumFieldTargetValue);
+            assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
+            assertEquals(((Descriptors.EnumValueDescriptor) message.getRepeatedField(enumFieldSrc, i)).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
+            assertNotSame(message.getRepeatedField(enumFieldSrc, i), enumFieldTargetValue);
         }
     }
 
@@ -137,12 +150,88 @@ public class RecordConstructorValueTest {
         }
 
         var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, arrayType, list);
-        Assertions.assertNotNull(copied);
+        assertNotNull(copied);
         for (int i = 0; i < 4; i++) {
             var enumFieldTargetValue = ((List<?>) copied).get(i);
-            Assertions.assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
-            Assertions.assertEquals(list.get(i).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
-            Assertions.assertNotSame(list.get(i), enumFieldTargetValue);
+            assertTrue(enumFieldTargetValue instanceof Descriptors.EnumValueDescriptor);
+            assertEquals(list.get(i).getName(), ((Descriptors.EnumValueDescriptor) enumFieldTargetValue).getName());
+            assertNotSame(list.get(i), enumFieldTargetValue);
         }
+    }
+
+    @Test
+    public void evalWithVersion() {
+        List<Type.Record.Field> fields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.VERSION), Optional.of("version")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("number"))
+        );
+        var type = Type.Record.fromFieldsWithName("TypeWithVersionField", false, fields);
+
+        var repo = TypeRepository.newBuilder();
+        type.defineProtoType(repo);
+        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(repo.build());
+
+        final FDBRecordVersion version = FDBRecordVersion.firstInDBVersion(0x5ca1ab1e);
+        RecordConstructorValue recordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), version)),
+                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), null))
+        ));
+
+        Object result = recordConstructorValue.eval(null, evaluationContext);
+        assertNotNull(result);
+        assertThat(result, instanceOf(Message.class));
+        Message resultMessage = (Message) result;
+
+        Descriptors.Descriptor descriptor = resultMessage.getDescriptorForType();
+        Descriptors.FieldDescriptor versionField = descriptor.findFieldByName("version");
+        assertTrue(resultMessage.hasField(versionField));
+        assertEquals(version, FDBRecordVersion.fromBytes(((ByteString) resultMessage.getField(versionField)).toByteArray()));
+
+        Descriptors.FieldDescriptor numberField = descriptor.findFieldByName("number");
+        assertFalse(resultMessage.hasField(numberField));
+
+        // Copy through intermediate protobuf
+        RecordConstructorValue copiedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), FieldValue.ofFieldName(new LiteralValue<>(type, result), fields.get(0).getFieldName())),
+                Column.of(fields.get(1), FieldValue.ofFieldName(new LiteralValue<>(type, result), fields.get(1).getFieldName()))
+        ));
+
+        Object result2 = copiedRecordConstructorValue.eval(null, evaluationContext);
+        assertEquals(result, result2);
+    }
+
+    @Test
+    void evalVersionArray() {
+        List<Type.Record.Field> fields = List.of(
+                Type.Record.Field.of(new Type.Array(false, Type.primitiveType(Type.TypeCode.VERSION)), Optional.of("non_null_versions")),
+                Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.VERSION)), Optional.of("nullable_versions"))
+        );
+        var type = Type.Record.fromFieldsWithName("TypeWithVersionArrayFields", false, fields);
+
+        var repo = TypeRepository.newBuilder();
+        type.defineProtoType(repo);
+        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(repo.build());
+
+        List<FDBRecordVersion> versions = List.of(
+                FDBRecordVersion.firstInDBVersion(0xfdb),
+                FDBRecordVersion.firstInDBVersion(0x1337)
+        );
+        RecordConstructorValue populatedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), versions)),
+                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), versions))
+        ));
+
+        Object populatedResult = populatedRecordConstructorValue.eval(null, evaluationContext);
+        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(type, populatedResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
+        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(type, populatedResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
+
+        // Now set both fields to null/empty
+        RecordConstructorValue nullRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), Collections.emptyList())),
+                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), null))
+        ));
+        Object nullResult = nullRecordConstructorValue.eval(null, evaluationContext);
+        assertEquals(Collections.emptyList(), FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
+        assertNull(FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
     }
 }

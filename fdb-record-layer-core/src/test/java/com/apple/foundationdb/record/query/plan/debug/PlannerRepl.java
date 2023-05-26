@@ -428,8 +428,10 @@ public class PlannerRepl implements Debugger {
                         });
             } else {
                 final Class<?> superClass = currentEventClass.getSuperclass();
-                if (Event.class.isAssignableFrom(superClass)) {
-                    resolutionQueue.push((Class<? extends Event>)superClass);
+                if (superClass != null) {
+                    if (Event.class.isAssignableFrom(superClass)) {
+                        resolutionQueue.push((Class<? extends Event>)superClass);
+                    }
                 }
                 final Class<?>[] interfaces = currentEventClass.getInterfaces();
                 for (final Class<?> anInterface : interfaces) {

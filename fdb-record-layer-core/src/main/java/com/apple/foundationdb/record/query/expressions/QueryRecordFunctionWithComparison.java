@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
+import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
@@ -183,6 +185,11 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             }
 
             return GraphExpansion.ofExists(rankComparisonQuantifier);
+        } else if (function instanceof StoreRecordFunction<?> && FunctionNames.VERSION.equals(function.getName())) {
+            final VersionValue versionValue = new VersionValue(baseQuantifier.getAlias());
+            return GraphExpansion.builder()
+                    .addPredicate(new ValuePredicate(versionValue, comparison))
+                    .build();
         }
 
         throw new UnsupportedOperationException();

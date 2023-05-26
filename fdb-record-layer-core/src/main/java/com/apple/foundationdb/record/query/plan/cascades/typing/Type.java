@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -640,6 +641,7 @@ public interface Type extends Narrowable<Type> {
         INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
         LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
+        VERSION(FDBRecordVersion.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
         ARRAY(List.class, null, false, false),

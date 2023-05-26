@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -41,6 +43,10 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                                                  @Nonnull final CorrelationIdentifier sourceAlias,
                                                  @Nonnull final CorrelationIdentifier targetAlias,
                                                  @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
+        if (!isOfPushableTypes(toBePushedValue)) {
+            return Optional.empty();
+        }
+
         final AliasMap equivalenceMap = AliasMap.of(sourceAlias, baseAlias);
         final AliasMap toTargetAliasMap = AliasMap.of(sourceAlias, targetAlias);
 
@@ -57,5 +63,21 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
         // the translation was successful if the translated value is not correlated to sourceAlias anymore
         return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
+    }
+
+    private static boolean isOfPushableTypes(@Nonnull Value toBePushedValue) {
+        if (toBePushedValue instanceof FieldValue) {
+            return true;
+        } else if (toBePushedValue instanceof RecordConstructorValue) {
+            return ((RecordConstructorValue)toBePushedValue).getColumns().stream()
+                    .allMatch(column -> isOfPushableTypes(column.getValue()));
+        } else {
+            // Effectively, this check is needed because of values like the VersionValue, which aren't
+            // accessible without a record fetch, even if the index entry contains a VersionValue. We
+            // should address this by attaching the version to a partial record if there's one in the
+            // index entry, but until then, this prevents us from incorrectly applying a covering
+            // optimization.
+            return false;
+        }
     }
 }
