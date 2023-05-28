@@ -309,7 +309,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             }
 
             // the result set is { GB, q1, q2, q3, ... } | GB is the grouping-columns group, q1, q2, q3 are RCV of the underlying quantifiers.
-            final var resultColumns = Streams.concat(
+            final List<Column<? extends Value>> resultColumns = Streams.concat(
                     Stream.of(Column.unnamedOf(groupingColumnsValue)),
                     columns).collect(Collectors.toList());
             builder.addAllQuantifiers(scope.getAllQuantifiers()).addAllResultColumns(resultColumns);

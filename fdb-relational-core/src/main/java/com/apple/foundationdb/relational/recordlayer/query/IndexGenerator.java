@@ -349,7 +349,7 @@ public final class IndexGenerator {
             return null;
         }
         final var conjunction = predicates.size() == 1 ? predicates.get(0) : AndPredicate.and(predicates);
-        final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction).orElse(conjunction);
+        final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction, false).orElse(conjunction);
         Assert.thatUnchecked(IndexPredicate.isSupported(result), String.format("Unsupported predicate '%s'", result));
         if (IndexPredicateExpansion.dnfPredicateToRanges(result).isEmpty()) {
             return conjunction;
