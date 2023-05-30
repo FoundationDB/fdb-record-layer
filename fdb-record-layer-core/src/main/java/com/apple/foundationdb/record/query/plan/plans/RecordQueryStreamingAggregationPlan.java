@@ -134,7 +134,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         (FDBRecordStoreBase<Message>)store,
                         context,
                         inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping);
+        return new AggregateCursor<>(innerCursor, streamGrouping).skipThenLimit(executeProperties.getSkip(),
+                executeProperties.getReturnedRowLimit());
     }
 
     @Override
