@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -162,4 +163,12 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public void checkIntegrity() throws IOException {
         CodecUtil.checksumEntireFile(handle);
     }
+
+    public FDBRecordContext getFDBRecordContext() {
+        if (directory instanceof LuceneOptimizedWrappedDirectory) {
+           return ((LuceneOptimizedWrappedDirectory) directory).getFDBRecordContext();
+        }
+        return null;
+    }
+
 }

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
@@ -29,9 +31,14 @@ import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
 import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code PostingsFormat} optimized for FDB storage.
@@ -52,15 +59,92 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
-        PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
-        boolean success = false;
-        try {
-            FieldsProducer ret = new BlockTreeTermsReader(postingsReader, state);
-            success = true;
-            return ret;
-        } finally {
-            if (!success) {
-                IOUtils.closeWhileHandlingException(postingsReader);
+        return new NonBlockingFieldsProducer(state);
+    }
+
+    private static class NonBlockingFieldsProducer extends FieldsProducer {
+        private CompletableFuture<FieldsProducer> fieldsProducerFuture;
+        private IOException exception;
+        private NonBlockingFieldsProducer(SegmentReadState state) throws IOException {
+            FDBRecordContext context = getFDBRecordContext(state);
+            fieldsProducerFuture = CompletableFuture.supplyAsync( () -> {
+                PostingsReaderBase postingsReader = null;
+                try {
+                    postingsReader = new LuceneOptimizedPostingsReader(state);
+                    return new BlockTreeTermsReader(postingsReader, state);
+                } catch (Exception e) {
+                    this.exception = new IOException(e);
+                }
+                finally {
+                    if (exception != null) {
+                        if (postingsReader != null) {
+                            IOUtils.closeWhileHandlingException(postingsReader);
+                        }
+                    }
+                }
+                return null;
+            }, context != null ? context.getExecutor() : null
+            );
+
+        }
+
+        private FDBRecordContext getFDBRecordContext(SegmentReadState state) {
+            if (state.directory instanceof LuceneOptimizedCompoundReader) {
+                return ((LuceneOptimizedCompoundReader) state.directory).getFDBRecordContext();
+            }
+            return null;
+        }
+
+        private FieldsProducer getProducer() throws IOException {
+            try {
+                if (exception == null) {
+                    return fieldsProducerFuture.get();
+                }
+            } catch (Exception e) {
+                this.exception = new IOException(e);
+            }
+            throw exception;
+        }
+
+        @Override
+        public void close() throws IOException {
+            getProducer().close();
+        }
+
+        @Override
+        public void checkIntegrity() throws IOException {
+            getProducer().checkIntegrity();
+        }
+
+        @Override
+        public Iterator<String> iterator() {
+            try {
+                return getProducer().iterator();
+            } catch (Exception e) {
+                return Collections.emptyIterator();
+            }
+        }
+
+        @Override
+        public Terms terms(final String field) throws IOException {
+            return getProducer().terms(field);
+        }
+
+        @Override
+        public int size() {
+            try {
+                return getProducer().size();
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+
+        @Override
+        public long ramBytesUsed() {
+            try {
+                return getProducer().ramBytesUsed();
+            } catch (Exception e) {
+                return -1;
             }
         }
     }
