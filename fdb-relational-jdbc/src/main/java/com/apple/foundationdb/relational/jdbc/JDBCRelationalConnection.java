@@ -41,6 +41,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -235,6 +236,12 @@ class JDBCRelationalConnection implements RelationalConnection {
     @Override
     public void clearWarnings() throws SQLException {
         // TODO: Implement
+    }
+
+    @Override
+    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        // TODO: Implement
+        return null;
     }
 
     @Override

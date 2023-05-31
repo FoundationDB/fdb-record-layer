@@ -54,4 +54,25 @@ public final class SqlTypeNamesSupport {
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }
     }
+
+    public static int getSqlTypeCode(String sqlTypeName) {
+        switch (sqlTypeName) {
+            case "INTEGER":
+                return Types.INTEGER;
+            case "BIGINT":
+                return Types.BIGINT;
+            case "FLOAT":
+                return Types.FLOAT;
+            case "DOUBLE":
+                return Types.DOUBLE;
+            case "STRING":
+                return Types.VARCHAR;
+            case "STRUCT":
+                return Types.STRUCT;
+            case "ARRAY":
+                return Types.ARRAY;
+            default:
+                throw new IllegalStateException("Unexpected sql type name:" + sqlTypeName);
+        }
+    }
 }

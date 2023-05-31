@@ -21,13 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
@@ -40,7 +44,11 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean isClosed;
@@ -214,6 +222,15 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return new CatalogMetaData(this, backingCatalog);
+    }
+
+    @Override
+    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        int typeCode = SqlTypeNamesSupport.getSqlTypeCode(typeName);
+        return new RowArray(
+                Arrays.stream(elements).map(ArrayRow::new).collect(Collectors.toList()),
+                new RelationalStructMetaData(
+                        FieldDescription.primitive("na", typeCode, DatabaseMetaData.columnNoNulls)));
     }
 
     @Override

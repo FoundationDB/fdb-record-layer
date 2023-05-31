@@ -333,6 +333,97 @@ public class PreparedStatementTests {
     }
 
     @Test
+    void prepareInList() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in (?, ?) or rest_no in (?, ?)")) {
+                ps.setLong(1, 10);
+                ps.setLong(2, 11);
+                ps.setLong(3, 12);
+                ps.setLong(4, 13);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNoNextRow();
+                }
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10, 11}));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                }
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ? or rest_no in ?param OPTIONS(LOG QUERY)")) {
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, 11L}));
+                ps.setArray("param", ddl.getConnection().createArrayOf("BIGINT", new Object[]{12L, 13L}));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
+
+            // Run a second time with different parameters
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ? or rest_no in ?param OPTIONS(LOG QUERY)")) {
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, 100L}));
+                ps.setArray("param", ddl.getConnection().createArrayOf("BIGINT", new Object[]{12L, 130L}));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
+    void prepareInListWrongTypeInArray() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, "FOO"}));
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{"FOO", "BAR"}));
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+        }
+    }
+
+    @Test
+    void prepareInListWrongTypeShouldThrow() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
+                ps.setLong(1, 42);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+        }
+    }
+
+    @Test
     void withPlanCache() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

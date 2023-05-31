@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
@@ -155,7 +156,19 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     }
 
     @Override
+    public void setArray(int parameterIndex, Array x) throws SQLException {
+        ensureOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
     public void setBytes(String parameterName, byte[] x) throws SQLException {
+        ensureOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setArray(String parameterName, Array x) throws SQLException {
         ensureOpen();
         namedParameters.put(parameterName, x);
     }

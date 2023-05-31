@@ -34,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
@@ -116,6 +117,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return connection.getMetaData().unwrap(RelationalDatabaseMetaData.class);
+    }
+
+    @Override
+    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        return connection.createArrayOf(typeName, elements);
     }
 
     @Override

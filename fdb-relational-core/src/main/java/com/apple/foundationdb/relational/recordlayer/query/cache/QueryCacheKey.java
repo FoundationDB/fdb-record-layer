@@ -176,7 +176,7 @@ public final class QueryCacheKey {
 
     @Override
     public String toString() {
-        return schemaTemplateName + "||" + canonicalQueryString + "||" + hash;
+        return schemaTemplateName + "(" + schemaTemplateVersion + ")" + "||" + canonicalQueryString + "||" + hash;
     }
 
     @Nonnull

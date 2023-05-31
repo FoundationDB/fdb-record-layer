@@ -21,7 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -33,8 +35,8 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import com.google.common.base.Suppliers;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -47,6 +49,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.math.BigInteger;
+import java.sql.Array;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Base64;
 import java.util.BitSet;
@@ -338,15 +342,49 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         Object param;
         if (ctx.QUESTION() != null) {
             param = preparedStatementParameters.getNextParameter();
+            if (param instanceof Array) {
+                allowLiteralAddition = false;
+            }
             processLiteral(param);
+            if (param instanceof Array) {
+                allowLiteralAddition = true;
+            }
         } else {
             // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
             // if we use '?' ubiquitously.
             // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
             param = preparedStatementParameters.getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
+            if (param instanceof Array) {
+                allowLiteralAddition = false;
+            }
             processLiteral(param, ctx.NAMED_PARAMETER().getText());
+            if (param instanceof Array) {
+                allowLiteralAddition = true;
+            }
         }
+
+        if (param instanceof Array) {
+            try {
+                context.startArrayLiteral();
+                allowTokenAddition = false;
+                try (ResultSet rs = ((Array) param).getResultSet()) {
+                    while (rs.next()) {
+                        final var arrayParam = rs.getObject(1);
+                        Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
+                        Assert.thatUnchecked(SqlTypeSupport.recordTypeToSqlType(literalType.getTypeCode()) == rs.getMetaData().getColumnType(1),
+                                "Cannot convert literal to " + rs.getMetaData().getColumnType(1),
+                                ErrorCode.CANNOT_CONVERT_TYPE);
+                        processLiteral(arrayParam);
+                    }
+                }
+                context.finishArrayLiteral();
+                allowTokenAddition = true;
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         return param;
     }
 
@@ -355,30 +393,38 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         ctx.predicate().accept(this);
         ctx.IN().accept(this);
 
-        sqlCanonicalizer.append("( ");
-        if (ParserUtils.isConstant(ctx.expressions())) {
-            // todo (yhatem) we should prevent making the constant expressions
-            //   contribute to the hash or the canonical query representation.
-            context.startArrayLiteral();
-            allowTokenAddition = false;
-            sqlCanonicalizer.append("[ ");
-            for (int i = 0; i < ctx.expressions().expression().size(); i++) {
-                visit(ctx.expressions().expression(i));
-            }
-            context.finishArrayLiteral();
-            allowTokenAddition = true;
-            sqlCanonicalizer.append("] ");
+        if (ctx.inList().preparedStatementParameter() != null) {
+            //context.startArrayLiteral();
+            //allowTokenAddition = false;
+            visit(ctx.inList().preparedStatementParameter());
+            //context.finishArrayLiteral();
+            //allowTokenAddition = true;
         } else {
-            final var size = ctx.expressions().expression().size();
-            for (int i = 0; i < size; i++) {
-                visit(ctx.expressions().expression(i));
-                if (i < size - 1) {
-                    sqlCanonicalizer.append(", ");
+            sqlCanonicalizer.append("( ");
+            if (ParserUtils.isConstant(ctx.inList().expressions())) {
+                // todo (yhatem) we should prevent making the constant expressions
+                //   contribute to the hash or the canonical query representation.
+                context.startArrayLiteral();
+                allowTokenAddition = false;
+                sqlCanonicalizer.append("[ ");
+                for (int i = 0; i < ctx.inList().expressions().expression().size(); i++) {
+                    visit(ctx.inList().expressions().expression(i));
+                }
+                context.finishArrayLiteral();
+                allowTokenAddition = true;
+                sqlCanonicalizer.append("] ");
+            } else {
+                final var size = ctx.inList().expressions().expression().size();
+                for (int i = 0; i < size; i++) {
+                    visit(ctx.inList().expressions().expression(i));
+                    if (i < size - 1) {
+                        sqlCanonicalizer.append(", ");
+                    }
                 }
             }
+            sqlCanonicalizer.append(") ");
         }
 
-        sqlCanonicalizer.append(") ");
         return null;
     }
 

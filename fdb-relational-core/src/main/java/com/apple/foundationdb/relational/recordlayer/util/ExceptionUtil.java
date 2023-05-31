@@ -70,7 +70,11 @@ public final class ExceptionUtil {
             //TODO(bfines) map this to specific error codes based on the violation
             code = ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
         } else if (re instanceof SemanticException) {
-            code = ErrorCode.INTERNAL_ERROR;
+            if (((SemanticException) re).getErrorCode().equals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE)) {
+                code = ErrorCode.CANNOT_CONVERT_TYPE;
+            } else {
+                code = ErrorCode.INTERNAL_ERROR;
+            }
         }
 
         Map<String, Object> extraContext = re.getLogInfo();

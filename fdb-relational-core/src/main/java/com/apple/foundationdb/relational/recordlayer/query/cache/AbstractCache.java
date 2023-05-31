@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.tuple.Pair;
 

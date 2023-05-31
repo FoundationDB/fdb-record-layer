@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
@@ -125,6 +126,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
+    public void setArray(int parameterIndex, Array x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer " +
+                Thread.currentThread().getStackTrace()[1].getMethodName(),
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     @ExcludeFromJacocoGeneratedReport
     public void setBoolean(String parameterName, boolean b) throws SQLException {
         throw new SQLException("Not implemented in the relational layer " +
@@ -175,6 +183,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void setBytes(String parameterName, byte[] bytes) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer " +
+                Thread.currentThread().getStackTrace()[1].getMethodName(),
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    public void setArray(String parameterName, Array x) throws SQLException {
         throw new SQLException("Not implemented in the relational layer " +
                 Thread.currentThread().getStackTrace()[1].getMethodName(),
                 ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

@@ -140,7 +140,7 @@
 ---
 # Values of incompatible types in the IN list
 - query: select a, e from ta where e in ('foo' , 35 + 4)
-- error: "XX000"
+- error: "22000"
 ---
 # Values of incompatible types in the IN list
 - query: select a, e from ta where e in ('foo' , 35)

@@ -65,7 +65,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,6 +78,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.net.URI;
+import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -747,22 +749,26 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.NOT() != null) {
             Assert.failUnchecked("NOT IN is not supported", ErrorCode.SYNTAX_ERROR);
         }
-        if (ctx.selectStatement() != null) {
+        if (ctx.inList().selectStatement() != null) {
             Assert.failUnchecked("IN <SELECT_STATEMENT> is not supported", ErrorCode.SYNTAX_ERROR);
         }
 
-        Typed typedList = null;
-        if (ParserUtils.isConstant(ctx.expressions())) {
-            final int index = context.startArrayLiteral();
-            final List<Value> values = new ArrayList<>();
-            ctx.expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
-            context.finishArrayLiteral();
-            ParserUtils.validateInValuesList(values);
-            typedList = LiteralsUtils.processArrayLiteral(values, index, context);
+        Typed typedList;
+        if (ctx.inList().preparedStatementParameter() != null) {
+            typedList = (Typed) visit(ctx.inList().preparedStatementParameter());
         } else {
-            final List<Value> values = new ArrayList<>();
-            ctx.expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
-            typedList = ParserUtils.encapsulate(AbstractArrayConstructorValue.ArrayFn.class, ParserUtils.validateInValuesList(values));
+            if (ParserUtils.isConstant(ctx.inList().expressions())) {
+                final int index = context.startArrayLiteral();
+                final List<Value> values = new ArrayList<>();
+                ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
+                context.finishArrayLiteral();
+                ParserUtils.validateInValuesList(values);
+                typedList = LiteralsUtils.processArrayLiteral(values, index, context);
+            } else {
+                final List<Value> values = new ArrayList<>();
+                ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
+                typedList = ParserUtils.encapsulate(AbstractArrayConstructorValue.ArrayFn.class, ParserUtils.validateInValuesList(values));
+            }
         }
         final var left = (Value) visit(ctx.predicate());
         return (Value) ParserUtils.encapsulate(InOpValue.InFn.class, List.of(left, typedList));
@@ -784,15 +790,36 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Value visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
+    public Typed visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
             param = context.getPreparedStatementParameters().getNextParameter();
         } else {
             param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
         }
-        final var literal = new LiteralValue<>(Type.primitiveType(Type.typeCodeFromPrimitive(param), true), param);
-        return LiteralsUtils.processLiteral(literal, param, context);
+        if (param instanceof Array) {
+            try {
+                final int index = context.startArrayLiteral();
+                final List<Value> values = new ArrayList<>();
+                try (ResultSet rs = ((Array) param).getResultSet()) {
+                    while (rs.next()) {
+                        final var arrayParam = rs.getObject(1);
+                        Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
+                        Value literal = new LiteralValue<>(literalType, arrayParam);
+                        LiteralsUtils.processLiteral(literal, arrayParam, context);
+                        values.add(literal);
+                    }
+                }
+                context.finishArrayLiteral();
+                //ParserUtils.validateInValuesList(values);
+                return LiteralsUtils.processArrayLiteral(values, index, context);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }  else {
+            final var literal = new LiteralValue<>(Type.primitiveType(Type.typeCodeFromPrimitive(param), true), param);
+            return LiteralsUtils.processLiteral(literal, param, context);
+        }
     }
 
     @Override

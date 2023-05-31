@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Supplier;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;

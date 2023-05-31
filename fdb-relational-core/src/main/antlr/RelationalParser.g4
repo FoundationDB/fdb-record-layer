@@ -1007,11 +1007,15 @@ expression
     ;
 
 predicate
-    : predicate NOT? IN '(' (selectStatement | expressions) ')'     #inPredicate // done
+    : predicate NOT? IN inList                                      #inPredicate // done
     | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
     | expressionAtom                                                #expressionAtomPredicate // done
     ;
 
+inList
+    : '(' (selectStatement | expressions) ')'
+    | preparedStatementParameter
+    ;
 
 // Add in ASTVisitor nullNotnull in constant
 expressionAtom

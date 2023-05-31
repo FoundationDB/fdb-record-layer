@@ -22,11 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -40,6 +44,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
+import java.sql.DatabaseMetaData;
+import java.sql.Types;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -332,6 +338,14 @@ public class AstNormalizerTests {
             outputArray[i] = Array.get(val, i);
         }
         return outputArray;
+    }
+
+    @Nonnull
+    private static java.sql.Array toArrayParameter(List<Object> elements) {
+        return new RowArray(
+                elements.stream().map(ArrayRow::new).collect(Collectors.toList()),
+                new RelationalStructMetaData(
+                        FieldDescription.primitive("na", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
     }
 
     @Test
@@ -654,6 +668,18 @@ public class AstNormalizerTests {
                 PreparedStatementParameters.of(Map.of(1, "preparedValue1"), Map.of("Param", "preparedValue2")),
                 "select ? , ? , ? , ?Param from t1 where col1 in ( [ ] ) ",
                 List.of("hello", "preparedValue1", "wOrLd", "preparedValue2", List.of("foo", "bar")));
+    }
+
+    @Test
+    void stripArrayLiteralWithPreparedParameters() throws RelationalException {
+        java.sql.Array param = toArrayParameter(List.of("preparedValue1", "preparedValue2"));
+        java.sql.Array namedParam = toArrayParameter(List.of("preparedValue3", "preparedValue4"));
+        validate("select 'hello', 'wOrLd' from t1 where col1 in ? and col2 in ?param",
+                PreparedStatementParameters.of(
+                        Map.of(1, param),
+                        Map.of("param", namedParam)),
+                "select ? , ? from t1 where col1 in ? and col2 in ?param ",
+                List.of("hello", "wOrLd", List.of("preparedValue1", "preparedValue2"), List.of("preparedValue3", "preparedValue4")));
     }
 
     @Test

@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEqu
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.common.base.VerifyException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -227,7 +228,7 @@ public final class PlanGenerator {
             // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
-            throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve).toUncheckedWrappedException();
+            throw ExceptionUtil.toRelationalException(ve).toUncheckedWrappedException();
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }

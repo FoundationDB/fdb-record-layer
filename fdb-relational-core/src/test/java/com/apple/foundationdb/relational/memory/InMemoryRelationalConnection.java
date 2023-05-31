@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
@@ -99,6 +100,11 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         throw new RelationalException("InMemoryRelationalConnection does not support getMetaData", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+    }
+
+    @Override
+    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        throw new RelationalException("InMemoryRelationalConnection does not support createArrayOf", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
     }
 
     @Override
