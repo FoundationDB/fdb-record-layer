@@ -166,6 +166,25 @@ public class ExecutePropertyTests {
     }
 
     @Test
+    public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
+        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
+        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build())) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.setAutoCommit(false);
+            conn.beginTransaction();
+            try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {
+                try (final RelationalResultSet rs = ps.executeQuery()) {
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.next()).isTrue();
+                }
+                try (final RelationalResultSet rs = ps.executeQuery()) {
+                    RelationalAssertions.assertThrowsSqlException(rs::next).hasErrorCode(ErrorCode.SCAN_LIMIT_REACHED);
+                }
+            }
+        }
+    }
+
+    @Test
     public void limitIsResetWithNewTransaction() throws Exception {
         executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {

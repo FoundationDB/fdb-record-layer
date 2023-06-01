@@ -45,14 +45,17 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
         this.recordCursor = cursor;
         this.transform = transform;
         // TODO(sfines,yhatem) perform this in a non-blocking manner for more efficiency.
+        this.continuation = ContinuationImpl.BEGIN;
         try {
             this.result = recordCursor.getNext();
+            if (result.getContinuation().isEnd()) {
+                this.continuation = ContinuationImpl.END;
+            }
         } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex);
-        }
-        this.continuation = ContinuationImpl.BEGIN;
-        if (result.getContinuation().isEnd()) {
-            this.continuation = ContinuationImpl.END;
+            if (!(ex.getCause() instanceof ScanLimitReachedException)) {
+                throw ExceptionUtil.toRelationalException(ex);
+            }
+            limitReached = new RelationalException("Scan Limit Reached", ErrorCode.SCAN_LIMIT_REACHED, ex);
         }
     }
 
@@ -79,7 +82,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
 
     @Override
     public boolean hasNext() {
-        return result.hasNext();
+        return limitReached != null || result.hasNext();
     }
 
     @Override
@@ -102,12 +105,11 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             }
             return row;
         } catch (RecordCoreException ex) {
-            if (ex.getCause() instanceof ScanLimitReachedException) {
-                limitReached = new RelationalException("Scan Limit Reached", ErrorCode.SCAN_LIMIT_REACHED, ex);
-                return row;
-            } else {
+            if (!(ex.getCause() instanceof ScanLimitReachedException)) {
                 throw ExceptionUtil.toRelationalException(ex).toUncheckedWrappedException();
             }
+            limitReached = new RelationalException("Scan Limit Reached", ErrorCode.SCAN_LIMIT_REACHED, ex);
+            return row;
         }
     }
 
