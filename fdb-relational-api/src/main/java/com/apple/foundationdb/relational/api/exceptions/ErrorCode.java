@@ -136,6 +136,7 @@ public enum ErrorCode {
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded
     TOO_MANY_COLUMNS("54011"),
+    SCAN_LIMIT_REACHED("54F01"),
 
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),

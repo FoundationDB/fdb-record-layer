@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.SQLException;
 
 class RelationalConnectionTest {
@@ -92,5 +93,19 @@ class RelationalConnectionTest {
     void connectDirectlyToNonexistentSchemaBlowsUp() throws RelationalException, SQLException {
         RelationalAssertions.assertThrows(() -> Relational.connect(URI.create("jdbc:embed:/__SYS?schema=noSuchSchema"), Options.NONE))
                 .hasErrorCode(ErrorCode.UNDEFINED_SCHEMA);
+    }
+
+    @Test
+    void setIsolationLevel() throws RelationalException, SQLException {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+            // Default isolation level
+            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
+
+            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
+
+            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
+        }
     }
 }

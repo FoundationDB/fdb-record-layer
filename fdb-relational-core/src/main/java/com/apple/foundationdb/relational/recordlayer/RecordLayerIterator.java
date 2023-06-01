@@ -23,8 +23,10 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -36,6 +38,8 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private final Function<T, Row> transform;
     private RecordCursorResult<T> result;
     private Continuation continuation;
+
+    private RelationalException limitReached = null;
 
     private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, Row> transform) throws RelationalException {
         this.recordCursor = cursor;
@@ -80,8 +84,16 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
 
     @Override
     public Row next() {
+        if (limitReached != null) {
+            throw limitReached.toUncheckedWrappedException();
+        }
+        final Row row;
         try {
-            final Row row = transform.apply(result.get());
+            row = transform.apply(result.get());
+        } catch (RecordCoreException ex) {
+            throw ExceptionUtil.toRelationalException(ex).toUncheckedWrappedException();
+        }
+        try {
             // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
             this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
             result = recordCursor.getNext();
@@ -90,7 +102,12 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             }
             return row;
         } catch (RecordCoreException ex) {
-            throw ExceptionUtil.toRelationalException(ex).toUncheckedWrappedException();
+            if (ex.getCause() instanceof ScanLimitReachedException) {
+                limitReached = new RelationalException("Scan Limit Reached", ErrorCode.SCAN_LIMIT_REACHED, ex);
+                return row;
+            } else {
+                throw ExceptionUtil.toRelationalException(ex).toUncheckedWrappedException();
+            }
         }
     }
 

@@ -41,10 +41,15 @@ import java.util.concurrent.TimeUnit;
 public final class Options {
 
     public enum Name {
+        /**
+         * Continuation.
+         * Scope: Direct Access API
+         */
         CONTINUATION,
         INDEX_HINT,
         /**
          * Limit the maximum number of records to return before prompting for continuation.
+         * Scope: Direct Access API
          */
         CONTINUATION_PAGE_SIZE,
         /**
@@ -53,35 +58,42 @@ public final class Options {
          * <p>
          * This is something of a weird carryover from development work which happened before Relational existed,
          * and should only be used sparingly except in those specific use-cases.
+         * Scope: Direct Access API
          */
         REQUIRED_METADATA_TABLE_VERSION,
         /**
          * Transaction timeout in milliseconds.
+         * Scope: Connection
          */
         TRANSACTION_TIMEOUT,
         /**
          * During insertion, if the primary key of the inserted row is already in the table, replace the old row with the new row.
+         * Scope: Direct Access API
          */
         REPLACE_ON_DUPLICATE_PK,
 
         /**
          * Limit of Relational's primary plan cache.
          * Settings the limit to zero effectively disables the plan cache.
+         * Scope: Engine
          */
         PLAN_CACHE_PRIMARY_MAX_ENTRIES,
 
         /**
          * Limit of Relational's secondary plan cache.
+         * Scope: Engine
          */
         PLAN_CACHE_SECONDARY_MAX_ENTRIES,
 
         /**
          * Read time-to-live duration (in milliseconds) of items in the primary cache.
+         * Scope: Engine
          */
         PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS,
 
         /**
          * Write time-to-live duration (in milliseconds) of items living in the secondary cache.
+         * Scope: Engine
          */
         PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS,
 
@@ -95,32 +107,59 @@ public final class Options {
          * scan and fetch in case of failure. This is a safety measure meant to be used while the
          * remote fetch mechanism is being tested</LI>
          * </UL>
+         * Scope: Connection
          */
         INDEX_FETCH_METHOD,
 
         /**
          * A boolean indicating if a query should be logged or not.
+         * Scope: Connection, Query
          */
         LOG_QUERY,
 
         /**
          * The maximum throughput of queries to log, in samples/SAMPLING_TIME_UNIT.
+         * Scope: Engine
          */
         MAX_QUERY_LOGGING_THROUGHPUT,
 
         /**
          * The unit of time to use when computing various sampling processes.
+         * Scope: Engine
          */
         SAMPLING_TIME_UNIT,
         /**
          * The maximum size of the Query logging cache.
+         * Scope: Engine
          */
         MAX_QUERY_LOGGING_CACHE_SIZE,
 
         /**
          * Log a query at info level if it is slower than `LOG_SLOW_QUERY_THRESHOLD` microseconds.
+         * Scope: Engine
          */
-        LOG_SLOW_QUERY_THRESHOLD_MICROS
+        LOG_SLOW_QUERY_THRESHOLD_MICROS,
+
+        /**
+         * Set a time limit per transaction.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * Scope: Connection
+         */
+        EXECUTION_TIME_LIMIT,
+
+        /**
+         * Set a scanned bytes limit per transaction.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * Scope: Connection
+         */
+        EXECUTION_SCANNED_BYTES_LIMIT,
+
+        /**
+         * Set a scanned row limit per transaction.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * Scope: Connection
+         */
+        EXECUTION_SCANNED_ROWS_LIMIT
     }
 
     public enum IndexFetchMethod {
@@ -148,6 +187,9 @@ public final class Options {
         builder.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, 128);
         builder.put(Name.LOG_QUERY, false);
         builder.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 2_000_000L);
+        builder.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, Long.MAX_VALUE);
+        builder.put(Name.EXECUTION_TIME_LIMIT, 0L);
+        builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -271,6 +313,9 @@ public final class Options {
         data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.LOG_QUERY, List.of(new TypeContract<>(Boolean.class)));
         data.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.EXECUTION_TIME_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
+        data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
 
         return Collections.unmodifiableMap(data);
     }

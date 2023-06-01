@@ -120,6 +120,17 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    public void setTransactionIsolation(int level) throws SQLException {
+        connection.setTransactionIsolation(level);
+
+    }
+
+    @Override
+    public int getTransactionIsolation() throws SQLException {
+        return connection.getTransactionIsolation();
+    }
+
+    @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         return connection.createArrayOf(typeName, elements);
     }

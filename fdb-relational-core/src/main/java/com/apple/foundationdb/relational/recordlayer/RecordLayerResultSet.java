@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -66,14 +67,18 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    @SuppressWarnings("PMD.PreserveStackTrace")
     protected Row advanceRow() throws RelationalException {
         currentRow = null;
-
         if (currentCursor.hasNext()) {
             try {
                 currentRow = currentCursor.next();
             } catch (UncheckedRelationalException e) {
-                throw e.unwrap();
+                RelationalException unwrapped = e.unwrap();
+                if (unwrapped.getErrorCode().equals(ErrorCode.SCAN_LIMIT_REACHED)) {
+                    unwrapped.addContext("Continuation", enrichContinuation(currentCursor.getContinuation()));
+                }
+                throw unwrapped;
             }
         }
         return currentRow;
@@ -101,17 +106,21 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
-            ContinuationBuilder builder = ContinuationImpl.copyOf(currentCursor.getContinuation())
-                    .asBuilder();
-            if (parameterHash != null) {
-                builder.withBindingHash(parameterHash);
-            }
-            if (planHash != null) {
-                builder.withPlanHash(planHash);
-            }
-            return builder.build();
+            return enrichContinuation(currentCursor.getContinuation());
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
+    }
+
+    private Continuation enrichContinuation(Continuation cont) throws RelationalException {
+        ContinuationBuilder builder = ContinuationImpl.copyOf(cont)
+                .asBuilder();
+        if (parameterHash != null) {
+            builder.withBindingHash(parameterHash);
+        }
+        if (planHash != null) {
+            builder.withPlanHash(planHash);
+        }
+        return builder.build();
     }
 }

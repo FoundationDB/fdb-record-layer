@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
@@ -45,6 +47,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.Array;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -56,12 +59,16 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     final StoreCatalog backingCatalog;
     MetricCollector metricCollector;
     Transaction transaction;
+    ExecuteProperties executeProperties;
     private String currentSchemaLabel;
     private boolean autoCommit = true;
     private boolean usingAnExistingTransaction;
     private final TransactionManager txnManager;
+
     @Nonnull
     private Options options;
+
+    private int transactionIsolation;
 
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
                                       @Nonnull StoreCatalog backingCatalog,
@@ -76,6 +83,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
         this.backingCatalog = backingCatalog;
         this.options = options;
+        transactionIsolation = Connection.TRANSACTION_SERIALIZABLE;
+        executeProperties = newExecuteProperties();
     }
 
     @Override
@@ -225,6 +234,16 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    public void setTransactionIsolation(int level) throws SQLException {
+        transactionIsolation = level;
+    }
+
+    @Override
+    public int getTransactionIsolation() throws SQLException {
+        return transactionIsolation;
+    }
+
+    @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         int typeCode = SqlTypeNamesSupport.getSqlTypeCode(typeName);
         return new RowArray(
@@ -238,6 +257,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         try {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
+                executeProperties = newExecuteProperties();
                 metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
                 addCloseListener(() -> {
                     if (metricCollector != null) {
@@ -294,6 +314,29 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
             }
         }
+    }
+
+    @Nonnull
+    public ExecuteProperties getExecuteProperties() {
+        return executeProperties;
+    }
+
+    private static IsolationLevel toExecutePropertiesIsolationLevel(int jdbcTransactionIsolation) {
+        if (jdbcTransactionIsolation == Connection.TRANSACTION_SERIALIZABLE) {
+            return IsolationLevel.SERIALIZABLE;
+        } else {
+            return IsolationLevel.SNAPSHOT;
+        }
+    }
+
+    private ExecuteProperties newExecuteProperties() {
+        return ExecuteProperties.newBuilder()
+                .setIsolationLevel(toExecutePropertiesIsolationLevel(transactionIsolation))
+                .setTimeLimit(options.getOption(Options.Name.EXECUTION_TIME_LIMIT))
+                .setScannedBytesLimit(options.getOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT))
+                .setScannedRecordsLimit(options.getOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT))
+                .setFailOnScanLimitReached(true)
+                .build();
     }
 
     @Override

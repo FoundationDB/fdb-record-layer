@@ -227,12 +227,12 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
-    public ExecuteProperties getExecutionProperties() {
+    public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
         final var builder = ExecuteProperties.newBuilder();
         if (context != null) {
             context.setExecuteProperties(builder);
         }
-        return builder.build();
+        return builder;
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentional")

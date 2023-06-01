@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -61,12 +60,10 @@ import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -116,7 +113,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         @Override
         public String explain() {
-            final var executeProperties = queryExecutionParameters.getExecutionProperties();
+            final var executeProperties = queryExecutionParameters.getExecutionPropertiesBuilder();
             List<String> explainComponents = new ArrayList<>();
             explainComponents.add(recordQueryPlan.toString());
             if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
@@ -154,7 +151,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = queryExecutionParameters.getEvaluationContext();
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
-                final var  executionProperties = queryExecutionParameters.getExecutionProperties();
                 if (queryExecutionParameters.isForExplain()) {
                     Row printablePlan = new ValueTuple(explain());
                     StructMetaData metaData = new RelationalStructMetaData(
@@ -166,7 +162,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     return executePhysicalPlan(recordQueryPlan,
                             recordLayerSchema,
                             typedEvaluationContext,
-                            executionProperties,
                             queryExecutionParameters,
                             conn);
                 }
@@ -182,15 +177,19 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private static RelationalResultSet executePhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
                                                              @Nonnull final RecordLayerSchema recordLayerSchema,
                                                              @Nonnull final EvaluationContext evaluationContext,
-                                                             @Nonnull final ExecuteProperties executeProperties,
                                                              @Nonnull final QueryExecutionParameters executionParameters,
-                                                             @Nullable final EmbeddedRelationalConnection connection) throws RelationalException {
+                                                             @Nonnull final EmbeddedRelationalConnection connection) throws RelationalException {
             Type type = physicalPlan.getResultType().getInnerType();
             Assert.notNull(type);
             Assert.that(type instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", type.getTypeCode()));
             StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
             final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
             final RecordCursor<QueryResult> cursor;
+
+            final var executeProperties = connection.getExecuteProperties().toBuilder()
+                    .setSkip(executionParameters.getExecutionPropertiesBuilder().getSkip())
+                    .setReturnedRowLimit(executionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
+                    .build();
             try {
                 cursor = physicalPlan.executePlan(fdbRecordStore, evaluationContext, ContinuationImpl.parseContinuation(executionParameters.getContinuation()).getUnderlyingBytes(), executeProperties);
             } catch (InvalidProtocolBufferException ipbe) {

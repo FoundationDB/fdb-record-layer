@@ -84,8 +84,8 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
-    public ExecuteProperties getExecutionProperties() {
-        return ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(offset).build();
+    public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
+        return ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(offset);
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentional")

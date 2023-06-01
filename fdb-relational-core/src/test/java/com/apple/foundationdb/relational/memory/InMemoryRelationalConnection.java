@@ -103,6 +103,16 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    public void setTransactionIsolation(int level) throws SQLException {
+        throw new RelationalException("InMemoryRelationalConnection does not support setTransactionIsolation", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+    }
+
+    @Override
+    public int getTransactionIsolation() throws SQLException {
+        throw new RelationalException("InMemoryRelationalConnection does not support getTransactionIsolation", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+    }
+
+    @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         throw new RelationalException("InMemoryRelationalConnection does not support createArrayOf", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
     }

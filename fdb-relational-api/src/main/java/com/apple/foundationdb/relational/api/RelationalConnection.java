@@ -220,19 +220,6 @@ public interface RelationalConnection extends java.sql.Connection {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default void setTransactionIsolation(int level) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default int getTransactionIsolation() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
