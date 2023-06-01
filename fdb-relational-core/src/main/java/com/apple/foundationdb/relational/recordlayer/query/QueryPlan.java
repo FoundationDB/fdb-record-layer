@@ -60,6 +60,7 @@ import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 

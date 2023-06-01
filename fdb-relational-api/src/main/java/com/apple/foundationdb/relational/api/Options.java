@@ -159,7 +159,7 @@ public final class Options {
          * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
          * Scope: Connection
          */
-        EXECUTION_SCANNED_ROWS_LIMIT
+        EXECUTION_SCANNED_ROWS_LIMIT,
     }
 
     public enum IndexFetchMethod {
