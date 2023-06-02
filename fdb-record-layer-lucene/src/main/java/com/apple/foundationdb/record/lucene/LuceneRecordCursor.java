@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
@@ -130,6 +131,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final Tuple groupingKey;
     @Nullable
     private final List<String> storedFields;
+    @Nonnull
+    private final Set<String> storedFieldsToReturn;
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
@@ -162,6 +165,10 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.pageSize = pageSize;
         this.executorService = executorService;
         this.storedFields = storedFields;
+        this.storedFieldsToReturn = Sets.newHashSet(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+        if (this.storedFields != null) { // Only return StoredValues required for primary key and to support query.
+            storedFieldsToReturn.addAll(storedFields);
+        }
         this.storedFieldTypes = storedFieldTypes;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
@@ -323,7 +330,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Document document = searcher.doc(scoreDoc.doc);
+                Document document = searcher.doc(scoreDoc.doc, storedFieldsToReturn);
                 IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
                 BytesRef pk = primaryKey.binaryValue();
                 if (LOGGER.isTraceEnabled()) {
