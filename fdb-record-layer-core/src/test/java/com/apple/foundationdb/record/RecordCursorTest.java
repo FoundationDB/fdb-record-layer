@@ -135,7 +135,7 @@ public class RecordCursorTest {
 
         @Override
         public boolean isClosed() {
-            return isClosed();
+            return closed;
         }
 
         @Nonnull
@@ -1193,6 +1193,8 @@ public class RecordCursorTest {
     }
 
     static class BrokenCursor implements RecordCursor<String> {
+        private boolean closed = false;
+
         @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<String>> onNext() {
@@ -1203,11 +1205,12 @@ public class RecordCursorTest {
 
         @Override
         public void close() {
+            closed = true;
         }
 
         @Override
         public boolean isClosed() {
-            return false;
+            return closed;
         }
 
         @Nonnull

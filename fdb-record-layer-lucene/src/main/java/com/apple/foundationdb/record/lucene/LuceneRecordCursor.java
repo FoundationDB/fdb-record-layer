@@ -246,7 +246,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public boolean isClosed() {
-        // TODO Check if indexReader is closed beyond the variable being null
         return closed;
     }
 
