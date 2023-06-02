@@ -166,7 +166,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     public FDBRecordContext getFDBRecordContext() {
         if (directory instanceof LuceneOptimizedWrappedDirectory) {
-           return ((LuceneOptimizedWrappedDirectory) directory).getFDBRecordContext();
+            return ((LuceneOptimizedWrappedDirectory) directory).getFDBRecordContext();
         }
         return null;
     }

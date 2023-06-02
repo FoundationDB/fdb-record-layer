@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
@@ -32,13 +31,13 @@ import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Terms;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * {@code PostingsFormat} optimized for FDB storage.
@@ -65,17 +64,18 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     private static class NonBlockingFieldsProducer extends FieldsProducer {
         private CompletableFuture<FieldsProducer> fieldsProducerFuture;
         private IOException exception;
+
+        @SuppressWarnings("PMD.CloseResource")
         private NonBlockingFieldsProducer(SegmentReadState state) throws IOException {
             FDBRecordContext context = getFDBRecordContext(state);
-            fieldsProducerFuture = CompletableFuture.supplyAsync( () -> {
+            Supplier<FieldsProducer> fieldsProducerSupplier = () -> {
                 PostingsReaderBase postingsReader = null;
                 try {
                     postingsReader = new LuceneOptimizedPostingsReader(state);
                     return new BlockTreeTermsReader(postingsReader, state);
                 } catch (Exception e) {
                     this.exception = new IOException(e);
-                }
-                finally {
+                } finally {
                     if (exception != null) {
                         if (postingsReader != null) {
                             IOUtils.closeWhileHandlingException(postingsReader);
@@ -83,9 +83,12 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
                     }
                 }
                 return null;
-            }, context != null ? context.getExecutor() : null
-            );
-
+            };
+            if (context != null) {
+                fieldsProducerFuture = CompletableFuture.supplyAsync(fieldsProducerSupplier, context.getExecutor());
+            } else {
+                fieldsProducerFuture = CompletableFuture.supplyAsync(fieldsProducerSupplier);
+            }
         }
 
         private FDBRecordContext getFDBRecordContext(SegmentReadState state) {
