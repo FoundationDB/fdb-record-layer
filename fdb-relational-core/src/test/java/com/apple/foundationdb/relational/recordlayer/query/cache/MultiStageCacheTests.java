@@ -166,6 +166,8 @@ public class MultiStageCacheTests {
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "E.U.", Map.of("Landform", "Southern Carpathians")));
 
         ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // E.U. entry should've expired ...
+        // ...but with Guava Cache need to access the cache so the expiration has a chance to run.
+        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
 
         // ... leaving space for the new entry of "Japan".
         result = readCache(testCache, "Japan", "Train", () -> produceTrain("Japan"));

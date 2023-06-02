@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.util;
 
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -46,15 +47,20 @@ public class DistinctSampler<K> implements Predicate<K> {
     }
 
     public DistinctSampler(int maxCacheSize, java.util.function.Supplier<Sampler> samplerFactory) {
-        this.cache = Caffeine.newBuilder()
+        this.cache = CacheBuilder.newBuilder()
                 .maximumSize(maxCacheSize)
-                .build(item -> samplerFactory.get());
+                .build(new CacheLoader<K, Sampler>() {
+                    @Override
+                    public Sampler load(K key) throws Exception {
+                        return samplerFactory.get();
+                    }
+                });
     }
 
     @Override
     public boolean test(K item) {
         //this will never be empty, because the loading cache _should_ generate a new sampler as needed
-        return cache.get(item).canSample();
+        return cache.getUnchecked(item).canSample();
     }
 
 }

@@ -554,7 +554,7 @@ public class RelationalPlanCacheTests {
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1990 AND YEAR < 1992", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1990);
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM BOOKS WHERE YEAR > ? AND YEAR < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
                 Map.of(
-                        ppe(cons(c1970Cp0, c1970Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1970,
+                        ppe(cons(c1980Cp0, c1980Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1980,
                         ppe(cons(c1990Cp0, c1990Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1990)));
     }
 
