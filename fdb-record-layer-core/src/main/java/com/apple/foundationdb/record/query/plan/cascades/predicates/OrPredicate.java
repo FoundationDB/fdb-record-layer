@@ -35,6 +35,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -200,18 +201,54 @@ public class OrPredicate extends AndOrPredicate {
     public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
                                                                                   @Nonnull final QueryPredicate candidatePredicate,
                                                                                   @Nonnull final EvaluationContext evaluationContext) {
-        final var valueWithRangesMaybe = toValueWithRangesMaybe(evaluationContext);
-        if (valueWithRangesMaybe.isEmpty()) {
-            return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
+        Optional<PredicateMultiMap.PredicateMapping> mappingsOptional = super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
+        if (mappingsOptional.isPresent()) {
+            return mappingsOptional;
         }
-        final var leftValueWithRanges = valueWithRangesMaybe.get();
 
-        final var candidateValueWithRangesMaybe = candidatePredicate.toValueWithRangesMaybe(evaluationContext);
-        if (candidateValueWithRangesMaybe.isEmpty()) {
-            return super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
+        final var valueWithRangesOptional = toValueWithRangesMaybe(evaluationContext);
+        if (valueWithRangesOptional.isPresent()) {
+            final var leftValueWithRanges = valueWithRangesOptional.get();
+
+            final var candidateValueWithRangesOptional = candidatePredicate.toValueWithRangesMaybe(evaluationContext);
+            if (candidateValueWithRangesOptional.isPresent()) {
+                final var rightValueWithRanges = candidateValueWithRangesOptional.get();
+                mappingsOptional = impliesWithValuesAndRanges(aliasMap, candidatePredicate, evaluationContext, leftValueWithRanges, rightValueWithRanges);
+            }
         }
-        final var rightValueWithRanges = candidateValueWithRangesMaybe.get();
 
+        if (mappingsOptional.isEmpty() && candidatePredicate instanceof Placeholder) {
+            final var candidateValue = ((Placeholder)candidatePredicate).getValue();
+            final var anyMatchingLeafPredicate =
+                    Streams.stream(inPreOrder())
+                            .filter(predicate -> predicate instanceof LeafQueryPredicate)
+                            .anyMatch(predicate -> {
+                                if (predicate instanceof PredicateWithValue) {
+                                    final var queryValue = ((ValuePredicate)predicate).getValue();
+                                    return queryValue.semanticEquals(candidateValue, aliasMap);
+                                }
+                                return false;
+                            });
+            if (anyMatchingLeafPredicate) {
+                //
+                // There is a sub-term that could be matched if the OR was broken into a UNION. Mark this as a
+                // special mapping.
+                //
+                return Optional.of(PredicateMultiMap.PredicateMapping.orTermMapping(this,
+                        new ConstantPredicate(true),
+                        getDefaultCompensatePredicateFunction()));
+            }
+        }
+
+        return mappingsOptional;
+    }
+
+    @Nonnull
+    private Optional<PredicateMultiMap.PredicateMapping> impliesWithValuesAndRanges(@Nonnull final AliasMap aliasMap,
+                                                                                    @Nonnull final QueryPredicate candidatePredicate,
+                                                                                    @Nonnull final EvaluationContext evaluationContext,
+                                                                                    @Nonnull final PredicateWithValueAndRanges leftValueWithRanges,
+                                                                                    @Nonnull final PredicateWithValueAndRanges rightValueWithRanges) {
         if (!leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), aliasMap)) {
             return Optional.empty();
         }
@@ -241,7 +278,7 @@ public class OrPredicate extends AndOrPredicate {
         // need a compensation, because at least one leg did not find an exactly-matching companion, in this case,
         // add this predicate as a residual on top.
         if (requiresCompensation) {
-            return Optional.of(new PredicateMultiMap.PredicateMapping(this,
+            return Optional.of(PredicateMultiMap.PredicateMapping.regularMapping(this,
                     candidatePredicate,
                     ((partialMatch, boundParameterPrefixMap) ->
                              Objects.requireNonNull(foldNullable(Function.identity(),
@@ -249,7 +286,7 @@ public class OrPredicate extends AndOrPredicate {
                                              boundParameterPrefixMap,
                                              ImmutableList.copyOf(childFunctions)))))));
         } else {
-            return Optional.of(new PredicateMultiMap.PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMultiMap.PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
         }
     }
 

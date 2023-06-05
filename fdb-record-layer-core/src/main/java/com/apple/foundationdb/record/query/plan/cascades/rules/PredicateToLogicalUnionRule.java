@@ -29,6 +29,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
@@ -43,9 +46,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.LeafQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithDnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithDnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -57,8 +60,11 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.anyPartialMatch;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 
@@ -113,7 +119,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * of UNION-trees).
  */
 @API(API.Status.EXPERIMENTAL)
-public class PredicateToLogicalUnionRule extends CascadesRule<SelectExpression> {
+@SuppressWarnings("PMD.TooManyStaticImports")
+public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
     public static final int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
 
     @Nonnull
@@ -121,19 +128,25 @@ public class PredicateToLogicalUnionRule extends CascadesRule<SelectExpression> 
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull
-    private static final BindingMatcher<SelectExpression> root =
+    private static final BindingMatcher<SelectExpression> expressionMatcher =
             RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(limitedPredicateCombinations(combinationPredicateMatcher)), all(qunMatcher));
 
+    private static final BindingMatcher<PartialMatch> anyPartialMatchMatcher = anyPartialMatch();
+
+    private static final BindingMatcher<MatchPartition> rootMatcher =
+            ofExpressionAndMatches(expressionMatcher, all(anyPartialMatchMatcher));
+
     public PredicateToLogicalUnionRule() {
-        super(root);
+        super(rootMatcher);
     }
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
-        final var selectExpression = bindings.get(root);
+        final var selectExpression = bindings.get(expressionMatcher);
         final var resultValue = selectExpression.getResultValue();
         final var quantifiers = bindings.getAll(qunMatcher);
+        final var matches = bindings.getAll(anyPartialMatchMatcher);
 
         //
         // There are some complications arising from the fact that we can (under certain) circumstances do this
@@ -180,6 +193,22 @@ public class PredicateToLogicalUnionRule extends CascadesRule<SelectExpression> 
             return;
         }
 
+        final var partiallyMatchedOrs = new LinkedIdentitySet<QueryPredicate>();
+        for (final var match : matches) {
+            final var matchInfo = match.getMatchInfo();
+            final var predicateMap = matchInfo.getPredicateMap();
+            predicateMap.values()
+                    .stream()
+                    .flatMap(predicateMapping ->
+                            predicateMapping.getMappingKind() == PredicateMultiMap.PredicateMapping.MappingKind.OR_TERM_IMPLIES_CANDIDATE
+                            ? Stream.of(predicateMapping.getQueryPredicate())
+                            : Stream.empty())
+                    .forEach(partiallyMatchedOrs::add);
+        }
+        if (toBeDnfPredicates.stream().anyMatch(predicate -> predicate instanceof OrPredicate && !partiallyMatchedOrs.contains(predicate))) {
+            return;
+        }
+        
         final var conjunctedPredicate = AndPredicate.and(toBeDnfPredicates);
         final var constantAliases = Sets.difference(conjunctedPredicate.getCorrelatedTo(), Quantifiers.aliases(selectExpression.getQuantifiers()));
 

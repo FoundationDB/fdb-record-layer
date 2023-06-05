@@ -148,6 +148,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     }
 
     @Override
+    public String toString() {
+        return "Agg[" + getName() + "; " + index.getType() + "]";
+    }
+
+    @Override
     public boolean createsDuplicates() {
         return index.getRootExpression().createsDuplicates();
     }

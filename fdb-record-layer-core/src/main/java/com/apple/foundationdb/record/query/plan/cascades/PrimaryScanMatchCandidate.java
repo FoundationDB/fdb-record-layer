@@ -155,6 +155,11 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Override
+    public String toString() {
+        return "primary[" + String.join(",", getQueriedRecordTypeNames()) + "]";
+    }
+
+    @Override
     public boolean createsDuplicates() {
         return false;
     }

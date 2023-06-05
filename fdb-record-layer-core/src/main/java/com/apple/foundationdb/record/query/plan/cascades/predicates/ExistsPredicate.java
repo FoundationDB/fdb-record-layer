@@ -105,7 +105,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.emptyMap());
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
@@ -155,9 +155,9 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             if (!existentialAlias.equals(aliasMap.getTarget(candidateExistsPredicate.getExistentialAlias()))) {
                 return Optional.empty();
             }
-            return Optional.of(new PredicateMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
         } else if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe));
         }
         return Optional.empty();
     }

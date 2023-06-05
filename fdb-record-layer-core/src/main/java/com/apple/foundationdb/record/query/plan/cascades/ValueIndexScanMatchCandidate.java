@@ -203,6 +203,11 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Override
+    public String toString() {
+        return "value[" + getName() + "]";
+    }
+
+    @Override
     public boolean createsDuplicates() {
         return index.getRootExpression().createsDuplicates();
     }
