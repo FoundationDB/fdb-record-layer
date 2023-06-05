@@ -164,7 +164,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             recordLayerSchema,
                             typedEvaluationContext,
                             queryExecutionParameters,
-                            conn);
+                            executionContext);
                 }
             }
         }
@@ -179,7 +179,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                                              @Nonnull final RecordLayerSchema recordLayerSchema,
                                                              @Nonnull final EvaluationContext evaluationContext,
                                                              @Nonnull final QueryExecutionParameters executionParameters,
-                                                             @Nonnull final EmbeddedRelationalConnection connection) throws RelationalException {
+                                                             @Nonnull final ExecutionContext executionContext) throws RelationalException {
+            final var connection = (EmbeddedRelationalConnection) executionContext.connection;
             Type type = physicalPlan.getResultType().getInnerType();
             Assert.notNull(type);
             Assert.that(type instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", type.getTypeCode()));
@@ -191,11 +192,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     .setSkip(executionParameters.getExecutionPropertiesBuilder().getSkip())
                     .setReturnedRowLimit(executionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
                     .build();
-            try {
-                cursor = physicalPlan.executePlan(fdbRecordStore, evaluationContext, ContinuationImpl.parseContinuation(executionParameters.getContinuation()).getUnderlyingBytes(), executeProperties);
-            } catch (InvalidProtocolBufferException ipbe) {
-                throw ExceptionUtil.toRelationalException(ipbe);
-            }
+            cursor = executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> {
+                try {
+                    return physicalPlan.executePlan(fdbRecordStore, evaluationContext,
+                            ContinuationImpl.parseContinuation(executionParameters.getContinuation()).getUnderlyingBytes(),
+                            executeProperties);
+                } catch (InvalidProtocolBufferException ipbe) {
+                    throw ExceptionUtil.toRelationalException(ipbe);
+                }
+            });
             final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
             return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
                     physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

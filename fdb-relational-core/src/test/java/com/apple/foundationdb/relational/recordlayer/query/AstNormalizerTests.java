@@ -228,7 +228,7 @@ public class AstNormalizerTests {
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet);
+            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query), PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
@@ -276,7 +276,7 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeQuery(fakeSchemaTemplate, query, PreparedStatementParameters.empty(), 0, emptyBitSet);
+            AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query), PreparedStatementParameters.empty(), 0, emptyBitSet);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -291,8 +291,12 @@ public class AstNormalizerTests {
     private static void validateNotSameHash(@Nonnull final String query1,
                                             @Nonnull final String query2,
                                             @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
-        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+
+
+        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query1),
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query2),
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -304,8 +308,10 @@ public class AstNormalizerTests {
     private static void validateNotEqual(@Nonnull final String query1,
                                          @Nonnull final String query2,
                                          @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query1, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
-        final var result2 = AstNormalizer.normalizeQuery(fakeSchemaTemplate, query2, PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query1),
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query2),
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 

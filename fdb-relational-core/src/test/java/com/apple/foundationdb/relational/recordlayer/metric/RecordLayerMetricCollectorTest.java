@@ -86,12 +86,16 @@ public class RecordLayerMetricCollectorTest {
     }
 
     private static void testGeneralMetrics(@Nonnull MetricCollector collector) {
-        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_AST),
-                "GENERATE_AST event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.LEX_PARSE),
+                "LEX_PARSE event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.NORMALIZE_QUERY),
+                "NORMALIZE_QUERY event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
                 "CACHE_LOOKUP event should be registered with the metricCollector");
-        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.EXECUTE_PLAN),
-                "EXECUTE_QUERY event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN),
+                "EXECUTE_RECORD_QUERY_PLAN event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.TOTAL_EXECUTE_QUERY),
+                "TOTAL_EXECUTE_QUERY event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY),
                 "TOTAL_PROCESS_QUERY event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY),
@@ -107,7 +111,7 @@ public class RecordLayerMetricCollectorTest {
                 "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should be registered with the metricCollector");
-        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_HIT),
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT),
                 "PLAN_CACHE_HIT event should not be registered with the metricCollector");
     }
 
@@ -122,7 +126,7 @@ public class RecordLayerMetricCollectorTest {
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should not be registered with the metricCollector");
         // true event
-        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_HIT),
+        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT),
                 "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
     }
 }

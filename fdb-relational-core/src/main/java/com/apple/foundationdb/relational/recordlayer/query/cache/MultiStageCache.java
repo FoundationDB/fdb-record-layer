@@ -188,7 +188,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         final var result = reductionFunction.apply(secondaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(secondaryKey)).map(Map.Entry::getValue));
         if (result != null) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_HIT);
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT);
             return valueWithEnvironmentDecorator.apply(result);
         } else {
             registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);

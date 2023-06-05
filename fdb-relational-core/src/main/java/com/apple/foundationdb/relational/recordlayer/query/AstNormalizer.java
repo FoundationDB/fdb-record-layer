@@ -444,19 +444,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query) throws RelationalException {
-        return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_AST, () -> normalizeQuery(context.getSchemaTemplate(), query,
-                PreparedStatementParameters.of(context.getPreparedStatementParameters()),
-                context.getUserVersion(), context.getSchemaTemplate()
-                        .getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes())));
+        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE,
+                () -> lexAndParse(query));
+        return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
+                () -> normalizeAst(
+                        context.getSchemaTemplate(), rootContext,
+                        PreparedStatementParameters.of(context.getPreparedStatementParameters()),
+                        context.getUserVersion(),
+                        context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes())
+                ));
     }
 
     @Nonnull
     @VisibleForTesting
-    public static Result normalizeQuery(@Nonnull final SchemaTemplate schemaTemplate,
-                                        @Nonnull final String query,
-                                        @Nonnull final PreparedStatementParameters preparedStatementParameters,
-                                        int userVersion,
-                                        @Nonnull final BitSet readableIndexes) throws RelationalException {
+    public static RelationalParser.RootContext lexAndParse(@Nonnull final String query) throws RelationalException {
         final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
         parser.removeErrorListeners();
@@ -466,11 +467,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         if (!listener.getSyntaxErrors().isEmpty()) {
             throw listener.getSyntaxErrors().get(0).toRelationalException();
         }
-        return normalizeAst(schemaTemplate, rootContext, preparedStatementParameters, userVersion, readableIndexes);
+        return rootContext;
     }
 
     @Nonnull
-    private static Result normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
+    @VisibleForTesting
+    public static Result normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
                                        @Nonnull final RelationalParser.RootContext context,
                                        @Nonnull final PreparedStatementParameters preparedStatementParameters,
                                        int userVersion,

@@ -30,10 +30,13 @@ public class RelationalMetric {
     public enum RelationalEvent implements StoreTimer.Event {
 
         /**
-         * Time taken to parse and normalize the query and produce the AST.
-         * See {@link com.apple.foundationdb.relational.recordlayer.query.AstNormalizer#normalizeQuery}
+         * Time taken for lexing and parsing the query.
          * */
-        GENERATE_AST("generate ast"),
+        LEX_PARSE("lex and parse query"),
+        /**
+         * Time taken to normalize the parsed query.
+         * */
+        NORMALIZE_QUERY("normalize the query"),
         /**
          * Time taken to generate a logical query plan.
          * See {@link com.apple.foundationdb.relational.recordlayer.query.AstVisitor}
@@ -48,13 +51,17 @@ public class RelationalMetric {
          * */
         OPTIMIZE_PLAN("optimize the plan"),
         /**
-         * Time taken to execute the plan for a query.
-         * */
-        EXECUTE_PLAN("execute the physical plan"),
-        /**
-         * Time taken to get the physical plan for a query.
+         * Time taken in the planning phase of the query.
          * */
         TOTAL_GET_PLAN_QUERY("get the physical plan"),
+        /**
+         * Time taken to .
+         * */
+        EXECUTE_RECORD_QUERY_PLAN("execute the record query plan"),
+        /**
+         * Time taken in the execution phase of the query.
+         * */
+        TOTAL_EXECUTE_QUERY("execution phase of the query"),
         /**
          * Time taken to process a SQL query end-to-end.
          * */
@@ -84,8 +91,7 @@ public class RelationalMetric {
 
         PLAN_CACHE_PRIMARY_MISS("primary cache miss", false),
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
-        PLAN_CACHE_HIT("cache hit", false),
-        PLAN_CACHE_BYPASS("bypass the cache", false)
+        PLAN_CACHE_SECONDARY_HIT("cache hit", false),
         ;
 
         private final String title;

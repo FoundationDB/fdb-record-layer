@@ -82,7 +82,7 @@ public abstract class Plan<T> {
      * @throws RelationalException if something goes wrong.
      */
     public final T execute(@Nonnull final ExecutionContext c) throws RelationalException {
-        return c.metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PLAN, () -> executeInternal(c));
+        return c.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_EXECUTE_QUERY, () -> executeInternal(c));
     }
 
     protected abstract T executeInternal(@Nonnull final ExecutionContext c) throws RelationalException;

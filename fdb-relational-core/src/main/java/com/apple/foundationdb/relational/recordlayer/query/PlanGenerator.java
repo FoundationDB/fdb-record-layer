@@ -130,7 +130,6 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                context.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_BYPASS);
                 Plan<?> plan = generatePhysicalPlan(query, astHashResult, context, planner);
                 if (logThatQuery || logger.isDebugEnabled()) {
                     message.addKeyAndValue("planCache", "skip");
@@ -220,7 +219,7 @@ public final class PlanGenerator {
         // literal and parameter values without LIMIT and CONTINUATION)
         context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
         try {
-            final var maybePlan = parseQuery(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri());
+            final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri());
             Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
             return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
@@ -234,8 +233,9 @@ public final class PlanGenerator {
         }
     }
 
-    private static Object parseQuery(@Nonnull PlanGenerationContext planGenerationContext, @Nonnull AstNormalizer.Result ast,
-                              @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) throws RelationalException {
+    private static Object generateLogicalPlan(@Nonnull PlanGenerationContext planGenerationContext,
+                                              @Nonnull AstNormalizer.Result ast,
+                                              @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) throws RelationalException {
         return planGenerationContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                 new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri).visit(ast.getParseTree()));
     }
