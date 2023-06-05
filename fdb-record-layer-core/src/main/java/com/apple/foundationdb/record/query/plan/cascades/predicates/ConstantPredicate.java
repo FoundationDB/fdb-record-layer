@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -87,12 +88,24 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Override
     public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
         if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         final ConstantPredicate that = (ConstantPredicate)other;
         return Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Override

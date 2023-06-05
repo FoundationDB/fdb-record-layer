@@ -215,6 +215,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     }
 
     @Override
+    public String toString() {
+        return "Windowed[" + getName() + "]";
+    }
+
+    @Override
     public boolean createsDuplicates() {
         return index.getRootExpression().createsDuplicates();
     }

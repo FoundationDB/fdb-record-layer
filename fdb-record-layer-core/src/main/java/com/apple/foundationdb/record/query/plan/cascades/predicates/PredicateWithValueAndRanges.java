@@ -256,12 +256,12 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (candidate.getRanges().isEmpty()) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
-                    return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
+                    return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
                         if (boundParameterPrefixMap.containsKey(alias)) {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, alias));
+                    }, Optional.of(alias), Optional.empty()));
                 } else {
                     return Optional.empty();
                 }
@@ -271,14 +271,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (getRanges().stream().allMatch(range -> candidateRanges.stream().anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
                 if (candidate instanceof WithAlias) {
                     final var alias = ((WithAlias)candidate).getParameterAlias();
-                    return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
+                    return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, boundParameterPrefixMap) -> {
                         if (boundParameterPrefixMap.containsKey(alias)) {
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
                     }, Optional.of(alias), Optional.of(captureConstraint(candidate))));
                 } else {
-                    return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
+                    return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
                         if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
                             return Optional.empty();
@@ -294,7 +294,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }
 
         if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
         }
 
         //
@@ -305,7 +305,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         if (semanticEquals(candidatePredicate, aliasMap)) {
             // Note that we never have to reapply the predicate as both sides are always semantically
             // equivalent.
-            return Optional.of(new PredicateMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
         }
 
         return Optional.empty();

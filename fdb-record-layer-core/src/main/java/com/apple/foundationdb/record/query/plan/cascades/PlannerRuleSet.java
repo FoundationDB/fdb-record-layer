@@ -48,9 +48,9 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.MatchLeafRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeFetchIntoCoveringIndexRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeProjectionAndFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicatesRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
@@ -105,7 +105,6 @@ public class PlannerRuleSet {
     );
     private static final List<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
-            new PredicateToLogicalUnionRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule()
     );
@@ -176,7 +175,8 @@ public class PlannerRuleSet {
     );
     private static final List<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
             new DataAccessRule(),
-            new SelectDataAccessRule()
+            new SelectDataAccessRule(),
+            new PredicateToLogicalUnionRule()
     );
     private static final List<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableList.<CascadesRule<? extends RelationalExpression>>builder()

@@ -457,7 +457,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 }
             }
 
-            final Set<PredicateMapping> impliedMappingsForPredicate =
+            final Iterable<PredicateMapping> impliedMappingsForPredicate =
                     predicate.findImpliedMappings(aliasMap, candidateSelectExpression.getPredicates(), evaluationContext);
 
             predicateMappingsBuilder.add(impliedMappingsForPredicate);
@@ -481,7 +481,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     final var predicateMapBuilder = PredicateMap.builder();
 
                     for (final var predicateMapping : predicateMappings) {
-                        Verify.verify(predicateMapping.hasMapping());
                         final var queryPredicate = predicateMapping.getQueryPredicate();
                         final var candidatePredicate = predicateMapping.getCandidatePredicate();
                         predicateMapBuilder.put(queryPredicate, predicateMapping);
