@@ -37,6 +37,7 @@ import java.util.concurrent.Executor;
 public class EmptyCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final Executor executor;
+    private boolean closed = false;
 
     public EmptyCursor(@Nonnull Executor executor) {
         this.executor = executor;
@@ -56,7 +57,12 @@ public class EmptyCursor<T> implements RecordCursor<T> {
 
     @Override
     public void close() {
-        // Nothing to do.
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

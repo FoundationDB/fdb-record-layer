@@ -46,5 +46,4 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
     }
-
 }

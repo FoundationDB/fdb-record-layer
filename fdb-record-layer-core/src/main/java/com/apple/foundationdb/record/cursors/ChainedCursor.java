@@ -115,6 +115,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
     private final CursorLimitManager limitManager;
     private final long maxReturnedRows;
     private long returnedRowCount;
+    private boolean closed = false;
 
     /**
      * Creates a new <code>ChainedCursor</code>.  When created in this fashion any resource limits that may be
@@ -235,6 +236,12 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Override
     public void close() {
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

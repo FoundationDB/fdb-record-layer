@@ -81,6 +81,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     private byte[] kvCursorContinuation;
     @Nonnull
     private SizeStatisticsResults sizeStatisticsResults;  //the final output of the cursor
+    private boolean closed;
 
     private SizeStatisticsCollectorCursor(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context,
                                           @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
@@ -91,6 +92,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         this.finalResultsEmitted = false;
         this.kvCursorContinuation = null;
         this.nextStatsResult = null;
+        this.closed = false;
 
         if (continuation != null) {
             try {
@@ -160,6 +162,12 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
 
     @Override
     public void close() {
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     //form a continuation that allows us to restart statistics aggregation from where we left off

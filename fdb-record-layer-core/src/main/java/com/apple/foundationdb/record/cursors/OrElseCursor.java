@@ -147,6 +147,11 @@ public class OrElseCursor<T> implements RecordCursor<T> {
         inner.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return (other == null || other.isClosed()) && inner.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

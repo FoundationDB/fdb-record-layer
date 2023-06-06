@@ -262,6 +262,8 @@ public interface RecordCursor<T> extends AutoCloseable {
     @Override
     void close();
 
+    boolean isClosed();
+
     @Nonnull
     Executor getExecutor();
 

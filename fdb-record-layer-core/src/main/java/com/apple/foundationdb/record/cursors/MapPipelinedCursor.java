@@ -96,6 +96,11 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         inner.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return pipeline.isEmpty() && inner.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

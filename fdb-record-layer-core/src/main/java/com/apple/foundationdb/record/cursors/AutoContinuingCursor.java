@@ -169,6 +169,11 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         }
     }
 
+    @Override
+    public boolean isClosed() {
+        return currentContext == null || currentContext.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

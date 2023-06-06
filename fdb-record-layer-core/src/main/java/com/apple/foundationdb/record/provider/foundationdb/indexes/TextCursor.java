@@ -70,6 +70,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
     private int limitRemaining;
     @Nullable
     private RecordCursorResult<IndexEntry> nextResult;
+    private boolean closed;
 
     TextCursor(@Nonnull BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
                @Nonnull Executor executor,
@@ -83,6 +84,7 @@ class TextCursor implements BaseCursor<IndexEntry> {
 
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = context.getTimer();
+        this.closed = false;
     }
 
     @Nonnull
@@ -139,6 +141,12 @@ class TextCursor implements BaseCursor<IndexEntry> {
     @Override
     public void close() {
         underlying.cancel();
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

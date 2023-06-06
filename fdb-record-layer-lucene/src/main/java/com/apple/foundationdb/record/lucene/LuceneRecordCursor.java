@@ -139,6 +139,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
+    private boolean closed;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -183,6 +184,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.analyzerSelector = analyzerSelector;
         this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
+        closed = false;
     }
 
     @Nonnull
@@ -239,6 +241,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
         }
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull
