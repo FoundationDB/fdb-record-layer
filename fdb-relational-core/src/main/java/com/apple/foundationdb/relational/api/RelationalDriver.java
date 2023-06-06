@@ -29,6 +29,7 @@ import java.net.URI;
 
 /**
  * A Driver which is used to connect to a Relational Database.
+ * (This is NOT a JDBC Driver though it looks like one).
  */
 @ExcludeFromJacocoGeneratedReport
 public interface RelationalDriver {

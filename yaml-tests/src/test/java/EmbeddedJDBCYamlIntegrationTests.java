@@ -1,5 +1,5 @@
 /*
- * JDBCYamlIntegrationTests.java
+ * EmbeddedJDBCYamlIntegrationTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,10 +33,8 @@ import com.apple.foundationdb.relational.cli.CliConfigCommand;
 import com.apple.foundationdb.relational.cli.CommandGroupVisitor;
 import com.apple.foundationdb.relational.cli.Utils;
 import com.apple.foundationdb.relational.cli.RelationalScriptProcessor;
-import com.apple.foundationdb.relational.jdbc.JDBCURI;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 
 import com.google.protobuf.Message;
 import org.apache.logging.log4j.LogManager;
@@ -60,20 +58,17 @@ import java.util.List;
 import java.util.ServiceLoader;
 
 /**
- * Like {@link YamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
- * talking to an in-process Relational Server.
+ * Like {@link YamlIntegrationTests} only it runs the YAML via the embedded fdb-relational-jdbc driver.
  */
-public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
-    private static final Logger LOG = LogManager.getLogger(JDBCYamlIntegrationTests.class);
+// TODO: Run all yaml files. See below for reasons on why we skip particular yamls, usually because
+// waiting on functionality.
+public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
+    private static final Logger LOG = LogManager.getLogger(EmbeddedJDBCYamlIntegrationTests.class);
 
     /**
      * Creates an in-process server per invocation.
      */
-    private static final class JDBCCommandFactory implements CliCommandFactory {
-        /**
-         * An inprocess server started on construction and closed out in {@link #close()}.
-         */
-        final InProcessRelationalServer server;
+    private static final class EmbeddedJDBCCommandFactory implements CliCommandFactory {
         /**
          * Loaded Relational JDBC Driver.
          */
@@ -92,26 +87,15 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
             }
         }
 
-        private JDBCCommandFactory() throws SQLException {
+        private EmbeddedJDBCCommandFactory() throws SQLException {
             // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
             // more specific about where we want to connect to.
-            this.driver = DriverManager.getDriver("jdbc:relational:///");
-            try {
-                this.server = new InProcessRelationalServer().start();
-            } catch (IOException e) {
-                throw new SQLException(e);
-            }
+            this.driver = DriverManager.getDriver("jdbc:embed:/__SYS");
         }
 
         @Override
         public void close() throws Exception {
-            try {
-                closeConnection();
-            } finally {
-                if (this.server != null) {
-                    this.server.close();
-                }
-            }
+            closeConnection();
         }
 
         private void closeConnection() throws SQLException {
@@ -130,12 +114,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
         public CliCommand<Void> getConnectCommand(@Nonnull URI connectPath) {
             return () -> {
                 closeConnection();
-                // Add name of the inprocess running server to the connectPath.
-                URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath,
-                        JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, this.server.getServerName());
-                String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-                LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                this.connection = this.driver.connect(uriStr, null)
+                this.connection = this.driver.connect(connectPath.toString(), null)
                         .unwrap(RelationalConnection.class);
                 return null;
             };
@@ -283,7 +262,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     @Override
     CliCommandFactory createCliCommandFactory() throws RelationalException {
         try {
-            return new JDBCCommandFactory();
+            return new EmbeddedJDBCCommandFactory();
         } catch (SQLException e) {
             throw new RelationalException(e);
         }
@@ -308,50 +287,8 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    @Disabled("TODO: Flakey")
-    public void orderBy() throws Exception {
-        super.orderBy();
-    }
-
-    @Override
-    @Disabled("TODO: Flakey")
-    public void scenarioTests() throws Exception {
-        super.scenarioTests();
-    }
-
-    @Override
     @Disabled("TODO: Need to work on supporting labels")
     public void limit() throws Exception {
         super.limit();
-    }
-
-    @Override
-    @Disabled("TODO")
-    public void selectAStar() throws Exception {
-        super.selectAStar();
-    }
-
-    @Override
-    @Disabled("TODO: Flakey")
-    public void aggregateIndexTestsCount() throws Exception {
-        super.aggregateIndexTestsCount();
-    }
-
-    @Override
-    @Disabled("TODO: Flakey")
-    public void joinTests() throws Exception {
-        super.joinTests();
-    }
-
-    @Override
-    @Disabled("TODO: Flakey")
-    public void nested() throws Exception {
-        super.nested();
-    }
-
-    @Override
-    @Disabled("TODO: Flakey")
-    public void showcasingTests() throws Exception {
-        super.showcasingTests();
     }
 }

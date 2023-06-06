@@ -40,8 +40,20 @@ public class StructResultSetMetaData implements RelationalResultSetMetaData {
     }
 
     @Override
+    public String getColumnLabel(int column) throws SQLException {
+        // For now, return column name until we implement column labels.
+        // Throwing an exception breaks all processing.
+        return getColumnName(column);
+    }
+
+    @Override
     public int getColumnType(int column) throws SQLException {
         return metaData.getColumnType(column);
+    }
+
+    @Override
+    public String getColumnTypeName(int column) throws SQLException {
+        return metaData.getColumnTypeName(column);
     }
 
     @Override

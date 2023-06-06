@@ -28,6 +28,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 
+
+/**
+ * This is NOT a JDBC Driver even though it looks like one.
+ * @see com.apple.foundationdb.relational.jdbc.JDBCEmbedDriver
+ */
+// TODO: Perhaps integrate com.apple.foundationdb.relational.JDBCDriver and this class? Large refactor.
+// Would need to make sure we didn't break Customer usage.
 public class EmbeddedRelationalDriver implements RelationalDriver {
     private final EmbeddedRelationalEngine engine;
 

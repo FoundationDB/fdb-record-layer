@@ -200,6 +200,8 @@ public abstract class RowStruct implements RelationalStruct {
             return ((Enum<?>) o).name();
         } else if (o instanceof Descriptors.EnumValueDescriptor) {
             return ((Descriptors.EnumValueDescriptor) o).getName();
+        } else if (o instanceof ByteString) {
+            return ((ByteString) o).toString();
         } else {
             throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }

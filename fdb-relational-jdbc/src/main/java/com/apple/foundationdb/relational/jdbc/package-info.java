@@ -57,4 +57,10 @@
  * phenomenon as we learn of the type of exceptions we'll be seeing. We've installed an interceptor for the JDBCService
  * to catch unhandled SQLExceptions and which we can enhance as we learn more about the types of problems we'll see.
  */
+// Names in this package are overwrought; we are in the relational.jdbc package yet names have a JDBCRelational prefix.
+// Ideally, the JDBCRelationalDriver class (com.apple.foundationdb.relational.jdbc.JDBCRelationalDriver) would be known as
+// c.a.f.r.j.Driver but our spotbug rules preclude it with a complaint that
+// "The class name com.apple.foundationdb.relational.jdbc.Driver shadows the simple name of implemented interface java.sql.Driver".
+// The long names convey-some that these classes implement the Relational* Interfaces by prefixing the implementation class
+// name with JDBC. JDBCRelationalDriver maps a little to the `jdbc:relational://` JDBC URL. They are awkward.
 package com.apple.foundationdb.relational.jdbc;

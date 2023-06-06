@@ -136,7 +136,9 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @Override
     @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        // Return null warnings for now until implemented.
+        // Throwing an exception stops all processing.
+        return null;
     }
 
     @Override

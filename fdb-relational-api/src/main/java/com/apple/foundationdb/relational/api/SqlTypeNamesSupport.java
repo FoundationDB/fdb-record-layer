@@ -50,6 +50,8 @@ public final class SqlTypeNamesSupport {
                 return "STRUCT";
             case Types.ARRAY:
                 return "ARRAY";
+            case Types.BINARY:
+                return "BINARY";
             default:
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }

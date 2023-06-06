@@ -500,7 +500,9 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default SQLWarning getWarnings() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        // For now, return null until warnings are implemented.
+        // Throwing an exception stops all processing. See TODO (Implement JDBC Warnings in Relational embedded Driver)
+        return null;
     }
 
     @Override

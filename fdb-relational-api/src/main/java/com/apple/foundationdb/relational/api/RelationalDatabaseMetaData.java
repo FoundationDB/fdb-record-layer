@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
@@ -249,7 +250,7 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default String getDatabaseProductVersion() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return BuildVersion.getInstance().getVersion();
     }
 
     @Override
@@ -261,19 +262,19 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default String getDriverVersion() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return BuildVersion.getInstance().getVersion();
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMajorVersion() {
-        return -1;
+        return BuildVersion.getInstance().getMajorVersion();
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMinorVersion() {
-        return -1;
+        return BuildVersion.getInstance().getMinorVersion();
     }
 
     @Override

@@ -48,6 +48,8 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nullable
     private final Integer planHash;
 
+    private volatile boolean closed;
+
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
@@ -100,6 +102,12 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         } catch (RelationalException ve) {
             throw ve.toSqlException();
         }
+        this.closed = true;
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return this.closed;
     }
 
     @Override
