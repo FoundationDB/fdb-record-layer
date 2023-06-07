@@ -70,6 +70,7 @@ message RecordTypeUnion {
     optional ComplexDocument _ComplexDocument = 2;
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
+    optional Email _Email = 5;
 }
 
 message NestedMapDocument {
@@ -86,4 +87,22 @@ message NestedMapDocument {
     repeated Entry entry = 2;
     optional int64 group = 3;
     optional string text2 = 4;
+}
+
+message Email {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    message MailHeader {
+        required string key = 1;
+        required string value = 2;
+    }
+    repeated MailHeader header = 2;
+    required string mailbox = 3;
+    required string flags = 4;
+    required string body = 5;
+    required int64 sequence = 6;
+    required bool isSeen = 7;
+    required bool isDeleted = 8;
+    required bool isExpunged = 9;
+    required int64 date = 10;
+    required string headerAsBlob = 11;
 }
