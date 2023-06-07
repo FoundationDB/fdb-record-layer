@@ -213,8 +213,13 @@ public class Ordering {
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         final var normalizedRequestedOrderingValues =
                 requestedGroupingValues.stream()
-                        .filter(requestedOrderingValue -> !equalityBoundValueMap.containsKey(requestedOrderingValue))
+                        .filter(requestedGroupingValue -> !equalityBoundValueMap.containsKey(requestedGroupingValue))
                         .collect(ImmutableSet.toImmutableSet());
+
+        // no ordering is requested.
+        if (normalizedRequestedOrderingValues.isEmpty()) {
+            return true;
+        }
 
         final var filteredOrderingSet = orderingSet.filterIndependentElements(keyPart -> !equalityBoundValueMap.containsKey(keyPart.getValue()));
         final var permutations = TopologicalSort.topologicalOrderPermutations(filteredOrderingSet);
