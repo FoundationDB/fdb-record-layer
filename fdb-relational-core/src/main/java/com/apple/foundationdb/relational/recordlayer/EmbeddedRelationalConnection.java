@@ -289,6 +289,16 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return this.frl.getURI();
     }
 
+    @Nonnull
+    public StoreCatalog getBackingCatalog() {
+        return backingCatalog;
+    }
+
+    @Nullable
+    public Transaction getTransaction() {
+        return transaction;
+    }
+
     boolean inActiveTransaction() {
         return transaction != null;
     }

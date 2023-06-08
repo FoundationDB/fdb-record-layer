@@ -22,9 +22,16 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import org.apache.logging.log4j.LogManager;
@@ -79,11 +86,35 @@ public abstract class Command {
             return new Command() {
                 @Override
                 public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
-                    final var uri = Matchers.string(Matchers.firstEntry(Matchers.first(region, "connect"), "connect").getValue(), "connect");
+                    var uri = Matchers.string(Matchers.firstEntry(Matchers.first(region, "connect"), "connect").getValue(), "connect");
                     logger.debug("connecting to '{}'", uri);
                     final var connectionFun = factory.getConnectCommand(URI.create(Matchers.notNull(uri, "connection URI")));
                     connectionFun.call();
                     logger.debug("connected to '{}'", uri);
+                }
+            };
+        } else if ("load".equals(commandString)) {
+            return new Command() {
+                @Override
+                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
+                    final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
+                    // final var schemaTemplateName = Matchers.notNull(Matchers.string(Matchers.notNull(loadSchemaTemplateEntry, "schema template").getValue(), "table name"), "table name");
+
+                    logger.debug("loading '{}'", loadCommandString);
+                    // current connection should be __SYS/catalog
+                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
+                    // save schema template
+                    StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                            .setRlConfig(RecordLayerConfig.getDefault())
+                            .setStoreCatalog(backingCatalog)
+                            .build();
+                    ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
+                    try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
+                        metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(loadCommandString), Options.NONE).execute(transaction);
+                        connection.commit();
+                    }
                 }
             };
             // todo (yhatem) refactor tests and remove this once REL-269 is in.

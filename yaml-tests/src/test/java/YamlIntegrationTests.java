@@ -72,6 +72,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void standardTestsWithProto() throws Exception {
+        doRun("standard-tests-proto.yaml");
+    }
+
+    @Test
     public void scenarioTests() throws Exception {
         doRun("scenario-tests.yaml");
     }

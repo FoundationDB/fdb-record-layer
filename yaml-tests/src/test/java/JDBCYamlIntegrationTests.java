@@ -290,6 +290,12 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
+    @Disabled("The standard-tests-proto.yaml has 'load schema template' which is not supported")
+    public void standardTestsWithProto() throws Exception {
+        super.standardTestsWithProto();
+    }
+
+    @Override
     @Disabled("The subquery-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void subqueryTests() throws Exception {
         super.subqueryTests();
