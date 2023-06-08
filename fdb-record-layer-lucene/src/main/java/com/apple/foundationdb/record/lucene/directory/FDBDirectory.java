@@ -95,7 +95,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
 @NotThreadSafe
 public class FDBDirectory extends Directory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
-    public static final int DEFAULT_BLOCK_SIZE = 16_384;
+    public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
     public static final int DEFAULT_INITIAL_CAPACITY = 128;
