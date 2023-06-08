@@ -2125,6 +2125,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 });
     }
 
+    private static RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
+                                                                              @Nonnull StoreExistenceCheck existenceCheck,
+                                                                              @Nonnull FDBRecordContext context,
+                                                                              @Nonnull SubspaceProvider subspaceProvider,
+                                                                              @Nonnull Subspace subspace) {
+        RecordMetaDataProto.DataStoreInfo info;
+        if (firstKeyValue == null) {
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else if (!checkFirstKeyIsHeader(firstKeyValue, context, subspaceProvider, subspace, existenceCheck)) {
+            // Treat as brand new, although there is no way to be sure that what was written is compatible
+            // with the current default versions.
+            info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
+        } else {
+            try {
+                info = RecordMetaDataProto.DataStoreInfo.parseFrom(firstKeyValue.getValue());
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreStorageException("Error reading version", ex)
+                        .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
+            }
+        }
+        checkStoreHeaderInternal(info, context, subspaceProvider, existenceCheck);
+        return info;
+    }
+
     @Nonnull
     private RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
                                                                        @Nonnull StoreExistenceCheck existenceCheck) {
@@ -2396,6 +2420,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             state.endWrite();
             return state;
         });
+    }
+
+    public static CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath keySpacePath) {
+        SubspaceProvider subspaceProvider1 = new SubspaceProviderByKeySpacePath(keySpacePath);
+        Subspace subspace1 = subspaceProvider1.getSubspace(context);
+        return readStoreFirstKey(context, subspace1, IsolationLevel.SERIALIZABLE).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, StoreExistenceCheck.NONE, context, subspaceProvider1, subspace1));
     }
 
     @Nonnull
@@ -3253,6 +3283,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    public static CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
+        Subspace isSubspace = subspace.subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
+        KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
+                .setContext(context)
+                .setRange(TupleRange.ALL)
+                .setContinuation(null)
+                .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
+                        .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                        .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
+                        .build())
+                )
+                .build();
+        FDBStoreTimer timer = context.getTimer();
+        CompletableFuture<Map<String, IndexState>> result = cursor.asList().thenApply(list -> {
+            Map<String, IndexState> indexStateMap;
+            if (list.isEmpty()) {
+                indexStateMap = Collections.emptyMap();
+            } else {
+                ImmutableMap.Builder<String, IndexState> indexStateMapBuilder = ImmutableMap.builder();
+
+                for (KeyValue kv : list) {
+                    String indexName = isSubspace.unpack(kv.getKey()).getString(0);
+                    Object code = Tuple.fromBytes(kv.getValue()).get(0);
+                    indexStateMapBuilder.put(indexName, IndexState.fromCode(code));
+                    if (timer != null) {
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY);
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_KEY_BYTES, kv.getKey().length);
+                        timer.increment(FDBStoreTimer.Counts.LOAD_STORE_STATE_VALUE_BYTES, kv.getValue().length);
+                    }
+                }
+
+                indexStateMap = indexStateMapBuilder.build();
+            }
+            return indexStateMap;
+        });
+        if (timer != null) {
+            result = timer.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INDEX_META_DATA, result, context.getExecutor());
+        }
+        return result;
     }
 
     @Nonnull
