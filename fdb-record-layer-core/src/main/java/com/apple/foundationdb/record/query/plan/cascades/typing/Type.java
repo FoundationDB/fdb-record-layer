@@ -1495,6 +1495,9 @@ public interface Type extends Narrowable<Type> {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
+                if (fieldDescriptor.getOptions().getDeprecated()) {
+                    continue;
+                }
                 fieldsBuilder.add(
                         new Field(fromProtoType(getTypeSpecificDescriptor(fieldDescriptor),
                                 fieldDescriptor.getType(),
