@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -133,4 +134,9 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     public Set<String> getPendingDeletions() throws IOException {
         return Collections.emptySet();
     }
+
+    public FDBRecordContext getFDBRecordContext() {
+        return fdbDirectory.getContext();
+    }
+
 }
