@@ -59,7 +59,7 @@ public final class LuceneRecordContextProperties {
     /**
      * Maximum segment size to produce during normal merging for ordinary full-text search with Lucene.
      */
-    public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeMaxSize", 5.0);
+    public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeMaxSize", 10.0);
 
     /**
      * This controls whether Lucene indexes' directories (and their directories for auto-complete) should be merged based on probability to reduce multiple merges per transaction.

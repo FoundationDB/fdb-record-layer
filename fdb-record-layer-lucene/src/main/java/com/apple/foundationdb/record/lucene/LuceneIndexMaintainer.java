@@ -72,6 +72,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -90,11 +91,13 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
+    private static final int POINT_SPLIT_SIZE = 15;
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
+    protected static final String PRIMARY_KEY_BINARY_NAME = "b"; // TODO: Need to find reserved names..
     private final Executor executor;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
@@ -218,6 +221,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         BytesRef ref = new BytesRef(primaryKey);
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        document.add(new BinaryPoint(PRIMARY_KEY_BINARY_NAME, split(ref.bytes, POINT_SPLIT_SIZE)));
 
         Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
         for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
@@ -241,10 +245,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
+    private void deleteDocument(Tuple groupingKey, byte[] primaryKey, boolean useBinaryPoint) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
-        Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
-        oldWriter.deleteDocuments(query);
+        if (useBinaryPoint) {
+            byte[][] split = split(primaryKey, POINT_SPLIT_SIZE);
+            Query query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_NAME, split, split);
+            oldWriter.deleteDocuments(query);
+        } else {
+            Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
+            oldWriter.deleteDocuments(query);
+        }
     }
 
     @Nonnull
@@ -274,7 +284,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         try {
             for (Tuple t : oldRecordFields.keySet()) {
-                deleteDocument(t, oldRecord.getPrimaryKey().pack());
+                deleteDocument(t, oldRecord.getPrimaryKey().pack(), false);
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
@@ -402,5 +412,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LOG.trace("performOperation operation={}", operation);
         return CompletableFuture.completedFuture(new IndexOperationResult() {
         });
+    }
+
+    private byte[][] split(byte[] source, int splitLength) {
+        int numSubArrays = source.length / splitLength;
+        if ((source.length % splitLength) != 0) {
+            numSubArrays += 1;
+        }
+        byte[][] result = new byte[numSubArrays][];
+        for (int i = 0 ; i < numSubArrays ; i++) {
+            // This would pad the last element with 0, which may be an issue if the source distinguishes 0 from empty
+            result[i] = Arrays.copyOfRange(source, i * splitLength, (i+1) * splitLength);
+        }
+
+        return result;
     }
 }
