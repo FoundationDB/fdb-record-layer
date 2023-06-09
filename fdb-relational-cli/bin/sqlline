@@ -44,9 +44,9 @@ done
 
 APP_HOME=$( cd "${APP_HOME:-./}.." && pwd -P ) || exit
 APP_NAME=`basename "$0"`
-
 target="${APP_HOME}/.out/install/${APP_NAME}/bin/${APP_NAME}"
 if [ ! -x "${target}" ]; then
-  echo "Please build before running this script (Failed to find executable script at ${target})"
+  echo "Please build Relational before running this script (Failed to find executable script at ${target})"
+  exit 1
 fi
 exec "${target}" "$@"
