@@ -32,10 +32,15 @@
 ---
 - query: drop schema template test_template
 ---
+# Here we use SQL to create the schema template.
 - query: create schema template test_template
    create table t1(id bigint, col1 bigint, primary key(id))
    create table t2(col1 bigint, primary key(col1))
    create table t3(col1 bigint, col2 string, primary key(col1))
+# Alternatively, you can directly load the schema template from a pre-crafted proto buf
+# file that you put in main/resources. For example:
+# load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
+# check standard-tests-proto.yaml and standard_tests.proto for more information.
 ---
 - query: drop database /FRL/YOUSSEF
 ---

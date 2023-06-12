@@ -296,6 +296,12 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
+    @Disabled("The deprecated-fields-tests-proto.yaml has 'load schema template' which is not supported")
+    public void deprecatedFieldsTestsWithProto() throws Exception {
+        super.deprecatedFieldsTestsWithProto();
+    }
+
+    @Override
     @Disabled("The subquery-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void subqueryTests() throws Exception {
         super.subqueryTests();

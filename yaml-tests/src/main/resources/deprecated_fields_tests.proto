@@ -1,5 +1,5 @@
 /*
- * standard_tests.proto
+ * deprecated_fields_tests.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,22 +20,18 @@
 
 syntax = "proto3";
 
-// make sure to use this package naming convention:
-// com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
-// adding "generated" is important to exclude the generated Java file from Jacoco reports.
-// suffixing the namespace with your test name is important for segregating similarly-named
-// generated-Java-classes (such as RecordTypeUnion) into separate packages, otherwise you
-// get an error from `protoc`.
-package com.apple.foundationdb.relational.yamltests.generated.standardtest;
+package com.apple.foundationdb.relational.yamltests.generated.deprecatedfields;
 
-option java_outer_classname = "StandardTestsProto";
+option java_outer_classname = "DeprecatedFieldsTestsProto";
 
 import "record_metadata_options.proto";
 
 message T1 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  int64 COL1 = 2;
-  int64 COL2 = 3;
+  int64 COL1 = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  int64 DEPRECATED_FIELD_COL2 = 2 [deprecated = true];
+  int64 COL3 = 3;
+  string DEPRECATED_FIELD_COL4 = 4 [deprecated = true];
+  float DEPRECATED_FIELD_COL5 = 5 [deprecated = true];
 }
 
 message RecordTypeUnion {

@@ -77,6 +77,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void deprecatedFieldsTestsWithProto() throws Exception {
+        doRun("deprecated-fields-tests-proto.yaml");
+    }
+
+    @Test
     public void scenarioTests() throws Exception {
         doRun("scenario-tests.yaml");
     }

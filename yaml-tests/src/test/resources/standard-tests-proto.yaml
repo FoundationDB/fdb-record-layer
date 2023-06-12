@@ -26,7 +26,7 @@
 ---
 - query: create database /FRL/STANDARD_YAML
 ---
-- load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.proto.StandardTestsProto
+- load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
 ---
 - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
 ---

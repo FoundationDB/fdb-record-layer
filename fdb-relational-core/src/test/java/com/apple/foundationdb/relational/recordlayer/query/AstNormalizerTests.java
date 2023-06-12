@@ -292,7 +292,6 @@ public class AstNormalizerTests {
                                             @Nonnull final String query2,
                                             @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
 
-
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query1),
                 PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, AstNormalizer.lexAndParse(query2),
