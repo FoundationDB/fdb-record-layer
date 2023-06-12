@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
@@ -76,11 +75,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             try {
                 currentRow = currentCursor.next();
             } catch (UncheckedRelationalException e) {
-                RelationalException unwrapped = e.unwrap();
-                if (unwrapped.getErrorCode().equals(ErrorCode.SCAN_LIMIT_REACHED)) {
-                    unwrapped.addContext("Continuation", enrichContinuation(currentCursor.getContinuation()));
-                }
-                throw unwrapped;
+                throw e.unwrap();
             }
         }
         return currentRow;

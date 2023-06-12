@@ -108,7 +108,7 @@ public class ExecutePropertyTests {
                             Assertions.assertThat(hasNext).isFalse().withFailMessage("We should either have exhausted the result set or we should fail because of a limit reached");
                             continuation = rs.getContinuation();
                         } catch (ContextualSQLException ex) {
-                            continuation = (Continuation) ex.getContext().get("Continuation");
+                            continuation = rs.getContinuation();
                         } catch (Exception ex) {
                             Assertions.fail("Wrong type of exception: " + ex);
                         }

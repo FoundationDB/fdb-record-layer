@@ -142,21 +142,21 @@ public final class Options {
 
         /**
          * Set a time limit per transaction.
-         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown. The continuation in the result can be used to resume.
          * Scope: Connection
          */
         EXECUTION_TIME_LIMIT,
 
         /**
          * Set a scanned bytes limit per transaction.
-         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown. The continuation in the result set can be used to resume.
          * Scope: Connection
          */
         EXECUTION_SCANNED_BYTES_LIMIT,
 
         /**
          * Set a scanned row limit per transaction.
-         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown and a continuation is made available in the exception's context.
+         * If the limit is hit, a `SCAN_LIMIT_REACHED` SQLException is thrown. The continuation in the result set can be used to resume.
          * Scope: Connection
          */
         EXECUTION_SCANNED_ROWS_LIMIT,
