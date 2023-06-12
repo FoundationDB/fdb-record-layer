@@ -60,6 +60,7 @@ public class LuceneOptimizedCodec extends Codec {
     private final LuceneOptimizedPostingsFormat postingsFormat;
     private final LuceneOptimizedPointsFormat pointsFormat;
     private final LuceneOptimizedDocValuesFormat docValuesFormat;
+    private final LuceneOptimizedStoredFieldsFormat storedFieldsFormat;
 
     /**
      * Instantiates a new codec.
@@ -83,6 +84,7 @@ public class LuceneOptimizedCodec extends Codec {
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
         postingsFormat = new LuceneOptimizedPostingsFormat();
         docValuesFormat = new LuceneOptimizedDocValuesFormat(baseCodec.docValuesFormat());
+        storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
     }
 
 
@@ -98,7 +100,7 @@ public class LuceneOptimizedCodec extends Codec {
 
     @Override
     public StoredFieldsFormat storedFieldsFormat() {
-        return baseCodec.storedFieldsFormat();
+        return storedFieldsFormat;
     }
 
     @Override
