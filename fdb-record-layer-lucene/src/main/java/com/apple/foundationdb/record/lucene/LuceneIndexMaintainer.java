@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
@@ -95,6 +96,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     protected static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
+    protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "b"; // TODO: Need to find reserved names..
     private final Executor executor;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
@@ -208,16 +210,26 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey,
-                               byte[] primaryKey) throws IOException {
+    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
+                               Tuple groupingKey,
+                               Tuple primaryKey) throws IOException {
         final List<String> texts = fields.stream()
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(texts));
-        BytesRef ref = new BytesRef(primaryKey);
+
+        // null format string means don't use BinaryPoint for the index primary key
+        String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
+        LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
+        BytesRef ref = new BytesRef(ser.asPackedByteArray());
+        // use packed Tuple for the Stored and Sorted fields
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        if (formatString != null) {
+            // Use BinaryPoint for fast lookup of ID when enabled
+            document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, ser.asFormattedBinaryPoint()));
+        }
 
         Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
         for (Map.Entry<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> entry : indexOptionsToFieldsMap.entrySet()) {
@@ -241,9 +253,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
+    private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
-        Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
+        // TODO: Need fallback here
+        // null format string means don't use BinaryPoint for the index primary key
+        String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
+        LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
+        byte[][] binaryPoint = ser.asFormattedBinaryPoint();
+        Query query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
         oldWriter.deleteDocuments(query);
     }
 
@@ -274,7 +291,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         try {
             for (Tuple t : oldRecordFields.keySet()) {
-                deleteDocument(t, oldRecord.getPrimaryKey().pack());
+                deleteDocument(t, oldRecord.getPrimaryKey());
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
@@ -288,7 +305,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // update new
         try {
             for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
-                writeDocument(entry.getValue(), entry.getKey(), newRecord.getPrimaryKey().pack());
+                writeDocument(entry.getValue(), entry.getKey(), newRecord.getPrimaryKey());
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue updating new index keys", e)

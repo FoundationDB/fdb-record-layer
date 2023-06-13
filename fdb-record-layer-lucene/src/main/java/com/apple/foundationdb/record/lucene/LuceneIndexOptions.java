@@ -69,6 +69,7 @@ public class LuceneIndexOptions {
      * The name of the synonym set to use in Lucene.
      */
     public static final String TEXT_SYNONYM_SET_NAME_OPTION = "textSynonymSetName";
+    public static final String PRIMARY_KEY_SERIALIZATION_FORMAT = "primaryKeySerializationFormat";
 
     private LuceneIndexOptions() {
     }
