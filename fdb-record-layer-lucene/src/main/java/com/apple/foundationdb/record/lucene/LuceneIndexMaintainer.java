@@ -255,12 +255,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("PMD.CloseResource")
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
-        // TODO: Need fallback here
-        // null format string means don't use BinaryPoint for the index primary key
+        Query query;
         String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
-        byte[][] binaryPoint = ser.asFormattedBinaryPoint();
-        Query query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
+        // null format string means don't use BinaryPoint for the index primary key
+        if (formatString != null) {
+            byte[][] binaryPoint = ser.asFormattedBinaryPoint();
+            query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
+        } else {
+            // fallback to the old way (less efficient)
+            query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));
+        }
         oldWriter.deleteDocuments(query);
     }
 

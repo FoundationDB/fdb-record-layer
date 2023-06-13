@@ -20,21 +20,38 @@
 
 package com.apple.foundationdb.record.lucene.idformat;
 
+import com.apple.foundationdb.tuple.Tuple;
+
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * The format model for the index key formatter. This class represents the structure (provided externally) describing the
+ * structure of the ID Key. The key is a {@link Tuple}, consisting of tuple elements, which can be nested by containing
+ * additional tuples. The structure of the format is similar, consisting of a top-level {@link TupleElement} with {@link TupleElement#children}
+ * that can be either leaves ({@link FormatElementType}) or nested {@link TupleElement}.
+ * The marker interface {@link FormatElement} is a super-interface for {@link TupleElement} and {@link FormatElementType}.
+ */
 public class RecordIdFormat {
     public enum FormatElementType implements FormatElement {
+        // NONE captures an element that will not be encoded in the output
         NONE(0),
+        // NULL captures a placeholder using Tuple's NULL value, that can later be changed to a different (equal or smaller) element
         NULL(1),
+        // 4-byte INTEGER
         INT32(5),
+        // Nullable 4-byte INTEGER
         INT32_OR_NULL(5),
+        // 8-byte LONG
         INT64(9),
+        // Nullable 8-byte LONG
         INT64_OR_NULL(9),
+        // UUID (8 bytes == 2 LONGs) UUID, provided as a string
         UUID_AS_STRING(18),
-        STRING_16(50);
+        // String, limited to length of 16 characters
+        STRING_16(32);
 
         // The required size (in bytes) when this subtype is serialized
         // This is to ensure we always use the maximum allocated size so that the final size is fixed
@@ -60,6 +77,7 @@ public class RecordIdFormat {
         return new RecordIdFormat(TupleElement.of(elements));
     }
 
+    @Nonnull
     public TupleElement getElement() {
         return element;
     }
@@ -86,16 +104,22 @@ public class RecordIdFormat {
         return element.toString();
     }
 
+    /**
+     * Marker interface for both {@link TupleElement} and {@link FormatElementType}
+     */
     public interface FormatElement {
     }
 
+    /**
+     * A collection of elements matching a Tuple structure in the key.
+     */
     public static class TupleElement implements FormatElement {
         @Nonnull
         private final List<FormatElement> children;
 
         public TupleElement(@Nonnull final List<FormatElement> children) {
             if (children.isEmpty()) {
-                throw new RecordCoreFormatException("Tuple format element cannot be empty");
+                throw new RecordCoreFormatException("Tuple element cannot be empty");
             }
             this.children = children;
         }
