@@ -72,6 +72,11 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
         transaction.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return transaction.isClosed();
+    }
+
     public RecordContextTransaction getRecordContextTransaction() {
         return transaction;
     }

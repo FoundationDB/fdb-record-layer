@@ -83,6 +83,11 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
             @Override
             public void close() {
             }
+
+            @Override
+            public boolean isClosed() {
+                return false;
+            }
         };
     }
 

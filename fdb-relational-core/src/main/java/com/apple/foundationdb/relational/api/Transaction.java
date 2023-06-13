@@ -34,6 +34,8 @@ public interface Transaction extends AutoCloseable {
     @Override
     void close() throws RelationalException;
 
+    boolean isClosed();
+
     /**
      * Unwraps this instance as type T, if such a cast is possible. This provides a convenient API
      * for unwrapping implementation calls from the interface (to avoid lots of instanceof checks everywhere).

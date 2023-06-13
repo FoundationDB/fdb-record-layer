@@ -1011,12 +1011,6 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
 
     @ExcludeFromJacocoGeneratedReport
     @Override
-    default boolean isClosed() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @ExcludeFromJacocoGeneratedReport
-    @Override
     default void updateNString(int columnIndex, String nString) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
 

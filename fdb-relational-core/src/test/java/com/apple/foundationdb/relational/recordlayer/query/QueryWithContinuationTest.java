@@ -67,9 +67,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatement() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
                 continuation = assertResult(ps, 10L, 11L);
@@ -90,9 +88,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithLimit() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?l")) {
                 ps.setInt("l", 2);
@@ -115,9 +111,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithParam() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
                 ps.setInt("p", 9);
@@ -141,9 +135,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithLiteral() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
                 continuation = assertResult(ps, 10L, 11L);
@@ -165,9 +157,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithDifferentLimit() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
                 continuation = assertResult(ps, 10L, 11L);
@@ -184,9 +174,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithDifferentLimitParam() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT ?l")) {
                 ps.setInt("l", 2);
@@ -205,9 +193,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementInitialContEmpty() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
                 ps.setBytes("continuation",  new byte[0]);
@@ -229,9 +215,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithParamChangedFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
                 ps.setInt("p", 9);
@@ -251,9 +235,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithLiteralChangedFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
                 continuation = assertResult(ps, 10L, 11L);
@@ -271,9 +253,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithLiteralChangedToParamFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
                 continuation = assertResult(ps, 10L, 11L);
@@ -292,9 +272,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithParamNameChangedFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
                 ps.setInt("p", 9);
@@ -314,9 +292,7 @@ public class QueryWithContinuationTest {
     @Test
     void preparedStatementWithPlanChangedFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2")) {
                 ps.setInt("p", 9);
@@ -336,9 +312,7 @@ public class QueryWithContinuationTest {
     @Test
     void standardStatement() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
@@ -375,9 +349,7 @@ public class QueryWithContinuationTest {
     @Test
     void standardStatementWithLiterals() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
@@ -414,9 +386,7 @@ public class QueryWithContinuationTest {
     @Test
     void standardStatementWithDifferentLiteralFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2")) {
@@ -440,9 +410,7 @@ public class QueryWithContinuationTest {
     @Test
     void standardStatementWithDifferentPlanFails() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
-            }
+            executeInsert(ddl);
             Continuation continuation;
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
@@ -486,5 +454,17 @@ public class QueryWithContinuationTest {
         Assertions.assertThat(proto.getBindingHash()).isNotZero();
         Assertions.assertThat(proto.getPlanHash()).isNotNull();
         Assertions.assertThat(proto.getPlanHash()).isNotZero();
+    }
+
+    private void executeInsert(Ddl ddl) throws SQLException {
+        try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
+            try (RelationalResultSet rs = statement.executeQuery("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)")) {
+                // We need to consume the result set from the insertion until the bug is fixed:
+                // TODO ([Wave 3] executeUpdate("INSERT") throws a SQLException)
+                while (rs.next()) {
+                    continue;
+                }
+            }
+        }
     }
 }

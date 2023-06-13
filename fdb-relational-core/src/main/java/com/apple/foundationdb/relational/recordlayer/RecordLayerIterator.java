@@ -117,4 +117,9 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     public boolean terminatedEarly() {
         return !hasNext() && result.getNoNextReason() != RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
     }
+
+    @Override
+    public boolean isClosed() {
+        return recordCursor.isClosed();
+    }
 }

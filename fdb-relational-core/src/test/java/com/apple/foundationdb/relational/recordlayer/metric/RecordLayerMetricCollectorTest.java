@@ -55,9 +55,6 @@ public class RecordLayerMetricCollectorTest {
                     statement.execute("INSERT INTO simple_table(a) VALUES (" + i + ")");
                 }
             }
-            connection.commit();
-            connection.beginTransaction();
-            var collector = connection.getMetricCollector();
             try (var statement = connection.createStatement()) {
                 Assertions.assertTrue(statement.execute("SELECT * FROM simple_table"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
@@ -65,12 +62,11 @@ public class RecordLayerMetricCollectorTest {
                     for (int i = 0; i < 10; i++) {
                         resultSetAssert.hasNextRow();
                     }
+                    var collector = connection.getMetricCollector();
+                    testGeneralMetrics(collector);
+                    testCacheMissSpecificMetrics(collector);
                 }
-                testGeneralMetrics(collector);
-                testCacheMissSpecificMetrics(collector);
             }
-            connection.beginTransaction();
-            collector = connection.getMetricCollector();
             try (var statement = connection.createStatement()) {
                 Assertions.assertTrue(statement.execute("SELECT * FROM simple_table"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
@@ -78,9 +74,10 @@ public class RecordLayerMetricCollectorTest {
                     for (int i = 0; i < 10; i++) {
                         resultSetAssert.hasNextRow();
                     }
+                    var collector = connection.getMetricCollector();
+                    testGeneralMetrics(collector);
+                    testCacheHitSpecificMetrics(collector);
                 }
-                testGeneralMetrics(collector);
-                testCacheHitSpecificMetrics(collector);
             }
         }
     }

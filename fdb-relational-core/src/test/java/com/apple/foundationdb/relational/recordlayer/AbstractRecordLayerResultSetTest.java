@@ -190,6 +190,11 @@ class AbstractRecordLayerResultSetTest {
             public void close() {
                 //no-op
             }
+
+            @Override
+            public boolean isClosed() {
+                return false;
+            }
         };
 
     }

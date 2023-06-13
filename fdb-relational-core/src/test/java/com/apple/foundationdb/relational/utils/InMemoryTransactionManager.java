@@ -74,5 +74,10 @@ public class InMemoryTransactionManager implements TransactionManager {
         public void close() {
             //no-op
         }
+
+        @Override
+        public boolean isClosed() {
+            return false;
+        }
     }
 }

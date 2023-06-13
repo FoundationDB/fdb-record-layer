@@ -103,6 +103,11 @@ public class ResumableIteratorImpl<T> implements ResumableIterator<T> {
     }
 
     @Override
+    public boolean isClosed() {
+        return false;
+    }
+
+    @Override
     public boolean hasNext() {
         boolean result = iterator.hasNext();
         if (!result) {

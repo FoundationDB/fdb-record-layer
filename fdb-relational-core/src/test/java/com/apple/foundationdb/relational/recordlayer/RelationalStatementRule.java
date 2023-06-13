@@ -34,6 +34,7 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
@@ -107,6 +108,16 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public RelationalResultSet getResultSet() throws SQLException {
         return statement.getResultSet();
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+        return statement.getConnection();
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return statement.isClosed();
     }
 
     @Override

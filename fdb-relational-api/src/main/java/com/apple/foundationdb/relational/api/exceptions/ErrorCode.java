@@ -138,6 +138,9 @@ public enum ErrorCode {
     TOO_MANY_COLUMNS("54011"),
     SCAN_LIMIT_REACHED("54F01"),
 
+    // Class 55 - Object Not In Prerequisite State
+    STATEMENT_CLOSED("55F00"),
+
     // Class 58 - System Error
     UNDEFINED_FILE("58F01"),
 

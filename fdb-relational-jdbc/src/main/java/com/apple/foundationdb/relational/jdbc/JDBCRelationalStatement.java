@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLException;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
@@ -90,7 +92,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     private void checkOpen() throws SQLException {
         if (isClosed()) {
-            throw new SQLException("Statement closed");
+            throw new RelationalException("Statement closed", ErrorCode.STATEMENT_CLOSED).toSqlException();
         }
     }
 

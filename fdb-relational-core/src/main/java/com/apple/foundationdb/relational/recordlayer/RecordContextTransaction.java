@@ -93,6 +93,11 @@ public class RecordContextTransaction implements Transaction {
         abort();
     }
 
+    @Override
+    public boolean isClosed() {
+        return isClosed;
+    }
+
     @Nonnull
     @Override
     public <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {

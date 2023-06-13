@@ -61,6 +61,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Nullable
     private RelationalResultSet currentResultSet;
+    private boolean closed;
 
     public EmbeddedRelationalStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
@@ -96,6 +97,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public boolean execute(String sql) throws SQLException {
         try {
+            checkOpen();
             Assert.notNull(sql);
             conn.ensureTransactionActive();
             final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
@@ -120,6 +122,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         try {
+            checkOpen();
             Assert.notNull(sql);
             conn.ensureTransactionActive();
             final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
@@ -139,6 +142,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public int executeUpdate(String sql) throws SQLException {
         try {
+            checkOpen();
             Assert.notNull(sql);
             conn.ensureTransactionActive();
             final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
@@ -160,14 +164,18 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Override
     public RelationalResultSet getResultSet() throws SQLException {
-        if (currentResultSet != null /*&& !currentResultSet.isClosed()  todo implement this*/) {
-            return currentResultSet;
+        checkOpen();
+        if (currentResultSet != null && !currentResultSet.isClosed()) {
+            var resultSet = currentResultSet;
+            currentResultSet = null;
+            return resultSet;
         }
         throw new SQLException("no open result set available");
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
+        checkOpen();
         if (currentResultSet != null) {
             return -1;
         } else {
@@ -177,12 +185,19 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Override
     public Connection getConnection() throws SQLException {
+        checkOpen();
         return conn;
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return closed;
     }
 
     @Override
     public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
+            checkOpen();
             conn.ensureTransactionActive();
             options = Options.combine(conn.getOptions(), options);
 
@@ -212,6 +227,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         try {
+            checkOpen();
             options = Options.combine(conn.getOptions(), options);
 
             conn.ensureTransactionActive();
@@ -242,6 +258,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
         try {
+            checkOpen();
             conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -258,6 +275,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Nonnull
     public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
         try {
+            checkOpen();
             conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), maybeQualifiedTableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -275,6 +293,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
         try {
+            checkOpen();
             options = Options.combine(conn.getOptions(), options);
             //do this check first because otherwise we might start an expensive transaction that does nothing
             if (!data.hasNext()) {
@@ -312,6 +331,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
         try {
+            checkOpen();
             options = Options.combine(conn.getOptions(), options);
             //do this check first because otherwise we might start an expensive transaction that does nothing
             if (data.isEmpty()) {
@@ -347,6 +367,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
         try {
+            checkOpen();
             options = Options.combine(conn.getOptions(), options);
             if (!keys.hasNext()) {
                 return 0;
@@ -385,6 +406,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         try {
+            checkOpen();
             conn.ensureTransactionActive();
             options = Options.combine(conn.getOptions(), options);
 
@@ -461,8 +483,10 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Override
     public void close() throws SQLException {
-        //TODO(bfines) implement
-        // For example, close out the currentResultSet if one.
+        if (currentResultSet != null) {
+            currentResultSet.close();
+        }
+        closed = true;
     }
 
     /* ****************************************************************************************************************/
@@ -501,6 +525,12 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             return index;
         } else {
             return table;
+        }
+    }
+
+    private void checkOpen() throws SQLException {
+        if (closed) {
+            throw new RelationalException("Statement closed", ErrorCode.STATEMENT_CLOSED).toSqlException();
         }
     }
 

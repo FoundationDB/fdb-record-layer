@@ -170,8 +170,9 @@ public class FRL implements AutoCloseable {
                 try (Statement statement = connection.createStatement()) {
                     try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                         if (relationalStatement.execute(sql)) {
-                            resultSet = TypeConversion.toProtobuf(relationalStatement.getResultSet());
-                            relationalStatement.getResultSet().close();
+                            try (RelationalResultSet rs = relationalStatement.getResultSet()) {
+                                resultSet = TypeConversion.toProtobuf(rs);
+                            }
                         }
                         return resultSet;
                     }

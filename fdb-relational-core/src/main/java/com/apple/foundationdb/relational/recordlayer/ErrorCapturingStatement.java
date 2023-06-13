@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
@@ -56,6 +57,16 @@ public class ErrorCapturingStatement implements RelationalStatement {
         } catch (RuntimeException re) {
             throw ExceptionUtil.toRelationalException(re).toSqlException();
         }
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+        return delegate.getConnection();
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return delegate.isClosed();
     }
 
     @Override

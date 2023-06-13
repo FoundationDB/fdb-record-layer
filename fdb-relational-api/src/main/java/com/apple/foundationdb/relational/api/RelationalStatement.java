@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
@@ -61,6 +60,9 @@ import java.sql.SQLWarning;
 public interface RelationalStatement extends java.sql.Statement, RelationalDirectAccessStatement {
     @Override
     RelationalResultSet executeQuery(String sql) throws SQLException;
+
+    @Override
+    RelationalResultSet getResultSet() throws SQLException;
 
     @Override
     @ExcludeFromJacocoGeneratedReport
@@ -174,12 +176,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default RelationalResultSet getResultSet() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default int getUpdateCount() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -256,12 +252,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default Connection getConnection() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default ResultSet getGeneratedKeys() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -269,12 +259,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     @Override
     @ExcludeFromJacocoGeneratedReport
     default int getResultSetHoldability() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default boolean isClosed() throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

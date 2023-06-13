@@ -65,4 +65,6 @@ public interface ResumableIterator<T> extends Iterator<T>, AutoCloseable {
      * method to retrieve a {@code Continuation} object that can be used to resume the iteration.
      */
     boolean terminatedEarly();
+
+    boolean isClosed();
 }

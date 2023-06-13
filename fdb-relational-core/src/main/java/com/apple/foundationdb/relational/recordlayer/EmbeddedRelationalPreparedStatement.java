@@ -38,6 +38,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +53,8 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     private boolean closed;
 
+    private RelationalResultSet resultSet;
+
     @Nonnull
     private final EmbeddedRelationalConnection conn;
 
@@ -63,11 +66,16 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     @Override
     public RelationalResultSet executeQuery() throws SQLException {
         try {
+            checkOpen();
             Assert.notNull(sql);
             conn.ensureTransactionActive();
-            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
-            if (resultSet.isPresent()) {
-                return new ErrorCapturingResultSet(resultSet.get());
+            if (resultSet != null && !resultSet.isClosed()) {
+                resultSet.close();
+            }
+            final var optionalResultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
+            if (optionalResultSet.isPresent()) {
+                resultSet = new ErrorCapturingResultSet(optionalResultSet.get());
+                return resultSet;
             } else {
                 throw new RelationalException("PreparedStatement.executeQuery must return a result set but was executed on a query that doesn't: " + sql,
                         ErrorCode.NO_RESULT_SET);
@@ -79,104 +87,98 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBoolean(String parameterName, boolean x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setInt(int parameterIndex, int x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setInt(String parameterName, int x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setLong(int parameterIndex, long x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setLong(String parameterName, long x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setFloat(String parameterName, float x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setDouble(int parameterIndex, double x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setDouble(String parameterName, double x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setString(int parameterIndex, String x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setString(String parameterName, String x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBytes(String parameterName, byte[] x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
     public void setArray(String parameterName, Array x) throws SQLException {
-        ensureOpen();
+        checkOpen();
         namedParameters.put(parameterName, x);
-    }
-
-    private void ensureOpen() throws SQLException {
-        if (closed) {
-            throw new RelationalException("Cannot set parameter on closed RelationalPreparedStatement", ErrorCode.INVALID_PREPARED_STATEMENT_PARAMETER).toSqlException();
-        }
     }
 
     private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
@@ -211,7 +213,25 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     @Override
     public void close() throws SQLException {
+        if (resultSet != null) {
+            resultSet.close();
+        }
         closed = true;
+    }
+
+    @Override
+    public ResultSet getResultSet() throws SQLException {
+        if (resultSet != null && !resultSet.isClosed()) {
+            var ret = resultSet;
+            resultSet = null;
+            return ret;
+        }
+        throw new SQLException("no open result set available");
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return closed;
     }
 
     @Override
@@ -222,5 +242,11 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
+    }
+
+    private void checkOpen() throws SQLException {
+        if (closed) {
+            throw new RelationalException("Prepared Statement closed", ErrorCode.STATEMENT_CLOSED).toSqlException();
+        }
     }
 }

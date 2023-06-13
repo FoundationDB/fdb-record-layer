@@ -527,12 +527,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default ResultSet getResultSet() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default int getUpdateCount() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -658,12 +652,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default int getResultSetHoldability() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default boolean isClosed() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

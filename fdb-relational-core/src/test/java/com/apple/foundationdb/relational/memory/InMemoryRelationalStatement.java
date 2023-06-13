@@ -46,6 +46,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
@@ -69,6 +70,21 @@ public class InMemoryRelationalStatement implements RelationalStatement {
         } else {
             throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
+    }
+
+    @Override
+    public RelationalResultSet getResultSet() throws SQLException {
+        return null;
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+        return null;
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return false;
     }
 
     @Override
