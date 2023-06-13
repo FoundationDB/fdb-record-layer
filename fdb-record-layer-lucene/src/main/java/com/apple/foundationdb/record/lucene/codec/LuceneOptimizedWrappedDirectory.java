@@ -29,6 +29,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -103,6 +104,20 @@ class LuceneOptimizedWrappedDirectory extends Directory {
         } else {
             return wrappedDirectory.openInput(name, context);
         }
+    }
+
+    /**
+     * Opens a lazy input with performing a seek.
+     *
+     * @param name name
+     * @param ioContext ioContext
+     * @param initialOffset offset
+     * @param position current position
+     * @return IndexInput
+     * @throws IOException exception
+     */
+    public IndexInput openLazyInput(@Nonnull final String name, @Nonnull final IOContext ioContext, long initialOffset, long position) throws IOException {
+        return fdbDirectory.openLazyInput(name, ioContext, initialOffset, position);
     }
 
     @Override

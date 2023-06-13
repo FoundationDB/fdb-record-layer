@@ -71,7 +71,10 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         this.segmentName = si.name;
         String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        handle = directory.openInput(dataFileName, context); // async
+        if ( !(directory instanceof LuceneOptimizedWrappedDirectory) ) {
+            throw new IOException("Directory Must Be Wrapped");
+        }
+        handle = ((LuceneOptimizedWrappedDirectory) directory).openLazyInput(dataFileName, context, 0, 0L); // attempting not to read
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 
