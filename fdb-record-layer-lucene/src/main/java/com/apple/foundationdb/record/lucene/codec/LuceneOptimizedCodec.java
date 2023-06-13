@@ -32,7 +32,11 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.SegmentInfoFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.TermVectorsFormat;
+import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
+import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
 import org.apache.lucene.codecs.lucene87.Lucene87Codec;
+import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
+import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
 
 /**
  *
@@ -55,12 +59,26 @@ import org.apache.lucene.codecs.lucene87.Lucene87Codec;
 public class LuceneOptimizedCodec extends Codec {
 
     private final Lucene87Codec baseCodec;
-    private final LuceneOptimizedCompoundFormat compoundFormat;
-    private final LuceneOptimizedSegmentInfoFormat segmentInfoFormat;
-    private final LuceneOptimizedPostingsFormat postingsFormat;
-    private final LuceneOptimizedPointsFormat pointsFormat;
-    private final LuceneOptimizedDocValuesFormat docValuesFormat;
-    private final LuceneOptimizedStoredFieldsFormat storedFieldsFormat;
+    private final CompoundFormat compoundFormat;
+    private final SegmentInfoFormat segmentInfoFormat;
+    private final PointsFormat pointsFormat;
+    private final StoredFieldsFormat storedFieldsFormat;
+    private final PostingsFormat defaultPostingsFormat;
+    private final DocValuesFormat defaultDocValuesFormat;
+
+    private final PostingsFormat postingsFormat = new PerFieldPostingsFormat() {
+        @Override
+        public PostingsFormat getPostingsFormatForField(String field) {
+            return LuceneOptimizedCodec.this.getPostingsFormatForField(field);
+        }
+    };
+
+    private final DocValuesFormat docValuesFormat = new PerFieldDocValuesFormat() {
+        @Override
+        public DocValuesFormat getDocValuesFormatForField(String field) {
+            return LuceneOptimizedCodec.this.getDocValuesFormatForField(field);
+        }
+    };
 
     /**
      * Instantiates a new codec.
@@ -82,8 +100,8 @@ public class LuceneOptimizedCodec extends Codec {
         compoundFormat = new LuceneOptimizedCompoundFormat();
         segmentInfoFormat = new LuceneOptimizedSegmentInfoFormat();
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
-        postingsFormat = new LuceneOptimizedPostingsFormat(baseCodec.postingsFormat());
-        docValuesFormat = new LuceneOptimizedDocValuesFormat(baseCodec.docValuesFormat());
+        defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
+        defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
     }
 
@@ -137,4 +155,13 @@ public class LuceneOptimizedCodec extends Codec {
     public PointsFormat pointsFormat() {
         return pointsFormat;
     }
+
+    public PostingsFormat getPostingsFormatForField(String field) {
+        return defaultPostingsFormat;
+    }
+
+    public DocValuesFormat getDocValuesFormatForField(String field) {
+        return defaultDocValuesFormat;
+    }
+
 }

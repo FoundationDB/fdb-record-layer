@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.NumericDocValues;
@@ -42,12 +44,17 @@ import java.io.UncheckedIOException;
  * data needed to be read from FDB.
  *
  */
+@AutoService(DocValuesFormat.class)
 public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
 
     private DocValuesFormat docValuesFormat;
 
+    public LuceneOptimizedDocValuesFormat() {
+        this(new Lucene80DocValuesFormat());
+    }
+
     public LuceneOptimizedDocValuesFormat(DocValuesFormat docValuesFormat) {
-        super(docValuesFormat.getName());
+        super("RL80");
         this.docValuesFormat = docValuesFormat;
     }
 
