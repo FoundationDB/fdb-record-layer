@@ -24,6 +24,9 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for the serializer.
+ */
 public class LuceneIndexKeySerializerTest {
     @Test
     void singleElement() {
@@ -169,6 +172,7 @@ public class LuceneIndexKeySerializerTest {
 
     @Test
     void testStringNonAscii() {
+        @SuppressWarnings("AvoidEscapedUnicodeCharacters")
         Tuple key = Tuple.from(new String(new char[] {'\u0001', '\u0002', '\ufff0', '\ufffe'}));
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[STRING_16]", key);
 
@@ -182,8 +186,9 @@ public class LuceneIndexKeySerializerTest {
     }
 
     @Test
+    @SuppressWarnings("AvoidEscapedUnicodeCharacters")
     void testStringMaxLength() {
-        Tuple key = Tuple.from(new String(new char[] {'\uffff', '\uffff', '\uffff', '\uffff','\uffff', '\uffff', '\uffff', '\uffff','\uffff', '\uffff', '\uffff', '\uffff','\uffff', '\uffff', '\uffff', '\uffff'}));
+        Tuple key = Tuple.from(new String(new char[] {'\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff'}));
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[STRING_16]", key);
 
         assertResult(new byte[] {2, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, 0}, classUnderTest.asPackedByteArray());

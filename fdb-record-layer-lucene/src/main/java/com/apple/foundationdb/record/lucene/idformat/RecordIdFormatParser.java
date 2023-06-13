@@ -60,7 +60,7 @@ public class RecordIdFormatParser {
     }
 
     /**
-     * Parse a string representing a format (see syntax above) and return an instance of {@link RecordIdFormat}
+     * Parse a string representing a format (see syntax above) and return an instance of {@link RecordIdFormat}.
      * @param formatString the given string representation
      * @return the constructed format
      * @throws RecordCoreFormatException in case of parse failure
@@ -126,7 +126,8 @@ public class RecordIdFormatParser {
     private static List<String> tokenize(String s) {
         List<String> result = new ArrayList<>();
         int tokenStart = 0;
-        for (int i = 0; i < s.length(); i++) {
+        int i = 0;
+        while (i < s.length()) {
             char c = s.charAt(i);
             if (c == ',') {
                 result.add(s.substring(tokenStart, i));
@@ -135,9 +136,8 @@ public class RecordIdFormatParser {
                 i = matchBalanced(s, i);
             } else if (c == END_TUPLE_CHAR) {
                 throw new RecordCoreFormatException("Unmatched ']'");
-            } else {
-                // do nothing
             }
+            i += 1;
         }
         // last element after the ','
         if (tokenStart < s.length()) {

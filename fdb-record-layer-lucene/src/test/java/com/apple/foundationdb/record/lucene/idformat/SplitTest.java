@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Test for the array splitter utility.
+ */
 public class SplitTest {
     @Test
     void emptyArray() {

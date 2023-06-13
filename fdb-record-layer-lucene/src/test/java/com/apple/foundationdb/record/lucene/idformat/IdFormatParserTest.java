@@ -33,6 +33,9 @@ import static com.apple.foundationdb.record.lucene.idformat.RecordIdFormat.Forma
 import static com.apple.foundationdb.record.lucene.idformat.RecordIdFormat.FormatElementType.STRING_16;
 import static com.apple.foundationdb.record.lucene.idformat.RecordIdFormat.FormatElementType.UUID_AS_STRING;
 
+/**
+ * Test for the format parser.
+ */
 
 public class IdFormatParserTest {
     @Test

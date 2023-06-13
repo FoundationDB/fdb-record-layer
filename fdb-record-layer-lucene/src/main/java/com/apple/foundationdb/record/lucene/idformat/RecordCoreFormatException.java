@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 
 /**
- * Functional equivalent of <code>IllegalArgumentException</code>.
+ * Exception thrown when encountering issues serializing IDs using {@link LuceneIndexKeySerializer}.
  */
 @API(API.Status.STABLE)
 public class RecordCoreFormatException extends RecordCoreException {

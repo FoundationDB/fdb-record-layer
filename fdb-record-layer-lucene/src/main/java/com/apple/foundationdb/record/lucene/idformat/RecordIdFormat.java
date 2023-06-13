@@ -35,6 +35,9 @@ import java.util.stream.Collectors;
  * The marker interface {@link FormatElement} is a super-interface for {@link TupleElement} and {@link FormatElementType}.
  */
 public class RecordIdFormat {
+    /**
+     * The enum of the various types available for the format.
+     */
     public enum FormatElementType implements FormatElement {
         // NONE captures an element that will not be encoded in the output
         NONE(0),
@@ -48,8 +51,8 @@ public class RecordIdFormat {
         INT64(9),
         // Nullable 8-byte LONG
         INT64_OR_NULL(9),
-        // UUID (8 bytes == 2 LONGs) UUID, provided as a string
-        UUID_AS_STRING(18),
+        // UUID (16 bytes == 2 LONGs) UUID, provided as a string
+        UUID_AS_STRING(17),
         // String, limited to length of 16 characters
         STRING_16(32);
 
@@ -73,7 +76,7 @@ public class RecordIdFormat {
         this.element = element;
     }
 
-    public static RecordIdFormat of(FormatElement ...elements) {
+    public static RecordIdFormat of(FormatElement... elements) {
         return new RecordIdFormat(TupleElement.of(elements));
     }
 
@@ -105,7 +108,7 @@ public class RecordIdFormat {
     }
 
     /**
-     * Marker interface for both {@link TupleElement} and {@link FormatElementType}
+     * Marker interface for both {@link TupleElement} and {@link FormatElementType}.
      */
     public interface FormatElement {
     }
@@ -130,7 +133,7 @@ public class RecordIdFormat {
         }
 
         @Nonnull
-        public static TupleElement of(FormatElement...children) {
+        public static TupleElement of(FormatElement... children) {
             return new TupleElement(List.of(children));
         }
 
