@@ -111,6 +111,8 @@ public final class QueryCacheKey {
 
     private final int userVersion;
 
+    private final int memoizedHashCode;
+
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           int hash,
                           @Nonnull final String schemaTemplateName,
@@ -123,6 +125,11 @@ public final class QueryCacheKey {
         this.schemaTemplateVersion = schemaTemplateVersion;
         this.readableIndexes = readableIndexes;
         this.userVersion = userVersion;
+
+        // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
+        // hashCode() be quick. Note that this includes both information about the query (like the query hash),
+        // the schema template (like the name and version), and the schema (like the set of readable indexes)
+        this.memoizedHashCode = Objects.hash(hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
     }
 
     @Override
@@ -144,7 +151,7 @@ public final class QueryCacheKey {
 
     @Override
     public int hashCode() {
-        return Objects.hash(hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
+        return memoizedHashCode;
     }
 
     public int getHash() {
