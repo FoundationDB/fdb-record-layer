@@ -379,8 +379,8 @@ public class FDBDirectory extends Directory {
 
     @Nonnull
     private CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(getLogMessage("readBlock",
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("readBlock",
                     LuceneLogMessageKeys.FILE_NAME, resourceDescription,
                     LuceneLogMessageKeys.BLOCK_NUMBER, block));
         }
