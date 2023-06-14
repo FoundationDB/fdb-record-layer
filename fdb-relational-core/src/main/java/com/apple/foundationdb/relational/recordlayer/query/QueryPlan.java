@@ -80,6 +80,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
+        @Nonnull
+        private final TypeRepository typeRepository;
 
         @Nonnull
         private final QueryPlanConstraint constraint;
@@ -88,9 +90,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryExecutionParameters queryExecutionParameters;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                 @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryExecutionParameters queryExecutionParameters) {
             this.recordQueryPlan = recordQueryPlan;
+            this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.queryExecutionParameters = queryExecutionParameters;
         }
@@ -108,7 +112,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, constraint, parameters);
+            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters);
         }
 
         @Nonnull
@@ -147,11 +151,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) executionContext.connection;
             final String schemaName = conn.getSchema();
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                final TypeRepository.Builder builder = TypeRepository.newBuilder();
-                final Set<Type> usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
-                usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = queryExecutionParameters.getEvaluationContext();
-                final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
+                final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
                 if (queryExecutionParameters.isForExplain()) {
                     Row printablePlan = new ValueTuple(explain());
                     StructMetaData metaData = new RelationalStructMetaData(
@@ -245,7 +246,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         configuration.getReadableIndexes().map(s -> s),
                         IndexQueryabilityFilter.TRUE,
                         ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
-                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
+
+                // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
+                final RecordQueryPlan recordQueryPlan = planResult.getPlan();
+                Set<Type> planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+                planTypes.forEach(builder::addTypeIfNeeded);
+                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), builder.build(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
                 return optimizedPlan.get();
             });
         }
