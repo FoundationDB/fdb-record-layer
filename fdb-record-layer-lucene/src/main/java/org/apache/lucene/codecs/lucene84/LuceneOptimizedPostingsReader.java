@@ -17,20 +17,22 @@
 
 package org.apache.lucene.codecs.lucene84;
 
+
 import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.DOC_CODEC;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.MAX_SKIP_LEVELS;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.PAY_CODEC;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.POS_CODEC;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.TERMS_CODEC;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_COMPRESSED_TERMS_DICT_IDS;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_CURRENT;
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PostingsReaderBase;
@@ -48,7 +50,6 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BitUtil;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 
 /**
@@ -66,23 +67,22 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     private static final long BASE_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(Lucene84PostingsReader.class);
 
-    private final IndexInput docIn;
-    private final IndexInput posIn;
-    private final IndexInput payIn;
+    private Supplier<IndexInput> docIn;
+    private boolean docInInitialized;
+    private Supplier<IndexInput> posIn;
+    private boolean posInInitialized;
+    private Supplier<IndexInput> payIn;
+    private boolean payInInitialized;
 
-    private final int version;
+    private Supplier<Integer> version;
 
     /**
-     * Sole constructor.
-     * @param state reader parameters
-     * @throws IOException if there is an error in the underlying storage
+     * Sole  constructor.
+     *
+     * @param state state
+     * @throws IOException exception
      */
-    @SuppressWarnings("PMD.CloseResource")
     public LuceneOptimizedPostingsReader(SegmentReadState state) throws IOException {
-        boolean success = false;
-        IndexInput docIn = null;
-        IndexInput posIn = null;
-        IndexInput payIn = null;
 
         // NOTE: these data files are too costly to verify checksum against all the bytes on open,
         // but for now we at least verify proper structure of the checksum footer: which looks
@@ -90,31 +90,43 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         // such as file truncation.
 
         String docName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.DOC_EXTENSION);
-        try {
-            docIn = state.directory.openInput(docName, state.context);
-            if (state.fieldInfos.hasProx()) {
-                String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
-                posIn = state.directory.openInput(proxName, state.context);
-                if (state.fieldInfos.hasPayloads() || state.fieldInfos.hasOffsets()) {
-                    String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
-                    payIn = state.directory.openInput(payName, state.context);
+        docIn = Suppliers.memoize(() -> {
+            try {
+                docInInitialized = true;
+                return state.directory.openInput(docName, state.context);
+            } catch (IOException ioe) {
+                throw new UncheckedIOException(ioe);
+            }
+        });
+        version = Suppliers.memoize(() -> {
+            try {
+                return CodecUtil.checkIndexHeader(docIn.get(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
+            } catch (IOException ioe) {
+                throw new UncheckedIOException(ioe);
+            }
+        });
+
+        if (state.fieldInfos.hasProx()) {
+            posIn = Suppliers.memoize(() -> {
+                try {
+                    posInInitialized = true;
+                    String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
+                    return state.directory.openInput(proxName, state.context);
+                } catch (IOException ioe) {
+                    throw new UncheckedIOException(ioe);
                 }
-            }
-            // The headers are checked last so all 3 openInput calls can begin their fetch of the data concurrently
-            version = CodecUtil.checkIndexHeader(docIn, DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
-            if (posIn != null) {
-                CodecUtil.checkIndexHeader(posIn, POS_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
-            }
-            if (payIn != null) {
-                CodecUtil.checkIndexHeader(payIn, PAY_CODEC, version, version, state.segmentInfo.getId(), state.segmentSuffix);
-            }
-            this.docIn = docIn;
-            this.posIn = posIn;
-            this.payIn = payIn;
-            success = true;
-        } finally {
-            if (!success) {
-                IOUtils.closeWhileHandlingException(docIn, posIn, payIn);
+            });
+
+            if (state.fieldInfos.hasPayloads() || state.fieldInfos.hasOffsets()) {
+                payIn = Suppliers.memoize(() -> {
+                    try {
+                        payInInitialized = true;
+                        String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
+                        return state.directory.openInput(payName, state.context);
+                    } catch (IOException ioe) {
+                        throw new UncheckedIOException(ioe);
+                    }
+                });
             }
         }
     }
@@ -133,7 +145,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
      * Read values that have been written using variable-length encoding instead of bit-packing.
      */
     static void readVIntBlock(IndexInput docIn, long[] docBuffer,
-                              long[] freqBuffer, int num, boolean indexHasFreq) throws IOException {
+             long[] freqBuffer, int num, boolean indexHasFreq) throws IOException {
         if (indexHasFreq) {
             for (int i = 0; i < num; i++) {
                 final int code = docIn.readVInt();
@@ -174,7 +186,15 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void close() throws IOException {
-        IOUtils.close(docIn, posIn, payIn);
+        if (docInInitialized) {
+            docIn.get().close();
+        }
+        if (posInInitialized) {
+            posIn.get().close();
+        }
+        if (payInInitialized) {
+            payIn.get().close();
+        }
     }
 
     @Override
@@ -191,7 +211,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             termState.payStartFP = 0;
         }
 
-        if (version >= VERSION_COMPRESSED_TERMS_DICT_IDS) {
+        if (version.get() >= VERSION_COMPRESSED_TERMS_DICT_IDS) {
             final long l = in.readVLong();
             if ((l & 0x01) == 0) {
                 termState.docStartFP += l >>> 1;
@@ -215,7 +235,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 termState.payStartFP += in.readVLong();
             }
         }
-        if (version < VERSION_COMPRESSED_TERMS_DICT_IDS) {
+        if (version.get() < VERSION_COMPRESSED_TERMS_DICT_IDS) {
             if (termState.docFreq == 1) {
                 termState.singletonDocID = in.readVInt();
             } else {
@@ -246,7 +266,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             BlockDocsEnum docsEnum;
             if (reuse instanceof BlockDocsEnum) {
                 docsEnum = (BlockDocsEnum) reuse;
-                if (!docsEnum.canReuse(docIn, fieldInfo)) {
+                if (!docsEnum.canReuse(docIn.get(), fieldInfo)) {
                     docsEnum = new BlockDocsEnum(fieldInfo);
                 }
             } else {
@@ -257,7 +277,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             EverythingEnum everythingEnum;
             if (reuse instanceof EverythingEnum) {
                 everythingEnum = (EverythingEnum) reuse;
-                if (!everythingEnum.canReuse(docIn, fieldInfo)) {
+                if (!everythingEnum.canReuse(docIn.get(), fieldInfo)) {
                     everythingEnum = new EverythingEnum(fieldInfo);
                 }
             } else {
@@ -284,8 +304,8 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
         if (indexHasPositions &&
                 PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS) &&
-                    (indexHasOffsets == false || PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS) == false) &&
-                        (indexHasPayloads == false || PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS) == false)) {
+                (indexHasOffsets == false || PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS) == false) &&
+                (indexHasPayloads == false || PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS) == false)) {
             return new BlockImpactsPostingsEnum(fieldInfo, (IntBlockTermState) state);
         }
 
@@ -339,7 +359,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         private int singletonDocID; // docid when there is a single pulsed posting, otherwise -1
 
         public BlockDocsEnum(FieldInfo fieldInfo) throws IOException {
-            this.startDocIn = LuceneOptimizedPostingsReader.this.docIn;
+            this.startDocIn = LuceneOptimizedPostingsReader.this.docIn.get();
             this.docIn = null;
             indexHasFreq = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0;
             indexHasPos = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
@@ -629,11 +649,11 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.startDocIn = LuceneOptimizedPostingsReader.this.docIn;
+            this.startDocIn = LuceneOptimizedPostingsReader.this.docIn.get();
             this.docIn = null;
-            this.posIn = LuceneOptimizedPostingsReader.this.posIn.clone();
+            this.posIn = LuceneOptimizedPostingsReader.this.posIn.get().clone();
             if (indexHasOffsets || indexHasPayloads) {
-                this.payIn = LuceneOptimizedPostingsReader.this.payIn.clone();
+                this.payIn = LuceneOptimizedPostingsReader.this.payIn.get().clone();
             } else {
                 this.payIn = null;
             }
@@ -1053,7 +1073,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             final boolean indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             final boolean indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.docIn = LuceneOptimizedPostingsReader.this.docIn.clone();
+            this.docIn = LuceneOptimizedPostingsReader.this.docIn.get().clone();
 
             docFreq = termState.docFreq;
             docIn.seek(termState.docStartFP);
@@ -1261,9 +1281,9 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.docIn = LuceneOptimizedPostingsReader.this.docIn.clone();
+            this.docIn = LuceneOptimizedPostingsReader.this.docIn.get().clone();
 
-            this.posIn = LuceneOptimizedPostingsReader.this.posIn.clone();
+            this.posIn = LuceneOptimizedPostingsReader.this.posIn.get().clone();
 
             docFreq = termState.docFreq;
             docTermStartFP = termState.docStartFP;
@@ -1580,16 +1600,16 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             needsOffsets = PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS);
             needsPayloads = PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS);
 
-            this.docIn = LuceneOptimizedPostingsReader.this.docIn.clone();
+            this.docIn = LuceneOptimizedPostingsReader.this.docIn.get().clone();
 
             if (indexHasPos && needsPositions) {
-                this.posIn = LuceneOptimizedPostingsReader.this.posIn.clone();
+                this.posIn = LuceneOptimizedPostingsReader.this.posIn.get().clone();
             } else {
                 this.posIn = null;
             }
 
             if ((indexHasOffsets && needsOffsets) || (indexHasPayloads && needsPayloads)) {
-                this.payIn = LuceneOptimizedPostingsReader.this.payIn.clone();
+                this.payIn = LuceneOptimizedPostingsReader.this.payIn.get().clone();
             } else {
                 this.payIn = null;
             }
@@ -1997,13 +2017,13 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     @Override
     public void checkIntegrity() throws IOException {
         if (docIn != null) {
-            CodecUtil.checksumEntireFile(docIn);
+            CodecUtil.checksumEntireFile(docIn.get());
         }
         if (posIn != null) {
-            CodecUtil.checksumEntireFile(posIn);
+            CodecUtil.checksumEntireFile(posIn.get());
         }
         if (payIn != null) {
-            CodecUtil.checksumEntireFile(payIn);
+            CodecUtil.checksumEntireFile(payIn.get());
         }
     }
 
@@ -2012,4 +2032,3 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         return getClass().getSimpleName() + "(positions=" + (posIn != null) + ",payloads=" + (payIn != null) + ")";
     }
 }
-

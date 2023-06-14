@@ -20,11 +20,16 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
+import org.apache.lucene.codecs.PostingsReaderBase;
+import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
+import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
+import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Terms;
@@ -36,11 +41,16 @@ import java.util.Iterator;
 /**
  * {@code PostingsFormat} optimized for FDB storage.
  */
+@AutoService(PostingsFormat.class)
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
 
+    public LuceneOptimizedPostingsFormat() {
+        this(new Lucene84PostingsFormat());
+    }
+
     public LuceneOptimizedPostingsFormat(PostingsFormat postingsFormat) {
-        super(postingsFormat.getName());
+        super("RL" + postingsFormat.getName());
         this.postingsFormat = postingsFormat;
     }
 
@@ -55,7 +65,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
         return new LazyFieldsProducer(state);
     }
 
-    private class LazyFieldsProducer extends FieldsProducer {
+    private static class LazyFieldsProducer extends FieldsProducer {
 
         private Supplier<FieldsProducer> fieldsProducer;
 
@@ -64,7 +74,8 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
         private LazyFieldsProducer(final SegmentReadState state) {
             fieldsProducer = Suppliers.memoize(() -> {
                 try {
-                    return postingsFormat.fieldsProducer(state);
+                    PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
+                    return new BlockTreeTermsReader(postingsReader, state);
                 } catch (IOException ioe) {
                     throw new UncheckedIOException(ioe);
                 } finally {
