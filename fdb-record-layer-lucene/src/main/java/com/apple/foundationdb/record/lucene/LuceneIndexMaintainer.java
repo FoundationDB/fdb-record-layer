@@ -314,7 +314,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         try {
             for (Tuple t : oldRecordFields.keySet()) {
-                deleteDocument(t, oldRecord.getPrimaryKey());
+                if (oldRecord != null) {
+                    deleteDocument(t, oldRecord.getPrimaryKey());
+                }
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
