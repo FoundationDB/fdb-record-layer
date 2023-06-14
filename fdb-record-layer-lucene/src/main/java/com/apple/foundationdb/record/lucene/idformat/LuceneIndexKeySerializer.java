@@ -223,7 +223,7 @@ public class LuceneIndexKeySerializer {
                 return null;
 
             case NULL:
-                value = Tuple.from((Integer)null).pack();
+                value = Tuple.from((Object)null).pack();
                 break;
 
             case INT32:

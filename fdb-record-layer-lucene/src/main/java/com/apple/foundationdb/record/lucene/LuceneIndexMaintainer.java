@@ -314,23 +314,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         try {
             for (Tuple t : oldRecordFields.keySet()) {
-                if (oldRecord != null) {
-                    deleteDocument(t, oldRecord.getPrimaryKey());
-                }
+                // oldRecord cannot be null here since in that case the oldRecordFields would have been empty
+                deleteDocument(t, Objects.requireNonNull(oldRecord).getPrimaryKey());
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
         }
 
-        // TODO: SonarQube cannot identify that if the newRecord is null then the newRecordFields will be empty.
-        // There's actually no possibility of a NPE here. (line 304/306)
-        if (newRecord == null) {
-            return AsyncUtil.DONE;
-        }
         // update new
         try {
             for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
-                writeDocument(entry.getValue(), entry.getKey(), newRecord.getPrimaryKey());
+                // newRecord cannot be null here since in that case newRecordFields would have been empty
+                writeDocument(entry.getValue(), entry.getKey(), Objects.requireNonNull(newRecord).getPrimaryKey());
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue updating new index keys", e)
