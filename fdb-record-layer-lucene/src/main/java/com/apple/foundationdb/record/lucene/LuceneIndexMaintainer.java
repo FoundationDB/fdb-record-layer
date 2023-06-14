@@ -228,8 +228,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
         if (formatString != null) {
-            // Use BinaryPoint for fast lookup of ID when enabled
-            document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, ser.asFormattedBinaryPoint()));
+            try {
+                // Use BinaryPoint for fast lookup of ID when enabled
+                document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, ser.asFormattedBinaryPoint()));
+            } catch (RecordCoreFormatException ex) {
+                // this can happen on format mismatch or encoding error
+                // just don't write the field, but allow the document to continue
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
+                }
+            }
         }
 
         Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> indexOptionsToFieldsMap = getIndexOptionsToFieldsMap(fields);
@@ -269,7 +277,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 // fallback to the old way (less efficient)
                 query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to use BinaryPoint encoded ID: {}", ex.getMessage());
+                    LOG.debug("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
                 }
             }
         } else {
