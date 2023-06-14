@@ -174,8 +174,8 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
             final RecordQueryPlan plan = planner.plan(rq);
             final RecordQueryPlan notPlan = planner.plan(notQuery);
-            Assertions.assertEquals(-174217685, plan.planHash());
-            Assertions.assertEquals(-502818295, notPlan.planHash());
+            Assertions.assertEquals(71592145, plan.planHash());
+            Assertions.assertEquals(-1378983311, notPlan.planHash());
         }
     }
 }
