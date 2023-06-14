@@ -59,6 +59,7 @@ public class LuceneIndexKeySerializer {
     public static final int MAX_STRING_16_LENGTH = 16;
     // Maximum, size of String16, when encoded. Allows for mostly ASCII characters when UTF-8 encoded, and fits in 3 dimensions
     public static final int MAX_STRING_16_ENCODED_LENGTH = 27;
+    private static final String ACTUAL_TYPE = "actualType";
 
     @Nullable
     private final RecordIdFormat format;
@@ -166,7 +167,7 @@ public class LuceneIndexKeySerializer {
     private Tuple verifyTuple(final Object keyElement) {
         if (!(keyElement instanceof Tuple)) {
             throw new RecordCoreFormatException("Format mismatch: expected Tuple")
-                    .addLogInfo("actualType", keyElement.getClass().getName());
+                    .addLogInfo(ACTUAL_TYPE, keyElement.getClass().getName());
         }
         return (Tuple)keyElement;
     }
@@ -214,6 +215,7 @@ public class LuceneIndexKeySerializer {
         return result;
     }
 
+    @SuppressWarnings("java:S3776")
     @Nullable
     private byte[] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
         byte[] value;
@@ -229,7 +231,7 @@ public class LuceneIndexKeySerializer {
             case INT32:
                 if (!(tupleElement instanceof Integer)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected Integer")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 value = Tuple.from(tupleElement).pack();
                 break;
@@ -237,7 +239,7 @@ public class LuceneIndexKeySerializer {
             case INT64:
                 if (!(tupleElement instanceof Long)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected Long")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 value = Tuple.from(tupleElement).pack();
                 break;
@@ -245,7 +247,7 @@ public class LuceneIndexKeySerializer {
             case INT32_OR_NULL:
                 if ((tupleElement != null) && !(tupleElement instanceof Integer)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected Integer OR null")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 value = Tuple.from(tupleElement).pack();
                 break;
@@ -253,7 +255,7 @@ public class LuceneIndexKeySerializer {
             case INT64_OR_NULL:
                 if ((tupleElement != null) && !(tupleElement instanceof Long)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected Long OR null")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 value = Tuple.from(tupleElement).pack();
                 break;
@@ -261,7 +263,7 @@ public class LuceneIndexKeySerializer {
             case STRING_16:
                 if (!(tupleElement instanceof String)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected String")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 if (((String)tupleElement).length() > MAX_STRING_16_LENGTH) {
                     throw new RecordCoreFormatException("Format mismatch: String too long")
@@ -280,7 +282,7 @@ public class LuceneIndexKeySerializer {
             case UUID_AS_STRING:
                 if (!(tupleElement instanceof String)) {
                     throw new RecordCoreFormatException("Format mismatch: Expected String")
-                            .addLogInfo("actualType", tupleElement.getClass().getName());
+                            .addLogInfo(ACTUAL_TYPE, tupleElement.getClass().getName());
                 }
                 try {
                     value = Tuple.from(UUID.fromString((String)tupleElement)).pack();
