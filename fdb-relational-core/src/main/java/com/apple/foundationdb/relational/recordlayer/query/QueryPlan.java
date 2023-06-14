@@ -76,6 +76,10 @@ import java.util.Set;
 
 public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typed {
 
+    protected QueryPlan(@Nonnull final String query) {
+        super(query);
+    }
+
     public static class PhysicalQueryPlan extends QueryPlan {
 
         @Nonnull
@@ -92,7 +96,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
-                                 @Nonnull final QueryExecutionParameters queryExecutionParameters) {
+                                 @Nonnull final QueryExecutionParameters queryExecutionParameters,
+                                 @Nonnull final String query) {
+            super(query);
             this.recordQueryPlan = recordQueryPlan;
             this.typeRepository = typeRepository;
             this.constraint = constraint;
@@ -112,7 +118,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters);
+            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters, query);
         }
 
         @Nonnull
@@ -220,13 +226,19 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final PlanGenerationContext context;
 
         @Nonnull
+        private final String query;
+
+        @Nonnull
         private Optional<PhysicalQueryPlan> optimizedPlan;
 
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
-                                 @Nonnull final PlanGenerationContext context) {
+                                 @Nonnull final PlanGenerationContext context,
+                                 @Nonnull final String query) {
+            super(query);
             this.relationalExpression = relationalExpression;
             this.context = context;
             this.optimizedPlan = Optional.empty();
+            this.query = query;
         }
 
         @Override
@@ -251,7 +263,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();
                 Set<Type> planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
-                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), builder.build(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context));
+                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), builder.build(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context, query));
                 return optimizedPlan.get();
             });
         }
@@ -298,8 +310,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final PlanGenerationContext context) {
-            return new LogicalQueryPlan(relationalExpression, context);
+                                          @Nonnull final PlanGenerationContext context,
+                                          @Nonnull final String query) {
+            return new LogicalQueryPlan(relationalExpression, context, query);
         }
     }
 
@@ -316,6 +329,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         private MetadataQueryPlan(@Nonnull final CheckedFunctional<Transaction, RelationalResultSet> query, @Nonnull final Type rowType) {
+            // TODO: TODO (Implement MetadataQueryPlan.explain) (should cover toString as well).
+            super("MetadataQueryPlan");
             this.query = query;
             this.rowType = rowType;
         }

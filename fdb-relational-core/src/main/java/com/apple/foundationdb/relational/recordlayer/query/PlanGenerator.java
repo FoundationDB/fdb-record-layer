@@ -108,7 +108,7 @@ public final class PlanGenerator {
         if (logQuery || logger.isDebugEnabled() || isSlow) {
             message.addKeyAndValue("plan", plan.explain());
             message.addKeyAndValue("totalPlanTime", totalTime);
-            message.addKeyAndValue("query", query);
+            message.addKeyAndValue("query", plan.getQuery().trim());
         }
         if (logQuery || isSlow) {
             logger.info(message);
@@ -130,7 +130,7 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(query, astHashResult, context, planner);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner);
                 if (logThatQuery || logger.isDebugEnabled()) {
                     message.addKeyAndValue("planCache", "skip");
                     message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
@@ -150,7 +150,7 @@ public final class PlanGenerator {
                     cache.get().reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
-                                final var physicalPlan = generatePhysicalPlan(query, astHashResult, context, planner);
+                                final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner);
                                 message.addKeyAndValue("planCache", "miss");
                                 message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
@@ -203,8 +203,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static Plan<?> generatePhysicalPlan(@Nonnull final String query,
-                                                @Nonnull final AstNormalizer.Result ast,
+    private static Plan<?> generatePhysicalPlan(@Nonnull final AstNormalizer.Result ast,
                                                 @Nonnull final PlanContext planContext,
                                                 @Nonnull final CascadesPlanner planner) {
         // todo (yhatem) rewrite this.
@@ -220,7 +219,7 @@ public final class PlanGenerator {
         context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
         try {
             final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri());
-            Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", query));
+            Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString()));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
             return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
         } catch (MetaDataException mde) {
@@ -237,7 +236,7 @@ public final class PlanGenerator {
                                               @Nonnull AstNormalizer.Result ast,
                                               @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) throws RelationalException {
         return planGenerationContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
-                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri).visit(ast.getParseTree()));
+                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri, ast.getQueryCacheKey().getCanonicalQueryString()).visit(ast.getParseTree()));
     }
 
     @Nonnull

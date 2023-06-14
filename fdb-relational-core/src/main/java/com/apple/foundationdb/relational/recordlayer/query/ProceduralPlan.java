@@ -32,6 +32,7 @@ public final class ProceduralPlan extends Plan<Void> {
     private final ConstantAction action;
 
     private ProceduralPlan(@Nonnull final ConstantAction action) {
+        super("ProceduralPlan(" + action.getClass().getSimpleName() + ")");
         this.action = action;
     }
 

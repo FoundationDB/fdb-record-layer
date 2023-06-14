@@ -97,7 +97,7 @@ public class QueryLoggingTest {
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)")) {
             resultSet.next();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"SELECT * FROM RESTAURANT OPTIONS(LOG QUERY)\"");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"SELECT * FROM RESTAURANT\"");
     }
 
     @Test
@@ -185,6 +185,24 @@ public class QueryLoggingTest {
                     rs.next();
                 }
                 Assertions.assertThat(logAppender.getLastLogEntry()).contains("SELECT NAME FROM RESTAURANT");
+            }
+        }
+    }
+
+    @Test
+    void testLogQueryBecauseQueryIsSlowRemovesLiterals() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {
+            resultSet.next();
+        }
+        Assertions.assertThat(logAppender.getLogs()).isEmpty();
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+            conn.setSchema(database.getSchemaName());
+            try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLastLogEntry()).contains("SELECT * FROM RESTAURANT WHERE 'NAME' = ?");
+                Assertions.assertThat(logAppender.getLastLogEntry()).doesNotContain("restaurant 1");
             }
         }
     }

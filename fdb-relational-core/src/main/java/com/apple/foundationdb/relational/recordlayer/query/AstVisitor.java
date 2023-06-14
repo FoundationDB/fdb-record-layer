@@ -125,6 +125,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     private final Scopes scopes;
 
+    @Nonnull
+    private final String query;
+
     /**
      * Creates a new instance of {@link AstVisitor}.
      *
@@ -134,12 +137,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
      */
     public AstVisitor(@Nonnull final PlanGenerationContext context,
                       @Nonnull final DdlQueryFactory ddlQueryFactory,
-                      @Nonnull final URI dbUri) {
+                      @Nonnull final URI dbUri,
+                      @Nonnull final String query) {
         this.context = context;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.containsNonNullableArray = false;
         this.scopes = new Scopes();
+        this.query = query;
     }
 
     @Override
@@ -185,7 +190,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(context.asDql().getOffset() == 0, "Offset cannot be specified with continuation.");
             context.setContinuation((byte[]) visit(ctx.continuationAtom()));
         }
-        return QueryPlan.LogicalQueryPlan.of(result, context);
+        return QueryPlan.LogicalQueryPlan.of(result, context, query);
     }
 
     @Override
@@ -1452,7 +1457,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (scopes.getCurrentScope() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
-        return QueryPlan.LogicalQueryPlan.of(expression, context);
+        return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
 
     @Override
@@ -1492,7 +1497,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
         //context.pop();
-        return QueryPlan.LogicalQueryPlan.of(expression, context);
+        return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
 
     @Nonnull
@@ -1590,7 +1595,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (scopes.getCurrentScope() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
-        return QueryPlan.LogicalQueryPlan.of(expression, context);
+        return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
 
     @Nonnull

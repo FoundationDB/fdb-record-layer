@@ -41,6 +41,13 @@ import javax.annotation.Nonnull;
 
 public abstract class Plan<T> {
 
+    @Nonnull
+    protected final String query;
+
+    protected Plan(@Nonnull final String query) {
+        this.query = query;
+    }
+
     public static class ExecutionContext {
         @Nonnull
         final Transaction transaction;
@@ -96,6 +103,11 @@ public abstract class Plan<T> {
     @Nonnull
     public abstract String explain();
 
+    @Nonnull
+    public String getQuery() {
+        return query;
+    }
+
     /**
      * Parses a query and generates an equivalent logical plan.
      *
@@ -113,7 +125,7 @@ public abstract class Plan<T> {
                 .build();
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         final var ast = AstVisitor.parseQuery(query);
-        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri());
+        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri(), query);
         long start = System.nanoTime();
         try {
 
