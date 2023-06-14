@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
+import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
@@ -260,8 +261,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
         // null format string means don't use BinaryPoint for the index primary key
         if (formatString != null) {
-            byte[][] binaryPoint = ser.asFormattedBinaryPoint();
-            query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
+            try {
+                byte[][] binaryPoint = ser.asFormattedBinaryPoint();
+                query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
+            } catch (RecordCoreFormatException ex) {
+                // this can happen on format mismatch or encoding error
+                // fallback to the old way (less efficient)
+                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Failed to use BinaryPoint encoded ID: {}", ex.getMessage());
+                }
+            }
         } else {
             // fallback to the old way (less efficient)
             query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));

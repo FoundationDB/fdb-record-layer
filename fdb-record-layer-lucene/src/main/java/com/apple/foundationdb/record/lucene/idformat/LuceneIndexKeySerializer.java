@@ -56,6 +56,9 @@ public class LuceneIndexKeySerializer {
     // the overall waste of multiple dimensions of various sizes (INT64 is a common size to be used). We can't use 8
     // bytes since we need to support NULL values so have to add one byte to distinguish INT64 from NULL.
     public static final int BINARY_POINT_DIMENSION_SIZE = 9;
+    public static final int MAX_STRING_16_LENGTH = 16;
+    // Maximum, size of String16, when encoded. Allows for mostly ASCII characters when UTF-8 encoded, and fits in 3 dimensions
+    public static final int MAX_STRING_16_ENCODED_LENGTH = 27;
 
     @Nullable
     private final RecordIdFormat format;
@@ -260,12 +263,18 @@ public class LuceneIndexKeySerializer {
                     throw new RecordCoreFormatException("Format mismatch: Expected String")
                             .addLogInfo("actualType", tupleElement.getClass().getName());
                 }
-                if (((String)tupleElement).length() > 16) {
+                if (((String)tupleElement).length() > MAX_STRING_16_LENGTH) {
                     throw new RecordCoreFormatException("Format mismatch: String too long")
+                            .addLogInfo("allowedLength", MAX_STRING_16_LENGTH)
                             .addLogInfo("actualLength", ((String)tupleElement).length());
                 }
-                // Don't use the Tuple encoding as it is longer for non-ascii characters (worst case) (48 bytes instead of 32)
+                // Use String encoding here to save the prefix and suffix characters
                 value = ((String)tupleElement).getBytes(StandardCharsets.UTF_8);
+                if (value.length > MAX_STRING_16_ENCODED_LENGTH) {
+                    throw new RecordCoreSizeException("Encoded string too long")
+                            .addLogInfo("allowedLength", MAX_STRING_16_ENCODED_LENGTH)
+                            .addLogInfo("actualLength", value.length);
+                }
                 break;
 
             case UUID_AS_STRING:

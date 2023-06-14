@@ -71,7 +71,6 @@ public class LuceneIndexKeySerializerTest {
         assertResult(new byte[][] {{2, 97, 98, 99, 0, 0, 0, 0, 0}}, classUnderTest.asPackedBinaryPoint());
         assertResult(new byte[][] {{97, 98, 99, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
     }
 
@@ -85,7 +84,6 @@ public class LuceneIndexKeySerializerTest {
                                    {97, 98, 99, 100, 101, 102, 103, 104, 0}}, classUnderTest.asPackedBinaryPoint());
         assertResult(new byte[][] {{97, 98, 99, 100, 101, 102, 103, 104, 97},
                                    {98, 99, 100, 101, 102, 103, 104, 0, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
     }
 
@@ -115,7 +113,6 @@ public class LuceneIndexKeySerializerTest {
         assertResult(new byte[][] {{21, 123, 0, 0, 0, 0, 0, 0, 0},
                                    {22, 1, -56, 0, 0, 0, 0, 0, 0},
                                    {97, 98, 99, 100, 101, 102, 0, 0, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
     }
@@ -163,6 +160,14 @@ public class LuceneIndexKeySerializerTest {
     }
 
     @Test
+    void testStringEncodedTooLong() {
+        Tuple key = Tuple.from("æčęÿæčęÿæčęÿæčęÿ");
+        LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[STRING_16]", key);
+
+        Assertions.assertThrows(RecordCoreSizeException.class, classUnderTest::asFormattedBinaryPoint);
+    }
+
+    @Test
     void testInvalidUuid() {
         Tuple key = Tuple.from("abcdefghij");
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[UUID_AS_STRING]", key);
@@ -172,36 +177,28 @@ public class LuceneIndexKeySerializerTest {
 
     @Test
     void testStringNonAscii() {
-        @SuppressWarnings("AvoidEscapedUnicodeCharacters")
-        Tuple key = Tuple.from(new String(new char[] {'\u0001', '\u0002', '\ufff0', '\ufffe'}));
+        Tuple key = Tuple.from("æčęÿ");
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[STRING_16]", key);
 
-        assertResult(new byte[] {2, 1, 2, -17, -65, -80, -17, -65, -66, 0}, classUnderTest.asPackedByteArray());
-        assertResult(new byte[][] {{2, 1, 2, -17, -65, -80, -17, -65, -66},
+        assertResult(new byte[] {2, -61, -90, -60, -115, -60, -103, -61, -65, 0}, classUnderTest.asPackedByteArray());
+        assertResult(new byte[][] {{2, -61, -90, -60, -115, -60, -103, -61, -65},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asPackedBinaryPoint());
-        assertResult(new byte[][] {{1, 2, -17, -65, -80, -17, -65, -66, 0},
-                                   {0, 0, 0, 0, 0, 0, 0, 0, 0},
+        assertResult(new byte[][] {{-61, -90, -60, -115, -60, -103, -61, -65, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0},
                                    {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
     }
 
     @Test
-    @SuppressWarnings("AvoidEscapedUnicodeCharacters")
-    void testStringMaxLength() {
-        Tuple key = Tuple.from(new String(new char[] {'\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff', '\uffff'}));
+    void testStringCjk() {
+        Tuple key = Tuple.from("苹果园区");
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[STRING_16]", key);
 
-        assertResult(new byte[] {2, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, -17, -65, -65, 0}, classUnderTest.asPackedByteArray());
-        assertResult(new byte[][] {{2, -17, -65, -65, -17, -65, -65, -17, -65},
-                                   {-65, -17, -65, -65, -17, -65, -65, -17, -65},
-                                   {-65, -17, -65, -65, -17, -65, -65, -17, -65},
-                                   {-65, -17, -65, -65, -17, -65, -65, -17, -65},
-                                   {-65, -17, -65, -65, -17, -65, -65, -17, -65},
-                                   {-65, -17, -65, -65, 0, 0, 0, 0, 0}}, classUnderTest.asPackedBinaryPoint());
-        assertResult(new byte[][] {{-17, -65, -65, -17, -65, -65, -17, -65, -65},
-                                   {-17, -65, -65, -17, -65, -65, -17, -65, -65},
-                                   {-17, -65, -65, -17, -65, -65, -17, -65, -65},
-                                   {-17, -65, -65, -17, -65, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
+        assertResult(new byte[] {2, -24, -117, -71, -26, -98, -100, -27, -101, -83, -27, -116, -70, 0}, classUnderTest.asPackedByteArray());
+        assertResult(new byte[][] {{2, -24, -117, -71, -26, -98, -100, -27, -101},
+                                   {-83, -27, -116, -70, 0, 0, 0, 0, 0}}, classUnderTest.asPackedBinaryPoint());
+        assertResult(new byte[][] {{-24, -117, -71, -26, -98, -100, -27, -101, -83},
+                                   {-27, -116, -70, 0, 0, 0, 0, 0, 0},
+                                   {0, 0, 0, 0, 0, 0, 0, 0, 0}}, classUnderTest.asFormattedBinaryPoint());
     }
 
     private void assertResult(byte[] expected, byte[] actual) {

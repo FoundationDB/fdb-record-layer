@@ -54,7 +54,7 @@ public class RecordIdFormat {
         // UUID (16 bytes == 2 LONGs) UUID, provided as a string
         UUID_AS_STRING(17),
         // String, limited to length of 16 characters
-        STRING_16(32);
+        STRING_16(LuceneIndexKeySerializer.MAX_STRING_16_ENCODED_LENGTH);
 
         // The required size (in bytes) when this subtype is serialized
         // This is to ensure we always use the maximum allocated size so that the final size is fixed
