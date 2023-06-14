@@ -73,7 +73,7 @@ public class IndexingThrottle {
 
     private class Booker {
         /**
-         * Keep track of success/failures and adjust transaction's canned records limit when needed.
+         * Keep track of success/failures and adjust transactions' scanned records limit when needed.
          * Note that when duringRangesIteration=true,  a single thread processing is assumed.
          */
         private long recordsLimit;
@@ -84,8 +84,8 @@ public class IndexingThrottle {
         private long countFailedTransactions = 0;
         private long countRunnerFailedTransactions = 0;
         private int consecutiveSuccessCount = 0;
-        private long waitPointTime = 0;
-        private long waitPointCount = 0;
+        private long forcedDelayTimestamp = 0;
+        private long recordsScannedSinceForcedDelay = 0;
 
         Booker() {
             this.recordsLimit = common.config.getInitialLimit();
@@ -107,14 +107,14 @@ public class IndexingThrottle {
             // - Ignore failed transactions (they should be rare, and limited in number)
             int recordsPerSecond = common.config.getRecordsPerSecond();
             if (recordsPerSecond == IndexingCommon.UNLIMITED) {
-                waitPointCount = waitPointTime = 0; // in case config loaders changes from UNLIMITED to limit
+                recordsScannedSinceForcedDelay = forcedDelayTimestamp = 0; // in case config loaders changes from UNLIMITED to limit
                 return 0;
             }
             final long now = System.currentTimeMillis();
-            final long delta = Math.max(0, now - waitPointTime);
-            final long toWait = Math.min(999, Math.max(0, (1000 * waitPointCount) / recordsPerSecond -  delta)); // to avoid floor we could have added (recordsPerSecond / 2) to the numerator, but it's neglectable here
-            waitPointTime = now + toWait;
-            waitPointCount = 0;
+            final long delta = Math.max(0, now - forcedDelayTimestamp);
+            final long toWait = Math.min(999, Math.max(0, (1000 * recordsScannedSinceForcedDelay) / recordsPerSecond - delta)); // to avoid floor we could have added (recordsPerSecond / 2) to the numerator, but it's neglectable here
+            forcedDelayTimestamp = now + toWait;
+            recordsScannedSinceForcedDelay = 0;
             return toWait;
         }
 
@@ -170,7 +170,7 @@ public class IndexingThrottle {
             if (exception == null) {
                 countSuccessfulTransactions++;
                 totalRecordsScannedSuccess += recordsScannedThisTransaction;
-                waitPointCount += recordsScannedThisTransaction;
+                recordsScannedSinceForcedDelay += recordsScannedThisTransaction;
                 if (consecutiveSuccessCount >= common.config.getIncreaseLimitAfter()) {
                     increaseLimit();
                     consecutiveSuccessCount = 0; // do not increase again immediately after the next success
