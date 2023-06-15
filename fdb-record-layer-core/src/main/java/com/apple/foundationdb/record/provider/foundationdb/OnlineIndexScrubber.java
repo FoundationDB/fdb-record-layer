@@ -42,7 +42,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Scan indexes for problems and optionally report or repair.
@@ -67,7 +67,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                         @Nonnull Index index,
                         @Nonnull Collection<RecordType> recordTypes,
-                        @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
+                        @Nonnull UnaryOperator<OnlineIndexer.Config> configLoader,
                         @Nonnull OnlineIndexer.Config config,
                         long leaseLengthMillis,
                         boolean trackProgress,
@@ -285,7 +285,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
         @Nonnull
-        protected Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader = old -> old;
+        protected UnaryOperator<OnlineIndexer.Config> configLoader = old -> old;
 
         ScrubbingPolicy scrubbingPolicy = null;
         ScrubbingPolicy.Builder scrubbingPolicyBuilder = null;
@@ -408,7 +408,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @return this builder
          */
         @Nonnull
-        public Builder setConfigLoader(@Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader) {
+        public Builder setConfigLoader(@Nonnull UnaryOperator<OnlineIndexer.Config> configLoader) {
             this.configLoader = configLoader;
             return this;
         }
@@ -417,7 +417,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * Set the maximum number of records to process in one transaction.
          *
          * The default limit is {@link OnlineIndexer#DEFAULT_LIMIT} = {@value OnlineIndexer#DEFAULT_LIMIT}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param limit the maximum number of records to process in one transaction
          * @return this builder
@@ -448,7 +448,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * codes, such as {@code transaction_too_large}.
          *
          * The default number of retries is {@link OnlineIndexer#DEFAULT_MAX_RETRIES} = {@value OnlineIndexer#DEFAULT_MAX_RETRIES}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param maxRetries the maximum number of times to retry a single range rebuild
          * @return this builder
@@ -463,7 +463,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * Set the maximum number of records to process in a single second.
          *
          * The default number of retries is {@link OnlineIndexer#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexer#DEFAULT_RECORDS_PER_SECOND}.
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param recordsPerSecond the maximum number of records to process in a single second.
          * @return this builder
@@ -636,7 +636,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
          * By default this is -1}, which means it will not re-increase after successes.
          * <p>
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * </p>
          * @param increaseLimitAfter the number of successful range scrubbed before increasing the number of records
@@ -744,7 +744,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * </ul>
          *
          * <p>
-         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * </p>
          *

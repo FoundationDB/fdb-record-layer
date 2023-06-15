@@ -71,11 +71,12 @@ public class IndexingThrottle {
             FDBError.COMMIT_READ_INCOMPLETE.code(),
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
-    private class Booker {
+    static class Booker {
         /**
          * Keep track of success/failures and adjust transactions' scanned records limit when needed.
          * Note that when duringRangesIteration=true,  a single thread processing is assumed.
          */
+        @Nonnull private final IndexingCommon common;
         private long recordsLimit;
         private long lastFailureRecordsScanned;
         private long totalRecordsScannedSuccess = 0;
@@ -87,7 +88,8 @@ public class IndexingThrottle {
         private long forcedDelayTimestamp = 0;
         private long recordsScannedSinceForcedDelay = 0;
 
-        Booker() {
+        Booker(@Nonnull IndexingCommon common) {
+            this.common = common;
             this.recordsLimit = common.config.getInitialLimit();
         }
 
@@ -154,9 +156,9 @@ public class IndexingThrottle {
             }
         }
 
-        private void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
-                                                       @Nonnull final AtomicLong recordsScanned,
-                                                       final boolean duringRangesIteration) {
+        void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
+                                               @Nonnull final AtomicLong recordsScanned,
+                                               final boolean duringRangesIteration) {
             final long recordsScannedThisTransaction = recordsScanned.get();
             if (!duringRangesIteration) {
                 if (exception == null) {
@@ -235,7 +237,7 @@ public class IndexingThrottle {
     IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
         this.common = common;
         this.expectedIndexState = expectedIndexState;
-        this.booker = new Booker();
+        this.booker = new Booker(common);
     }
 
     public long waitTimeMilliseconds() {

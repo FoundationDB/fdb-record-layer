@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -930,6 +931,82 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         indexer.buildIndex();
                         return null;
                     });
+        }
+    }
+
+    private void postTransaction(IndexingThrottle.Booker booker, int repeats, long recordScanned, boolean failed) {
+        AtomicLong scanned = new AtomicLong(recordScanned);
+        final Throwable dummyThrowable = failed ? new Throwable() : null;
+        for (int i = 0; i < repeats; i++) {
+            booker.handleLimitsPostRunnerTransaction(dummyThrowable, scanned, true);
+        }
+    }
+
+    private void postTransaction(IndexingThrottle.Booker booker, int repeats) {
+        postTransaction(booker, repeats, 10, false);
+    }
+
+    private void decreaseLimit(IndexingThrottle.Booker booker) {
+        FDBException dummyException = new FDBException("Dummy Exception for Booker", 5);
+        booker.decreaseLimit(dummyException, Collections.emptyList(), true);
+    }
+
+    @Test
+    void testIndexingThrottleBooker() {
+        final OnlineIndexer.Config config = OnlineIndexer.Config.newBuilder()
+                .setInitialLimit(4)
+                .setRecordsPerSecond(100)
+                .setIncreaseLimitAfter(5)
+                .setMaxLimit(1000)
+                .build();
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            final IndexingCommon common = new IndexingCommon(context.newRunner(),
+                    recordStore.asBuilder(),
+                        Collections.emptyList(),
+                    Collections.emptyList(),
+                    null,
+                    config,
+                    false, false, 0
+                    );
+
+            final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
+            assertEquals(4, booker.getRecordsLimit());
+            postTransaction(booker, 5);
+            assertEquals(4, booker.getRecordsLimit());
+            postTransaction(booker, 1);
+            assertEquals(9, booker.getRecordsLimit());
+            postTransaction(booker, 6);
+            assertEquals(18, booker.getRecordsLimit());
+            postTransaction(booker, 6);
+            assertEquals(36, booker.getRecordsLimit());
+            postTransaction(booker, 6);
+            assertEquals(72, booker.getRecordsLimit());
+            postTransaction(booker, 6);
+            assertEquals(144, booker.getRecordsLimit());
+            postTransaction(booker, 5);
+            // do not increase on error
+            postTransaction(booker, 1, 100, true);
+            assertEquals(144, booker.getRecordsLimit());
+            // try decrease - should get last failure scanned (100) * 0.9
+            decreaseLimit(booker);
+            assertEquals(90, booker.getRecordsLimit());
+            final long waitTime = booker.waitTimeMilliseconds();
+            assertThat("wait time should be smaller than a second", waitTime < 1000);
+            // now increase more
+            postTransaction(booker, 6);
+            assertEquals(180, booker.getRecordsLimit());
+            postTransaction(booker, 6);
+            assertEquals(240, booker.getRecordsLimit()); // (180 * 4 / 3)
+            postTransaction(booker, 6);
+            assertEquals(320, booker.getRecordsLimit()); // (240 * 4 / 3)
+            postTransaction(booker, 100);
+            assertEquals(1000, booker.getRecordsLimit()); // reach max - note that the actual record scanned count might be limited by write size (for example), and be much smaller than the limit
+            // try failure
+            postTransaction(booker, 1, 500, true);
+            assertEquals(1000, booker.getRecordsLimit());
+            decreaseLimit(booker);
+            assertEquals(450, booker.getRecordsLimit());
         }
     }
 }
