@@ -76,8 +76,7 @@ public class RelationalServerTest {
         StatementRequest statementRequest = StatementRequest.newBuilder().setSql(sql)
                 .setDatabase(database).setSchema(schema).build();
         StatementResponse statementResponse = stub.update(statementRequest);
-        // TODO: Make server-side return a row_count; doens't currently.
-        Assertions.assertTrue(statementResponse.getRowCount() == 0);
+        Assertions.assertEquals(0, statementResponse.getRowCount());
     }
 
     @Nullable

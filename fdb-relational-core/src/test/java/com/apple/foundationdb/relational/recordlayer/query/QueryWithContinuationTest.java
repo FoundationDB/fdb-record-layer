@@ -225,7 +225,7 @@ public class QueryWithContinuationTest {
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > ?p LIMIT 2 WITH CONTINUATION ?continuation")) {
                 ps.setBytes("continuation", continuation.serialize());
                 ps.setInt("p", 10);
-                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                Assertions.assertThatThrownBy(ps::executeQuery)
                         .hasCauseInstanceOf(RelationalException.class)
                         .hasMessageContaining("Continuation binding does not match query");
             }
@@ -458,13 +458,8 @@ public class QueryWithContinuationTest {
 
     private void executeInsert(Ddl ddl) throws SQLException {
         try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
-            try (RelationalResultSet rs = statement.executeQuery("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)")) {
-                // We need to consume the result set from the insertion until the bug is fixed:
-                // TODO ([Wave 3] executeUpdate("INSERT") throws a SQLException)
-                while (rs.next()) {
-                    continue;
-                }
-            }
+            final int updateCount = statement.executeUpdate("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            Assertions.assertThat(updateCount).isEqualTo(5);
         }
     }
 }

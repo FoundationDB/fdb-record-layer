@@ -82,13 +82,17 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try {
             StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
-            ResultSet resultSet = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql(),
+            FRL.Response response = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql(),
                     request.hasParameters() ? request.getParameters().getParameterList() : null);
-            if (resultSet != null) {
+            if (response.isQuery()) {
                 // Setting row count like this might not be right... It is for updates. Might have to do something
                 // better than this count.
-                statementResponseBuilder.setRowCount(resultSet.getRowCount());
-                statementResponseBuilder.setResultSet(resultSet);
+                ResultSet rs = response.getResultSet();
+                statementResponseBuilder.setRowCount(rs.getRowCount());
+                statementResponseBuilder.setResultSet(rs);
+            } else {
+                //this is an update statement, so just set the row count directly and leave off the result set
+                statementResponseBuilder.setRowCount(response.getRowCount());
             }
             responseObserver.onNext(statementResponseBuilder.build());
             responseObserver.onCompleted();

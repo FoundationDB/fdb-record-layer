@@ -157,7 +157,7 @@ public class YamlIntegrationTests {
     }
 
     @Test
-    void custom() throws Exception {
+    void catalog() throws Exception {
         doRun("catalog.yaml");
     }
 }

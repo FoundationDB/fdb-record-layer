@@ -109,7 +109,7 @@ public class RecordLayerMetricCollectorTest {
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT),
-                "PLAN_CACHE_HIT event should not be registered with the metricCollector");
+                "PLAN_CACHE_SECONDARY_HIT event should not be registered with the metricCollector");
     }
 
     private static void testCacheHitSpecificMetrics(@Nonnull MetricCollector collector) {

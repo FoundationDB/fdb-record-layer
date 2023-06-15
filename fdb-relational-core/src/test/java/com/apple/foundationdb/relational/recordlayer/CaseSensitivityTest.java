@@ -142,7 +142,7 @@ public class CaseSensitivityTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void variousSchemas(boolean quoted) throws Exception {
-        List<String> schemas = List.of("ABC1", "def2", "Ghi3", "jKL4");
+        List<String> schemas = List.of("ABC2", "def3", "Ghi4", "jKL5");
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("CATALOG");
             try {

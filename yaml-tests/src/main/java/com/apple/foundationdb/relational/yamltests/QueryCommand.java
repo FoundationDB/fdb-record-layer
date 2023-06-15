@@ -49,6 +49,7 @@ class QueryCommand extends Command {
         RESULT("result"),
         UNORDERED_RESULT("unorderedResult"),
         EXPLAIN("explain"),
+        COUNT("count"),
         ERROR("error");
 
         @Nonnull
@@ -137,6 +138,15 @@ class QueryCommand extends Command {
         return currentQuery;
     }
 
+    private void checkCount(Object expectedCount, SQLException sqlException,
+                            QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
+        if (sqlException != null) {
+            logAndThrowUnexpectedException(sqlException);
+        }
+        logger.debug("matching count of update '{}'", query);
+        Matchers.matches(queryConfigWithValue.val, (Integer) expectedCount);
+    }
+
     private Continuation checkForResult(Object queryResults, SQLException sqlException,
                                         QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
         if (sqlException != null) {
@@ -186,6 +196,9 @@ class QueryCommand extends Command {
         logger.debug("finished executing query '{}'", query);
         Continuation continuation = ContinuationImpl.END;
         switch (config) {
+            case COUNT:
+                checkCount(queryResults, sqlException, queryConfigWithValue, query);
+                break;
             case RESULT:
             case UNORDERED_RESULT:
                 continuation = checkForResult(queryResults, sqlException, queryConfigWithValue, query);

@@ -77,6 +77,13 @@ public abstract class Plan<T> {
         }
     }
 
+    /**
+     * Determine if the plan is an update plan.
+     *
+     * @return {@code true} if the plan is an insert, update, or delete plan, {@code false} otherwise.
+     */
+    public abstract boolean isUpdatePlan();
+
     public abstract Plan<T> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration) throws RelationalException;
 
     /**

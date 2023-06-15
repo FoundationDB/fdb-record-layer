@@ -191,6 +191,7 @@ public final class Options {
         builder.put(Name.EXECUTION_TIME_LIMIT, 0L);
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         OPTIONS_DEFAULT_VALUES = builder.build();
+
     }
 
     public static final Options NONE = Options.builder().build();

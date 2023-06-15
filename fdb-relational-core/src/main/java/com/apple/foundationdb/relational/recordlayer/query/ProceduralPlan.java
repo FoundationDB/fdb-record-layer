@@ -37,6 +37,11 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
+    public boolean isUpdatePlan() {
+        return true;
+    }
+
+    @Override
     public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
         return this;
     }

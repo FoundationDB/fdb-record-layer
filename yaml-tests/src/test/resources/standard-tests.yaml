@@ -48,6 +48,7 @@
            (11, 20, 11),
            (12, 20, 12),
            (13, 20, 13)
+- count: 13
 ---
 - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
 - result: [{ID: !l 5, !l 10, !l 5}]

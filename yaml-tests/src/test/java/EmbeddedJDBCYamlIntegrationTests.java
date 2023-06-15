@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -31,18 +30,15 @@ import com.apple.foundationdb.relational.cli.CliCommand;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.cli.CliConfigCommand;
 import com.apple.foundationdb.relational.cli.CommandGroupVisitor;
-import com.apple.foundationdb.relational.cli.Utils;
 import com.apple.foundationdb.relational.cli.RelationalScriptProcessor;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
-import com.google.protobuf.Message;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Disabled;
 
 import javax.annotation.Nonnull;
-import javax.json.JsonArray;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
@@ -52,7 +48,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
@@ -195,35 +190,6 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
                 }
                 return this.connection.getMetaData().getTables(this.connection.getPath().getPath(),
                         this.connection.getSchema(), null, null);
-            };
-        }
-
-        @Override
-        public CliCommand<Integer> getInsertCommand(String schema, String table, JsonArray dataList) {
-            return () -> {
-                String oldSchema = this.connection.getSchema();
-                String newSchema = schema != null ? schema : oldSchema;
-                if (newSchema == null) {
-                    throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA).toSqlException();
-                }
-                try {
-                    this.connection.setSchema(newSchema);
-                    try (RelationalStatement vs = this.connection.createStatement()) {
-                        final DynamicMessageBuilder tableRowBuilder = vs.getDataBuilder(table);
-                        List<Message> data = new ArrayList<>(dataList.size());
-                        data.addAll(Utils.jsonToDynamicMessage(dataList, tableRowBuilder));
-                        if (data.isEmpty()) {
-                            //short-cut a 0 insertion to a no-op
-                            return 0;
-                        }
-
-                        return vs.executeInsert(table, data);
-                    } catch (RelationalException e) {
-                        throw e.toSqlException();
-                    }
-                } finally {
-                    this.connection.setSchema(oldSchema);
-                }
             };
         }
 

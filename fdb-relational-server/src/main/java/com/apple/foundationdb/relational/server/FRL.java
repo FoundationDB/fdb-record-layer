@@ -58,6 +58,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.Parser;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.PreparedStatement;
@@ -67,6 +68,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Temporary class. "The Relational Database".
@@ -129,17 +131,53 @@ public class FRL implements AutoCloseable {
         return URI.create(JDBC_EMBED_PREFIX + database + (schema != null ? "?schema=" + schema : ""));
     }
 
+    public static final class Response {
+        private final Optional<ResultSet> resultSet;
+        //will be -1 if the query is set
+        private final int rowCount;
+
+        private Response(@Nullable ResultSet resultSet, int rowCount) {
+            this.resultSet = Optional.ofNullable(resultSet);
+            this.rowCount = rowCount;
+        }
+
+        public static Response query(@Nonnull ResultSet resultSet) {
+            return new Response(resultSet, -1);
+        }
+
+        public static Response mutation(int rowCount) {
+            return new Response(null, rowCount);
+        }
+
+        public boolean isQuery() {
+            return resultSet.isPresent();
+        }
+
+        public boolean isMutation() {
+            return resultSet.isEmpty();
+        }
+
+        @SuppressWarnings("OptionalGetWithoutIsPresent") //intentional
+        public ResultSet getResultSet() {
+            return resultSet.get();
+        }
+
+        public int getRowCount() {
+            return rowCount;
+        }
+    }
+
     /**
      * Execute <code>sql</code>.
      * @param database Database to run the <code>sql</code> against.
      * @param schema Schema to use on <code>database</code>
      * @param sql SQL to execute.
      * @param parameters If non-null, then these are parameters and 'sql' is text of a prepared statement.
-     * @return Returns ResultSet or null.
+     * @return Returns A Response with either a ResultSet or a Row count, depending on the type of query issued
      * @throws SQLException For all sorts of reasons.
      */
-    @Nullable
-    public ResultSet execute(String database, String schema, String sql, List<Parameter> parameters)
+    @Nonnull
+    public Response execute(String database, String schema, String sql, List<Parameter> parameters)
             throws SQLException {
         // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
         // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
@@ -163,7 +201,7 @@ public class FRL implements AutoCloseable {
                         try (RelationalResultSet rrs = relationalStatement.executeQuery()) {
                             resultSet = TypeConversion.toProtobuf(rrs);
                         }
-                        return resultSet;
+                        return Response.query(resultSet);
                     }
                 }
             } else {
@@ -172,9 +210,11 @@ public class FRL implements AutoCloseable {
                         if (relationalStatement.execute(sql)) {
                             try (RelationalResultSet rs = relationalStatement.getResultSet()) {
                                 resultSet = TypeConversion.toProtobuf(rs);
+                                return Response.query(resultSet);
                             }
+                        } else {
+                            return Response.mutation(relationalStatement.getUpdateCount());
                         }
-                        return resultSet;
                     }
                 }
             }

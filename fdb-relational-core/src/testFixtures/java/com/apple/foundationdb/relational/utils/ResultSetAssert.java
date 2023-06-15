@@ -211,6 +211,12 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                 RelationalStruct expectedStruct = (RelationalStruct) colValue;
 
                 RelationalStructAssert.assertThat(actualStruct).isEqualTo(expectedStruct);
+            } else if (colValue instanceof Map) {
+                //this is the same type of check as a struct, but made convenient for the tester
+                Assertions.assertThat(o).isInstanceOf(RelationalStruct.class);
+                RelationalStruct actualStruct = (RelationalStruct) o;
+
+                RelationalStructAssert.assertThat(actualStruct).containsColumnsByName((Map<String, Object>) colValue);
             } else if (colValue instanceof Array) {
                 Assertions.assertThat(o).isInstanceOf(Array.class);
 

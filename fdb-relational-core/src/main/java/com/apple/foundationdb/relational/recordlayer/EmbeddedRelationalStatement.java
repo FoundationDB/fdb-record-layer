@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,12 +64,15 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     private RelationalResultSet currentResultSet;
     private boolean closed;
 
+    private int currentRowCount;
+
     public EmbeddedRelationalStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
     }
 
     @Nonnull
-    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
+    private Optional<Pair<RelationalResultSet, Boolean>> executeQueryInternal(@Nonnull String query) throws RelationalException {
+        conn.ensureTransactionActive();
         Options options = conn.getOptions();
         if (conn.getSchema() == null) {
             throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
@@ -86,7 +90,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             final Plan<?> plan = planGenerator.getPlan(query, planContext);
             final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
             if (plan instanceof QueryPlan) {
-                return Optional.of(((QueryPlan) plan).execute(executionContext));
+                final RelationalResultSet executeResultSet = ((QueryPlan) plan).execute(executionContext);
+                return Optional.of(Pair.of(executeResultSet, plan.isUpdatePlan()));
             } else {
                 plan.execute(executionContext);
                 return Optional.empty();
@@ -102,10 +107,23 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             conn.ensureTransactionActive();
             final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
             if (resultSet.isPresent()) {
-                currentResultSet = new ErrorCapturingResultSet(resultSet.get());
-                return true;
+                var pair = resultSet.get();
+                if (!pair.getRight()) {
+                    //result set statements get a -1 for update count
+                    currentRowCount = -1;
+                    currentResultSet = new ErrorCapturingResultSet(pair.getLeft());
+                    return true;
+                } else {
+                    //this is an update statement, so generate the row count and set the update clause
+                    currentResultSet = null;
+                    currentRowCount = countUpdates(pair.getLeft());
+                    pair.getLeft().close();
+                    return false;
+                }
             } else {
                 currentResultSet = null;
+                //ddl statements are updates that don't return results, so they get 0 for row count
+                currentRowCount = 0;
                 if (getConnection().getAutoCommit()) {
                     getConnection().commit();
                 }
@@ -113,7 +131,11 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             }
         } catch (RelationalException ve) {
             if (getConnection().getAutoCommit()) {
-                getConnection().rollback();
+                try {
+                    getConnection().rollback();
+                } catch (SQLException se) {
+                    ve.addSuppressed(se);
+                }
             }
             throw ve.toSqlException();
         }
@@ -121,45 +143,20 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
     @Override
     public RelationalResultSet executeQuery(String sql) throws SQLException {
-        try {
-            checkOpen();
-            Assert.notNull(sql);
-            conn.ensureTransactionActive();
-            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
-            if (resultSet.isPresent()) {
-                return new ErrorCapturingResultSet(resultSet.get());
-            } else {
-                throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
-            }
-        } catch (RelationalException ve) {
-            if (getConnection().getAutoCommit()) {
-                getConnection().rollback();
-            }
-            throw ve.toSqlException();
+        if (execute(sql)) {
+            return currentResultSet;
+        } else {
+            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        try {
-            checkOpen();
-            Assert.notNull(sql);
-            conn.ensureTransactionActive();
-            final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
-            if (resultSet.isEmpty()) {
-                if (getConnection().getAutoCommit()) {
-                    getConnection().commit();
-                }
-                return 0; // todo improve
-            } else {
-                throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql));
-            }
-        } catch (RelationalException ve) {
-            if (getConnection().getAutoCommit()) {
-                getConnection().rollback();
-            }
-            throw ve.toSqlException();
+        checkOpen();
+        if (execute(sql)) {
+            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql));
         }
+        return currentRowCount;
     }
 
     @Override
@@ -179,7 +176,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         if (currentResultSet != null) {
             return -1;
         } else {
-            return 0; // current spec.
+            return currentRowCount; // current spec.
         }
     }
 
@@ -532,6 +529,29 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         if (closed) {
             throw new RelationalException("Statement closed", ErrorCode.STATEMENT_CLOSED).toSqlException();
         }
+    }
+
+    private int countUpdates(@Nonnull RelationalResultSet resultSet) throws RelationalException, SQLException {
+        /*
+         * This is a bit of a temporary hack both to address a bug(TODO), and also to get around the
+         * way that RecordLayer DML plans are executed.
+         *
+         * The return of a record layer plan is _always_ a ResultSet, even when it's a straight insert operation.
+         * For DML operations the result set contains the rows that were written, which makes sense from a planning
+         * and execution perspective but is nearly useless to us at this stage, where all we want to know
+         * is the number of records mutated. To get that result, we have to quickly process the returned result
+         * set and count the rows returned. It's a tad expensive, but (typically) should be easy enough since
+         * they'll be held in memory.
+         *
+         * The returned value is an int because that's what JDBC expects, but also because getting more than
+         * Integer.MAX_VALUE results into FDB is currently(as of Spring 2023) impossible.
+         *
+         */
+        int count = 0;
+        while (resultSet.next()) {
+            count++;
+        }
+        return count;
     }
 
 }

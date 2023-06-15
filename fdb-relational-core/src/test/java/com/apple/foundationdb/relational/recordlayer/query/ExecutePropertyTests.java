@@ -42,7 +42,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public class ExecutePropertyTests {
@@ -85,7 +84,7 @@ public class ExecutePropertyTests {
     @ParameterizedTest(name = "[{0}:{1}], {2}")
     @MethodSource("hitLimitOptions")
     void hitLimitEveryRow(Options.Name optionName, Object optionValue, int expectedRowCountPerQuery) throws Exception {
-        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
         Continuation continuation = ContinuationImpl.BEGIN;
         long nextCorrectResult = 10L;
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
@@ -121,7 +120,7 @@ public class ExecutePropertyTests {
 
     @Test
     public void multipleConnectionsDoNotAffectEachOthersLimit() throws Exception {
-        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
         try (var conn1 = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
                 var conn2 = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn1.setSchema("TEST_SCHEMA");
@@ -144,7 +143,7 @@ public class ExecutePropertyTests {
 
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransaction() throws Exception {
-        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -168,7 +167,7 @@ public class ExecutePropertyTests {
 
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
-        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -187,7 +186,7 @@ public class ExecutePropertyTests {
 
     @Test
     public void limitIsResetWithNewTransaction() throws Exception {
-        executeInsert("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -216,15 +215,4 @@ public class ExecutePropertyTests {
             }
         }
     }
-
-    private void executeInsert(String sql) throws SQLException {
-        // We need to consume the result set from the insertion until the bug is fixed:
-        // TODO ([Wave 3] executeUpdate("INSERT") throws a SQLException)
-        try (RelationalResultSet rs = statement.executeQuery(sql)) {
-            while (rs.next()) {
-                // Do nothing
-            }
-        }
-    }
-
 }

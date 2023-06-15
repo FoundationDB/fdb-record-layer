@@ -37,6 +37,9 @@
 - connect: "jdbc:embed:/FRL/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
 ---
 - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
+- count: 3
+---
+- query: select * from A
 - result: [{A1: 1, A2: 10, A3: 1},
            {A1: 2, A2: 10, A3: 2},
            {A1: 3, A2: 10, A3: 3}]
@@ -46,15 +49,24 @@
            (2, 20, (5, 50)),
            (3, 20, (6, 60)),
            (4, 20, null);
+- count: 4
+---
+- query: select * from B
 - result: [{B1: 1, B2: 20, B3: {S1: 4, S2: 40}},
            {B1: 2, B2: 20, B3: {S1: 5, S2: 50}},
            {B1: 3, B2: 20, B3: {S1: 6, S2: 60}},
            {B1: 4, B2: 20, B3: !null }]
 ---
 - query: insert into B (B2, B1) values (20, 5);
+- count: 1
+---
+- query: select * from B where B1 = 5;
 - result: [{B1: 5, B2: 20, B3: !null }]
 ---
 - query: insert into B select b1 * 10, b2, b3 from B where b1 < 10;
+- count: 5
+---
+- query: select * from B where b1 >= 10;
 - result: [{B1: 10, B2: 20, B3: {4, 40}},
            {B1: 20, B2: 20, B3: {5, 50}},
            {B1: 30, B2: 20, B3: {6, 60}},
@@ -62,18 +74,27 @@
            {B1: 50, B2: 20, B3: !null }]
 ---
 - query: update B set b2 = 30, b3 = (100, 100) where b1 < 10;
-- result: [{old: {B1: 1, B2: 20, B3: {4, 40}}, new: {B1: 1, B2: 30, B3: {S1: 100, S2: 100}}},
-           {old: {B1: 2, B2: 20, B3: {5, 50}}, new: {B1: 2, B2: 30, B3: {S1: 100, S2: 100}}},
-           {old: {B1: 3, B2: 20, B3: {6, 60}}, new: {B1: 3, B2: 30, B3: {S1: 100, S2: 100}}},
-           {old: {B1: 4, B2: 20, B3: !null }, new: {B1: 4, B2: 30, B3: {S1: 100, S2: 100}}},
-           {old: {B1: 5, B2: 20, B3: !null }, new: {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}}]
+- count: 5
 ---
-- query: delete from B where b1 < 10;
+- query: select * from B where b2 = 30;
 - result: [{B1: 1, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 2, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 3, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 4, B2: 30, B3: {S1: 100, S2: 100}},
            {B1: 5, B2: 30, B3: {S1: 100, S2: 100}}]
+---
+- query: delete from B where b1 < 10;
+- count: 5
+---
+- query: select * from B where b1 <10;
+- result: []
+---
+- query: select * from B where b1 >=10;
+- result: [{ B1: 10, B2: 20, B3: { 4, 40 } },
+           { B1: 20, B2: 20, B3: { 5, 50 } },
+           { B1: 30, B2: 20, B3: { 6, 60 } },
+           { B1: 40, B2: 20, B3: !null },
+           { B1: 50, B2: 20, B3: !null }]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---

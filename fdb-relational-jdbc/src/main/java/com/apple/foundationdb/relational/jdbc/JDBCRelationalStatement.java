@@ -106,7 +106,11 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public RelationalResultSet executeQuery(@Nonnull String sql) throws SQLException {
-        return executeQuery(sql, (Collection<Parameter>) null);
+        if (execute(sql)) {
+            return this.currentResultSet;
+        } else {
+            throw new SQLException("Cannot call executeQuery with an update statement", ErrorCode.INVALID_PARAMETER.getErrorCode());
+        }
     }
 
     /**
@@ -199,7 +203,11 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        return this.executeQuery(sql) != RelationalResultSetFacade.EMPTY;
+        StatementResponse response = execute(sql, Options.NONE, null);
+        this.currentResultSet = response.hasResultSet() ?
+                new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
+        this.updateCount = response.getRowCount();
+        return response.hasResultSet();
     }
 
     @Override

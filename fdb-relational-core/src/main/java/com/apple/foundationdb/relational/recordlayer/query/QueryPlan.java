@@ -37,7 +37,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
@@ -143,6 +146,18 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
+        public boolean isUpdatePlan() {
+            if (this.queryExecutionParameters.isForExplain()) {
+                return false;
+            } else {
+                //TODO(bfines) there may be a better way to do this, but I couldn't find it easily
+                return recordQueryPlan instanceof RecordQueryInsertPlan ||
+                        recordQueryPlan instanceof RecordQueryUpdatePlan ||
+                        recordQueryPlan instanceof RecordQueryDeletePlan;
+            }
+        }
+
+        @Override
         public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
             return this;
         }
@@ -242,6 +257,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
+        public boolean isUpdatePlan() {
+            //TODO(bfines) determine this from the relational expression
+            return false;
+        }
+
+        @Override
         @Nonnull
         public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) throws RelationalException {
             if (optimizedPlan.isPresent()) {
@@ -333,6 +354,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             super("MetadataQueryPlan");
             this.query = query;
             this.rowType = rowType;
+        }
+
+        @Override
+        public boolean isUpdatePlan() {
+            return false;
         }
 
         @Override

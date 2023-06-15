@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import java.sql.Types;
 
 /**
@@ -30,6 +32,7 @@ import java.sql.Types;
  * recordlayer.
  */
 // Used by fdb-relational-jdbc module in JDBCRelationalArray.
+@ExcludeFromJacocoGeneratedReport
 public final class SqlTypeNamesSupport {
     private SqlTypeNamesSupport() {
     }
