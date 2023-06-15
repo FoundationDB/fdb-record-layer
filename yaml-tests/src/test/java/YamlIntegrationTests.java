@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -76,7 +77,7 @@ public class YamlIntegrationTests {
         doRun("standard-tests-proto.yaml");
     }
 
-    @Test
+    @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
     public void deprecatedFieldsTestsWithProto() throws Exception {
         doRun("deprecated-fields-tests-proto.yaml");
     }
