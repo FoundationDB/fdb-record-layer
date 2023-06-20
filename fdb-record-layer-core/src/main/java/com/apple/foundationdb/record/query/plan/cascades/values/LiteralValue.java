@@ -59,7 +59,6 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.C
 
     @VisibleForTesting
     public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
-        Verify.verify(resultType.isPrimitive());
         this.resultType = resultType;
         this.value = value;
     }
