@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -53,11 +54,12 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.C
     private final T value;
 
     public LiteralValue(@Nullable final T value) {
-        this(Type.primitiveType(Type.typeCodeFromPrimitive(value), false), value);
+        this(Type.fromObject(value), value);
     }
 
     @VisibleForTesting
     public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
+        Verify.verify(resultType.isPrimitive());
         this.resultType = resultType;
         this.value = value;
     }

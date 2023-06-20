@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -300,6 +301,7 @@ public interface Type extends Narrowable<Type> {
      * @return the corresponding {@link Type}.
      */
     @Nonnull
+    @VisibleForTesting
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
         final int memoizedHashCode = Objects.hash(typeCode.name().hashCode(), isNullable);
