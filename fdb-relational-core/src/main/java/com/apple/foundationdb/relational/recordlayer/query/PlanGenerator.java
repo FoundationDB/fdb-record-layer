@@ -106,6 +106,10 @@ public final class PlanGenerator {
         final boolean logQuery = options.getOption(Options.Name.LOG_QUERY);
 
         if (logQuery || logger.isDebugEnabled() || isSlow) {
+            if (plan instanceof QueryPlan.PhysicalQueryPlan) {
+                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash();
+                message.addKeyAndValue("planHash", planHash);
+            }
             message.addKeyAndValue("plan", plan.explain());
             message.addKeyAndValue("totalPlanTime", totalTime);
             message.addKeyAndValue("query", plan.getQuery().trim());
@@ -125,6 +129,7 @@ public final class PlanGenerator {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context, query);
             message.addKeyAndValue("normalizeQueryTime", stepTimeMicros());
+            message.addKeyAndValue("queryHash", astHashResult.getQueryCacheKey().getHash());
             options = Options.combine(astHashResult.getQueryOptions(), options);
             boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
@@ -134,7 +139,6 @@ public final class PlanGenerator {
                 if (logThatQuery || logger.isDebugEnabled()) {
                     message.addKeyAndValue("planCache", "skip");
                     message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
-                    message.addKeyAndValue("plan", plan.explain());
                 }
                 return plan;
             }

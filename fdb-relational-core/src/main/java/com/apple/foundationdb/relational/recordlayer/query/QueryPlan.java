@@ -64,6 +64,7 @@ import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.google.common.base.Suppliers;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -76,6 +77,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typed {
 
@@ -87,6 +89,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
+
+        private final Supplier<Integer> recordQueryPlanHash = Suppliers.memoize(() -> getRecordQueryPlan().planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+
         @Nonnull
         private final TypeRepository typeRepository;
 
@@ -226,6 +231,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
             return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
                     physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        }
+
+        public int planHash() {
+            return recordQueryPlanHash.get();
         }
     }
 

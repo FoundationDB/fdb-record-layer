@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -205,5 +208,32 @@ public class QueryLoggingTest {
                 Assertions.assertThat(logAppender.getLastLogEntry()).doesNotContain("restaurant 1");
             }
         }
+    }
+
+    @Test
+    void testLogPlanHash() throws Exception {
+        final var query1 = "SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)";
+        final var conn = ((EmbeddedRelationalConnection) connection.connection);
+        int queryHash = 0;
+        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+            final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
+            final var planContext = PlanContext.Builder.create()
+                    .fromRecordStore(store)
+                    .fromDatabase(conn.getRecordLayerDatabase())
+                    .withMetricsCollector(conn.metricCollector)
+                    .withSchemaTemplate(conn.getSchemaTemplate())
+                    .build();
+            queryHash = AstNormalizer.normalizeQuery(planContext, query1).getQueryCacheKey().getHash();
+        }
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 0 OPTIONS (LOG QUERY)")) {
+            resultSet.next();
+        }
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("queryHash=\"" + queryHash + "\"");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planHash=\"1902303907\"");
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)")) {
+            resultSet.next();
+        }
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("queryHash=\"" + queryHash + "\"");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planHash=\"1902303907\"");
     }
 }
