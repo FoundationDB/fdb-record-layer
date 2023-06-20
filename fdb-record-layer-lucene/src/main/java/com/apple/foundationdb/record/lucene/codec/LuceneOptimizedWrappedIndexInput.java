@@ -20,40 +20,21 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.store.IndexInput;
-
 import javax.annotation.Nonnull;
 import java.io.IOException;
-
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
+import java.util.function.Supplier;
 
 /**
  * An {@code IndexInput} optimized for FDB storage.
  */
 public class LuceneOptimizedWrappedIndexInput extends IndexInput {
-    private final FDBDirectory directory;
-    FDBLuceneFileReference reference;
     byte[] value;
     private int position;
 
-    public static String convertToDataFile(String name) {
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
-        } else {
-            return name;
-        }
-
-    }
-
-    public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull FDBDirectory directory, boolean isSegmentInfo) {
+    public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull Supplier<byte[]> supplier) {
         super(name);
-        this.directory = directory;
-        reference = this.directory.getFDBLuceneFileReference(convertToDataFile(name));
-        value = isSegmentInfo ? reference.getSegmentInfo() : reference.getEntries();
+        value = supplier.get();
         position = 0;
     }
 
