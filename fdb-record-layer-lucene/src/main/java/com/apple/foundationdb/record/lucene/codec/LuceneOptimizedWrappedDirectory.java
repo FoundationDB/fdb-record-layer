@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -35,8 +36,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
-import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 
 
 /**
@@ -70,8 +70,25 @@ class LuceneOptimizedWrappedDirectory extends Directory {
 
     @Override
     public IndexOutput createOutput(String name, final IOContext context) throws IOException {
-        if (isSegmentInfo(name) || isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name, fdbDirectory, isSegmentInfo(name));
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return new LuceneOptimizedWrappedIndexOutput(name) {
+                @Override
+                public void close() throws IOException {
+                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
+                    reference.setSegmentInfo(outputStream.toByteArray());
+                    ((FDBDirectory) FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
+                }
+            };
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return new LuceneOptimizedWrappedIndexOutput(name) {
+                @Override
+                public void close() throws IOException {
+                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
+                    reference.setEntries(outputStream.toByteArray());
+                    ((FDBDirectory) FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
+                }
+            };
+
         } else {
             return wrappedDirectory.createOutput(name, context);
         }
@@ -99,8 +116,12 @@ class LuceneOptimizedWrappedDirectory extends Directory {
 
     @Override
     public IndexInput openInput(String name, final IOContext context) throws IOException {
-        if (isSegmentInfo(name) || isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name, fdbDirectory, isSegmentInfo(name));
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return new LuceneOptimizedWrappedIndexInput(name,
+                    () -> fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)).getSegmentInfo());
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return new LuceneOptimizedWrappedIndexInput(name,
+                    () -> fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)).getEntries());
         } else {
             return wrappedDirectory.openInput(name, context);
         }
@@ -147,5 +168,16 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     @Override
     public Set<String> getPendingDeletions() throws IOException {
         return Collections.emptySet();
+    }
+
+    public static String convertToDataFile(String name) {
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
+        } else {
+            return name;
+        }
+
     }
 }
