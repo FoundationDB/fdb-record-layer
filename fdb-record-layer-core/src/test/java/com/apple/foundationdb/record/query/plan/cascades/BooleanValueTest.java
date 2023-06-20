@@ -70,7 +70,7 @@ import java.util.stream.Stream;
  */
 class BooleanValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
-    private static final LiteralValue<?> UNKNOWN = new LiteralValue<>(Type.primitiveType(Type.TypeCode.UNKNOWN));
+    private static final LiteralValue<?> UNKNOWN = new LiteralValue<>(Type.primitiveType(Type.TypeCode.UNKNOWN), null);
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<Boolean> BOOL_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
