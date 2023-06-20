@@ -241,7 +241,7 @@ class TypeTest {
 
                     // Arrays of arrays
                     Arguments.of(List.of(listOfNulls), new Type.Array(new Type.Array(Type.any())), false),
-                    Arguments.of(List.of(listOfNullsAndNonNulls), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT)))),
+                    Arguments.of(List.of(listOfNullsAndNonNulls), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT, true)))),
                     Arguments.of(List.of(List.of(false), List.of(false)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BOOLEAN, false)))),
                     Arguments.of(List.of(List.of(42), List.of(42)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)))),
                     Arguments.of(List.of(List.of(42.1d), List.of(42.1d)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.DOUBLE, false)))),

@@ -404,7 +404,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
-                    .filter(comparand -> comparand instanceof ConstantObjectValue)
                     .map(constant -> PredicateWithValueAndRanges.ofRanges(constant, candidateRanges))
                     .collect(Collectors.toList())));
         }
