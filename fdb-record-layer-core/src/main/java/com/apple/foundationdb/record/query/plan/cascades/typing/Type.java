@@ -608,7 +608,7 @@ public interface Type extends Narrowable<Type> {
             return Type.any();
         }
         if (typeCode.isPrimitive()) {
-            return Type.primitiveType(typeCode);
+            return Type.primitiveType(typeCode, false);
         }
         throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
     }
@@ -621,10 +621,14 @@ public interface Type extends Narrowable<Type> {
         if (list.isEmpty()) {
             return Type.any();
         }
-        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
+        final var liftedList = list.stream().map(Type::fromObject).collect(Collectors.toList());
+        final var elementTypes = liftedList.stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
         if (elementTypes.size() != 1) {
             return Type.any();
         } else {
+            if (liftedList.stream().anyMatch(type -> type == Type.nullType())) {
+                return elementTypes.get(0).withNullability(true);
+            }
             return elementTypes.get(0);
         }
     }
