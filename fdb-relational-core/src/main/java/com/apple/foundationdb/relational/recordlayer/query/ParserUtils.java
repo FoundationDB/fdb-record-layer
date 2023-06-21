@@ -169,14 +169,14 @@ public final class ParserUtils {
                 case 'f':
                 case 'F':
                     float floatValue = Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), floatValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT, false), floatValue);
                 case 'd':
                 case 'D':
                     double doubleValue = Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), doubleValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE, false), doubleValue);
                 default:
                     doubleValue = Double.parseDouble(valueAsString);
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), doubleValue);
+                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE, false), doubleValue);
             }
         } else {
             long result = Long.parseLong(valueAsString);
