@@ -385,6 +385,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
+     * A marker interface for {@link Value}s that can be used in the context of range construction, it must be evaluable
+     * without being bound to an {@link FDBRecordStoreBase}.
+     * See {@link com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints}.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface RangeMatchableValue extends Value {
+    }
+
+    /**
      * A scalar value type that can only fetched from an index, that is the value cannot be fetched from the base record
      * nor can it be computed "on-the-fly".
      */

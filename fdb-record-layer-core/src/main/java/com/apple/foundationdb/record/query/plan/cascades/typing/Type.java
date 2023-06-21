@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -300,6 +301,7 @@ public interface Type extends Narrowable<Type> {
      * @return the corresponding {@link Type}.
      */
     @Nonnull
+    @VisibleForTesting
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
         final int memoizedHashCode = Objects.hash(typeCode.name().hashCode(), isNullable);
@@ -606,7 +608,7 @@ public interface Type extends Narrowable<Type> {
             return Type.any();
         }
         if (typeCode.isPrimitive()) {
-            return Type.primitiveType(typeCode);
+            return Type.primitiveType(typeCode, false);
         }
         throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
     }
@@ -619,11 +621,15 @@ public interface Type extends Narrowable<Type> {
         if (list.isEmpty()) {
             return Type.any();
         }
-        final var elementTypes = list.stream().map(Type::fromObject).collect(Collectors.toList()).stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
-        if (elementTypes.size() != 1) {
+        final var elementsTypes = list.stream().map(Type::fromObject).collect(Collectors.toList());
+        final var nonNullElementType = elementsTypes.stream().distinct().filter(type -> type != Type.nullType()).collect(Collectors.toList());
+        if (nonNullElementType.size() != 1) {
             return Type.any();
         } else {
-            return elementTypes.get(0);
+            if (elementsTypes.stream().anyMatch(type -> type == Type.nullType())) {
+                return nonNullElementType.get(0).withNullability(true);
+            }
+            return nonNullElementType.get(0);
         }
     }
 

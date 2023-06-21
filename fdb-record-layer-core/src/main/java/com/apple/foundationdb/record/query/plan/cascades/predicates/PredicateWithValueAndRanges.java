@@ -404,7 +404,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
-                    .filter(comparand -> comparand instanceof ConstantObjectValue)
                     .map(constant -> PredicateWithValueAndRanges.ofRanges(constant, candidateRanges))
                     .collect(Collectors.toList())));
         }
@@ -443,7 +442,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        if (!(value instanceof Value.CompileTimeValue)) {
+        if (!(value instanceof Value.RangeMatchableValue)) {
             throw new RecordCoreException("attempt to compile-time predicate with non-compile-time value.");
         }
         final var valueObject = value.eval(store, context);
