@@ -360,8 +360,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return null;
             }
         }
-        if (configuration.shouldDeferFetchAfterUnionAndIntersection()) {
-            plan = RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, indexTypes, planContext.commonPrimaryKey);
+        if (configuration.shouldDeferFetchAfterUnionAndIntersection() || configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
+            plan = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(configuration, plan, metaData, indexTypes, planContext.commonPrimaryKey);
         } else {
             // Always do filter pushdown
             plan = plan.accept(new FilterVisitor(metaData, indexTypes, planContext.commonPrimaryKey));

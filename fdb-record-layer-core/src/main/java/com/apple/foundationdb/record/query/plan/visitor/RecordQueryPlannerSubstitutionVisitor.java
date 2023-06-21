@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -61,15 +62,20 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
         this.commonPrimaryKey = commonPrimaryKey;
     }
 
-    public static RecordQueryPlan applyVisitors(@Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
-        return plan
+    public static RecordQueryPlan applyRegularVisitors(@Nonnull RecordQueryPlannerConfiguration configuration, @Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
+        plan = plan
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new InJoinVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new InUnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
+
+        if (configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
+            plan = plan
+                    .accept(new InJoinVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                    .accept(new InUnionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
+        }
+
+        return plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
 

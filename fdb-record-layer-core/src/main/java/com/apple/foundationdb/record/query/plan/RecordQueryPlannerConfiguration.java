@@ -51,6 +51,7 @@ public class RecordQueryPlannerConfiguration {
     private final int complexityThreshold;
     private final boolean checkForDuplicateConditions;
     private final boolean deferFetchAfterUnionAndIntersection;
+    private final boolean deferFetchAfterInJoinAndInUnion;
     private final boolean optimizeForIndexFilters;
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
@@ -78,6 +79,7 @@ public class RecordQueryPlannerConfiguration {
                                             int complexityThreshold,
                                             boolean checkForDuplicateConditions,
                                             boolean deferFetchAfterUnionAndIntersection,
+                                            boolean deferFetchAfterInJoinAndInUnion,
                                             boolean optimizeForIndexFilters,
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
@@ -97,6 +99,7 @@ public class RecordQueryPlannerConfiguration {
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+        this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
         this.optimizeForIndexFilters = optimizeForIndexFilters;
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
@@ -186,6 +189,14 @@ public class RecordQueryPlannerConfiguration {
      */
     public boolean shouldDeferFetchAfterUnionAndIntersection() {
         return deferFetchAfterUnionAndIntersection;
+    }
+
+    /**
+     * Get whether the query planner should attempt to delay the fetch of the whole record until after in-join or in union operators.
+     * @return whether the planner should delay the fetch of the whole record until after in-join or in union operators.
+     */
+    public boolean shouldDeferFetchAfterInJoinAndInUnion() {
+        return deferFetchAfterInJoinAndInUnion;
     }
 
     /**
@@ -325,6 +336,7 @@ public class RecordQueryPlannerConfiguration {
         private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
         private boolean checkForDuplicateConditions = false;
         private boolean deferFetchAfterUnionAndIntersection = false;
+        private boolean deferFetchAfterInJoinAndInUnion = false;
         private boolean optimizeForIndexFilters = false;
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
@@ -352,6 +364,7 @@ public class RecordQueryPlannerConfiguration {
             this.complexityThreshold = configuration.complexityThreshold;
             this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
             this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
+            this.deferFetchAfterInJoinAndInUnion = configuration.deferFetchAfterInJoinAndInUnion;
             this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
@@ -394,6 +407,11 @@ public class RecordQueryPlannerConfiguration {
 
         public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
             this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+            return this;
+        }
+
+        public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
+            this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
             return this;
         }
 
@@ -587,6 +605,7 @@ public class RecordQueryPlannerConfiguration {
                     complexityThreshold,
                     checkForDuplicateConditions,
                     deferFetchAfterUnionAndIntersection,
+                    deferFetchAfterInJoinAndInUnion,
                     optimizeForIndexFilters,
                     maxTaskQueueSize,
                     maxTotalTaskCount,
