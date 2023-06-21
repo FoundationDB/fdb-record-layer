@@ -89,7 +89,7 @@ public abstract class IndexComparison {
                (comparison instanceof Comparisons.ValueComparison &&
                 StreamSupport.stream(((Comparisons.ValueComparison)comparison)
                         .getComparandValue()
-                        .filter(value -> !(value instanceof Value.CompileTimeEvaluable))
+                        .filter(value -> !(value instanceof Value.RangeMatchableValue))
                         .spliterator(), false)
                         .findAny()
                         .isEmpty());

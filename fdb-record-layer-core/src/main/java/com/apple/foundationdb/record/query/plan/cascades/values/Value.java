@@ -385,11 +385,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
-     * A marker interface for {@link Value}s that can be evaluated at compile-time, i.e. without being
-     * bound to an {@link FDBRecordStoreBase}.
+     * A marker interface for {@link Value}s that can be used in the context of range construction, it must be evaluable
+     * without being bound to an {@link FDBRecordStoreBase}.
+     * See {@link com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints}.
      */
     @API(API.Status.EXPERIMENTAL)
-    interface CompileTimeEvaluable extends Value {
+    interface RangeMatchableValue extends Value {
     }
 
     /**

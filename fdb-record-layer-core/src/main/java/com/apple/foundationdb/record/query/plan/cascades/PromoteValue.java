@@ -48,7 +48,7 @@ import java.util.function.BiFunction;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PromoteValue extends AbstractValue implements ValueWithChild, Value.CompileTimeEvaluable {
+public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
     private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =
