@@ -76,6 +76,7 @@ import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.FIELD_INFO_EXTENSION;
 import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
@@ -102,11 +103,13 @@ public class FDBDirectory extends Directory {
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
+    private static final int SCHEMA_SUBSPACE = 3;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
+    private final Subspace schemaSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -172,6 +175,7 @@ public class FDBDirectory extends Directory {
         this.sequenceSubspaceKey = sequenceSubspace.pack();
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
+        this.schemaSubspace = subspace.subspace(Tuple.from(SCHEMA_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -284,10 +288,16 @@ public class FDBDirectory extends Directory {
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
+    public static boolean isFieldInfoFile(String name) {
+        return name.endsWith(FIELD_INFO_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+    }
+
     public static String convertToDataFile(String name) {
         if (isSegmentInfo(name)) {
             return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (isEntriesFile(name)) {
+        } else if (isEntriesFile(name) || isFieldInfoFile(name)) {
             return name.substring(0, name.length() - 3) + DATA_EXTENSION;
         } else {
             return name;
@@ -314,11 +324,19 @@ public class FDBDirectory extends Directory {
                 storedRef.setSegmentInfo(reference.getSegmentInfo());
                 reference = storedRef;
             }
+        } else if (isFieldInfoFile(name)) {
+            name = convertToDataFile(name);
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
+            if (storedRef != null) {
+                storedRef.setBitSetWords(reference.getBitSetWords());
+                reference = storedRef;
+            }
         } else if (isCompoundFile(name)) {
             FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
             if (storedRef != null) {
                 reference.setSegmentInfo(storedRef.getSegmentInfo());
                 reference.setEntries(storedRef.getEntries());
+                reference.setBitSetWords(storedRef.getBitSetWords());
             }
         }
         final byte[] fileReferenceBytes = reference.getBytes();
@@ -359,6 +377,21 @@ public class FDBDirectory extends Directory {
             Verify.verify(value.length <= blockSize);
             context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
             return encodedBytes.length;
+        });
+    }
+
+    public CompletableFuture<Integer> writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
+        return CompletableFuture.supplyAsync( () -> {
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("Write lucene data",
+                        LuceneLogMessageKeys.DATA_SIZE, value.length,
+                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+            }
+            Verify.verify(value.length <= blockSize);
+            context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
+            return value.length;
         });
     }
 
@@ -413,6 +446,11 @@ public class FDBDirectory extends Directory {
         return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
                 context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
                         .thenApply(LuceneSerializer::decode));
+    }
+
+    public CompletableFuture<byte[]> readSchema(List<Long> bitSetWords) {
+        return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
+                context.ensureActive().get(schemaSubspace.pack(Tuple.from(bitSetWords))));
     }
 
     /**
