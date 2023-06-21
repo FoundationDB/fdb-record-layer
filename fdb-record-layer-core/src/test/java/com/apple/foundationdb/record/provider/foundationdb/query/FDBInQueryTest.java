@@ -251,6 +251,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         planner.setConfiguration(InAsOrUnionMode.AS_UNION.configure(planner.getConfiguration().asBuilder())
                 .setDeferFetchAfterUnionAndIntersection(true)
+                .setDeferFetchAfterInJoinAndInUnion(true)
                 .build());
 
         RecordQueryPlan plan = planner.plan(query);
@@ -400,6 +401,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         planner.setConfiguration(InAsOrUnionMode.AS_UNION.configure(planner.getConfiguration().asBuilder())
                 .setDeferFetchAfterUnionAndIntersection(true)
+                .setDeferFetchAfterInJoinAndInUnion(true)
                 .build());
 
         RecordQueryPlan plan = planner.plan(query);
