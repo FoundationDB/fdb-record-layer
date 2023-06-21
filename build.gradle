@@ -160,11 +160,7 @@ allprojects {
     }
 
     repositories {
-        if (System.getenv("ARTIFACT_VERSION") != null) {
-           version = "${System.getenv('ARTIFACT_VERSION')}"
-        } else if (System.getenv("RECORD_LAYER_BUILD_NUMBER") != null) {
-           version = "${version}.${System.getenv('RECORD_LAYER_BUILD_NUMBER')}"
-        }
+        version = "3.3.386.1"
         if (Boolean.parseBoolean(mavenLocalEnabled)) {
             mavenLocal()
             logger.warn 'Warning: you have enabled maven local repository. This should only be used on local workstations to test undeployed library dependencies.'
