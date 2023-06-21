@@ -730,8 +730,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             }
         } else {
             LiteralValue<Boolean> right = (ctx.TRUE() != null) ?
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true) :
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
+                    new LiteralValue<>(true) :
+                    new LiteralValue<>(false);
             final Typed nullClause;
             Class<? extends BuiltInFunction<Value>> combineFunc;
             if (ctx.NOT() != null) {
@@ -810,8 +810,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 try (ResultSet rs = ((Array) param).getResultSet()) {
                     while (rs.next()) {
                         final var arrayParam = rs.getObject(1);
-                        Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
-                        Value literal = new LiteralValue<>(literalType, arrayParam);
+                        Value literal = new LiteralValue<>(arrayParam);
                         LiteralsUtils.processLiteral(literal, arrayParam, context);
                         values.add(literal);
                     }
@@ -823,7 +822,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 throw new RuntimeException(e);
             }
         }  else {
-            final var literal = new LiteralValue<>(Type.primitiveType(Type.typeCodeFromPrimitive(param), true), param);
+            final var literal = new LiteralValue<>(param);
             return LiteralsUtils.processLiteral(literal, param, context);
         }
     }

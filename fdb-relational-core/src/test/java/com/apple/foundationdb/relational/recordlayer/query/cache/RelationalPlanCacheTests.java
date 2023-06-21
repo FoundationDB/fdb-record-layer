@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -100,7 +101,7 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1970));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1979));
-        gte1970p0 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gte1970p0 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -110,7 +111,7 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1970));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1979));
-        gte1970p1 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gte1970p1 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -120,7 +121,7 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1980));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1989));
-        gt1980p0 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gt1980p0 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -130,7 +131,7 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1980));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1989));
-        gte1980p1 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gte1980p1 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -140,7 +141,7 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1990));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1999));
-        gte1990p0 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gte1990p0 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -150,15 +151,15 @@ public class RelationalPlanCacheTests {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1990));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1999));
-        gte1990p1 = PredicateWithValueAndRanges.ofRanges(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT)), Set.of(builder.build().get()));
+        gte1990p1 = PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
-    private static final QueryPredicate ofTypeIntp0 = new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate ofTypeIntp0 = new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
 
     @Nonnull
-    private static final QueryPredicate ofTypeIntp1 = new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate ofTypeIntp1 = new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(), 1, Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
 
     @Nonnull

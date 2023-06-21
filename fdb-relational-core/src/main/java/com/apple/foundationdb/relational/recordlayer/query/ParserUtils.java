@@ -181,9 +181,9 @@ public final class ParserUtils {
         } else {
             long result = Long.parseLong(valueAsString);
             if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
-                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), Math.toIntExact(result));
+                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), Math.toIntExact(result));
             } else {
-                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), result);
+                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, false), result);
             }
         }
     }

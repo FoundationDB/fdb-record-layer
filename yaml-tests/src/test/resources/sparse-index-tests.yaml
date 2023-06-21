@@ -54,13 +54,13 @@
 - explain: [{!sc "map(Covering(Index(I4 <,>"}]
 ---
 - query: select col1 from t1 where col1 > 55 and col1 < 100
-- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
+- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
 ---
 - query: select col1 from t1 where col1 > 55 and col1 < 199
-- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
+- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
 ---
 - query: select col1 from t1 where col1 > 50 and col1 < 350
-- explain: [{!sc "map(Covering(Index(I2 [[GREATER_THAN @0 && LESS_THAN @1]]"}]
+- explain: [{!sc "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
 ---
 - query: select tombstone from t2 where tombstone is null
 - explain: [{!sc "map(Scan("}]
