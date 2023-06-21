@@ -67,6 +67,8 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                 .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new InJoinVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new InUnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
