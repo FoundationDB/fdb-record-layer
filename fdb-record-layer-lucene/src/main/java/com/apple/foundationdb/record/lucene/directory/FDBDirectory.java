@@ -449,7 +449,7 @@ public class FDBDirectory extends Directory {
     }
 
     public CompletableFuture<byte[]> readSchema(List<Long> bitSetWords) {
-        return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_SCHEMA,
                 context.ensureActive().get(schemaSubspace.pack(Tuple.from(bitSetWords))));
     }
 
