@@ -385,6 +385,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
+     * A marker interface for {@link Value}s that can be evaluated at compile-time, i.e. without being
+     * bound to an {@link FDBRecordStoreBase}.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface CompileTimeEvaluable extends Value {
+    }
+
+    /**
      * A scalar value type that can only fetched from an index, that is the value cannot be fetched from the base record
      * nor can it be computed "on-the-fly".
      */

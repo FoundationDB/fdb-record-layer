@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
-public class OfTypeValue extends AbstractValue implements Value.CompileTimeValue, ValueWithChild {
+public class OfTypeValue extends AbstractValue implements Value.CompileTimeEvaluable, ValueWithChild {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 

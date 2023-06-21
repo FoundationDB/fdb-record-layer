@@ -44,7 +44,7 @@ import java.util.Objects;
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.CompileTimeValue {
+public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.CompileTimeEvaluable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nonnull

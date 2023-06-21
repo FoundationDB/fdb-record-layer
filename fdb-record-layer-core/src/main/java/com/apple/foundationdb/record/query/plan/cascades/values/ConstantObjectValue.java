@@ -38,7 +38,7 @@ import java.util.Set;
 /**
  * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
-public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.CompileTimeValue {
+public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.CompileTimeEvaluable {
 
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Object-Value");
