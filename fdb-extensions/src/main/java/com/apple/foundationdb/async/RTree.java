@@ -34,12 +34,10 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import org.checkerframework.checker.units.qual.A;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,23 +48,17 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Predicate;
 
 import static com.apple.foundationdb.async.AsyncUtil.DONE;
 import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
-import static com.apple.foundationdb.async.AsyncUtil.READY_TRUE;
 
 /**
  * TODO.
@@ -311,7 +303,7 @@ public class RTree {
 
     public CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final TransactionContext tc,
                                                                  @Nonnull final TraversalState traversalState,
-                                                                 @Nonnull final Predicate<Hypercube> mbrPredicate) {
+                                                                 @Nonnull final Predicate<Rectangle> mbrPredicate) {
         final List<Deque<byte[]>> toBeProcessed = traversalState.getToBeProcessed();
 
         int level;
@@ -339,7 +331,7 @@ public class RTree {
 
     public CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final TransactionContext tc,
                                                                      @Nonnull final byte[] rootId,
-                                                                     @Nonnull final Predicate<Hypercube> mbrPredicate) {
+                                                                     @Nonnull final Predicate<Rectangle> mbrPredicate) {
         checkKey(rootId);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final List<Deque<byte[]>> toBeProcessed = Lists.newArrayList();
@@ -347,14 +339,11 @@ public class RTree {
         return AsyncUtil.whileTrue(() -> fetchNode(tc, currentId.get())
                 .thenApply(node -> {
                     if (node.getKind() == Kind.INTERMEDIATE) {
-                        final List<byte[]> childrenIds = node.getChildrenIds();
-                        final List<Hypercube> childrenMbrs = node.getChildrenMbrs();
+                        final List<ChildSlot> children = node.getChildren();
                         final Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
-                        for (int i = 0; i < childrenIds.size(); i++) {
-                            final Hypercube childMbr = childrenMbrs.get(i);
-                            if (mbrPredicate.test(childMbr)) {
-                                final byte[] childId = childrenIds.get(i);
-                                toBeProcessedThisLevel.addLast(childId);
+                        for (final ChildSlot child : children) {
+                            if (mbrPredicate.test(child.getMbr())) {
+                                toBeProcessedThisLevel.addLast(child.getChildId());
                             }
                         }
                         currentId.set(Objects.requireNonNull(toBeProcessedThisLevel.pollFirst()));
@@ -366,81 +355,159 @@ public class RTree {
                 }), executor).thenApply(vignore -> TraversalState.of(toBeProcessed, leafNode.get()));
     }
 
-    public CompletableFuture<Node> fetchUpdatePathToLeaf(@Nonnull final TransactionContext tc,
-                                                         @Nonnull final BigInteger targetHilbertValue) {
-        final AtomicReference<Node> parentNode = new AtomicReference<>(null);
+    public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
+                                          @Nonnull final Config config,
+                                          @Nonnull final BigInteger hilbertValue,
+                                          @Nonnull final Tuple key,
+                                          @Nonnull final Tuple value,
+                                          @Nonnull final Point point) {
+        fetchUpdatePathToLeaf(tc, hilbertValue)
+                .thenCompose(leafNode -> {
+
+                })
+    }
+
+    public CompletableFuture<Void> insertSlot(@Nonnull final TransactionContext tc,
+                                              @Nonnull final Config config,
+                                              @Nonnull final Node targetNode,
+                                              @Nonnull final NodeSlot newSlot) {
+        Verify.verify(targetNode.getSlots().size() <= config.getMaxM());
+        int newSlotIndex = findSlotIndex(targetNode, newSlot.getHilbertValue(), newSlot.getKey());
+
+        if (newSlotIndex == -1) {
+            //
+            // TODO direct update to a leaf; only values change ==> done
+            //
+        }
+
+        if (targetNode.getSlots().size() < config.getMaxM()) {
+            //
+            // TODO insert and propagate adjusted hv and mbr
+            //
+        } else {
+            // node is full
+            // fetch siblings and try to shift some entries to adjacent nodes; propagate
+
+            // OR
+
+            // create maxS() nodes and propagate
+        }
+
+
+    }
+
+
+    public CompletableFuture<LeafNode> fetchUpdatePathToLeaf(@Nonnull final TransactionContext tc,
+                                                             @Nonnull final BigInteger targetHilbertValue,
+                                                             @Nonnull final Tuple targetKey) {
+        final AtomicReference<IntermediateNode> parentNode = new AtomicReference<>(null);
         final AtomicInteger slotInParent = new AtomicInteger(-1);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(Node.ROOT_ID);
-        final AtomicReference<Node> leafNode = new AtomicReference<>(null);
+        final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> fetchNode(tc, currentId.get())
                 .thenApply(node -> {
                     if (parentNode.get() != null) {
                         node.linkToParent(parentNode.get(), slotInParent.get());
                     }
                     if (node.getKind() == Kind.INTERMEDIATE) {
-                        byte[] childId = null;
-                        final List<byte[]> childrenIds = node.getChildrenIds();
-                        final List<BigInteger> childrenLhvs = node.getChildrenLhvs();
-                        int slot;
-                        for (slot = 0; slot < childrenIds.size(); slot++) {
-                            final BigInteger childLhv = childrenLhvs.get(slot);
-                            //
-                            // Choose subtree with the minimum Hilbert value that is greater than the target
-                            // Hilbert value. If there is no such subtree, i.e. the target Hilbert value is the
-                            // largest Hilbert value, we choose the largest one in the current node.
-                            //
-                            if (childLhv.compareTo(targetHilbertValue) > 0 || slot + 1 == childrenIds.size()) {
-                                childId = childrenIds.get(slot);
-                                break;
-                            }
-                        }
-                        parentNode.set(node);
-                        slotInParent.set(slot);
-                        currentId.set(Objects.requireNonNull(childId));
+                        final int slotIndex = findSlotIndex(node, targetHilbertValue, targetKey);
+                        final List<ChildSlot> children = node.getChildren();
+                        parentNode.set((IntermediateNode)node);
+                        slotInParent.set(slotIndex);
+                        currentId.set(children.get(slotIndex).getChildId());
                         return true;
                     } else {
-                        leafNode.set(node);
+                        leafNode.set((LeafNode)node);
                         return false;
                     }
                 }), executor).thenApply(vignore -> leafNode.get());
     }
 
-    public CompletableFuture<List<Node>> fetchSiblings(@Nonnull final TransactionContext tc,
-                                                       @Nonnull Config config,
-                                                       @Nonnull final Node node) {
-        Preconditions.checkArgument(!node.isRoot());
-        final Node parentNode = Preconditions.checkNotNull(node.getParentNode());
-        final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
-        final List<CompletableFuture<Void>> working = Lists.newArrayList();
-        final int minS = config.getMinS();
-        final Node[] siblings = new Node[minS];
-
-        final List<byte[]> childrenIds = parentNode.getChildrenIds();
-        int minSibling = node.slotInParent - minS / 2;
-        int maxSibling = minSibling + minS;
-        if (minSibling < 0) {
-            minSibling = 0;
-            maxSibling = minS;
-        } else if (maxSibling > childrenIds.size()) {
-            maxSibling = childrenIds.size();
-            minSibling = maxSibling - minS;
+    public int findSlotIndex(@Nonnull final Node node,
+                             @Nonnull final BigInteger targetHilbertValue,
+                             @Nonnull final Tuple targetKey) {
+        Verify.verify(!node.isEmpty());
+        final List<? extends NodeSlot> slots = node.getSlots();
+        for (int slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
+            final NodeSlot slot = slots.get(slotIndex);
+            //
+            // Choose subtree with the minimum Hilbert value that is greater than the target
+            // Hilbert value. If there is no such subtree, i.e. the target Hilbert value is the
+            // largest Hilbert value, we choose the largest one in the current node.
+            //
+            final int hilbertValueCompare = slot.getHilbertValue().compareTo(targetHilbertValue);
+            if (hilbertValueCompare >= 0) {
+                // child HV >= target HV
+                if (hilbertValueCompare == 0) {
+                    // child == target
+                    final var tupleCompare = TupleHelpers.compare(slot.getKey(), targetKey);
+                    if (tupleCompare >= 0) {
+                        if (tupleCompare > 0 || node.getKind() == Kind.INTERMEDIATE) {
+                            // child's largest key >= targetKey
+                            return slotIndex;
+                        }
+                        Verify.verify(node.getKind() == Kind.LEAF);
+                        return -1; // this case is a duplicate key which we can just update
+                    }
+                } else {
+                    return slotIndex;
+                }
+            }
         }
 
-        for (int i = minSibling; i < maxSibling; i ++) {
-            toBeProcessed.addLast(childrenIds.get(i));
+        // if this is an intermediate node we insert INTO the last child, if it is a leaf we add as a new last item
+        return node.getKind() == Kind.INTERMEDIATE ? slots.size() - 1 : slots.size();
+    }
+
+    /**
+     * We assume that {@code parentNode} has at least {@link Config#getMinM()} entries.
+     * @param tc
+     * @param config
+     * @param parentNode
+     * @param slotNumberInParent
+     * @return
+     */
+    public CompletableFuture<List<Node>> fetchSiblings(@Nonnull final TransactionContext tc,
+                                                       @Nonnull final Config config,
+                                                       @Nonnull final IntermediateNode parentNode,
+                                                       final int slotNumberInParent) {
+        final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
+        final List<CompletableFuture<Void>> working = Lists.newArrayList();
+        final int numSiblings = config.getMinS() - 1;
+        final Node[] siblings = new Node[numSiblings];
+
+        final List<ChildSlot> children = parentNode.getChildren();
+        int start = slotNumberInParent - numSiblings / 2;
+        int end = start + numSiblings;
+        if (start < 0) {
+            start = 0;
+            end = numSiblings;
+        } else if (end > children.size()) {
+            end = children.size();
+            start = end - numSiblings;
+        }
+
+        // because lambdas
+        final int minSibling = start;
+
+        for (int i = start; i < end; i ++) {
+            toBeProcessed.addLast(children.get(i).getChildId());
         }
 
         return AsyncUtil.whileTrue(() -> {
             working.removeIf(CompletableFuture::isDone);
 
             while (working.size() <= MAX_CONCURRENT_FETCHES) {
-                final int index = minS - toBeProcessed.size();
+                final int index = numSiblings - toBeProcessed.size();
                 final byte[] currentId = toBeProcessed.pollFirst();
                 if (currentId == null) {
                     break;
                 }
 
-                working.add(fetchNode(tc, currentId).thenAccept(siblingNode -> siblings[index] = siblingNode));
+                working.add(fetchNode(tc, currentId).thenAccept(siblingNode -> {
+                    siblingNode.linkToParent(parentNode, minSibling + index);
+                    siblings[index] = siblingNode;
+                }));
             }
 
             if (working.isEmpty()) {
@@ -450,8 +517,11 @@ public class RTree {
         }, executor).thenApply(vignore -> Lists.newArrayList(siblings));
     }
 
-
     public CompletableFuture<Node> fetchNode(@Nonnull TransactionContext tc, byte[] key) {
+
+    }
+
+    public CompletableFuture<Void> saveNodeSlot(@Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
 
     }
 
@@ -460,69 +530,195 @@ public class RTree {
         LEAF;
     }
 
-    private static class Node {
+    private abstract static class Node {
         public static byte[] ROOT_ID = new byte[16]; // all zeros for the root
         private final byte[] id;
 
         @Nullable
-        private final List<byte[]> childrenIds;
-        @Nullable
-        private final List<Hypercube> childrenMbrs;
-        @Nullable
-        private final List<BigInteger> childrenLhvs;
+        private IntermediateNode parentNode;
+        int slotNumberInParent;
 
-        @Nullable
-        private Node parentNode;
-        int slotInParent;
-
-        public Node(@Nonnull final byte[] id,
-                    @Nullable final List<byte[]> childrenIds,
-                    @Nullable final List<Hypercube> childrenMbrs,
-                    @Nullable final List<BigInteger> childrenLhvs) {
+        public Node(@Nonnull final byte[] id) {
             this.id = id;
-            this.childrenIds = childrenIds;
-            this.childrenMbrs = childrenMbrs;
-            this.childrenLhvs = childrenLhvs;
             this.parentNode = null;
-            this.slotInParent = -1;
+            this.slotNumberInParent = -1;
+        }
+
+        public int size() {
+            return getSlots().size();
+        }
+
+        public boolean isEmpty() {
+            return getSlots().isEmpty();
         }
 
         @Nonnull
-        public List<byte[]> getChildrenIds() {
-            return Objects.requireNonNull(childrenIds);
+        public List<? extends NodeSlot> getSlots() {
+            if (getKind() == Kind.LEAF) {
+                return getItems();
+            } else if (getKind() == Kind.INTERMEDIATE) {
+                return getChildren();
+            }
+            throw new IllegalStateException("unable to return slots");
         }
 
         @Nonnull
-        public List<Hypercube> getChildrenMbrs() {
-            return Objects.requireNonNull(childrenMbrs);
-        }
+        public abstract List<ChildSlot> getChildren();
 
         @Nonnull
-        public List<BigInteger> getChildrenLhvs() {
-            return Objects.requireNonNull(childrenLhvs);
-        }
+        public abstract List<ItemSlot> getItems();
 
         public boolean isRoot() {
             return Arrays.equals(ROOT_ID, id);
         }
 
         @Nonnull
-        public Kind getKind() {
-            return childrenIds == null ? Kind.LEAF : Kind.INTERMEDIATE;
-        }
+        public abstract Kind getKind();
 
         @Nullable
-        public Node getParentNode() {
+        public IntermediateNode getParentNode() {
             return parentNode;
         }
 
-        public int getSlotInParent() {
-            return slotInParent;
+        public int getSlotIndexInParent() {
+            return slotNumberInParent;
         }
 
-        public void linkToParent(@Nonnull final Node parentNode, final int slotInParent) {
+        public void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent) {
             this.parentNode = parentNode;
-            this.slotInParent = slotInParent;
+            this.slotNumberInParent = slotInParent;
+        }
+    }
+
+    private static class LeafNode extends Node {
+        @Nonnull
+        private final List<ItemSlot> items;
+
+        public LeafNode(@Nonnull final byte[] id,
+                        @Nonnull final List<ItemSlot> items) {
+            super(id);
+            this.items = items;
+        }
+
+        @Nonnull
+        public List<ChildSlot> getChildren() {
+            throw new IllegalStateException("this method should not be called for leaf nodes");
+        }
+
+        @Nonnull
+        public List<ItemSlot> getItems() {
+            return items;
+        }
+
+        @Nonnull
+        public Kind getKind() {
+            return Kind.LEAF;
+        }
+    }
+
+    private static class IntermediateNode extends Node {
+        @Nonnull
+        private final List<ChildSlot> children;
+
+        public IntermediateNode(@Nonnull final byte[] id,
+                                @Nonnull final List<ChildSlot> children) {
+            super(id);
+            this.children = children;
+        }
+
+        @Nonnull
+        public List<ChildSlot> getChildren() {
+            return children;
+        }
+
+        @Nonnull
+        public List<ItemSlot> getItems() {
+            throw new IllegalStateException("this method should not be called for intermediate nodes");
+        }
+
+        @Nonnull
+        public Kind getKind() {
+            return Kind.INTERMEDIATE;
+        }
+    }
+
+    private abstract static class NodeSlot {
+        @Nonnull
+        protected final BigInteger hilbertValue;
+
+        @Nonnull
+        protected final Tuple key;
+
+        protected NodeSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Tuple key) {
+            this.hilbertValue = hilbertValue;
+            this.key = key;
+        }
+
+        @Nonnull
+        public BigInteger getHilbertValue() {
+            return hilbertValue;
+        }
+
+        @Nonnull
+        public Tuple getKey() {
+            return key;
+        }
+    }
+
+    private static class ItemSlot extends NodeSlot {
+        @Nonnull
+        private final Tuple value;
+        @Nonnull
+        private final Point position;
+
+        public ItemSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Tuple key, @Nonnull final Tuple value, @Nonnull final Point position) {
+            super(hilbertValue, key);
+            this.value = value;
+            this.position = position;
+        }
+
+        @Nonnull
+        public Tuple getValue() {
+            return value;
+        }
+
+        @Nonnull
+        public Point getPosition() {
+            return position;
+        }
+    }
+
+    private static class ChildSlot extends NodeSlot {
+        @Nonnull
+        private final byte[] childId;
+        @Nonnull
+        private final Rectangle mbr;
+
+        public ChildSlot(@Nonnull final byte[] childId, @Nonnull final BigInteger largestHilbertValue,
+                         @Nonnull final Tuple largestKey, @Nonnull final Rectangle mbr) {
+            super(largestHilbertValue, largestKey);
+            this.childId = childId;
+            this.mbr = mbr;
+        }
+
+        @Nonnull
+        public byte[] getChildId() {
+            return childId;
+        }
+
+        @Nonnull
+        public BigInteger getLargestHilbertValue() {
+            return hilbertValue;
+        }
+
+        @Nonnull
+        public Tuple getLargestKey() {
+            return key;
+        }
+
+        @Nonnull
+        public Rectangle getMbr() {
+            return mbr;
         }
     }
 
@@ -565,28 +761,29 @@ public class RTree {
         }
     }
 
-    private static class NodeCache {
-        @Nonnull
-        private final Map<ByteBuffer, Node> cachedNodeMap;
-
-        public NodeCache() {
-            this.cachedNodeMap = Maps.newHashMap();
-        }
-
-        boolean add(@Nonnull Node node) {
-            cachedNodeMap.put(ByteBuffer.wrap(node.id), node);
-        }
-
-        boolean contains(@Nonnull final byte[] nodeId) {
-            return cachedNodeMap.containsKey(ByteBuffer.wrap(nodeId));
-        }
-    }
-
-    private static class Hypercube {
+    private static class Point {
         @Nonnull
         private final Object[] ranges;
 
-        public Hypercube(final Object[] ranges) {
+        public Point(final Object[] ranges) {
+            Preconditions.checkArgument(ranges.length > 0);
+            this.ranges = ranges;
+        }
+
+        public int getNumDimensions() {
+            return ranges.length;
+        }
+
+        public Object getCoordinate(final int dimension) {
+            return ranges[dimension];
+        }
+    }
+
+    private static class Rectangle {
+        @Nonnull
+        private final Object[] ranges;
+
+        public Rectangle(final Object[] ranges) {
             Preconditions.checkArgument(ranges.length > 0 && ranges.length % 2 == 0);
             this.ranges = ranges;
         }
