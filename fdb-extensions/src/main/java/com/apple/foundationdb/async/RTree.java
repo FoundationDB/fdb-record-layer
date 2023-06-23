@@ -434,7 +434,6 @@ public class RTree {
                 final int base = numSlots / siblingNodes.size();
                 int rest = numSlots % siblingNodes.size();
 
-                final List<Node> newSiblingNodes = Lists.newArrayList();
                 final List<NodeSlot> currentNodeSlots = Lists.newArrayList();
                 while (slotIterator.hasNext()) {
                     final NodeSlot slot = slotIterator.next();
@@ -447,24 +446,22 @@ public class RTree {
 
                         Verify.verify(siblingNodesIterator.hasNext());
                         final Node currentSiblingNode = siblingNodesIterator.next();
-                        newSiblingNodes.add(currentSiblingNode.withNewSlots(currentNodeSlots));
+                        currentSiblingNode.setSlots(currentNodeSlots);
                     }
                 }
 
-                final Node newSplitNode = splitNode == null ? null : newSiblingNodes.get(newSiblingNodes.size() - 1);
-
-                return writeNodeSlotsForNodes(tc, newSiblingNodes).thenApply(v -> {
+                return writeNodeSlotsForNodes(tc, siblingNodes).thenApply(v -> {
                     final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
-                    for (final Node newSiblingNode : newSiblingNodes) {
-                        if (newSiblingNode != newSplitNode) {
-                            final var childSlot = Objects.requireNonNull(parentNode.getChildren()).get(newSiblingNode.getSlotIndexInParent());
-                            childSlot.setMbr(computeMbr(newSiblingNode.getChildren()));
-                            final var lastSlotOfCurrentSibling = newSiblingNode.getSlots().get(newSiblingNode.size() - 1);
+                    for (final Node siblingNode : siblingNodes) {
+                        if (siblingNode != splitNode) {
+                            final var childSlot = Objects.requireNonNull(parentNode.getChildren()).get(siblingNode.getSlotIndexInParent());
+                            childSlot.setMbr(computeMbr(siblingNode.getChildren()));
+                            final var lastSlotOfCurrentSibling = siblingNode.getSlots().get(siblingNode.size() - 1);
                             childSlot.setLargestHilbertValue(lastSlotOfCurrentSibling.getHilbertValue());
                             childSlot.setLargestKey(lastSlotOfCurrentSibling.getKey());
                         }
                     }
-                    return newSplitNode;
+                    return splitNode; // may be null if no split occurred
                 });
             });
         }
@@ -740,6 +737,8 @@ public class RTree {
             return getSlots().isEmpty();
         }
 
+        public abstract void setSlots(@Nonnull final List<? extends NodeSlot> newSlots);
+
         @Nonnull
         public List<? extends NodeSlot> getSlots() {
             if (getKind() == Kind.LEAF) {
@@ -777,14 +776,13 @@ public class RTree {
             this.slotIndexInParent = slotInParent;
         }
 
-        public abstract Node withNewSlots(@Nonnull final List<? extends NodeSlot> newSlots);
-
+        @Nonnull
         public abstract Node newOfSameKind();
     }
 
     private static class LeafNode extends Node {
         @Nonnull
-        private final List<ItemSlot> items;
+        private List<ItemSlot> items;
 
         public LeafNode(@Nonnull final byte[] id,
                         @Nonnull final List<ItemSlot> items) {
@@ -813,12 +811,13 @@ public class RTree {
             return Kind.LEAF;
         }
 
-        public LeafNode withNewSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
+        @Override
+        public void setSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
             final List<ItemSlot> newItems =
                     newSlots.stream()
                             .map(slot -> (ItemSlot)slot)
                             .collect(Collectors.toList());
-            return new LeafNode(getId(), newItems, getParentNode(), getSlotIndexInParent());
+            this.items = newItems;
         }
 
         @Nonnull
@@ -830,7 +829,7 @@ public class RTree {
 
     private static class IntermediateNode extends Node {
         @Nonnull
-        private final List<ChildSlot> children;
+        private List<ChildSlot> children;
 
         public IntermediateNode(@Nonnull final byte[] id,
                                 @Nonnull final List<ChildSlot> children) {
@@ -860,12 +859,13 @@ public class RTree {
             return Kind.INTERMEDIATE;
         }
 
-        public IntermediateNode withNewSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
+        @Override
+        public void setSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
             final List<ChildSlot> newChildren =
                     newSlots.stream()
                             .map(slot -> (ChildSlot)slot)
                             .collect(Collectors.toList());
-            return new IntermediateNode(getId(), newChildren);
+            this.children = newChildren;
         }
 
         @Nonnull
