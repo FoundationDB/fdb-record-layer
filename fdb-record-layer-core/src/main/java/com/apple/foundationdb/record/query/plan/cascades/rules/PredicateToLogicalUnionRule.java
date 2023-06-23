@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -264,6 +265,9 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
         }
         
         var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
+
+        // use preserve-distinctness to make sure we do not introduce extra duplicates.
+        unionReferenceBuilder = call.memoizeExpressionBuilder(LogicalDistinctExpression.of(Quantifier.forEach(unionReferenceBuilder.reference()), LogicalDistinctExpression.DistinctnessType.PRESERVE));
 
         if (!isSimpleResultValue) {
             final ExpressionRef<? extends RelationalExpression> unionReference = unionReferenceBuilder.reference();

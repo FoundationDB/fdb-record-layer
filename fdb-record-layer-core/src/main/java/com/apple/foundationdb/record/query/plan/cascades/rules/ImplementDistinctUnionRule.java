@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -47,9 +48,12 @@ import com.google.common.collect.Streams;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.PropertiesMap.allAttributesExcept;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
@@ -80,8 +84,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> unionLegReferenceMatcher =
             planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD) &&
-                                                  planPartition.getAttributeValue(PRIMARY_KEY).isPresent(),
-                    rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))));
+                                                  planPartition.getAttributeValue(PRIMARY_KEY).isPresent(), unionLegPlanPartitionsMatcher));
 
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(unionLegReferenceMatcher));
@@ -114,6 +117,18 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
         final var unionForEachQuantifier = bindings.get(unionForEachQuantifierMatcher);
         final var allForEachQuantifiers = bindings.get(allForEachQuantifiersMatcher);
         final var planPartitionsByQuantifier = bindings.getAll(unionLegPlanPartitionsMatcher);
+
+        final var logicalDistinctExpression = call.get(root);
+
+        if (logicalDistinctExpression.getDistinctnessType().equals(LogicalDistinctExpression.DistinctnessType.PRESERVE) &&
+                planPartitionsByQuantifier
+                        .stream()
+                        .flatMap(Collection::stream)
+                        .anyMatch(planPartition ->
+                                !planPartition.getAttributesMap().containsKey(DISTINCT_RECORDS) ||
+                                !planPartition.getAttributeValue(DISTINCT_RECORDS))) {
+            return;
+        }
 
         final var partitionsCrossProduct = CrossProduct.crossProduct(planPartitionsByQuantifier);
 

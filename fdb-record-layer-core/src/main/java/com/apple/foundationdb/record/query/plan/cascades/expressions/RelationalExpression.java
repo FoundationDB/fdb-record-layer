@@ -155,7 +155,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
 
         if (query.removesDuplicates()) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalDistinctExpression(quantifier)));
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(LogicalDistinctExpression.of(quantifier)));
         }
 
         if (query.getSort() != null) {

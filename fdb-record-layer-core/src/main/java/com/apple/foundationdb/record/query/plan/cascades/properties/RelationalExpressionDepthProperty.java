@@ -21,15 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -43,8 +41,6 @@ import java.util.Set;
  * planner expressions away from the root expression.
  */
 public class RelationalExpressionDepthProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
-    public static final RelationalExpressionDepthProperty TYPE_FILTER_DEPTH = new RelationalExpressionDepthProperty(
-            ImmutableSet.of(LogicalTypeFilterExpression.class, RecordQueryTypeFilterPlan.class));
     public static final RelationalExpressionDepthProperty DISTINCT_FILTER_DEPTH = new RelationalExpressionDepthProperty(
             ImmutableSet.of(LogicalDistinctExpression.class, RecordQueryUnorderedPrimaryKeyDistinctPlan.class));
     public static final RelationalExpressionDepthProperty FETCH_DEPTH = new RelationalExpressionDepthProperty(

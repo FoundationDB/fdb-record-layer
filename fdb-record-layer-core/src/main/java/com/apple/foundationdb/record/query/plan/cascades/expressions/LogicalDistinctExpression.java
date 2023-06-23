@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
@@ -37,6 +36,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -51,12 +51,28 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
-        this(Quantifier.forEach(innerRef));
+    /**
+     * Determine the distinctness type.
+     * <ul>
+     *     <li>REGULAR: removes any duplicates from inner.</li>
+     *     <li>PRESERVE: preserves distinctness of inner, avoid introducing new duplicates.</li>
+     * </ul>
+     */
+    public enum DistinctnessType {
+        REGULAR,
+        PRESERVE
     }
 
-    public LogicalDistinctExpression(@Nonnull Quantifier inner) {
+    @Nonnull
+    private final DistinctnessType distinctnessType;
+
+    // todo enum: distinctness type.
+    // regular -> as usual
+    // preserve -> check if all legs are duplicate-free (property).
+
+    private LogicalDistinctExpression(@Nonnull final Quantifier inner, @Nonnull final DistinctnessType distinctnessType) {
         this.inner = inner;
+        this.distinctnessType = distinctnessType;
     }
 
     @Override
@@ -79,7 +95,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @Nonnull
     @Override
     public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
+        return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers), distinctnessType);
     }
 
     @Nonnull
@@ -88,13 +104,18 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
         return inner.getFlowedObjectValue();
     }
 
+    @Nonnull
+    public DistinctnessType getDistinctnessType() {
+        return distinctnessType;
+    }
+
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
-        return getClass() == otherExpression.getClass();
+        return getClass() == otherExpression.getClass() && distinctnessType == ((LogicalDistinctExpression)otherExpression).distinctnessType;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -105,7 +126,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Override
     public int hashCodeWithoutChildren() {
-        return 31;
+        return Objects.hash(getDistinctnessType());
     }
 
     @Override
@@ -122,5 +143,15 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
                         ImmutableList.of(),
                         ImmutableMap.of()),
                 childGraphs);
+    }
+
+    @Nonnull
+    public static LogicalDistinctExpression of(@Nonnull final Quantifier inner) {
+        return of(inner, DistinctnessType.REGULAR);
+    }
+
+    @Nonnull
+    public static LogicalDistinctExpression of(@Nonnull final Quantifier inner, @Nonnull final DistinctnessType type) {
+        return new LogicalDistinctExpression(inner, type);
     }
 }

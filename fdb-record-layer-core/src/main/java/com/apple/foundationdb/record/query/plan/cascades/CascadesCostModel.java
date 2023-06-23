@@ -170,12 +170,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return typeFilterCountCompare;
         }
 
-        int typeFilterPositionCompare = Integer.compare(RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(b),
-                RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(a)); // prefer the one with a deeper type filter
-        if (typeFilterPositionCompare != 0) {
-            return typeFilterPositionCompare;
-        }
-
         if (count(planOpsMapA, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0 &&
                 count(planOpsMapB, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0) {
             // both plans are index scans

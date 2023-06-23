@@ -79,17 +79,25 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
+
+        final var logicalDistinctExpression = call.get(root);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
+        final var innerDistinct = innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS);
+        final var requestedDistinctnessType = logicalDistinctExpression.getDistinctnessType();
+
+        if (innerDistinct) {
+            // any requested distinctness type (PRESERVE or REGULAR) is satisfied
             call.yield(innerPlanPartition.getPlans());
         } else {
-            // these create duplicates
-            call.yield(
-                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                            Quantifier.physical(
-                                    call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));
+            if (requestedDistinctnessType.equals(LogicalDistinctExpression.DistinctnessType.REGULAR)) {
+                // this removes duplicates, therefore it is incompatible with PRESERVE-distinctness requirement.
+                call.yield(
+                        new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                                Quantifier.physical(
+                                        call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));
+            }
         }
     }
 }
