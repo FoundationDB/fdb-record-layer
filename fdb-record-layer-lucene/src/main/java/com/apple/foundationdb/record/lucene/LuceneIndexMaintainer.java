@@ -82,7 +82,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -93,7 +92,6 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
-    private static final long SERIALIZER_LOG_DELAY = TimeUnit.SECONDS.toMillis(3);
 
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
@@ -103,8 +101,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
-    // The last time this instance logged a serializer error
-    private volatile long lastSerializerLogTimeMillis = 0;
+    private boolean serializerErrorLogged = false;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -443,18 +440,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Simple throttling mechanism for log messages.
      * Since the index writer may see many of these errors in quick succession, limit the number of log messages by ensuring
-     * we only log every so often. This is a very simple mechanism that can be generalized if needed by holding the types of
-     * messages and the required timeouts.
+     * we only log once per transaction.
      * @param format the message format for the log
      * @param arguments teh message arguments
      */
     private void logSerializationError(String format, Object ... arguments) {
         if (LOG.isWarnEnabled()) {
-            long now = System.currentTimeMillis();
-            if ((now - lastSerializerLogTimeMillis) > SERIALIZER_LOG_DELAY) {
+            if (! serializerErrorLogged) {
                 LOG.warn(format, arguments);
                 // Not thread safe but OK as we may only log an extra message
-                lastSerializerLogTimeMillis = now;
+                serializerErrorLogged = true;
             }
         }
     }
