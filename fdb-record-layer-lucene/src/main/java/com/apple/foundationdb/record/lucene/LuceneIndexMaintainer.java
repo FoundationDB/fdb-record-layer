@@ -93,7 +93,7 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
-    private static final long SERIALIZER_LOG_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
+    private static final long SERIALIZER_LOG_DELAY = TimeUnit.SECONDS.toMillis(3);
 
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
@@ -448,10 +448,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param format the message format for the log
      * @param arguments teh message arguments
      */
-    private void logSerializationError(String format, Object ...arguments) {
+    private void logSerializationError(String format, Object ... arguments) {
         if (LOG.isWarnEnabled()) {
             long now = System.currentTimeMillis();
-            if ((now - lastSerializerLog) > SERIALIZER_LOG_TIMEOUT) {
+            if ((now - lastSerializerLog) > SERIALIZER_LOG_DELAY) {
                 LOG.warn(format, arguments);
                 // Not thread safe but OK as we may only log an extra message
                 lastSerializerLog = now;
