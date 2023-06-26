@@ -103,8 +103,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
-    // The last time (in System.currentTimeMillis) this instance logged a serializer error
-    private long lastSerializerLog = 0;
+    // The last time this instance logged a serializer error
+    private volatile long lastSerializerLogTimeMillis = 0;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -451,10 +451,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private void logSerializationError(String format, Object ... arguments) {
         if (LOG.isWarnEnabled()) {
             long now = System.currentTimeMillis();
-            if ((now - lastSerializerLog) > SERIALIZER_LOG_DELAY) {
+            if ((now - lastSerializerLogTimeMillis) > SERIALIZER_LOG_DELAY) {
                 LOG.warn(format, arguments);
                 // Not thread safe but OK as we may only log an extra message
-                lastSerializerLog = now;
+                lastSerializerLogTimeMillis = now;
             }
         }
     }
