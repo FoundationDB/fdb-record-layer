@@ -82,6 +82,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -92,6 +93,8 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
+    private static final long SERIALIZER_LOG_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
+
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
@@ -99,6 +102,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
+    LuceneIndexKeySerializer keySerializer;
+    // The last time (in System.currentTimeMillis) this instance logged a serializer error
+    private long lastSerializerLog = 0;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -107,6 +113,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
         this.indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
+        String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
+        keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
     }
 
     public LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector() {
@@ -220,23 +228,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Document document = new Document();
         final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(texts));
 
-        // null format string means don't use BinaryPoint for the index primary key
-        String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
-        LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
-        BytesRef ref = new BytesRef(ser.asPackedByteArray());
+        BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
         // use packed Tuple for the Stored and Sorted fields
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        if (formatString != null) {
+        if (keySerializer.hasFormat()) {
             try {
                 // Use BinaryPoint for fast lookup of ID when enabled
-                document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, ser.asFormattedBinaryPoint()));
+                document.add(new BinaryPoint(PRIMARY_KEY_BINARY_POINT_NAME, keySerializer.asFormattedBinaryPoint(primaryKey)));
             } catch (RecordCoreFormatException ex) {
                 // this can happen on format mismatch or encoding error
                 // just don't write the field, but allow the document to continue
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
-                }
+                logSerializationError("Failed to write using BinaryPoint encoded ID: {}", ex.getMessage());
             }
         }
 
@@ -265,24 +268,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
         Query query;
-        String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
-        LuceneIndexKeySerializer ser = LuceneIndexKeySerializer.fromStringFormat(formatString, primaryKey);
-        // null format string means don't use BinaryPoint for the index primary key
-        if (formatString != null) {
+        // null format means don't use BinaryPoint for the index primary key
+        if (keySerializer.hasFormat()) {
             try {
-                byte[][] binaryPoint = ser.asFormattedBinaryPoint();
+                byte[][] binaryPoint = keySerializer.asFormattedBinaryPoint(primaryKey);
                 query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
             } catch (RecordCoreFormatException ex) {
                 // this can happen on format mismatch or encoding error
                 // fallback to the old way (less efficient)
-                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
-                }
+                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
+                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
             }
         } else {
             // fallback to the old way (less efficient)
-            query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(ser.asPackedByteArray()));
+            query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
         }
         oldWriter.deleteDocuments(query);
     }
@@ -439,5 +438,24 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LOG.trace("performOperation operation={}", operation);
         return CompletableFuture.completedFuture(new IndexOperationResult() {
         });
+    }
+
+    /**
+     * Simple throttling mechanism for log messages.
+     * Since the index writer may see many of these errors in quick succession, limit the number of log messages by ensuring
+     * we only log every so often. This is a very simple mechanism that can be generalized if needed by holding the types of
+     * messages and the required timeouts.
+     * @param format the message format for the log
+     * @param arguments teh message arguments
+     */
+    private void logSerializationError(String format, Object ...arguments) {
+        if (LOG.isWarnEnabled()) {
+            long now = System.currentTimeMillis();
+            if ((now - lastSerializerLog) > SERIALIZER_LOG_TIMEOUT) {
+                LOG.warn(format, arguments);
+                // Not thread safe but OK as we may only log an extra message
+                lastSerializerLog = now;
+            }
+        }
     }
 }
