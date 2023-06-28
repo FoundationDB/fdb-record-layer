@@ -25,8 +25,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -39,8 +37,6 @@ import java.util.ServiceLoader;
  * implementation is marked as {@link com.google.auto.service.AutoService} then a default implementation will be selected.
  */
 public class LuceneQueryParserFactoryProvider {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneQueryParserFactoryProvider.class);
     @Nonnull
     private static final LuceneQueryParserFactoryProvider INSTANCE = new LuceneQueryParserFactoryProvider();
 
