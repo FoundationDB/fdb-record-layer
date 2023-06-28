@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.lucene.search.LuceneOptimizedStopWordsQueryParser;
 import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactory;
 import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactoryProvider;
 import com.apple.foundationdb.record.metadata.Index;
