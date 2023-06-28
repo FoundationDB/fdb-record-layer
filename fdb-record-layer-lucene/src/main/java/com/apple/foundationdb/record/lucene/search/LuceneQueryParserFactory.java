@@ -34,5 +34,5 @@ import java.util.Map;
  * This class is meant to be implemented and provided through a {@link AutoService} extension: see {@link LuceneQueryParserFactoryProvider}.
  */
 public interface LuceneQueryParserFactory {
-    QueryParser createConfigAwareQueryParser(String[] fields, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig);
+    QueryParser createConfigAwareQueryParser(String[] fields, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
 }
