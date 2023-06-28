@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.lucene.search.LuceneOptimizedMultiFieldQueryParser;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedStopWordsQueryParser;
+import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactory;
+import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactoryProvider;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -68,8 +70,8 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
-        final LuceneOptimizedMultiFieldQueryParser parser = new LuceneOptimizedMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
-        parser.setDefaultOperator(QueryParser.Operator.OR);
+        LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
+        final QueryParser parser = parserFactory.createConfigAwareQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         try {
             return parser.parse(searchString);
         } catch (Exception ioe) {

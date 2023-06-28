@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -383,6 +383,37 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertPrimaryKeys("morni", shouldDeferFetch, Set.of(1L));
             assertPrimaryKeys("ornin", shouldDeferFetch, Set.of());
             assertPrimaryKeys("rning", shouldDeferFetch, Set.of());
+        }
+    }
+
+
+    @Test
+    void testQueryWithStopWords() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Good morning Mr Tian")
+                    .build();
+            recordStore.saveRecord(document1);
+            TestRecordsTextProto.SimpleDocument document2 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(2L)
+                    .setGroup(1)
+                    .setText("Good morning the Mr Tian")
+                    .build();
+            recordStore.saveRecord(document2);
+            TestRecordsTextProto.SimpleDocument document3 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(3L)
+                    .setGroup(1)
+                    .setText("Good morning these Mr Tian")
+                    .build();
+            recordStore.saveRecord(document3);
+
+            assertPrimaryKeys("text:(+morn* +the*)", false, Set.of(1L, 2L, 3L));
+            assertPrimaryKeys("text:(+morn* the*)", false, Set.of(1L, 2L, 3L));
+            assertPrimaryKeys("text:(+morn* +the)", false, Set.of(1L, 2L, 3L));
+            assertPrimaryKeys("text:(+morn* the)", false, Set.of(1L, 2L, 3L));
         }
     }
 
