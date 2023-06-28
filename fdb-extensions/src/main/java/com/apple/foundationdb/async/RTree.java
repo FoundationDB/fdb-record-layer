@@ -20,26 +20,17 @@
 
 package com.apple.foundationdb.async;
 
-import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.ReadTransactionContext;
-import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.checkerframework.checker.units.qual.A;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,20 +40,18 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import static com.apple.foundationdb.async.AsyncUtil.DONE;
-import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 
 /**
  * TODO.
@@ -71,29 +60,15 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
 public class RTree {
     private static final int MAX_CONCURRENT_READS = 16;
 
-    private static final int MAX_CONCURRENT_WRITES = 16;
-
     public static final Config DEFAULT_CONFIG = new Config();
 
     public static final int DEFAULT_MIN_M = 16;
     public static final int DEFAULT_MAX_M = 32;
     public static final int DEFAULT_MIN_S = 2;
-    public static final int DEFAULT_MAX_S = 3;
 
     protected final Subspace subspace;
     protected final Executor executor;
     protected final Config config;
-
-    private static final byte[] EMPTY_ARRAY = { };
-    private static final byte[] ZERO_ARRAY = { 0 };
-
-    private static byte[] encodeLong(long count) {
-        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
-    }
-
-    private static long decodeLong(byte[] v) {
-        return ByteBuffer.wrap(v).order(ByteOrder.LITTLE_ENDIAN).getLong();
-    }
 
     /**
      * Configuration settings for a {@link RTree}.
@@ -102,20 +77,17 @@ public class RTree {
         private final int minM;
         private final int maxM;
         private final int minS;
-        private final int maxS;
 
         protected Config() {
             this.minM = DEFAULT_MIN_M;
             this.maxM = DEFAULT_MAX_M;
             this.minS = DEFAULT_MIN_S;
-            this.maxS = DEFAULT_MAX_S;
         }
 
-        protected Config(final int minM, final int maxM, final int minS, final int maxS) {
+        protected Config(final int minM, final int maxM, final int minS) {
             this.minM = minM;
             this.maxM = maxM;
             this.minS = minS;
-            this.maxS = maxS;
         }
 
         public int getMinM() {
@@ -130,12 +102,8 @@ public class RTree {
             return minS;
         }
 
-        public int getMaxS() {
-            return maxS;
-        }
-
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(minM, maxM);
+            return new ConfigBuilder(minM, maxM, minS);
         }
     }
 
@@ -148,16 +116,14 @@ public class RTree {
         private int minM = DEFAULT_MIN_M;
         private int maxM = DEFAULT_MAX_M;
         private int minS = DEFAULT_MIN_S;
-        private int maxS = DEFAULT_MAX_S;
 
         protected ConfigBuilder() {
         }
 
-        protected ConfigBuilder(final int minM, final int maxM, final int minS, final int maxS) {
+        protected ConfigBuilder(final int minM, final int maxM, final int minS) {
             this.minM = minM;
             this.maxM = maxM;
             this.minS = minS;
-            this.maxS = maxS;
         }
 
         public int getMinM() {
@@ -184,12 +150,8 @@ public class RTree {
             this.minS = minS;
         }
 
-        public int getMaxS() {
-            return maxS;
-        }
-
         public Config build() {
-            return new Config(getMinM(), getMaxM(), getMinS(), getMaxS());
+            return new Config(getMinM(), getMaxM(), getMinS());
         }
     }
 
@@ -204,7 +166,7 @@ public class RTree {
 
     /**
      * Initialize a new R-tree.
-     * @param subspace the subspace where the ranked set is stored
+     * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
      */
@@ -216,36 +178,23 @@ public class RTree {
 
     /**
      * Initialize a new R-tree with the default configuration.
-     * @param subspace the subspace where the ranked set is stored
+     * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      */
     public RTree(Subspace subspace, Executor executor) {
         this(subspace, executor, DEFAULT_CONFIG);
     }
 
-    public CompletableFuture<Void> init(TransactionContext tc) {
-        return initLevels(tc);
-    }
-
     /**
-     * Determine whether {@link #init} needs to be called.
-     * @param tc the transaction to use to access the database
-     * @return {@code true} if this ranked set needs to be initialized
-     */
-    public CompletableFuture<Boolean> initNeeded(ReadTransactionContext tc) {
-        return countCheckedKey(tc, EMPTY_ARRAY).thenApply(Objects::isNull);
-    }
-
-    /**
-     * Get the subspace used to store this ranked set.
-     * @return ranked set subspace
+     * Get the subspace used to store this r-tree.
+     * @return r-tree subspace
      */
     public Subspace getSubspace() {
         return subspace;
     }
 
     /**
-     * Get executed used by this ranked set.
+     * Get executer used by this r-tree.
      * @return executor used when running asynchronous tasks
      */
     public Executor getExecutor() {
@@ -253,61 +202,39 @@ public class RTree {
     }
 
     /**
-     * Get this ranked set's configuration.
-     * @return ranked set configuration
+     * Get this r-tree's configuration.
+     * @return r-tree configuration
      */
     public Config getConfig() {
         return config;
     }
 
-//    public CompletableFuture<List<Node>> fetchPartialTree2(@Nonnull final TransactionContext tc,
-//                                                           @Nonnull final byte[] rootId,
-//                                                           @Nonnull final Predicate<Hypercube> mbrPredicate) {
-//        checkKey(rootId);
-//        final List<Node> nodesAtLowestLevel = Lists.newArrayList();
-//        final ArrayDeque<Slot> toBeProcessed = new ArrayDeque<>();
-//        final List<CompletableFuture<Node>> working = Lists.newArrayList();
-//        working.add(fetchNode(tc, rootId));
-//        return AsyncUtil.whileTrue(() -> {
-//            final Iterator<CompletableFuture<Node>> workIterator = working.iterator();
-//            while (workIterator.hasNext()) {
-//                final CompletableFuture<Node> workItem = workIterator.next();
-//                if (workItem.isDone()) {
-//                    workIterator.remove();
-//                    final Node node = workItem.join();
-//                    if (node.getKind() == Kind.INTERMEDIATE) {
-//                        final List<byte[]> childrenIds = node.getChildrenIds();
-//                        final List<Hypercube> childrenMbrs = node.getChildrenMbrs();
-//                        for (int i = 0; i < childrenIds.size(); i++) {
-//                            final Hypercube childMbr = childrenMbrs.get(i);
-//                            if (mbrPredicate.test(childMbr)) {
-//                                final byte[] childId = childrenIds.get(i);
-//                                toBeProcessed.addLast(new Slot(node, childId));
-//                            }
-//                        }
-//                    } else {
-//                        nodesAtLowestLevel.add(node);
-//                    }
-//                }
-//            }
-//
-//            while (working.size() <= MAX_CONCURRENT_FETCHES) {
-//                final Slot currentSlot = toBeProcessed.pollFirst();
-//                if (currentSlot == null) {
-//                    break;
-//                }
-//
-//                working.add(fetchNode(tc, currentSlot.getChildId()));
-//            }
-//
-//            if (working.isEmpty()) {
-//                return AsyncUtil.READY_FALSE;
-//            }
-//            return AsyncUtil.whenAny(working).thenApply(v -> true);
-//        }, executor).thenApply(vignore -> nodesAtLowestLevel);
-//    }
+    public CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final Transaction transaction,
+                                                                     @Nonnull final byte[] rootId,
+                                                                     @Nonnull final Predicate<Rectangle> mbrPredicate) {
+        final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
+        final List<Deque<byte[]>> toBeProcessed = Lists.newArrayList();
+        final AtomicReference<Node> leafNode = new AtomicReference<>(null);
+        return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
+                .thenApply(node -> {
+                    if (node.getKind() == Kind.INTERMEDIATE) {
+                        final List<ChildSlot> children = node.getChildren();
+                        final Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
+                        for (final ChildSlot child : children) {
+                            if (mbrPredicate.test(child.getMbr())) {
+                                toBeProcessedThisLevel.addLast(child.getChildId());
+                            }
+                        }
+                        currentId.set(Objects.requireNonNull(toBeProcessedThisLevel.pollFirst()));
+                        return true;
+                    } else {
+                        leafNode.set(node);
+                        return false;
+                    }
+                }), executor).thenApply(vignore -> TraversalState.of(toBeProcessed, leafNode.get()));
+    }
 
-    public CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final TransactionContext tc,
+    public CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final Transaction transaction,
                                                                  @Nonnull final TraversalState traversalState,
                                                                  @Nonnull final Predicate<Rectangle> mbrPredicate) {
         final List<Deque<byte[]>> toBeProcessed = traversalState.getToBeProcessed();
@@ -327,7 +254,7 @@ public class RTree {
         }
 
         final int branchLevel = level;
-        return fetchLeftmostPathToLeaf(tc, currentId, mbrPredicate).thenApply(nestedTraversalState -> {
+        return fetchLeftmostPathToLeaf(transaction, currentId, mbrPredicate).thenApply(nestedTraversalState -> {
             traversalState.setCurrentLeafNode(nestedTraversalState.getCurrentLeafNode());
             toBeProcessed.subList(branchLevel, toBeProcessed.size()).clear();
             toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
@@ -335,80 +262,99 @@ public class RTree {
         });
     }
 
-    public CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final TransactionContext tc,
-                                                                     @Nonnull final byte[] rootId,
-                                                                     @Nonnull final Predicate<Rectangle> mbrPredicate) {
-        checkKey(rootId);
-        final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
-        final List<Deque<byte[]>> toBeProcessed = Lists.newArrayList();
-        final AtomicReference<Node> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> fetchNode(tc, currentId.get())
-                .thenApply(node -> {
-                    if (node.getKind() == Kind.INTERMEDIATE) {
-                        final List<ChildSlot> children = node.getChildren();
-                        final Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
-                        for (final ChildSlot child : children) {
-                            if (mbrPredicate.test(child.getMbr())) {
-                                toBeProcessedThisLevel.addLast(child.getChildId());
-                            }
-                        }
-                        currentId.set(Objects.requireNonNull(toBeProcessedThisLevel.pollFirst()));
-                        return true;
-                    } else {
-                        leafNode.set(node);
-                        return false;
-                    }
-                }), executor).thenApply(vignore -> TraversalState.of(toBeProcessed, leafNode.get()));
-    }
-
     public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
-                                          @Nonnull final Config config,
                                           @Nonnull final BigInteger hilbertValue,
                                           @Nonnull final Tuple key,
                                           @Nonnull final Tuple value,
                                           @Nonnull final Point point) {
-        fetchUpdatePathToLeaf(tc, hilbertValue)
-                .thenCompose(leafNode -> {
-
-                })
+        return tc.runAsync(transaction -> fetchUpdatePathToLeaf(transaction, hilbertValue, key)
+                .thenCompose(leafNode -> insertOrUpdateSlot(transaction, leafNode, new ItemSlot(hilbertValue, key, value, point))));
     }
 
-    public CompletableFuture<Void> insertOrUpdateSlot(@Nonnull final TransactionContext tc,
-                                                      @Nonnull final Config config,
+    public CompletableFuture<Void> insertOrUpdateSlot(@Nonnull final Transaction transaction,
                                                       @Nonnull final Node targetNode,
                                                       @Nonnull final NodeSlot newSlot) {
         Verify.verify(targetNode.getSlots().size() <= config.getMaxM());
-        if (targetNode.getKind() == Kind.LEAF) {
-            if (isUpdate((LeafNode)targetNode, newSlot.getHilbertValue(), newSlot.getKey())) {
-                // just update the slot with the potentially new value
-                return writeNodeSlot(tc, targetNode.getId(), newSlot);
-            }
 
-            //
-            // It's a leaf but the item is different from the others items in this node -- fall through to the general
-            // case.
-            //
+        final int insertSlotIndex = findInsertSlotIndex(targetNode, newSlot.getHilbertValue(), newSlot.getKey());
+        if (targetNode.getKind() == Kind.LEAF && insertSlotIndex < 0) {
+            // just update the slot with the potentially new value
+            writeNodeSlot(transaction, targetNode.getId(), newSlot);
+            return AsyncUtil.DONE;
         }
 
-        return insertSlot(tc, config, targetNode, newSlot).thenApply(v -> null);
+        final AtomicReference<Node> currentNode = new AtomicReference<>(targetNode);
+        final AtomicReference<SplitNodeSlotOrAdjust> currentSplitNodeSlotOrAdjust = new AtomicReference<>(null);
+
+        return AsyncUtil.whileTrue(() -> {
+            final NodeSlot currentNewSlot;
+            final SplitNodeSlotOrAdjust lastSplitNodeOrAdjust = currentSplitNodeSlotOrAdjust.get();
+            if (lastSplitNodeOrAdjust == null) {
+                currentNewSlot = newSlot;
+            } else if (lastSplitNodeOrAdjust.getSplitNodeSlot() != null) {
+                currentNewSlot = Objects.requireNonNull(lastSplitNodeOrAdjust.getSplitNodeSlot());
+            } else {
+                currentNewSlot = null;
+            }
+
+            if (currentNewSlot != null) {
+                return insertSlotIntoTargetNode(transaction, currentNode.get(), currentNewSlot, insertSlotIndex)
+                        .thenApply(splitNodeSlotOrAdjust -> {
+                            if (currentNode.get().isRoot()) {
+                                return false;
+                            }
+                            currentNode.set(currentNode.get().getParentNode());
+                            currentSplitNodeSlotOrAdjust.set(splitNodeSlotOrAdjust);
+                            return splitNodeSlotOrAdjust.getSplitNodeSlot() != null || splitNodeSlotOrAdjust.parentNeedsAdjustment();
+                        });
+            } else {
+                // adjustment only
+                final SplitNodeSlotOrAdjust splitNodeSlotOrAdjust = adjustUpdateNode(transaction, currentNode.get());
+                Verify.verify(splitNodeSlotOrAdjust.getSplitNodeSlot() == null);
+                if (currentNode.get().isRoot()) {
+                    return AsyncUtil.READY_FALSE;
+                }
+                currentNode.set(currentNode.get().getParentNode());
+                currentSplitNodeSlotOrAdjust.set(splitNodeSlotOrAdjust);
+                return splitNodeSlotOrAdjust.parentNeedsAdjustment()
+                       ? AsyncUtil.READY_TRUE
+                       : AsyncUtil.READY_FALSE;
+            }
+        }, executor);
     }
 
-    public CompletableFuture<Node> insertSlot(@Nonnull final TransactionContext tc,
-                                              @Nonnull final Config config,
-                                              @Nonnull final Node targetNode,
-                                              @Nonnull final NodeSlot newSlot) {
+    public CompletableFuture<SplitNodeSlotOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
+                                                                             @Nonnull final Node targetNode,
+                                                                             @Nonnull final NodeSlot newSlot,
+                                                                             final int slotIndexInTargetNode) {
         if (targetNode.getSlots().size() < config.getMaxM()) {
+            targetNode.insertSlot(slotIndexInTargetNode, newSlot);
+
+            writeNodeSlot(transaction, targetNode.getId(), newSlot);
+
             // node has left some space -- indicate that we are done splitting at the current node
-            return writeNodeSlot(tc, targetNode.getId(), newSlot).thenApply(v -> null);
+            if (!targetNode.isRoot()) {
+                return CompletableFuture.completedFuture(adjustSlotInParent(targetNode)
+                                                         ? SplitNodeSlotOrAdjust.ADJUST
+                                                         : SplitNodeSlotOrAdjust.NONE);
+            }
+            return CompletableFuture.completedFuture(SplitNodeSlotOrAdjust.NONE); // no split and no adjustment
         } else {
-            // TODO deal with root
+            //
+            // if this is the root we need to grow the tree taller
+            //
+            if (targetNode.isRoot()) {
+                splitRootNode(transaction, targetNode);
+                return CompletableFuture.completedFuture(SplitNodeSlotOrAdjust.NONE);
+            }
+
             //
             // Node is full -- borrow some space from the siblings if possible
             //
             final CompletableFuture<List<Node>> siblings =
-                    fetchSiblings(tc, config, Objects.requireNonNull(targetNode));
+                    fetchSiblings(transaction, Objects.requireNonNull(targetNode));
 
-            return siblings.thenCompose(siblingNodes -> {
+            return siblings.thenApply(siblingNodes -> {
                 final int numSlots =
                         Math.toIntExact(siblingNodes
                                 .stream()
@@ -418,10 +364,16 @@ public class RTree {
                 final Node splitNode;
                 if (numSlots == siblingNodes.size() * config.getMaxM()) {
                     splitNode = targetNode.newOfSameKind();
+                    // link this split node to become the last node of the siblings
+                    splitNode.linkToParent(Objects.requireNonNull(targetNode.getParentNode()),
+                            siblingNodes.get(siblingNodes.size() - 1).getSlotIndexInParent() + 1);
                     siblingNodes.add(splitNode);
                 } else {
                     splitNode = null;
                 }
+
+                // temporarily overfill targetNode
+                targetNode.insertSlot(slotIndexInTargetNode, newSlot);
 
                 final Iterator<Node> siblingNodesIterator = siblingNodes.iterator();
                 // sibling nodes are in hilbert value order
@@ -450,38 +402,88 @@ public class RTree {
                     }
                 }
 
-                return writeNodeSlotsForNodes(tc, siblingNodes).thenApply(v -> {
-                    final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
-                    for (final Node siblingNode : siblingNodes) {
-                        if (siblingNode != splitNode) {
-                            final var childSlot = Objects.requireNonNull(parentNode.getChildren()).get(siblingNode.getSlotIndexInParent());
-                            childSlot.setMbr(computeMbr(siblingNode.getChildren()));
-                            final var lastSlotOfCurrentSibling = siblingNode.getSlots().get(siblingNode.size() - 1);
-                            childSlot.setLargestHilbertValue(lastSlotOfCurrentSibling.getHilbertValue());
-                            childSlot.setLargestKey(lastSlotOfCurrentSibling.getKey());
-                        }
+                updateNodeSlotsForNodes(transaction, siblingNodes);
+
+                for (final Node siblingNode : siblingNodes) {
+                    if (siblingNode != splitNode) {
+                        adjustSlotInParent(siblingNode);
                     }
-                    return splitNode; // may be null if no split occurred
-                });
+                }
+
+                if (splitNode == null) {
+                    return SplitNodeSlotOrAdjust.ADJUST;
+                }
+
+                final var lastSlotOfSplitNode = splitNode.getSlots().get(splitNode.size() - 1);
+                return new SplitNodeSlotOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
+                        lastSlotOfSplitNode.getKey(), splitNode.getId(), computeMbr(splitNode.getChildren())),
+                        true);
             });
         }
     }
 
+    private void splitRootNode(final @Nonnull Transaction transaction,
+                               final @Nonnull Node targetNode) {
+        final Node leftNode = targetNode.newOfSameKind();
+        final Node rightNode = targetNode.newOfSameKind();
+        final int leftSize = targetNode.size() / 2;
+        final ArrayList<? extends NodeSlot> leftSlots = Lists.newArrayList(targetNode.getSlots().subList(0, leftSize));
+        leftNode.setSlots(leftSlots);
+        final int rightSize = targetNode.size() - leftSize;
+        final ArrayList<? extends NodeSlot> rightSlots = Lists.newArrayList(targetNode.getSlots().subList(leftSize, leftSize + rightSize));
+        rightNode.setSlots(rightSlots);
 
-    public CompletableFuture<LeafNode> fetchUpdatePathToLeaf(@Nonnull final TransactionContext tc,
+        final NodeSlot lastSlotOfLeftNode = leftSlots.get(leftSlots.size() - 1);
+        final NodeSlot lastSlotOfRightNode = rightSlots.get(rightSlots.size() - 1);
+
+        final ArrayList<ChildSlot> rootNodeSlots =
+                Lists.newArrayList(
+                        new ChildSlot(lastSlotOfLeftNode.getHilbertValue(), lastSlotOfLeftNode.getKey(), leftNode.getId(),
+                                computeMbr(leftNode.getChildren())),
+                        new ChildSlot(lastSlotOfRightNode.getHilbertValue(), lastSlotOfRightNode.getKey(), leftNode.getId(),
+                                computeMbr(leftNode.getChildren())));
+        final IntermediateNode newRootNode = new IntermediateNode(Node.ROOT_ID, rootNodeSlots);
+
+        updateNodeSlotsForNodes(transaction, Lists.newArrayList(leftNode, rightNode, newRootNode));
+    }
+
+    public SplitNodeSlotOrAdjust adjustUpdateNode(@Nonnull final Transaction transaction,
+                                                  @Nonnull final Node targetNode) {
+        updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+        return adjustSlotInParent(targetNode)
+               ? SplitNodeSlotOrAdjust.ADJUST
+               : SplitNodeSlotOrAdjust.NONE;
+    }
+
+    private static boolean adjustSlotInParent(final @Nonnull Node targetNode) {
+        boolean slotHasChanged;
+        final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
+        final ChildSlot childSlot = Objects.requireNonNull(parentNode.getChildren()).get(targetNode.getSlotIndexInParent());
+        final Rectangle newMbr = computeMbr(targetNode.getChildren());
+        slotHasChanged = !childSlot.getMbr().equals(newMbr);
+        childSlot.setMbr(computeMbr(targetNode.getChildren()));
+        final NodeSlot lastSlotOfTargetNode = targetNode.getSlots().get(targetNode.size() - 1);
+        slotHasChanged |= !childSlot.getLargestHilbertValue().equals(lastSlotOfTargetNode.getHilbertValue());
+        childSlot.setLargestHilbertValue(lastSlotOfTargetNode.getHilbertValue());
+        slotHasChanged |= !childSlot.getKey().equals(lastSlotOfTargetNode.getKey());
+        childSlot.setLargestKey(lastSlotOfTargetNode.getKey());
+        return slotHasChanged;
+    }
+
+    public CompletableFuture<LeafNode> fetchUpdatePathToLeaf(@Nonnull final Transaction transaction,
                                                              @Nonnull final BigInteger targetHilbertValue,
                                                              @Nonnull final Tuple targetKey) {
         final AtomicReference<IntermediateNode> parentNode = new AtomicReference<>(null);
         final AtomicInteger slotInParent = new AtomicInteger(-1);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(Node.ROOT_ID);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> fetchNode(tc, currentId.get())
+        return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
                 .thenApply(node -> {
                     if (parentNode.get() != null) {
                         node.linkToParent(parentNode.get(), slotInParent.get());
                     }
                     if (node.getKind() == Kind.INTERMEDIATE) {
-                        final int slotIndex = findSlotIndex((IntermediateNode)node, targetHilbertValue, targetKey);
+                        final int slotIndex = chooseSlotIndexForUpdate((IntermediateNode)node, targetHilbertValue, targetKey);
                         final List<ChildSlot> children = node.getChildren();
                         parentNode.set((IntermediateNode)node);
                         slotInParent.set(slotIndex);
@@ -494,51 +496,10 @@ public class RTree {
                 }), executor).thenApply(vignore -> leafNode.get());
     }
 
-//    public int findSlotIndex(@Nonnull final Node node,
-//                             @Nonnull final BigInteger targetHilbertValue,
-//                             @Nonnull final Tuple targetKey) {
-//        Verify.verify(!node.isEmpty());
-//        final List<? extends NodeSlot> slots = node.getSlots();
-//        for (int slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
-//            final NodeSlot slot = slots.get(slotIndex);
-//            //
-//            // Choose subtree with the minimum Hilbert value that is greater than the target
-//            // Hilbert value. If there is no such subtree, i.e. the target Hilbert value is the
-//            // largest Hilbert value, we choose the largest one in the current node.
-//            //
-//            final int hilbertValueCompare = slot.getHilbertValue().compareTo(targetHilbertValue);
-//            if (hilbertValueCompare >= 0) {
-//                // child HV >= target HV
-//                if (hilbertValueCompare == 0) {
-//                    // child == target
-//                    final var tupleCompare = TupleHelpers.compare(slot.getKey(), targetKey);
-//                    if (tupleCompare >= 0) {
-//                        if (tupleCompare > 0 || node.getKind() == Kind.INTERMEDIATE) {
-//                            // child's largest key >= targetKey
-//                            return slotIndex;
-//                        }
-//                        Verify.verify(node.getKind() == Kind.LEAF);
-//                        return -1; // this case is a duplicate key which we can just update
-//                    }
-//                } else {
-//                    return slotIndex;
-//                }
-//            }
-//        }
-//
-//        // if this is an intermediate node we insert INTO the last child, if it is a leaf we add as a new last item
-//        return node.getKind() == Kind.INTERMEDIATE ? slots.size() - 1 : slots.size();
-//    }
-
     /**
      * We assume that {@code parentNode} has at least {@link Config#getMinM()} entries.
-     * @param tc
-     * @param config
-     * @param node
-     * @return
      */
-    public CompletableFuture<List<Node>> fetchSiblings(@Nonnull final TransactionContext tc,
-                                                       @Nonnull final Config config,
+    public CompletableFuture<List<Node>> fetchSiblings(@Nonnull final Transaction transaction,
                                                        @Nonnull final Node node) {
         final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
@@ -577,7 +538,7 @@ public class RTree {
 
                 final int slotIndex = minSibling + index;
                 if (slotIndex != slotIndexInParent) {
-                    working.add(fetchNode(tc, currentId).thenAccept(siblingNode -> {
+                    working.add(fetchNode(transaction, currentId).thenAccept(siblingNode -> {
                         siblingNode.linkToParent(parentNode, slotIndex);
                         siblings[index] = siblingNode;
                     }));
@@ -594,42 +555,93 @@ public class RTree {
         }, executor).thenApply(vignore -> Lists.newArrayList(siblings));
     }
 
-    public CompletableFuture<Node> fetchNode(@Nonnull final TransactionContext tc, byte[] key) {
+    @SuppressWarnings("ConstantValue")
+    public CompletableFuture<Node> fetchNode(@Nonnull final Transaction transaction, byte[] nodeId) {
+        return AsyncUtil.collect(transaction.getRange(Range.startsWith(nodeId)))
+                .thenApply(keyValues -> {
+                    List<ChildSlot> childSlots = null;
+                    List<ItemSlot> itemSlots = null;
+                    Kind nodeKind = null;
+                    for (final KeyValue keyValue : keyValues) {
+                        final Tuple keyTuple = Tuple.fromBytes(keyValue.getKey());
+                        Verify.verify(keyTuple.size() == 3);
+                        final Kind currentNodeKind;
+                        switch ((byte)keyTuple.get(0)) {
+                            case 0x00:
+                                currentNodeKind = Kind.LEAF;
+                                break;
+                            case 0x01:
+                                currentNodeKind = Kind.INTERMEDIATE;
+                                break;
+                            default:
+                                throw new IllegalArgumentException("unknown node kind");
+                        }
+                        if (nodeKind == null) {
+                            nodeKind = currentNodeKind;
+                        } else if (nodeKind != currentNodeKind) {
+                            throw new IllegalArgumentException("same node id uses different node kinds");
+                        }
 
+                        final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
+
+                        if (nodeKind == Kind.LEAF) {
+                            if (itemSlots == null) {
+                                itemSlots = Lists.newArrayList();
+                            }
+                            itemSlots.add(new ItemSlot(keyTuple.getBigInteger(1), keyTuple.getNestedTuple(2),
+                                    valueTuple.getNestedTuple(0), new Point(valueTuple.getNestedTuple(1))));
+                        } else {
+                            Verify.verify(nodeKind == Kind.INTERMEDIATE);
+                            if (childSlots == null) {
+                                childSlots = Lists.newArrayList();
+                            }
+                            childSlots.add(new ChildSlot(keyTuple.getBigInteger(1),
+                                    keyTuple.getNestedTuple(2), valueTuple.getBytes(0),
+                                    new Rectangle(valueTuple.getNestedTuple(1))));
+                        }
+                    }
+
+                    if (nodeKind == null && Arrays.equals(Node.ROOT_ID, nodeId)) {
+                        // root node but nothing read -- root node is the only node that can be empty --
+                        // this only happens when the R-Tree is completely empty.
+                        itemSlots = Lists.newArrayList();
+                    }
+
+                    Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
+                                  (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
+                    return nodeKind == Kind.LEAF
+                           ? new LeafNode(nodeId, itemSlots)
+                           : new IntermediateNode(nodeId, childSlots);
+                });
     }
 
-    public CompletableFuture<Void> writeNodeSlotsForNodes(@Nonnull final TransactionContext tc, @Nonnull List<? extends Node> nodes) {
-        final ArrayDeque<NodeIdAndSlot> toBeProcessed = new ArrayDeque<>();
-        final List<CompletableFuture<Void>> working = Lists.newArrayList();
-
-        nodes.forEach(node -> node.getSlots().forEach(nodeSlot -> toBeProcessed.addLast(new NodeIdAndSlot(node.getId(), nodeSlot))));
-
-        return AsyncUtil.whileTrue(() -> {
-            working.removeIf(CompletableFuture::isDone);
-
-            while (working.size() <= MAX_CONCURRENT_WRITES) {
-                final NodeIdAndSlot current = toBeProcessed.pollFirst();
-                if (current == null) {
-                    break;
-                }
-
-                working.add(writeNodeSlot(tc, current.getId(), current.getSlot()));
+    public void updateNodeSlotsForNodes(@Nonnull final Transaction transaction, @Nonnull List<? extends Node> nodes) {
+        for (final Node node : nodes) {
+            transaction.clear(Range.startsWith(node.getId()));
+            for (final NodeSlot nodeSlot : node.getSlots()) {
+                writeNodeSlot(transaction, node.getId(), nodeSlot);
             }
-
-            if (working.isEmpty()) {
-                return AsyncUtil.READY_FALSE;
-            }
-            return AsyncUtil.whenAny(working).thenApply(v -> true);
-        }, executor);
+        }
     }
 
-    public CompletableFuture<Void> writeNodeSlot(@Nonnull final TransactionContext tc, @Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
-
+    public void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
+        if (nodeSlot instanceof ItemSlot) {
+            final ItemSlot itemSlot = (ItemSlot)nodeSlot;
+            final byte[] packedKey = Tuple.from((byte)0x00, itemSlot.getHilbertValue(), itemSlot.getKey()).pack(nodeId);
+            final byte[] packedValue = Tuple.from(itemSlot.getValue(), itemSlot.getPosition().getCoordinates()).pack();
+            transaction.set(packedKey, packedValue);
+        } else {
+            Verify.verify(nodeSlot instanceof ChildSlot);
+            final ChildSlot childSlot = (ChildSlot)nodeSlot;
+            final byte[] packedKey = Tuple.from((byte)0x01, childSlot.getLargestHilbertValue(), childSlot.getLargestKey()).pack(nodeId);
+            final byte[] packedValue = Tuple.from(childSlot.getChildId(), childSlot.getMbr().getRanges()).pack();
+            transaction.set(packedKey, packedValue);
+        }
     }
 
-    private static int findSlotIndex(@Nonnull final IntermediateNode node,
-                                     @Nonnull final BigInteger targetHilbertValue,
-                                     @Nonnull final Tuple targetKey) {
+    private static int chooseSlotIndexForUpdate(@Nonnull final IntermediateNode node,
+                                                @Nonnull final BigInteger targetHilbertValue,
+                                                @Nonnull final Tuple targetKey) {
         Verify.verify(!node.isEmpty());
         final List<? extends NodeSlot> slots = node.getSlots();
         for (int slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
@@ -658,11 +670,12 @@ public class RTree {
         return slots.size() - 1;
     }
 
-    private static boolean isUpdate(@Nonnull final LeafNode node,
-                                    @Nonnull final BigInteger targetHilbertValue,
-                                    @Nonnull final Tuple targetKey) {
+    private static int findInsertSlotIndex(@Nonnull final Node node,
+                                           @Nonnull final BigInteger targetHilbertValue,
+                                           @Nonnull final Tuple targetKey) {
         final List<? extends NodeSlot> slots = node.getSlots();
-        for (final NodeSlot slot : slots) {
+        for (int slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
+            final NodeSlot slot = slots.get(slotIndex);
             final int hilbertValueCompare = slot.getHilbertValue().compareTo(targetHilbertValue);
             if (hilbertValueCompare >= 0) {
                 // child HV >= target HV
@@ -670,15 +683,18 @@ public class RTree {
                     // child == target
                     final var tupleCompare = TupleHelpers.compare(slot.getKey(), targetKey);
                     if (tupleCompare >= 0) {
-                        return tupleCompare == 0;
+                        if (tupleCompare == 0 && node.getKind() == Kind.LEAF) {
+                            return -1;
+                        }
+                        return slotIndex;
                     }
                 } else {
-                    return false;
+                    return slotIndex;
                 }
             }
         }
 
-        return false;
+        return node.size();
     }
 
     @Nonnull
@@ -693,7 +709,8 @@ public class RTree {
                 } else {
                     mbr = mbr.unionWith(position);
                 }
-            } if (slot instanceof ChildSlot) {
+            }
+            if (slot instanceof ChildSlot) {
                 final var mbrForSlot = ((ChildSlot)slot).getMbr();
                 if (mbr == null) {
                     mbr = mbrForSlot;
@@ -704,11 +721,22 @@ public class RTree {
                 throw new IllegalStateException("slot of unknown kind");
             }
         }
+        return mbr;
+    }
+
+    private static byte[] newNodeId() {
+        final UUID uuid = UUID.randomUUID();
+        final byte[] uuidBytes = new byte[17];
+        ByteBuffer.wrap(uuidBytes)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits());
+        return uuidBytes;
     }
 
     private enum Kind {
         INTERMEDIATE,
-        LEAF;
+        LEAF
     }
 
     private abstract static class Node {
@@ -737,7 +765,7 @@ public class RTree {
             return getSlots().isEmpty();
         }
 
-        public abstract void setSlots(@Nonnull final List<? extends NodeSlot> newSlots);
+        public abstract void setSlots(@Nonnull List<? extends NodeSlot> newSlots);
 
         @Nonnull
         public List<? extends NodeSlot> getSlots() {
@@ -748,6 +776,8 @@ public class RTree {
             }
             throw new IllegalStateException("unable to return slots");
         }
+
+        public abstract void insertSlot(int slotIndex, @Nonnull NodeSlot slot);
 
         @Nonnull
         public abstract List<ChildSlot> getChildren();
@@ -788,6 +818,7 @@ public class RTree {
                         @Nonnull final List<ItemSlot> items) {
             this(id, items, null, -1);
         }
+
         public LeafNode(@Nonnull final byte[] id,
                         @Nonnull final List<ItemSlot> items,
                         @Nullable final IntermediateNode parentNode,
@@ -813,17 +844,21 @@ public class RTree {
 
         @Override
         public void setSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
-            final List<ItemSlot> newItems =
+            this.items =
                     newSlots.stream()
                             .map(slot -> (ItemSlot)slot)
                             .collect(Collectors.toList());
-            this.items = newItems;
+        }
+
+        public void insertSlot(final int slotIndex, @Nonnull final NodeSlot slot) {
+            Preconditions.checkArgument(slot instanceof ItemSlot);
+            items.add(slotIndex, (ItemSlot)slot);
         }
 
         @Nonnull
         @Override
         public LeafNode newOfSameKind() {
-            return new LeafNode(, Lists.newArrayList());
+            return new LeafNode(newNodeId(), Lists.newArrayList());
         }
     }
 
@@ -861,17 +896,21 @@ public class RTree {
 
         @Override
         public void setSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
-            final List<ChildSlot> newChildren =
+            this.children =
                     newSlots.stream()
                             .map(slot -> (ChildSlot)slot)
                             .collect(Collectors.toList());
-            this.children = newChildren;
+        }
+
+        public void insertSlot(final int slotIndex, @Nonnull final NodeSlot slot) {
+            Preconditions.checkArgument(slot instanceof ChildSlot);
+            children.add(slotIndex, (ChildSlot)slot);
         }
 
         @Nonnull
         @Override
         public IntermediateNode newOfSameKind() {
-            return new LeafNode(, Lists.newArrayList());
+            return new IntermediateNode(newNodeId(), Lists.newArrayList());
         }
     }
 
@@ -927,8 +966,8 @@ public class RTree {
         @Nonnull
         private Rectangle mbr;
 
-        public ChildSlot(@Nonnull final byte[] childId, @Nonnull final BigInteger largestHilbertValue,
-                         @Nonnull final Tuple largestKey, @Nonnull final Rectangle mbr) {
+        public ChildSlot(@Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
+                         @Nonnull final byte[] childId, @Nonnull final Rectangle mbr) {
             super(largestHilbertValue, largestKey);
             this.childId = childId;
             this.mbr = mbr;
@@ -1006,679 +1045,194 @@ public class RTree {
         }
     }
 
-    private static class NodeIdAndSlot {
-        @Nonnull
-        private final byte[] id;
-        @Nonnull
-        private final NodeSlot slot;
+    private static class SplitNodeSlotOrAdjust {
+        public static SplitNodeSlotOrAdjust NONE = new SplitNodeSlotOrAdjust(null, false);
+        public static SplitNodeSlotOrAdjust ADJUST = new SplitNodeSlotOrAdjust(null, true);
 
-        public NodeIdAndSlot(@Nonnull final byte[] id, @Nonnull final NodeSlot slot) {
-            this.id = id;
-            this.slot = slot;
+        @Nullable
+        private final ChildSlot childSlot;
+
+        private final boolean parentNeedsAdjustment;
+
+        private SplitNodeSlotOrAdjust(@Nullable final ChildSlot childSlot, final boolean parentNeedsAdjustment) {
+            this.childSlot = childSlot;
+            this.parentNeedsAdjustment = parentNeedsAdjustment;
         }
 
-        @Nonnull
-        public byte[] getId() {
-            return id;
+        @Nullable
+        public ChildSlot getSplitNodeSlot() {
+            return childSlot;
         }
 
-        @Nonnull
-        public NodeSlot getSlot() {
-            return slot;
+        public boolean parentNeedsAdjustment() {
+            return parentNeedsAdjustment;
         }
     }
 
     private static class Point {
         @Nonnull
-        private final Object[] ranges;
+        private final Tuple coordinates;
 
-        public Point(final Object[] ranges) {
-            Preconditions.checkArgument(ranges.length > 0);
-            this.ranges = ranges;
+        public Point(@Nonnull final Tuple coordinates) {
+            Preconditions.checkArgument(coordinates.size() > 0);
+            this.coordinates = coordinates;
+        }
+
+        @Nonnull
+        public Tuple getCoordinates() {
+            return coordinates;
         }
 
         public int getNumDimensions() {
-            return ranges.length;
+            return coordinates.size();
         }
 
         public Object getCoordinate(final int dimension) {
-            return ranges[dimension];
+            return coordinates.get(dimension);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Point)) {
+                return false;
+            }
+            final Point point = (Point)o;
+            return TupleHelpers.equals(coordinates, point.coordinates);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(coordinates);
         }
     }
 
     private static class Rectangle {
         @Nonnull
-        private final Object[] ranges;
+        private final Tuple ranges;
 
-        public Rectangle(final Object[] ranges) {
-            Preconditions.checkArgument(ranges.length > 0 && ranges.length % 2 == 0);
+        public Rectangle(final Tuple ranges) {
+            Preconditions.checkArgument(ranges.size() > 0 && ranges.size() % 2 == 0);
             this.ranges = ranges;
         }
 
         public int getNumDimensions() {
-            return ranges.length >> 1;
+            return ranges.size() >> 1;
+        }
+
+        @Nonnull
+        public Tuple getRanges() {
+            return ranges;
         }
 
         public Object getLow(final int dimension) {
-            return ranges[dimension];
+            return ranges.get(dimension);
         }
 
         public Object getHigh(final int dimension) {
-            return ranges[(ranges.length >> 1) + dimension];
+            return ranges.get((ranges.size() >> 1) + dimension);
         }
-    }
 
-    private static Kind checkAndGetKindOnSameLevel(@Nonnull final Collection<Node> nodesOnSameLevel) {
-        Kind kind = null;
-        for (final Node node : nodesOnSameLevel) {
-            if (kind == null) {
-                kind = node.getKind();
-            } else {
-                if (node.getKind() != kind) {
-                    throw new IllegalStateException("all nodes on the same level must be of the same kind");
+        public Rectangle unionWith(@Nonnull final Point point) {
+            Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
+            boolean isModified = false;
+            Object[] ranges = new Object[getNumDimensions() << 1];
+
+            for (int d = 0; d < getNumDimensions(); d ++) {
+                final Object coordinate = point.getCoordinate(d);
+                final Tuple coordinateTuple = Tuple.from(coordinate);
+                final Object low = getLow(d);
+                Tuple lowTuple = Tuple.from(low);
+                if (TupleHelpers.compare(coordinateTuple, lowTuple) < 0) {
+                    ranges[d] = coordinate;
+                    isModified = true;
+                } else {
+                    ranges[d] = low;
+
+                    final Object high = getHigh(d);
+                    final Tuple highTuple = Tuple.from(high);
+                    if (TupleHelpers.compare(coordinateTuple, highTuple) > 0) {
+                        ranges[getNumDimensions() + d] = coordinate;
+                        isModified = true;
+                    } else {
+                        ranges[getNumDimensions() + d] = high;
+                    }
                 }
             }
-        }
-        return kind;
-    }
 
-    /**
-     * Add a key to the set.
-     *
-     * If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
-     * If {@link Config#isCountDuplicates} is {@code true}, the return value is never {@code false} and a duplicate will
-     * cause all {@link #rank}s below it to increase by one.
-     * @param tc the transaction to use to access the database
-     * @param key the key to add
-     * @return a future that completes to {@code true} if the ranked set was modified
-     */
-    public CompletableFuture<Boolean> add(TransactionContext tc, byte[] key) {
-        checkKey(key);
-        final int keyHash = getKeyHash(key);
-        return tc.runAsync(tr ->
-            countCheckedKey(tr, key)
-                .thenCompose(count -> {
-                    final boolean duplicate = count != null && count > 0;   // Is this key already present in the set?
-                    if (duplicate && !config.isCountDuplicates()) {
-                        return READY_FALSE;
+            if (!isModified) {
+                return this;
+            }
+
+            return new Rectangle(Tuple.from(ranges));
+        }
+
+        public Rectangle unionWith(@Nonnull final Rectangle other) {
+            Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+            boolean isModified = false;
+            Object[] ranges = new Object[getNumDimensions() << 1];
+
+            for (int d = 0; d < getNumDimensions(); d ++) {
+                final Object otherLow = other.getLow(d);
+                final Tuple otherLowTuple = Tuple.from(otherLow);
+                final Object otherHigh = other.getHigh(d);
+                final Tuple otherHighTuple = Tuple.from(otherHigh);
+
+                final Object low = getLow(d);
+                Tuple lowTuple = Tuple.from(low);
+                if (TupleHelpers.compare(otherLowTuple, lowTuple) < 0) {
+                    ranges[d] = otherLow;
+                    isModified = true;
+                } else {
+                    ranges[d] = low;
+
+                    final Object high = getHigh(d);
+                    final Tuple highTuple = Tuple.from(high);
+                    if (TupleHelpers.compare(otherHighTuple, highTuple) > 0) {
+                        ranges[getNumDimensions() + d] = otherHigh;
+                        isModified = true;
+                    } else {
+                        ranges[getNumDimensions() + d] = high;
                     }
-                    final int nlevels = config.getNLevels();
-                    List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
-                    for (int li = 0; li < nlevels; ++li) {
-                        final int level = li;
-                        CompletableFuture<Void> future;
-                        if (level == 0) {
-                            future = addLevelZeroKey(tr, key, level, duplicate);
-                        } else if (duplicate || (keyHash & LEVEL_FAN_VALUES[level]) != 0) {
-                            // If key is already present (duplicate), then whatever splitting it causes should have
-                            // already been done when first added. So, no more now. It is therefore possible, though,
-                            // that the count to increment matches the key, rather than being one that precedes it.
-                            future = addIncrementLevelKey(tr, key, level, duplicate);
-                        } else {
-                            // Insert into this level by looking at the count of the previous key in the level
-                            // and recounting the next lower level to correct the counts.
-                            // Must complete lower levels first for count to be accurate.
-                            future = AsyncUtil.whenAll(futures);
-                            futures = new ArrayList<>(nlevels - li);
-                            future = future.thenCompose(vignore -> addInsertLevelKey(tr, key, level));
-                        }
-                        futures.add(future);
-                    }
-                    return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
-                }));
-    }
+                }
+            }
 
-    // Use the hash of the key, instead a p value and randomLevel. The key is likely Tuple-encoded.
-    protected int getKeyHash(final byte[] key) {
-        return config.getHashFunction().hash(key);
-    }
+            if (!isModified) {
+                return this;
+            }
 
-    protected CompletableFuture<Void> addLevelZeroKey(Transaction tr, byte[] key, int level, boolean increment) {
-        final byte[] k = subspace.pack(Tuple.from(level, key));
-        final byte[] v = encodeLong(1);
-        if (increment) {
-            tr.mutate(MutationType.ADD, k, v);
-        } else {
-            tr.set(k, v);
-        }
-        return DONE;
-    }
-
-    protected CompletableFuture<Void> addIncrementLevelKey(Transaction tr, byte[] key, int level, boolean orEqual) {
-        return getPreviousKey(tr, level, key, orEqual)
-                .thenAccept(prevKey -> tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(1)));
-    }
-
-    protected CompletableFuture<Void> addInsertLevelKey(Transaction tr, byte[] key, int level) {
-        return getPreviousKey(tr, level, key, false).thenCompose(prevKey -> {
-            CompletableFuture<Long> prevCount = tr.get(subspace.pack(Tuple.from(level, prevKey))).thenApply(RTree::decodeLong);
-            CompletableFuture<Long> newPrevCount = countRange(tr, level - 1, prevKey, key);
-            return prevCount.thenAcceptBoth(newPrevCount, (prev, newPrev) -> {
-                long count = prev - newPrev + 1;
-                tr.set(subspace.pack(Tuple.from(level, prevKey)), encodeLong(newPrev));
-                tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count));
-            });
-        });
-    }
-
-    /**
-     * Removes a key from the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to remove
-     * @return a future that completes to {@code true} if the set was modified, that is, if the key was present before this operation
-     */
-    public CompletableFuture<Boolean> remove(TransactionContext tc, byte[] key) {
-        checkKey(key);
-        return tc.runAsync(tr ->
-                countCheckedKey(tr, key)
-                        .thenCompose(count -> {
-                            if (count == null || count <= 0) {
-                                return READY_FALSE;
-                            }
-                            // This works even if the current set does not track duplicates but duplicates were added
-                            // earlier by one that did.
-                            final boolean duplicate = count > 1;
-                            final int nlevels = config.getNLevels();
-                            final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
-                            for (int li = 0; li < nlevels; ++li) {
-                                final int level = li;
-
-                                final CompletableFuture<Void> future;
-
-                                if (duplicate) {
-                                    // Always subtract one, never clearing a level count key.
-                                    // Concurrent requests both subtracting one when the count is two will conflict
-                                    // on the level zero key. So it should not be possible for a count to go to zero.
-                                    if (level == 0) {
-                                        // There is already a read conflict on the level 0 key, so no benefit to atomic op.
-                                        tr.set(subspace.pack(Tuple.from(level, key)), encodeLong(count - 1));
-                                        future = DONE;
-                                    } else {
-                                        future = getPreviousKey(tr, level, key, true)
-                                                .thenAccept(k -> tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, k)), encodeLong(-1)));
-                                    }
-                                } else {
-                                    // This could be optimized to check the hash for which levels should have this key.
-                                    // That would require that the hash function never changes, though.
-                                    // This allows for it to change, with the distribution perhaps getting a little uneven
-                                    // as a result. It even allows for the hash function to return a random number.
-                                    // It also further guarantees that counts never go to zero.
-                                    final byte[] k = subspace.pack(Tuple.from(level, key));
-                                    if (level == 0) {
-                                        tr.clear(k);
-                                        future = DONE;
-                                    } else {
-                                        final CompletableFuture<byte[]> cf = tr.get(k);
-                                        final CompletableFuture<byte[]> prevKeyF = getPreviousKey(tr, level, key, false);
-                                        future = cf.thenAcceptBoth(prevKeyF, (c, prevKey) -> {
-                                            long countChange = -1;
-                                            if (c != null) {
-                                                // Give back additional count from the key we are erasing to the neighbor.
-                                                countChange += decodeLong(c);
-                                                tr.clear(k);
-                                            }
-                                            tr.mutate(MutationType.ADD, subspace.pack(Tuple.from(level, prevKey)), encodeLong(countChange));
-                                        });
-                                    }
-                                }
-                                futures.add(future);
-                            }
-                            return AsyncUtil.whenAll(futures).thenApply(vignore -> true);
-                        }));
-    }
-
-    /**
-     * Clears the entire set.
-     * @param tc the transaction to use to access the database
-     * @return a future that completes when the ranked set has been cleared
-     */
-    public CompletableFuture<Void> clear(TransactionContext tc) {
-        Range range = subspace.range();
-        return tc.runAsync(tr -> {
-            tr.clear(range);
-            return initLevels(tr);
-        });
-    }
-
-    /**
-     * Checks for the presence of a key in the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to check for
-     * @return a future that completes to {@code true} if the key is present in the ranked set
-     */
-    public CompletableFuture<Boolean> contains(ReadTransactionContext tc, byte[] key) {
-        checkKey(key);
-        return countCheckedKey(tc, key).thenApply(c -> c != null && c > 0);
-    }
-
-    /**
-     * Count the number of occurrences of a key in the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to check for
-     * @return a future that completes to {@code 0} if the key is not present in the ranked set or
-     * {@code 1} if the key is present in the ranked set and duplicates are not counted or
-     * the number of occurrences if duplicated are counted separately
-     */
-    public CompletableFuture<Long> count(ReadTransactionContext tc, byte[] key) {
-        checkKey(key);
-        return countCheckedKey(tc, key).thenApply(c -> c == null ? Long.valueOf(0) : c);
-    }
-
-    private CompletableFuture<Long> countCheckedKey(ReadTransactionContext tc, byte[] key) {
-        return tc.readAsync(tr -> tr.get(subspace.pack(Tuple.from(0, key))).thenApply(b -> b == null ? null : decodeLong(b)));
-    }
-
-    class NthLookup implements Lookup {
-        private long rank;
-        private byte[] key = EMPTY_ARRAY;
-        private int level = config.getNLevels();
-        private Subspace levelSubspace;
-        private AsyncIterator<KeyValue> asyncIterator = null;
-
-        public NthLookup(long rank) {
-            this.rank = rank;
+            return new Rectangle(Tuple.from(ranges));
         }
 
-        public byte[] getKey() {
-            return key;
-        }
 
         @Override
-        public CompletableFuture<Boolean> next(ReadTransaction tr) {
-            final boolean newIterator = asyncIterator == null;
-            if (newIterator) {
-                level--;
-                if (level < 0) {
-                    // Down to finest level without finding enough.
-                    if (!config.isCountDuplicates()) {
-                        key = null;
-                    }
-                    return READY_FALSE;
-                }
-                levelSubspace = subspace.get(level);
-                asyncIterator = lookupIterator(tr.getRange(levelSubspace.pack(key), levelSubspace.range().end,
-                        ReadTransaction.ROW_LIMIT_UNLIMITED,
-                        false,
-                        StreamingMode.WANT_ALL));
-            }
-            final long startTime = System.nanoTime();
-            final CompletableFuture<Boolean> onHasNext = asyncIterator.onHasNext();
-            final boolean wasDone = onHasNext.isDone();
-            return onHasNext.thenApply(hasNext -> {
-                if (!wasDone) {
-                    nextLookupKey(System.nanoTime() - startTime, newIterator, hasNext, level, false);
-                }
-                if (!hasNext) {
-                    // Not enough on this level.
-                    key = null;
-                    return false;
-                }
-                KeyValue kv = asyncIterator.next();
-                key = levelSubspace.unpack(kv.getKey()).getBytes(0);
-                if (rank == 0 && key.length > 0) {
-                    // Moved along correct rank, this is the key.
-                    return false;
-                }
-                long count = decodeLong(kv.getValue());
-                if (count > rank) {
-                    // Narrow search in next finer level.
-                    asyncIterator = null;
-                    return true;
-                }
-                rank -= count;
+        public boolean equals(final Object o) {
+            if (this == o) {
                 return true;
-            });
-        }
-    }
-
-    /**
-     * Return the Nth item in the set.
-     * This operation is also referred to as <i>select</i>.
-     * @param tc the transaction to use to access the database
-     * @param rank the rank index to find
-     * @return a future that completes to the key for the {@code rank}th item or {@code null} if that index is out of bounds
-     * @see #rank
-     */
-    public CompletableFuture<byte[]> getNth(ReadTransactionContext tc, long rank) {
-        if (rank < 0) {
-            return CompletableFuture.completedFuture((byte[])null);
-        }
-        return tc.readAsync(tr -> {
-            NthLookup nth = new NthLookup(rank);
-            return AsyncUtil.whileTrue(() -> nextLookup(nth, tr), executor).thenApply(vignore -> nth.getKey());
-        });
-    }
-
-    /**
-     * Returns the ordered set of keys in a given range.
-     * @param tc the transaction to use to access the database
-     * @param beginKey the (inclusive) lower bound for the range
-     * @param endKey the (exclusive) upper bound for the range
-     * @return a list of keys in the ranked set within the given range
-     */
-    public List<byte[]> getRangeList(ReadTransactionContext tc, byte[] beginKey, byte[] endKey) {
-        return tc.read(tr -> getRange(tr, beginKey, endKey).asList().join());
-    }
-
-    public AsyncIterable<byte[]> getRange(ReadTransaction tr, byte[] beginKey, byte[] endKey) {
-        checkKey(beginKey);
-        return AsyncUtil.mapIterable(tr.getRange(subspace.pack(Tuple.from(0, beginKey)),
-                subspace.pack(Tuple.from(0, endKey))),
-                keyValue -> {
-                    Tuple t = subspace.unpack(keyValue.getKey());
-                    return t.getBytes(1);
-                });
-    }
-
-    /**
-     * Read the deeper, likely empty, levels to get them into the RYW cache, since individual lookups may only
-     * add pieces, requiring additional requests as keys increase.
-     * @param tr the transaction to use to access the database
-     * @return a future that is complete when the deeper levels have been loaded
-     */
-    public CompletableFuture<Void> preloadForLookup(ReadTransaction tr) {
-        return tr.getRange(subspace.range(), config.getNLevels(), true).asList().thenApply(l -> null);
-    }
-
-    protected CompletableFuture<Boolean> nextLookup(Lookup lookup, ReadTransaction tr) {
-        return lookup.next(tr);
-    }
-
-    protected <T> AsyncIterator<T> lookupIterator(AsyncIterable<T> iterable) {
-        return iterable.iterator();
-    }
-
-    protected void nextLookupKey(long duration, boolean newIter, boolean hasNext, int level, boolean rankLookup) {
-    }
-
-    protected interface Lookup {
-        CompletableFuture<Boolean> next(ReadTransaction tr);
-    }
-
-    class RankLookup implements Lookup {
-        private final byte[] key;
-        private final boolean keyShouldBePresent;
-        private byte[] rankKey = EMPTY_ARRAY;
-        private long rank = 0;
-        private Subspace levelSubspace;
-        private int level = config.getNLevels();
-        private AsyncIterator<KeyValue> asyncIterator = null;
-        private long lastCount;
-
-        public RankLookup(byte[] key, boolean keyShouldBePresent) {
-            this.key = key;
-            this.keyShouldBePresent = keyShouldBePresent;
-        }
-
-        public long getRank() {
-            return rank;
+            }
+            if (!(o instanceof Rectangle)) {
+                return false;
+            }
+            final Rectangle rectangle = (Rectangle)o;
+            return TupleHelpers.equals(ranges, rectangle.ranges);
         }
 
         @Override
-        public CompletableFuture<Boolean> next(ReadTransaction tr) {
-            final boolean newIterator = asyncIterator == null;
-            if (newIterator) {
-                level--;
-                if (level < 0) {
-                    // Finest level: rank is accurate.
-                    return READY_FALSE;
-                }
-                levelSubspace = subspace.get(level);
-                asyncIterator = lookupIterator(tr.getRange(
-                        KeySelector.firstGreaterOrEqual(levelSubspace.pack(rankKey)),
-                        KeySelector.firstGreaterThan(levelSubspace.pack(key)),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED,
-                        false,
-                        StreamingMode.WANT_ALL));
-                lastCount = 0;
-            }
-            final long startTime = System.nanoTime();
-            final CompletableFuture<Boolean> onHasNext = asyncIterator.onHasNext();
-            final boolean wasDone = onHasNext.isDone();
-            return onHasNext.thenApply(hasNext -> {
-                if (!wasDone) {
-                    nextLookupKey(System.nanoTime() - startTime, newIterator, hasNext, level, true);
-                }
-                if (!hasNext) {
-                    // Totalled this level: move to next.
-                    asyncIterator = null;
-                    rank -= lastCount;
-                    if (Arrays.equals(rankKey, key)) {
-                        // Exact match on this level: no need for finer.
-                        return false;
-                    }
-                    if (!keyShouldBePresent && level == 0 && lastCount > 0) {
-                        // If the key need not be present and we are on the finest level, then if it wasn't an exact
-                        // match, key would have the next rank after the last one. Except in the case where key is less
-                        // than the lowest key in the set, in which case it takes rank 0. This is recognizable because
-                        // at level 0, only the leftmost empty array has a count of zero; every other key has a count of one
-                        // (or the number of duplicates if those are counted separately).
-                        rank++;
-                    }
-                    return true;
-                }
-                KeyValue kv = asyncIterator.next();
-                rankKey = levelSubspace.unpack(kv.getKey()).getBytes(0);
-                lastCount = decodeLong(kv.getValue());
-                rank += lastCount;
-                return true;
-            });
-
-        }
-    }
-
-    /**
-     * Return the index of a key within the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to find
-     * @return a future that completes to the index of {@code key} in the ranked set or {@code null} if it is not present
-     * @see #getNth
-     */
-    public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key) {
-        return rank(tc, key, true);
-    }
-
-    /**
-     * Return the index of a key within the set.
-     * @param tc the transaction to use to access the database
-     * @param key the key to find
-     * @param nullIfMissing whether to return {@code null} when {@code key} is not present in the set
-     * @return a future that completes to the index of {@code key} in the ranked set, or {@code null} if it is not present and {@code nullIfMissing} is {@code true}, or the index {@code key} would have in the ranked set
-     * @see #getNth
-     */
-    public CompletableFuture<Long> rank(ReadTransactionContext tc, byte[] key, boolean nullIfMissing) {
-        checkKey(key);
-        return tc.readAsync(tr -> {
-            if (nullIfMissing) {
-                return countCheckedKey(tr, key).thenCompose(count -> {
-                    if (count == null || count <= 0) {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    return rankLookup(tr, key, true);
-                });
-            } else {
-                return rankLookup(tr, key, false);
-            }
-        });
-    }
-
-    private CompletableFuture<Long> rankLookup(ReadTransaction tr, byte[] key, boolean keyShouldBePresent) {
-        RankLookup rank = new RankLookup(key, keyShouldBePresent);
-        return AsyncUtil.whileTrue(() -> nextLookup(rank, tr), executor).thenApply(vignore -> rank.getRank());
-    }
-
-    /**
-     * Count the items in the set.
-     * @param tc the transaction to use to access the database
-     * @return a future that completes to the number of items in the set
-     */
-    public CompletableFuture<Long> size(ReadTransactionContext tc) {
-        Range r = subspace.get(config.getNLevels() - 1).range();
-        return tc.readAsync(tr -> AsyncUtil.mapIterable(tr.getRange(r), keyValue -> decodeLong(keyValue.getValue()))
-                .asList()
-                .thenApply(longs -> longs.stream().reduce(0L, Long::sum)));
-    }
-
-    protected Consistency checkConsistency(ReadTransactionContext tc) {
-        return tc.read(tr -> {
-            final int nlevels = config.getNLevels();
-            for (int level = 1; level < nlevels; ++level) {
-                byte[] prevKey = null;
-                long prevCount = 0;
-                AsyncIterator<KeyValue> it = tr.getRange(subspace.range(Tuple.from(level))).iterator();
-                while (true) {
-                    boolean more = it.hasNext();
-
-                    KeyValue kv = more ? it.next() : null;
-                    byte[] nextKey = kv == null ? null : subspace.unpack(kv.getKey()).getBytes(1);
-                    if (prevKey != null) {
-                        long count = countRange(tr, level - 1, prevKey, nextKey).join();
-                        if (prevCount != count) {
-                            return new Consistency(level, prevCount, count, toDebugString(tc));
-                        }
-                    }
-                    if (!more) {
-                        break;
-                    }
-                    prevKey = nextKey;
-                    prevCount = decodeLong(kv.getValue());
-                }
-            }
-            return new Consistency();
-        });
-    }
-
-    protected String toDebugString(ReadTransactionContext tc) {
-        return tc.read(tr -> {
-            final StringBuilder str = new StringBuilder();
-            final int nlevels = config.getNLevels();
-            for (int level = 0; level < nlevels; ++level) {
-                if (level > 0) {
-                    str.setLength(str.length() - 2);
-                    str.append("\n");
-                }
-                str.append("L").append(level).append(": ");
-                for (KeyValue kv : tr.getRange(subspace.range(Tuple.from(level)))) {
-                    byte[] key = subspace.unpack(kv.getKey()).getBytes(1);
-                    long count = decodeLong(kv.getValue());
-                    str.append("'").append(ByteArrayUtil2.loggable(key)).append("': ").append(count).append(", ");
-                }
-            }
-            return str.toString();
-        });
-    }
-
-    //
-    // Internal
-    //
-    private static int KEY_LENGTH = 16;
-
-    private static void checkKey(byte[] key) {
-        if (key.length != KEY_LENGTH) {
-            throw new IllegalArgumentException("key of unsupported format");
-        }
-    }
-
-    private CompletableFuture<Long> countRange(ReadTransactionContext tc, int level, byte[] beginKey, byte[] endKey) {
-        return tc.readAsync(tr ->
-                AsyncUtil.mapIterable(tr.getRange(beginKey == null ?
-                                subspace.range(Tuple.from(level)).begin :
-                                subspace.pack(Tuple.from(level, beginKey)),
-                        endKey == null ?
-                                subspace.range(Tuple.from(level)).end :
-                                subspace.pack(Tuple.from(level, endKey))),
-                        keyValue -> decodeLong(keyValue.getValue()))
-                        .asList()
-                        .thenApply(longs -> longs.stream().reduce(0L, Long::sum)));
-    }
-
-    // Get the key before this one at the given level.
-    // If orEqual is given, then an exactly matching key is also considered. This is only used when the key is known
-    // to be a duplicate or an existing key and so should do whatever it did.
-    private CompletableFuture<byte[]> getPreviousKey(TransactionContext tc, int level, byte[] key, boolean orEqual) {
-        byte[] k = subspace.pack(Tuple.from(level, key));
-        CompletableFuture<byte[]> kf = tc.run(tr ->
-                tr.snapshot()
-                        .getRange(subspace.pack(Tuple.from(level, EMPTY_ARRAY)),
-                                  orEqual ? ByteArrayUtil.join(k, ZERO_ARRAY) : k,
-                                  1, true)
-                        .asList()
-                        .thenApply(kvs -> {
-                            if (kvs.isEmpty()) {
-                                throw new IllegalStateException("no key found on level");
-                            }
-                            byte[] prevk = kvs.get(0).getKey();
-                            if (!orEqual || !Arrays.equals(prevk, k)) {
-                                // If another key were inserted after between this and the target key,
-                                // it wouldn't be the one we should increment any more.
-                                // But do not conflict when key itself is incremented.
-                                byte[] exclusiveBegin = ByteArrayUtil.join(prevk, ZERO_ARRAY);
-                                tr.addReadConflictRange(exclusiveBegin, k);
-                            }
-                            // Do conflict if key is removed entirely.
-                            tr.addReadConflictKey(subspace.pack(Tuple.from(0, subspace.unpack(prevk).getBytes(1))));
-                            return prevk;
-                        }));
-        return kf.thenApply(prevk -> subspace.unpack(prevk).getBytes(1));
-    }
-
-    private CompletableFuture<Void> initLevels(TransactionContext tc) {
-        return tc.runAsync(tr -> {
-            final int nlevels = config.getNLevels();
-            final List<CompletableFuture<Void>> futures = new ArrayList<>(nlevels);
-            // TODO: Add a way to change the number of levels in a ranked set that already exists (https://github.com/FoundationDB/fdb-record-layer/issues/141)
-            for (int level = 0; level < nlevels; ++level) {
-                byte[] k = subspace.pack(Tuple.from(level, EMPTY_ARRAY));
-                byte[] v = encodeLong(0);
-                futures.add(tr.get(k).thenAccept(value -> {
-                    if (value == null) {
-                        tr.set(k, v);
-                    }
-                }));
-            }
-            return AsyncUtil.whenAll(futures);
-        });
-    }
-
-    protected static class Consistency {
-
-        private final boolean consistent;
-        private final int level;
-        private final long prevCount;
-        private final long count;
-        private String structure;
-
-        public Consistency(int level, long prevCount, long count, String structure) {
-            this.level = level;
-            this.prevCount = prevCount;
-            this.count = count;
-            this.structure = structure;
-            consistent = false;
+        public int hashCode() {
+            return Objects.hash(ranges);
         }
 
-        public Consistency() {
-            consistent = true;
-            level = 0;
-            prevCount = 0;
-            count = 0;
-            structure = null;
-        }
-
-        @Override
-        public String toString() {
-            final StringBuilder sb = new StringBuilder(67);
-            sb.append("Consistency{")
-                    .append("consistent:").append(isConsistent())
-                    .append(", level:").append(level)
-                    .append(", prevCount:").append(prevCount)
-                    .append(", count:").append(count)
-                    .append(", structure:'").append(structure).append('\'')
-                    .append('}');
-            return sb.toString();
-        }
-
-        public boolean isConsistent() {
-            return consistent;
+        @Nonnull
+        public static Rectangle fromPoint(@Nonnull final Point point) {
+            final Object[] mbrRanges = new Object[point.getNumDimensions() * 2];
+            for (int d = 0; d < point.getNumDimensions(); d ++) {
+                final Object coordinate = point.getCoordinate(d);
+                mbrRanges[d] = coordinate;
+                mbrRanges[point.getNumDimensions() + d] = coordinate;
+            }
+            return new Rectangle(Tuple.from(mbrRanges));
         }
     }
 }
