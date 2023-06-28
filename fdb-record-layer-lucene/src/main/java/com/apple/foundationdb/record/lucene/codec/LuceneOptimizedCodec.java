@@ -86,7 +86,14 @@ public class LuceneOptimizedCodec extends Codec {
      * Instantiates a new codec.
      */
     public LuceneOptimizedCodec() {
-        this(Lucene87Codec.Mode.BEST_SPEED);
+        this(true);
+    }
+
+    /**
+     * Instantiates a new codec.
+     */
+    public LuceneOptimizedCodec(boolean allowIntegrityCheck) {
+        this(Lucene87Codec.Mode.BEST_SPEED, allowIntegrityCheck);
     }
 
     /**
@@ -96,13 +103,13 @@ public class LuceneOptimizedCodec extends Codec {
      * @param mode stored fields compression mode to use for newly
      *             flushed/merged segments.
      */
-    public LuceneOptimizedCodec(Lucene87Codec.Mode mode) {
+    public LuceneOptimizedCodec(Lucene87Codec.Mode mode, boolean allowIntegrityCheck) {
         super("RL");
         baseCodec = new Lucene87Codec(mode);
         compoundFormat = new LuceneOptimizedCompoundFormat();
         segmentInfoFormat = new LuceneOptimizedSegmentInfoFormat();
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
-        defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
+        defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat(), allowIntegrityCheck);
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());

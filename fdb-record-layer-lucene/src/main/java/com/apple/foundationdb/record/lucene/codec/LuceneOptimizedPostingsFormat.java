@@ -44,14 +44,16 @@ import java.util.Iterator;
 @AutoService(PostingsFormat.class)
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
+    boolean allowIntegrityCheck = true;
 
     public LuceneOptimizedPostingsFormat() {
-        this(new Lucene84PostingsFormat());
+        this(new Lucene84PostingsFormat(), true);
     }
 
-    public LuceneOptimizedPostingsFormat(PostingsFormat postingsFormat) {
+    public LuceneOptimizedPostingsFormat(PostingsFormat postingsFormat, boolean allowIntegrityCheck) {
         super("RL" + postingsFormat.getName());
         this.postingsFormat = postingsFormat;
+        this.allowIntegrityCheck = allowIntegrityCheck;
     }
 
     @Override
@@ -62,7 +64,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
-        return new LazyFieldsProducer(state);
+        return new LazyFieldsProducer(state, allowIntegrityCheck);
     }
 
     private static class LazyFieldsProducer extends FieldsProducer {
@@ -70,8 +72,10 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
         private Supplier<FieldsProducer> fieldsProducer;
 
         private boolean initialized;
+        private boolean allowIntegrityCheck;
 
-        private LazyFieldsProducer(final SegmentReadState state) {
+        private LazyFieldsProducer(final SegmentReadState state, boolean allowIntegrityCheck) {
+            this.allowIntegrityCheck = allowIntegrityCheck;
             fieldsProducer = Suppliers.memoize(() -> {
                 try {
                     PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
@@ -93,7 +97,9 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         @Override
         public void checkIntegrity() throws IOException {
-            fieldsProducer.get().checkIntegrity();
+            if (allowIntegrityCheck) {
+                fieldsProducer.get().checkIntegrity();
+            }
         }
 
         @Override
