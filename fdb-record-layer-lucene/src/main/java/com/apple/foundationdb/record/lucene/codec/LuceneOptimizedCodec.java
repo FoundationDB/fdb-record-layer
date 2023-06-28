@@ -91,6 +91,7 @@ public class LuceneOptimizedCodec extends Codec {
 
     /**
      * Instantiates a new codec.
+     * @param allowIntegrityCheck if false, skip data integrity verification
      */
     public LuceneOptimizedCodec(boolean allowIntegrityCheck) {
         this(Lucene87Codec.Mode.BEST_SPEED, allowIntegrityCheck);
@@ -102,6 +103,7 @@ public class LuceneOptimizedCodec extends Codec {
      * The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
      * @param mode stored fields compression mode to use for newly
      *             flushed/merged segments.
+     * @param allowIntegrityCheck if false, skip data integrity verification
      */
     public LuceneOptimizedCodec(Lucene87Codec.Mode mode, boolean allowIntegrityCheck) {
         super("RL");
