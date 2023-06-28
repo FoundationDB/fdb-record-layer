@@ -63,17 +63,13 @@ public class LuceneIndexKeySerializer {
 
     @Nullable
     private final RecordIdFormat format;
-    @Nonnull
-    private final Tuple key;
 
     /**
      * Construct a new serializer using a format. The format parameter is optional. Absence of the format parameter will
      * cause failure when trying to use the {@link #asFormattedBinaryPoint} method.
      * @param format optional the key format
-     * @param key the index primary key
      */
-    public LuceneIndexKeySerializer(@Nullable RecordIdFormat format, @Nonnull final Tuple key) {
-        this.key = key;
+    public LuceneIndexKeySerializer(@Nullable RecordIdFormat format) {
         this.format = format;
     }
 
@@ -82,28 +78,29 @@ public class LuceneIndexKeySerializer {
      * class for a description of the syntax). The format parameter is optional. Absence of the format parameter will
      * cause failure when trying to use the {@link #asFormattedBinaryPoint} method.
      * @param formatString optional string representing the key format
-     * @param key the index primary key
      * @return the created serializer
      */
-    public static LuceneIndexKeySerializer fromStringFormat(@Nullable final String formatString, @Nonnull final Tuple key) {
+    public static LuceneIndexKeySerializer fromStringFormat(@Nullable final String formatString) {
         RecordIdFormat format = (formatString == null) ? null : RecordIdFormatParser.parse(formatString);
-        return new LuceneIndexKeySerializer(format, key);
+        return new LuceneIndexKeySerializer(format);
     }
 
     /**
      * Serialize the key as a single byte array (this will result in a {@code Tuple.pack()}).
+     * @param key the key to serialize
      * @return the serialized key
      */
-    public byte[] asPackedByteArray() {
+    public byte[] asPackedByteArray(@Nonnull final Tuple key) {
         return key.pack();
     }
 
     /**
      * Serialize the key as a {@link BinaryPoint} without a format. This format SHOULD NOT be used to store in Lucene as
      * it is not guaranteed to be of fixed length. As the content grows, it may generate more dimensions.
+     * @param key the key to serialize
      * @return the split (BinaryPoint) style serialized key
      */
-    public byte[][] asPackedBinaryPoint() {
+    public byte[][] asPackedBinaryPoint(@Nonnull final Tuple key) {
         // We might use a different dimension size here
         List<byte[]> splitBytes = split(key.pack(), BINARY_POINT_DIMENSION_SIZE);
         return splitBytes.toArray(new byte[splitBytes.size()][]);
@@ -113,10 +110,11 @@ public class LuceneIndexKeySerializer {
      * Serialize the key as a {@link BinaryPoint}. This method uses the given {@link RecordIdFormat} as a guide to ensure
      * the returned BinaryPoint is going to be of fixed length, and searchable (by separating the components to different
      * dimensions, thus allowing range searches).
+     * @param key the key to serialize
      * @return the formatted serialized key
      * @throws RecordCoreFormatException in case there is no format or the format failed to parse or validate
      */
-    public byte[][] asFormattedBinaryPoint() throws RecordCoreFormatException {
+    public byte[][] asFormattedBinaryPoint(@Nonnull final Tuple key) throws RecordCoreFormatException {
         if (format == null) {
             throw new RecordCoreFormatException("Missing format, cannot format to a BinaryPoint");
         }
@@ -124,6 +122,10 @@ public class LuceneIndexKeySerializer {
         List<byte[]> formattedBytes = applyFormat(format.getElement(), key);
         List<byte[]> splitBytes = splitAll(formattedBytes);
         return splitBytes.toArray(new byte[splitBytes.size()][]);
+    }
+
+    public boolean hasFormat() {
+        return (format != null);
     }
 
     /**
