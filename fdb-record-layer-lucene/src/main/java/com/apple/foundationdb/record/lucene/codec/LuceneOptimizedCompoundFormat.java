@@ -44,7 +44,6 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file entries. */
     public static final String ENTRIES_EXTENSION = "cfe";
 
-    public static final String FIELD_INFO_EXTENSION = "fnm";
     public static final String DATA_CODEC = "Lucene50CompoundData";
     public static final String ENTRY_CODEC = "Lucene50CompoundEntries";
     public static final int VERSION_START = 0;

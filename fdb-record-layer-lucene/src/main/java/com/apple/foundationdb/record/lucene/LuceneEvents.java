@@ -40,8 +40,6 @@ public class LuceneEvents {
     public enum Events implements StoreTimer.Event {
         /** Time to read a block from Lucene's FDBDirectory. */
         LUCENE_READ_BLOCK("lucene block reads"),
-        /** Time to read a schema from Lucene's FDBDirectory. */
-        LUCENE_READ_SCHEMA("lucene schema read"),
         /** Time to read a lucene block from FBB loader. */
         LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
         /** Time to list all files from Lucene's FDBDirectory. */

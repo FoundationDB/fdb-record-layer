@@ -22,9 +22,6 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
-import com.google.common.primitives.Longs;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -32,17 +29,12 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 
@@ -53,19 +45,12 @@ import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompound
  *
  */
 class LuceneOptimizedWrappedDirectory extends Directory {
-    private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedWrappedDirectory.class);
     private final FDBDirectory fdbDirectory;
     private final Directory wrappedDirectory;
-    private FieldInfos fieldInfos;
 
     LuceneOptimizedWrappedDirectory(Directory directory) {
         this.wrappedDirectory = directory;
         this.fdbDirectory = (FDBDirectory)FilterDirectory.unwrap(directory);
-    }
-
-    LuceneOptimizedWrappedDirectory(Directory directory, FieldInfos fieldInfos) {
-        this(directory);
-        this.fieldInfos = fieldInfos;
     }
 
     @Override
@@ -104,27 +89,6 @@ class LuceneOptimizedWrappedDirectory extends Directory {
                 }
             };
 
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name) {
-                @Override
-                public void close() throws IOException {
-                    try {
-                        FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                        List<Long> words = getBitSetWords(fieldInfos);
-                        reference.setBitSetWords(words);
-                        byte[] schema = fdbDirectory.readSchema(words).get();
-                        if (schema == null) {
-                            fdbDirectory.writeSchema(words, outputStream.toByteArray()).get();
-                        }
-                        ((FDBDirectory)FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
-                    } catch (InterruptedException ie) {
-                        LOG.error("interrupted exception during close", ie);
-                        Thread.currentThread().interrupt();
-                    } catch (ExecutionException e) {
-                        throw new IOException(e);
-                    }
-                }
-            };
         } else {
             return wrappedDirectory.createOutput(name, context);
         }
@@ -158,20 +122,6 @@ class LuceneOptimizedWrappedDirectory extends Directory {
         } else if (FDBDirectory.isEntriesFile(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
                     () -> fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)).getEntries());
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> {
-                        try {
-                            return fdbDirectory.readSchema(fdbDirectory.getFDBLuceneFileReference(
-                                    convertToDataFile(name)).getBitSetWords()).get();
-                        } catch (InterruptedException ie) {
-                            LOG.error("Interrupted Exception During Open Input", ie);
-                            Thread.currentThread().interrupt();
-                        } catch (ExecutionException e) {
-                            LOG.error("Execution Exception", e);
-                        }
-                        return null;
-                    });
         } else {
             return wrappedDirectory.openInput(name, context);
         }
@@ -223,19 +173,11 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     public static String convertToDataFile(String name) {
         if (FDBDirectory.isSegmentInfo(name)) {
             return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (FDBDirectory.isEntriesFile(name) || FDBDirectory.isFieldInfoFile(name)) {
+        } else if (FDBDirectory.isEntriesFile(name)) {
             return name.substring(0, name.length() - 3) + DATA_EXTENSION;
         } else {
             return name;
         }
 
-    }
-
-    public static List<Long> getBitSetWords(final FieldInfos infos) {
-        BitSet bitSet = new BitSet(infos.size());
-        for (FieldInfo fi : infos) {
-            bitSet.set(fi.number);
-        }
-        return Longs.asList(bitSet.toLongArray());
     }
 }

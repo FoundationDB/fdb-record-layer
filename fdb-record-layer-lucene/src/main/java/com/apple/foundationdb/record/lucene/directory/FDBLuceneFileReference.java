@@ -29,7 +29,6 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
 /**
  * A File Reference record laying out the id, size, and block size.
@@ -43,28 +42,24 @@ public class FDBLuceneFileReference {
     private final long blockSize;
     private byte[] segmentInfo;
     private byte[] entries;
-    private List<Long> bitSetWords;
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
                 protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
-                protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null,
-                protoMessage.getColumnBitSetWordsList());
+                protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null);
     }
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, null, null, null);
+        this(id, size, actualSize, blockSize, null, null);
     }
 
-    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo,
-                                   byte[] entries, List<Long> bitSetWords) {
+    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo, byte[] entries) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
         this.blockSize = blockSize;
         this.segmentInfo = segmentInfo;
         this.entries = entries;
-        this.bitSetWords = bitSetWords;
     }
 
     public long getId() {
@@ -91,10 +86,6 @@ public class FDBLuceneFileReference {
         this.entries = entries;
     }
 
-    public void setBitSetWords(List<Long> bitSetWords) {
-        this.bitSetWords = bitSetWords;
-    }
-
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getSegmentInfo() {
         return segmentInfo;
@@ -103,11 +94,6 @@ public class FDBLuceneFileReference {
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getEntries() {
         return entries;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public List<Long> getBitSetWords() {
-        return bitSetWords;
     }
 
     @Nonnull
@@ -123,15 +109,12 @@ public class FDBLuceneFileReference {
         if (this.entries != null) {
             builder.setEntries(ZeroCopyByteString.wrap(this.entries));
         }
-        if (this.bitSetWords != null) {
-            builder.addAllColumnBitSetWords(bitSetWords);
-        }
         return builder.build().toByteArray();
     }
 
     @Override
     public String toString() {
-        return "Reference [ id=" + id + ", size=" + size + ", actualSize=" + actualSize + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + ", bitSetWords=" + (getBitSetWords() == null ? 0 : getBitSetWords().size()) + "]";
+        return "Reference [ id=" + id + ", size=" + size + ", actualSize=" + actualSize + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + "]";
     }
 
     @Nullable
