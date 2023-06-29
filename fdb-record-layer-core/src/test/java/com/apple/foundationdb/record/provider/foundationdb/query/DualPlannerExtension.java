@@ -125,7 +125,7 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
 
         private final boolean useCascades;
 
-        public DualPlannerTestInvocationDisplayNameDecorator(@Nonnull final TestTemplateInvocationContext underlying, boolean useCascades) {
+        public DualPlannerTestInvocationDisplayNameDecorator(@Nonnull final TestTemplateInvocationContext underlying, final boolean useCascades) {
             this.underlying = underlying;
             this.useCascades = useCascades;
         }
