@@ -42,12 +42,12 @@ import java.util.Map;
  * Note that normally, for search terms that are not prefix queries (ones that do not end with "*"), the analyzer will handle
  * the stop words removal, so this is not necessary here.
  */
-public class LuceneOptimizedStopWordsQueryParser extends LuceneOptimizedQueryParser {
+public class LuceneOptimizedMultiFieldStopWordsQueryParser extends LuceneOptimizedMultiFieldQueryParser {
     @Nonnull
     private final CharArraySet stopWords;
 
-    public LuceneOptimizedStopWordsQueryParser(final String field, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig, @Nonnull CharArraySet stopWords) {
-        super(field, analyzer, pointsConfig);
+    public LuceneOptimizedMultiFieldStopWordsQueryParser(final String[] fields, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig, @Nonnull CharArraySet stopWords) {
+        super(fields, analyzer, pointsConfig);
         this.stopWords = stopWords;
     }
 

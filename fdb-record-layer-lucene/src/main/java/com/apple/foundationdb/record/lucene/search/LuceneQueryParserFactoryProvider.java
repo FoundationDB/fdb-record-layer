@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.google.common.base.Suppliers;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
@@ -29,6 +31,7 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Supplier;
 
 /**
  * The provider for the implementations of {@link LuceneQueryParserFactory}.
@@ -37,9 +40,10 @@ import java.util.ServiceLoader;
  * implementation is marked as {@link com.google.auto.service.AutoService} then a default implementation will be selected.
  */
 public class LuceneQueryParserFactoryProvider {
-    @Nonnull
-    private static final LuceneQueryParserFactoryProvider INSTANCE = new LuceneQueryParserFactoryProvider();
+    // The singleton instance that gets initialized on the first call to instance()
+    private static final Supplier<LuceneQueryParserFactoryProvider> INSTANCE = Suppliers.memoize(LuceneQueryParserFactoryProvider::new);
 
+    // The parser factory that was found (or the default one if none was found)
     @Nonnull
     private final LuceneQueryParserFactory parserFactory;
 
@@ -49,7 +53,7 @@ public class LuceneQueryParserFactoryProvider {
 
     @Nonnull
     public static LuceneQueryParserFactoryProvider instance() {
-        return INSTANCE;
+        return INSTANCE.get();
     }
 
     @Nonnull
@@ -79,13 +83,23 @@ public class LuceneQueryParserFactoryProvider {
      * The default implementation is a {@link ConfigAwareQueryParser} with the default list of stop words.
      * This can be overridden by extenders, e.g. to provide another list of stop words.
      */
-    private static class DefaultParserFactory implements LuceneQueryParserFactory {
+    public static class DefaultParserFactory implements LuceneQueryParserFactory {
+        @Override
+        public QueryParser createQueryParser(final String field, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
+            return new LuceneOptimizedStopWordsQueryParser(field, analyzer, pointsConfig, getStopWords());
+        }
+
         @Nonnull
         @Override
-        public QueryParser createConfigAwareQueryParser(String[] fields, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
-            QueryParser parser = new LuceneOptimizedStopWordsQueryParser(fields, analyzer, pointsConfig, EnglishAnalyzer.ENGLISH_STOP_WORDS_SET);
+        public QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
+            QueryParser parser = new LuceneOptimizedMultiFieldStopWordsQueryParser(fields, analyzer, pointsConfig, getStopWords());
             parser.setDefaultOperator(QueryParser.Operator.OR);
             return parser;
+        }
+
+        @Nonnull
+        protected CharArraySet getStopWords() {
+            return EnglishAnalyzer.ENGLISH_STOP_WORDS_SET;
         }
     }
 }

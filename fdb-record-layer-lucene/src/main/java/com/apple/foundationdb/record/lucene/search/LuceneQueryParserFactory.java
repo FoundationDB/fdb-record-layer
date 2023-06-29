@@ -30,9 +30,11 @@ import java.util.Map;
 
 /**
  * A factory implementation for Query Parsers.
- * The factory method is used to create an appropriate query parser, when needed.
+ * The factory methods are used to create an appropriate query parser, when needed.
  * This class is meant to be implemented and provided through a {@link AutoService} extension: see {@link LuceneQueryParserFactoryProvider}.
  */
 public interface LuceneQueryParserFactory {
-    QueryParser createConfigAwareQueryParser(String[] fields, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
+    QueryParser createQueryParser(String field, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
+
+    QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
 }
