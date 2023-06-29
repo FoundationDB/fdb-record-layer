@@ -68,7 +68,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenTermQueryWhenFetchedDocumentThenCorrect() throws Exception {
-        luceneIndex.indexDocument("activity", "running in track");
+        luceneIndex.indexDocument("activity", "running in track", false);
         luceneIndex.indexDocument("activity", "Cars are running on road");
         Term term = new Term("body", "running");
         Query query = new TermQuery(term);
@@ -89,7 +89,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
     @Test
     public void givenBooleanQueryWhenFetchedDocumentThenCorrect() throws Exception {
         luceneIndex.indexDocument("Destination", "Las Vegas singapore car");
-        luceneIndex.indexDocument("Commutes in singapore", "Bus Car Bikes");
+        luceneIndex.indexDocument("Commutes in singapore", "Bus Car Bikes", false);
         Term term1 = new Term("body", "singapore");
         Term term2 = new Term("body", "car");
         TermQuery query1 = new TermQuery(term1);
@@ -110,7 +110,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenFuzzyQueryWhenFetchedDocumentThenCorrect() throws Exception {
-        luceneIndex.indexDocument("article", "Halloween Festival");
+        luceneIndex.indexDocument("article", "Halloween Festival", false);
         luceneIndex.indexDocument("decoration", "Decorations for Halloween");
         Term term = new Term("body", "hallowen");
         Query query = new FuzzyQuery(term);
@@ -132,7 +132,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
     public void givenSortFieldWhenSortedThenCorrect() throws Exception {
         luceneIndex.indexDocument("Ganges", "River in India");
         luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
-        luceneIndex.indexDocument("Amazon", "Rain forest river");
+        luceneIndex.indexDocument("Amazon", "Rain forest river", false);
         luceneIndex.indexDocument("Rhine", "Belongs to Europe");
         luceneIndex.indexDocument("Nile", "Longest River");
 
