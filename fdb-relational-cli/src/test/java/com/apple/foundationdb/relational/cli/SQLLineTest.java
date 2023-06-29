@@ -53,14 +53,9 @@ public class SQLLineTest {
                     // We don't need the below because we add our command over in our
                     // sqlline Customize class.
                     // "-ch", "sqlline.PlannerDebuggerCommandHandler",
-                    // This doesn't seem to work
-                    // "--connectInteractionMode=notAskCredentials",
-                    // ... so we have to pass null -n and -p.
-                    "-n", "",
-                    "-p", "",
                     "-u", "jdbc:embed:/__SYS?schema=CATALOG",
                     "-d", "com.apple.foundationdb.relational.jdbc.JDBCEmbedDriver",
-                    "--maxWidth=256",
+                    "--maxWidth=257",
                     "e", "select * from databases;"
             });
             ps.flush();

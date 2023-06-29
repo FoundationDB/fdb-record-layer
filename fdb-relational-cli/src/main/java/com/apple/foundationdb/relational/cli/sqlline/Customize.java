@@ -55,9 +55,9 @@ public class Customize extends sqlline.Application {
     @Override
     @ExcludeFromJacocoGeneratedReport // Hard to make a test that makes sense given this an sqlline internal.
     public SqlLineOpts getOpts(SqlLine sqlLine) {
-        SqlLineOpts opts = new SqlLineOpts(sqlLine);
-        opts.set(BuiltInProperty.CONNECT_INTERACTION_MODE, "notAskCredentials");
-        return opts;
+        // Set do-not-ask-for-login credentials -- login not supported on Relational, not yet.
+        sqlLine.getOpts().set(BuiltInProperty.CONNECT_INTERACTION_MODE, "notAskCredentials");
+        return sqlLine.getOpts();
     }
 
     @Override
