@@ -28,6 +28,9 @@ import org.apache.lucene.search.Query;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+/**
+ * Utilities for use in using query parsers.
+ */
 public class QueryParserUtils {
     /**
      * Relax the modifier for the query, if possible.
