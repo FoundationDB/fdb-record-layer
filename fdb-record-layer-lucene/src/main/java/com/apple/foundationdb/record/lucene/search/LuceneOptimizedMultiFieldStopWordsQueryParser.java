@@ -25,11 +25,9 @@ import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 
 /**
@@ -42,7 +40,7 @@ import java.util.Map;
  * Note that normally, for search terms that are not prefix queries (ones that do not end with "*"), the analyzer will handle
  * the stop words removal, so this is not necessary here.
  */
-@SuppressWarnings({"java:S110", "common-java:DuplicatedBlocks"})
+@SuppressWarnings({"java:S110"})
 public class LuceneOptimizedMultiFieldStopWordsQueryParser extends LuceneOptimizedMultiFieldQueryParser {
     @Nonnull
     private final CharArraySet stopWords;
@@ -54,30 +52,6 @@ public class LuceneOptimizedMultiFieldStopWordsQueryParser extends LuceneOptimiz
 
     @Override
     protected BooleanClause newBooleanClause(final Query q, final BooleanClause.Occur occur) {
-        BooleanClause.Occur modifiableOccur = occur;
-
-        CharSequence term = getTerm(q);
-        if ((term != null) && (stopWords.contains(term))) {
-            // Prefix queries with "+" ("+term*") are relaxed to become "term*"
-            modifiableOccur = BooleanClause.Occur.SHOULD;
-        }
-        return super.newBooleanClause(q, modifiableOccur);
-    }
-
-    /**
-     * Return the search term for the query.
-     * This will return the search term for the query, if the query is one that should go through stop word handling.
-     * For now, only prefix queries ("term*") are being handled (non-prefix queries have stop words handled in the analyzer).
-     *
-     * @param q the query
-     * @return the search term if the query is "of interest", null otherwise
-     */
-    @Nullable
-    private CharSequence getTerm(final Query q) {
-        if (q instanceof PrefixQuery) {
-            return ((PrefixQuery)q).getPrefix().text();
-        } else {
-            return null;
-        }
+        return super.newBooleanClause(q, QueryParserUtils.relaxOccur(q, occur, stopWords));
     }
 }
