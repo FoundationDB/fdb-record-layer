@@ -42,6 +42,7 @@ import java.util.Map;
  * Note that normally, for search terms that are not prefix queries (ones that do not end with "*"), the analyzer will handle
  * the stop words removal, so this is not necessary here.
  */
+@SuppressWarnings({"common-java:DuplicatedBlocks"})
 public class LuceneOptimizedStopWordsQueryParser extends LuceneOptimizedQueryParser {
     @Nonnull
     private final CharArraySet stopWords;
