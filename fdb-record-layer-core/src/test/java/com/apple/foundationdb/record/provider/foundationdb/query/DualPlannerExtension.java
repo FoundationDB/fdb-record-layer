@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.platform.commons.util.AnnotationUtils;
 
+import javax.annotation.Nonnull;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -64,7 +65,7 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
                 throw new RecordCoreException(e.getClass() + " " + e.getMessage());
             }
             return nestedProvider.provideTestTemplateInvocationContexts(context).map(existingContext ->
-                            new DualPlannerTestInvocationContext(displayName, true, existingContext.getAdditionalExtensions())); // new planner
+                            new DualPlannerTestInvocationDisplayNameDecorator(existingContext, true)); // new planner
         } else {
             final Optional<DualPlannerTest> annotationOptional =
                     AnnotationUtils.findAnnotation(context.getTestMethod(), DualPlannerTest.class);
@@ -114,6 +115,29 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
         @Override
         public List<Extension> getAdditionalExtensions() {
             return extensions;
+        }
+    }
+
+    private static class DualPlannerTestInvocationDisplayNameDecorator implements TestTemplateInvocationContext {
+
+        @Nonnull
+        private final TestTemplateInvocationContext underlying;
+
+        private final boolean useCascades;
+
+        public DualPlannerTestInvocationDisplayNameDecorator(@Nonnull final TestTemplateInvocationContext underlying, boolean useCascades) {
+            this.underlying = underlying;
+            this.useCascades = useCascades;
+        }
+
+        @Override
+        public String getDisplayName(final int invocationIndex) {
+            return underlying.getDisplayName(invocationIndex) + (useCascades ? "[cascades]" : "[heuristics]");
+        }
+
+        @Override
+        public List<Extension> getAdditionalExtensions() {
+            return underlying.getAdditionalExtensions();
         }
     }
 }
