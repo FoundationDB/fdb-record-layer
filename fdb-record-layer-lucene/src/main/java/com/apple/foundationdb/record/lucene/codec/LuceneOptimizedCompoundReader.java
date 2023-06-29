@@ -165,9 +165,4 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public void checkIntegrity() throws IOException {
         CodecUtil.checksumEntireFile(handle);
     }
-
-    public Directory getDirectory() {
-        return directory;
-    }
-
 }

@@ -30,5 +30,4 @@ message LuceneFileReference {
   optional bytes segment_info = 4;
   optional bytes entries = 5;
   optional int64 actualSize = 6;
-  repeated int64 columnBitSetWords = 7;
 }
