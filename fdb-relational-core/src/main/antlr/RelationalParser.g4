@@ -255,7 +255,8 @@ multipleDeleteStatement
 updateStatement
     : UPDATE tableName (AS? uid)?
       SET updatedElement (',' updatedElement)*
-      (WHERE expression)? orderByClause? limitClause?
+      (WHERE expression)?
+      (RETURNING selectElements)?
     ;
 
 // details

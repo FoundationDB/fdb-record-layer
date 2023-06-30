@@ -161,4 +161,9 @@ public class YamlIntegrationTests {
     void catalog() throws Exception {
         doRun("catalog.yaml");
     }
+
+    @Test
+    public void updateReturning() throws Exception {
+        doRun("update-returning.yaml");
+    }
 }

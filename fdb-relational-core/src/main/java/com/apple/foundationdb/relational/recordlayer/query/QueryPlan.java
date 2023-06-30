@@ -252,14 +252,18 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final String query;
 
+        @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         @Nonnull
         private Optional<PhysicalQueryPlan> optimizedPlan;
+
+        private final boolean isReverseSort;
 
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
                                  @Nonnull final PlanGenerationContext context,
                                  @Nonnull final String query) {
             super(query);
             this.relationalExpression = relationalExpression;
+            this.isReverseSort = getReverseSortRequirements(relationalExpression);
             this.context = context;
             this.optimizedPlan = Optional.empty();
             this.query = query;
@@ -287,7 +291,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                 GroupExpressionRef.of(relationalExpression),
                         configuration.getReadableIndexes().map(s -> s),
                         IndexQueryabilityFilter.TRUE,
-                        ((LogicalSortExpression) relationalExpression).isReverse(), typedEvaluationContext);
+                        isReverseSort, typedEvaluationContext);
 
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();
@@ -336,6 +340,14 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         public PlanGenerationContext getGenerationContext() {
             return context;
+        }
+
+        private static boolean getReverseSortRequirements(@Nonnull final RelationalExpression relationalExpression) {
+            if (relationalExpression instanceof LogicalSortExpression) {
+                return ((LogicalSortExpression) relationalExpression).isReverse();
+            } else {
+                return false;
+            }
         }
 
         @Nonnull

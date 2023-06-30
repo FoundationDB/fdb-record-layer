@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -1486,16 +1487,27 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
-        //context.pushDmlContext();
         RelationalExpression expression = handleUpdateStatement(ctx.uid(),
                 ctx.tableName(),
                 ctx.updatedElement(),
                 ctx.expression());
-        //        // TODO Ask hatyo to help get rid of this hack.
+
+        if (ctx.RETURNING() != null) {
+            final var qun = Quantifier.forEach(GroupExpressionRef.of(expression));
+            final var scope = scopes.push();
+            final var newFieldsSelector = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun), 1);
+            expression = new SelectExpression(newFieldsSelector, List.of(qun), List.of());
+            final var selectQun = Quantifier.forEach(GroupExpressionRef.of(expression));
+            scope.addQuantifier(selectQun);
+            visit(ctx.selectElements());
+            return QueryPlan.LogicalQueryPlan.of(scopes.pop().convertToRelationalExpression(), context, query);
+        }
+
+        // TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScope() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
-        //context.pop();
+
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
 

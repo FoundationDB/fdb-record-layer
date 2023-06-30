@@ -213,7 +213,7 @@ public class QueryLoggingTest {
     @Test
     void testLogPlanHash() throws Exception {
         final var query1 = "SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)";
-        final var conn = ((EmbeddedRelationalConnection) connection.connection);
+        final var conn = (EmbeddedRelationalConnection) connection.connection;
         int queryHash = 0;
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
