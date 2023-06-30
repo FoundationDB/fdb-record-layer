@@ -2313,6 +2313,29 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         BaseBuilder<M, R> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache);
 
         /**
+         * Get how the store state cacheability should be modified during store opening.
+         *
+         * @return how the store state cacheability should be modified when the store is created or opened
+         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.StateCacheabilityOnOpen
+         * @see FDBRecordStore#setStateCacheabilityAsync(boolean)
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        FDBRecordStore.StateCacheabilityOnOpen getStateCacheabilityOnOpen();
+
+        /**
+         * Sets the behavior for how the store state cacheability should be modified when the store is opened.
+         *
+         * @param stateCacheabilityOnOpen how the store state cacheability should be modified when the store is opened
+         * @return this builder
+         * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.StateCacheabilityOnOpen
+         * @see FDBRecordStore#setStateCacheabilityAsync(boolean)
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        BaseBuilder<M, R> setStateCacheabilityOnOpen(@Nonnull FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen);
+
+        /**
          * Make a copy of this builder.
          * This can be used to share enough of the state to connect to the same record store several times in different transactions.
          * <pre>
