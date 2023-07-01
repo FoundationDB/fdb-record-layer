@@ -214,11 +214,23 @@ public class ScalarFunctionValue extends AbstractValue {
     }
 
     /**
+     * The {@code coalesce} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class CoalesceFn extends BuiltInFunction<Value> {
+        public CoalesceFn() {
+            super("coalesce",
+                    ImmutableList.of(), new Type.Any(), ScalarFunctionValue::encapsulate);
+        }
+    }
+
+    /**
      * Logical operator.
      */
     public enum ScalarFunction {
         GREATEST,
-        LEAST;
+        LEAST,
+        COALESCE;
     }
 
     /**
@@ -238,7 +250,14 @@ public class ScalarFunctionValue extends AbstractValue {
         LEAST_BOOLEAN(ScalarFunction.LEAST, TypeCode.BOOLEAN, args -> least(args, Boolean.class)),
         LEAST_STRING(ScalarFunction.LEAST, TypeCode.STRING, args -> least(args, String.class)),
         LEAST_FLOAT(ScalarFunction.LEAST, TypeCode.FLOAT, args -> least(args, Float.class)),
-        LEAST_DOUBLE(ScalarFunction.LEAST, TypeCode.DOUBLE, args -> least(args, Double.class));
+        LEAST_DOUBLE(ScalarFunction.LEAST, TypeCode.DOUBLE, args -> least(args, Double.class)),
+
+        COALESCE_INT(ScalarFunction.COALESCE, TypeCode.INT, args -> coalesce(args, Integer.class)),
+        COALESCE_LONG(ScalarFunction.COALESCE, TypeCode.LONG, args -> coalesce(args, Long.class)),
+        COALESCE_BOOLEAN(ScalarFunction.COALESCE, TypeCode.BOOLEAN, args -> coalesce(args, Boolean.class)),
+        COALESCE_STRING(ScalarFunction.COALESCE, TypeCode.STRING, args -> coalesce(args, String.class)),
+        COALESCE_FLOAT(ScalarFunction.COALESCE, TypeCode.FLOAT, args -> coalesce(args, Float.class)),
+        COALESCE_DOUBLE(ScalarFunction.COALESCE, TypeCode.DOUBLE, args -> coalesce(args, Double.class));
 
         @Nonnull
         private final ScalarFunction scalarFunction;
@@ -269,9 +288,6 @@ public class ScalarFunctionValue extends AbstractValue {
 
         @Nullable
         public Object eval(List<Object> args) {
-            if (args.contains(null)) {
-                return null;
-            }
             return evaluateFunction.apply(args);
         }
 
@@ -279,6 +295,9 @@ public class ScalarFunctionValue extends AbstractValue {
         private static <T extends Comparable<T>> T greatest(final List<Object> args, Class<T> clazz) {
             T max = (T) args.get(0);
             for (Object i : args) {
+                if (i == null) {
+                    return null;
+                }
                 if (((T) i).compareTo(max) > 0) {
                     max = (T) i;
                 }
@@ -290,11 +309,24 @@ public class ScalarFunctionValue extends AbstractValue {
         private static <T extends Comparable<T>> T least(final List<Object> args, Class<T> clazz) {
             T min = (T) args.get(0);
             for (Object i : args) {
+                if (i == null) {
+                    return null;
+                }
                 if (((T) i).compareTo(min) < 0) {
                     min = (T) i;
                 }
             }
             return min;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T extends Comparable<T>> T coalesce(final List<Object> args, Class<T> clazz) {
+            for (Object i : args) {
+                if (i != null) {
+                    return (T) i;
+                }
+            }
+            return null;
         }
     }
 }

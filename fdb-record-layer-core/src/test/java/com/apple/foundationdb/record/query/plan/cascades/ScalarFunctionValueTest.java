@@ -223,7 +223,87 @@ class ScalarFunctionValueTest {
                     Arguments.of(List.of(INT_1, BOOLEAN_1), new ScalarFunctionValue.LeastFn(), null, true),
                     Arguments.of(List.of(LONG_1, BOOLEAN_1), new ScalarFunctionValue.LeastFn(), null, true),
                     Arguments.of(List.of(FLOAT_1, BOOLEAN_1), new ScalarFunctionValue.LeastFn(), null, true),
-                    Arguments.of(List.of(DOUBLE_1, BOOLEAN_1), new ScalarFunctionValue.LeastFn(), null, true)
+                    Arguments.of(List.of(DOUBLE_1, BOOLEAN_1), new ScalarFunctionValue.LeastFn(), null, true),
+
+                    // Coalesce
+                    Arguments.of(List.of(INT_3, INT_3), new ScalarFunctionValue.CoalesceFn(), 3, false),
+                    Arguments.of(List.of(LONG_3, LONG_3), new ScalarFunctionValue.CoalesceFn(), 3L, false),
+                    Arguments.of(List.of(FLOAT_3, FLOAT_3), new ScalarFunctionValue.CoalesceFn(), 3.0F, false),
+                    Arguments.of(List.of(DOUBLE_3, DOUBLE_3), new ScalarFunctionValue.CoalesceFn(), 3.0, false),
+                    Arguments.of(List.of(STRING_3, STRING_3), new ScalarFunctionValue.CoalesceFn(), "c", false),
+                    Arguments.of(List.of(BOOLEAN_2, BOOLEAN_2), new ScalarFunctionValue.CoalesceFn(), true, false),
+
+                    Arguments.of(List.of(INT_3, INT_2), new ScalarFunctionValue.CoalesceFn(), 3, false),
+                    Arguments.of(List.of(LONG_3, LONG_2), new ScalarFunctionValue.CoalesceFn(), 3L, false),
+                    Arguments.of(List.of(FLOAT_3, FLOAT_2), new ScalarFunctionValue.CoalesceFn(), 3.0F, false),
+                    Arguments.of(List.of(DOUBLE_3, DOUBLE_2), new ScalarFunctionValue.CoalesceFn(), 3.0, false),
+                    Arguments.of(List.of(STRING_3, STRING_2), new ScalarFunctionValue.CoalesceFn(), "c", false),
+                    Arguments.of(List.of(BOOLEAN_2, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), true, false),
+
+                    Arguments.of(List.of(INT_1, INT_2, INT_3), new ScalarFunctionValue.CoalesceFn(), 1, false),
+                    Arguments.of(List.of(LONG_1, LONG_2, LONG_3), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2, FLOAT_3), new ScalarFunctionValue.CoalesceFn(), 1.0F, false),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2, DOUBLE_3), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(STRING_1, STRING_2, STRING_3), new ScalarFunctionValue.CoalesceFn(), "a", false),
+                    Arguments.of(List.of(BOOLEAN_1, BOOLEAN_2, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), false, false),
+
+                    Arguments.of(List.of(INT_1, INT_2, INT_3, INT_NULL), new ScalarFunctionValue.CoalesceFn(), 1, false),
+                    Arguments.of(List.of(LONG_1, LONG_2, LONG_3, LONG_NULL), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2, FLOAT_3, FLOAT_NULL), new ScalarFunctionValue.CoalesceFn(), 1.0F, false),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2, DOUBLE_3, DOUBLE_NULL), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(STRING_1, STRING_2, STRING_3, STRING_NULL), new ScalarFunctionValue.CoalesceFn(), "a", false),
+                    Arguments.of(List.of(BOOLEAN_1, BOOLEAN_2, BOOLEAN_1, BOOLEAN_NULL), new ScalarFunctionValue.CoalesceFn(), false, false),
+
+                    Arguments.of(List.of(INT_NULL, INT_1, INT_2, INT_3, INT_NULL), new ScalarFunctionValue.CoalesceFn(), 1, false),
+                    Arguments.of(List.of(LONG_NULL, LONG_1, LONG_2, LONG_3, LONG_NULL), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+                    Arguments.of(List.of(FLOAT_NULL, FLOAT_1, FLOAT_2, FLOAT_3, FLOAT_NULL), new ScalarFunctionValue.CoalesceFn(), 1.0F, false),
+                    Arguments.of(List.of(DOUBLE_NULL, DOUBLE_1, DOUBLE_2, DOUBLE_3, DOUBLE_NULL), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(STRING_NULL, STRING_1, STRING_2, STRING_3, STRING_NULL), new ScalarFunctionValue.CoalesceFn(), "a", false),
+                    Arguments.of(List.of(BOOLEAN_NULL, BOOLEAN_1, BOOLEAN_2, BOOLEAN_1, BOOLEAN_NULL), new ScalarFunctionValue.CoalesceFn(), false, false),
+
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+                    Arguments.of(List.of(LONG_NULL, LONG_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+                    Arguments.of(List.of(FLOAT_NULL, FLOAT_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+                    Arguments.of(List.of(DOUBLE_NULL, DOUBLE_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+                    Arguments.of(List.of(STRING_NULL, STRING_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+                    Arguments.of(List.of(BOOLEAN_NULL, BOOLEAN_NULL), new ScalarFunctionValue.CoalesceFn(), null, false),
+
+                    Arguments.of(List.of(INT_1, LONG_2), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new ScalarFunctionValue.CoalesceFn(), 1F, false),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new ScalarFunctionValue.CoalesceFn(), 1F, false),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new ScalarFunctionValue.CoalesceFn(), 1F, false),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new ScalarFunctionValue.CoalesceFn(), 1F, false),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+
+                    Arguments.of(List.of(INT_1, LONG_2, FLOAT_3, DOUBLE_1), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(INT_1, LONG_NULL, FLOAT_3, DOUBLE_1), new ScalarFunctionValue.CoalesceFn(), 1.0, false),
+                    Arguments.of(List.of(INT_NULL, LONG_NULL, FLOAT_3, DOUBLE_1), new ScalarFunctionValue.CoalesceFn(), 3.0, false),
+
+                    Arguments.of(List.of(F, INT_1), new ScalarFunctionValue.CoalesceFn(), 4L, false),
+                    Arguments.of(List.of(INT_1, F), new ScalarFunctionValue.CoalesceFn(), 1L, false),
+
+                    Arguments.of(List.of(F, INT_NULL), new ScalarFunctionValue.CoalesceFn(), 4L, false),
+                    Arguments.of(List.of(INT_NULL, F), new ScalarFunctionValue.CoalesceFn(), 4L, false),
+
+                    Arguments.of(List.of(INT_1, STRING_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(LONG_1, STRING_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(FLOAT_1, STRING_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(DOUBLE_1, STRING_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(BOOLEAN_1, STRING_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+
+                    Arguments.of(List.of(INT_1, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(LONG_1, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(FLOAT_1, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), null, true),
+                    Arguments.of(List.of(DOUBLE_1, BOOLEAN_1), new ScalarFunctionValue.CoalesceFn(), null, true)
+
             );
         }
     }
