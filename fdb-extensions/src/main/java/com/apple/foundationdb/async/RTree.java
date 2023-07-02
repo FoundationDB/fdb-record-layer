@@ -22,6 +22,7 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
@@ -31,6 +32,9 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,13 +48,16 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +65,12 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RTree {
-    private static final int MAX_CONCURRENT_READS = 16;
+    private static final Logger logger = LoggerFactory.getLogger(RTree.class);
+
+    private static final byte[] rootId = new byte[16]; // all zeros for the root
+
+    public static final int NODE_ID_LENGTH = 16;
+    public static final int MAX_CONCURRENT_READS = 16;
 
     public static final Config DEFAULT_CONFIG = new Config();
 
@@ -66,9 +78,16 @@ public class RTree {
     public static final int DEFAULT_MAX_M = 32;
     public static final int DEFAULT_MIN_S = 2;
 
-    protected final Subspace subspace;
+    @Nonnull
+    protected final byte[] subspacePrefix;
+    @Nonnull
     protected final Executor executor;
+    @Nonnull
     protected final Config config;
+    @Nonnull
+    protected final Supplier<byte[]> nodeIdSupplier;
+
+    private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
 
     /**
      * Configuration settings for a {@link RTree}.
@@ -169,11 +188,13 @@ public class RTree {
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
+     * @param nodeIdSupplier supplier to be invoked when new nodes are created
      */
-    public RTree(Subspace subspace, Executor executor, Config config) {
-        this.subspace = subspace;
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config, @Nonnull final Supplier<byte[]> nodeIdSupplier) {
+        this.subspacePrefix = subspace.getKey();
         this.executor = executor;
         this.config = config;
+        this.nodeIdSupplier = nodeIdSupplier;
     }
 
     /**
@@ -182,21 +203,28 @@ public class RTree {
      * @param executor an executor to use when running asynchronous tasks
      */
     public RTree(Subspace subspace, Executor executor) {
-        this(subspace, executor, DEFAULT_CONFIG);
+        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId);
     }
 
     /**
-     * Get the subspace used to store this r-tree.
+     * Get the subspace prefix used to store this r-tree.
      * @return r-tree subspace
      */
-    public Subspace getSubspace() {
-        return subspace;
+    @Nonnull
+    public byte[] getSubspacePrefix() {
+        return subspacePrefix;
+    }
+
+    @Nonnull
+    private byte[] packWithPrefix(final byte[] key) {
+        return Bytes.concat(getSubspacePrefix(), key);
     }
 
     /**
      * Get executer used by this r-tree.
      * @return executor used when running asynchronous tasks
      */
+    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -205,61 +233,97 @@ public class RTree {
      * Get this r-tree's configuration.
      * @return r-tree configuration
      */
+    @Nonnull
     public Config getConfig() {
         return config;
     }
 
-    public CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final Transaction transaction,
-                                                                     @Nonnull final byte[] rootId,
-                                                                     @Nonnull final Predicate<Rectangle> mbrPredicate) {
+    @Nonnull
+    public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
+                                        @Nonnull final Predicate<Rectangle> mbrPredicate) {
+        final LeafIterator leafIterator = new LeafIterator(readTransaction, rootId, mbrPredicate);
+        return new ItemIterator(leafIterator);
+    }
+
+    @Nonnull
+    private CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final ReadTransaction transaction,
+                                                                      @Nonnull final byte[] rootId,
+                                                                      @Nonnull final Predicate<Rectangle> mbrPredicate) {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final List<Deque<byte[]>> toBeProcessed = Lists.newArrayList();
-        final AtomicReference<Node> leafNode = new AtomicReference<>(null);
+        final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
                 .thenApply(node -> {
                     if (node.getKind() == Kind.INTERMEDIATE) {
                         final List<ChildSlot> children = node.getChildren();
-                        final Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
+                        Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
                         for (final ChildSlot child : children) {
                             if (mbrPredicate.test(child.getMbr())) {
                                 toBeProcessedThisLevel.addLast(child.getChildId());
                             }
                         }
-                        currentId.set(Objects.requireNonNull(toBeProcessedThisLevel.pollFirst()));
+                        toBeProcessed.add(toBeProcessedThisLevel);
+
+                        byte[] nextId = null;
+                        for (int level = toBeProcessed.size() - 1; level >= 0; level --) {
+                            toBeProcessedThisLevel = toBeProcessed.get(level);
+                            if (!toBeProcessedThisLevel.isEmpty()) {
+                                nextId = toBeProcessedThisLevel.pollFirst();
+                                break;
+                            }
+                        }
+
+                        if (nextId == null) {
+                            return false;
+                        }
+
+                        currentId.set(Objects.requireNonNull(nextId));
                         return true;
                     } else {
-                        leafNode.set(node);
+                        leafNode.set((LeafNode)node);
                         return false;
                     }
-                }), executor).thenApply(vignore -> TraversalState.of(toBeProcessed, leafNode.get()));
+                }), executor).thenApply(vignore -> leafNode.get() == null
+                                                   ? TraversalState.end()
+                                                   : TraversalState.of(toBeProcessed, leafNode.get()));
     }
 
-    public CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final Transaction transaction,
-                                                                 @Nonnull final TraversalState traversalState,
-                                                                 @Nonnull final Predicate<Rectangle> mbrPredicate) {
+    @Nonnull
+    private CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final ReadTransaction transaction,
+                                                                  @Nonnull final TraversalState traversalState,
+                                                                  @Nonnull final Predicate<Rectangle> mbrPredicate) {
+
         final List<Deque<byte[]>> toBeProcessed = traversalState.getToBeProcessed();
+        final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
 
-        int level;
-        byte[] currentId = null;
-        for (level = toBeProcessed.size() - 1; level >= 0; level --) {
-            final var toBeProcessedThisLevel = toBeProcessed.get(level);
-            if (!toBeProcessedThisLevel.isEmpty()) {
-                currentId = toBeProcessedThisLevel.pollFirst();
-                break;
+        return AsyncUtil.whileTrue(() -> {
+            int level;
+            byte[] currentId = null;
+            for (level = toBeProcessed.size() - 1; level >= 0; level--) {
+                final Deque<byte[]> toBeProcessedThisLevel = toBeProcessed.get(level);
+                if (!toBeProcessedThisLevel.isEmpty()) {
+                    currentId = toBeProcessedThisLevel.pollFirst();
+                    break;
+                }
             }
-        }
 
-        if (currentId == null) {
-            return CompletableFuture.completedFuture(TraversalState.end());
-        }
+            if (currentId == null) {
+                return AsyncUtil.READY_FALSE;
+            }
 
-        final int branchLevel = level;
-        return fetchLeftmostPathToLeaf(transaction, currentId, mbrPredicate).thenApply(nestedTraversalState -> {
-            traversalState.setCurrentLeafNode(nestedTraversalState.getCurrentLeafNode());
-            toBeProcessed.subList(branchLevel, toBeProcessed.size()).clear();
-            toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
-            return traversalState;
-        });
+            final int branchLevel = level; // lambdas
+            return fetchLeftmostPathToLeaf(transaction, currentId, mbrPredicate).thenApply(nestedTraversalState -> {
+                if (nestedTraversalState.isEnd()) {
+                    return true;
+                }
+                leafNode.set(nestedTraversalState.getCurrentLeafNode());
+                toBeProcessed.subList(branchLevel + 1, toBeProcessed.size()).clear();
+                toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
+                return false;
+            });
+        }, executor).thenApply(v -> leafNode.get() == null
+                                    ? TraversalState.end()
+                                    : TraversalState.of(toBeProcessed, leafNode.get()));
     }
 
     public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
@@ -276,46 +340,38 @@ public class RTree {
                                                       @Nonnull final NodeSlot newSlot) {
         Verify.verify(targetNode.getSlots().size() <= config.getMaxM());
 
-        final int insertSlotIndex = findInsertSlotIndex(targetNode, newSlot.getHilbertValue(), newSlot.getKey());
-        if (targetNode.getKind() == Kind.LEAF && insertSlotIndex < 0) {
+        final AtomicInteger insertSlotIndex = new AtomicInteger(findInsertSlotIndex(targetNode, newSlot.getHilbertValue(), newSlot.getKey()));
+        if (targetNode.getKind() == Kind.LEAF && insertSlotIndex.get() < 0) {
             // just update the slot with the potentially new value
             writeNodeSlot(transaction, targetNode.getId(), newSlot);
             return AsyncUtil.DONE;
         }
 
         final AtomicReference<Node> currentNode = new AtomicReference<>(targetNode);
-        final AtomicReference<SplitNodeSlotOrAdjust> currentSplitNodeSlotOrAdjust = new AtomicReference<>(null);
+        final AtomicReference<NodeSlot> parentSlot = new AtomicReference<>(newSlot);
 
         return AsyncUtil.whileTrue(() -> {
-            final NodeSlot currentNewSlot;
-            final SplitNodeSlotOrAdjust lastSplitNodeOrAdjust = currentSplitNodeSlotOrAdjust.get();
-            if (lastSplitNodeOrAdjust == null) {
-                currentNewSlot = newSlot;
-            } else if (lastSplitNodeOrAdjust.getSplitNodeSlot() != null) {
-                currentNewSlot = Objects.requireNonNull(lastSplitNodeOrAdjust.getSplitNodeSlot());
-            } else {
-                currentNewSlot = null;
-            }
+            final NodeSlot currentNewSlot = parentSlot.get();
 
             if (currentNewSlot != null) {
-                return insertSlotIntoTargetNode(transaction, currentNode.get(), currentNewSlot, insertSlotIndex)
-                        .thenApply(splitNodeSlotOrAdjust -> {
+                return insertSlotIntoTargetNode(transaction, currentNode.get(), currentNewSlot, insertSlotIndex.get())
+                        .thenApply(splitNodeOrAdjust -> {
                             if (currentNode.get().isRoot()) {
                                 return false;
                             }
                             currentNode.set(currentNode.get().getParentNode());
-                            currentSplitNodeSlotOrAdjust.set(splitNodeSlotOrAdjust);
-                            return splitNodeSlotOrAdjust.getSplitNodeSlot() != null || splitNodeSlotOrAdjust.parentNeedsAdjustment();
+                            parentSlot.set(splitNodeOrAdjust.getSlotInParent());
+                            insertSlotIndex.set(splitNodeOrAdjust.getSplitNode() == null ? -1 : splitNodeOrAdjust.getSplitNode().getSlotIndexInParent());
+                            return splitNodeOrAdjust.getSplitNode() != null || splitNodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
-                final SplitNodeSlotOrAdjust splitNodeSlotOrAdjust = adjustUpdateNode(transaction, currentNode.get());
-                Verify.verify(splitNodeSlotOrAdjust.getSplitNodeSlot() == null);
+                final SplitNodeOrAdjust splitNodeSlotOrAdjust = updateSlotsAndAdjustNode(transaction, currentNode.get());
+                Verify.verify(splitNodeSlotOrAdjust.getSlotInParent() == null);
                 if (currentNode.get().isRoot()) {
                     return AsyncUtil.READY_FALSE;
                 }
                 currentNode.set(currentNode.get().getParentNode());
-                currentSplitNodeSlotOrAdjust.set(splitNodeSlotOrAdjust);
                 return splitNodeSlotOrAdjust.parentNeedsAdjustment()
                        ? AsyncUtil.READY_TRUE
                        : AsyncUtil.READY_FALSE;
@@ -323,29 +379,40 @@ public class RTree {
         }, executor);
     }
 
-    public CompletableFuture<SplitNodeSlotOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
-                                                                             @Nonnull final Node targetNode,
-                                                                             @Nonnull final NodeSlot newSlot,
-                                                                             final int slotIndexInTargetNode) {
+    public CompletableFuture<SplitNodeOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
+                                                                         @Nonnull final Node targetNode,
+                                                                         @Nonnull final NodeSlot newSlot,
+                                                                         final int slotIndexInTargetNode) {
         if (targetNode.getSlots().size() < config.getMaxM()) {
+            //logger.info("regular insert without splitting; node={}; size={}", bytesToHex(targetNode.getId()), targetNode.size());
             targetNode.insertSlot(slotIndexInTargetNode, newSlot);
 
-            writeNodeSlot(transaction, targetNode.getId(), newSlot);
+            if (targetNode.getKind() == Kind.INTERMEDIATE) {
+                // if this is an insert for an intermediate node, that node is a split node and all
+                // slots need to be updated
+                updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+            } else {
+                Verify.verify(targetNode.getKind() == Kind.LEAF);
+                writeNodeSlot(transaction, targetNode.getId(), newSlot);
+            }
 
             // node has left some space -- indicate that we are done splitting at the current node
             if (!targetNode.isRoot()) {
                 return CompletableFuture.completedFuture(adjustSlotInParent(targetNode)
-                                                         ? SplitNodeSlotOrAdjust.ADJUST
-                                                         : SplitNodeSlotOrAdjust.NONE);
+                                                         ? SplitNodeOrAdjust.ADJUST
+                                                         : SplitNodeOrAdjust.NONE);
             }
-            return CompletableFuture.completedFuture(SplitNodeSlotOrAdjust.NONE); // no split and no adjustment
+            return CompletableFuture.completedFuture(SplitNodeOrAdjust.NONE); // no split and no adjustment
         } else {
             //
             // if this is the root we need to grow the tree taller
             //
             if (targetNode.isRoot()) {
+                logger.info("splitting root node; size={}", targetNode.size());
+                // temporarily overfill the old root node
+                targetNode.insertSlot(slotIndexInTargetNode, newSlot);
                 splitRootNode(transaction, targetNode);
-                return CompletableFuture.completedFuture(SplitNodeSlotOrAdjust.NONE);
+                return CompletableFuture.completedFuture(SplitNodeOrAdjust.NONE);
             }
 
             //
@@ -355,7 +422,7 @@ public class RTree {
                     fetchSiblings(transaction, Objects.requireNonNull(targetNode));
 
             return siblings.thenApply(siblingNodes -> {
-                final int numSlots =
+                int numSlots =
                         Math.toIntExact(siblingNodes
                                 .stream()
                                 .mapToLong(siblingNode -> siblingNode.getSlots().size())
@@ -363,19 +430,26 @@ public class RTree {
 
                 final Node splitNode;
                 if (numSlots == siblingNodes.size() * config.getMaxM()) {
+                    logger.info("splitting node; node={}, siblings={}",
+                            bytesToHex(targetNode.getId()),
+                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     splitNode = targetNode.newOfSameKind();
                     // link this split node to become the last node of the siblings
                     splitNode.linkToParent(Objects.requireNonNull(targetNode.getParentNode()),
                             siblingNodes.get(siblingNodes.size() - 1).getSlotIndexInParent() + 1);
                     siblingNodes.add(splitNode);
                 } else {
+                    logger.info("handling overflow; node={}, numSlots={}, siblings={}",
+                            bytesToHex(targetNode.getId()),
+                            numSlots,
+                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     splitNode = null;
                 }
 
                 // temporarily overfill targetNode
+                numSlots ++;
                 targetNode.insertSlot(slotIndexInTargetNode, newSlot);
 
-                final Iterator<Node> siblingNodesIterator = siblingNodes.iterator();
                 // sibling nodes are in hilbert value order
                 final Iterator<? extends NodeSlot> slotIterator =
                         siblingNodes
@@ -386,7 +460,8 @@ public class RTree {
                 final int base = numSlots / siblingNodes.size();
                 int rest = numSlots % siblingNodes.size();
 
-                final List<NodeSlot> currentNodeSlots = Lists.newArrayList();
+                List<List<NodeSlot>> newNodeSlotLists = Lists.newArrayList();
+                List<NodeSlot> currentNodeSlots = Lists.newArrayList();
                 while (slotIterator.hasNext()) {
                     final NodeSlot slot = slotIterator.next();
                     currentNodeSlots.add(slot);
@@ -396,10 +471,21 @@ public class RTree {
                             rest--;
                         }
 
-                        Verify.verify(siblingNodesIterator.hasNext());
-                        final Node currentSiblingNode = siblingNodesIterator.next();
-                        currentSiblingNode.setSlots(currentNodeSlots);
+                        newNodeSlotLists.add(currentNodeSlots);
+                        currentNodeSlots = Lists.newArrayList();
                     }
+                }
+
+                Verify.verify(siblingNodes.size() == newNodeSlotLists.size());
+
+                final Iterator<Node> siblingNodesIterator = siblingNodes.iterator();
+                final Iterator<List<NodeSlot>> newNodeSlotsIterator = newNodeSlotLists.iterator();
+
+                while (siblingNodesIterator.hasNext()) {
+                    final Node siblingNode = siblingNodesIterator.next();
+                    Verify.verify(newNodeSlotsIterator.hasNext());
+                    final List<NodeSlot> newNodeSlots = newNodeSlotsIterator.next();
+                    siblingNode.setSlots(newNodeSlots);
                 }
 
                 updateNodeSlotsForNodes(transaction, siblingNodes);
@@ -411,12 +497,12 @@ public class RTree {
                 }
 
                 if (splitNode == null) {
-                    return SplitNodeSlotOrAdjust.ADJUST;
+                    return SplitNodeOrAdjust.ADJUST;
                 }
 
                 final var lastSlotOfSplitNode = splitNode.getSlots().get(splitNode.size() - 1);
-                return new SplitNodeSlotOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
-                        lastSlotOfSplitNode.getKey(), splitNode.getId(), computeMbr(splitNode.getChildren())),
+                return new SplitNodeOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
+                        lastSlotOfSplitNode.getKey(), splitNode.getId(), computeMbr(splitNode.getSlots())), splitNode,
                         true);
             });
         }
@@ -439,29 +525,34 @@ public class RTree {
         final ArrayList<ChildSlot> rootNodeSlots =
                 Lists.newArrayList(
                         new ChildSlot(lastSlotOfLeftNode.getHilbertValue(), lastSlotOfLeftNode.getKey(), leftNode.getId(),
-                                computeMbr(leftNode.getChildren())),
-                        new ChildSlot(lastSlotOfRightNode.getHilbertValue(), lastSlotOfRightNode.getKey(), leftNode.getId(),
-                                computeMbr(leftNode.getChildren())));
-        final IntermediateNode newRootNode = new IntermediateNode(Node.ROOT_ID, rootNodeSlots);
+                                computeMbr(leftNode.getSlots())),
+                        new ChildSlot(lastSlotOfRightNode.getHilbertValue(), lastSlotOfRightNode.getKey(), rightNode.getId(),
+                                computeMbr(rightNode.getSlots())));
+        final IntermediateNode newRootNode = new IntermediateNode(rootId, rootNodeSlots);
 
         updateNodeSlotsForNodes(transaction, Lists.newArrayList(leftNode, rightNode, newRootNode));
     }
 
-    public SplitNodeSlotOrAdjust adjustUpdateNode(@Nonnull final Transaction transaction,
-                                                  @Nonnull final Node targetNode) {
+    public SplitNodeOrAdjust updateSlotsAndAdjustNode(@Nonnull final Transaction transaction,
+                                                      @Nonnull final Node targetNode) {
         updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+        if (targetNode.isRoot()) {
+            return SplitNodeOrAdjust.NONE;
+        }
+
         return adjustSlotInParent(targetNode)
-               ? SplitNodeSlotOrAdjust.ADJUST
-               : SplitNodeSlotOrAdjust.NONE;
+               ? SplitNodeOrAdjust.ADJUST
+               : SplitNodeOrAdjust.NONE;
     }
 
     private static boolean adjustSlotInParent(final @Nonnull Node targetNode) {
+        Preconditions.checkArgument(!targetNode.isRoot());
         boolean slotHasChanged;
         final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
         final ChildSlot childSlot = Objects.requireNonNull(parentNode.getChildren()).get(targetNode.getSlotIndexInParent());
-        final Rectangle newMbr = computeMbr(targetNode.getChildren());
+        final Rectangle newMbr = computeMbr(targetNode.getSlots());
         slotHasChanged = !childSlot.getMbr().equals(newMbr);
-        childSlot.setMbr(computeMbr(targetNode.getChildren()));
+        childSlot.setMbr(newMbr);
         final NodeSlot lastSlotOfTargetNode = targetNode.getSlots().get(targetNode.size() - 1);
         slotHasChanged |= !childSlot.getLargestHilbertValue().equals(lastSlotOfTargetNode.getHilbertValue());
         childSlot.setLargestHilbertValue(lastSlotOfTargetNode.getHilbertValue());
@@ -475,7 +566,7 @@ public class RTree {
                                                              @Nonnull final Tuple targetKey) {
         final AtomicReference<IntermediateNode> parentNode = new AtomicReference<>(null);
         final AtomicInteger slotInParent = new AtomicInteger(-1);
-        final AtomicReference<byte[]> currentId = new AtomicReference<>(Node.ROOT_ID);
+        final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
                 .thenApply(node -> {
@@ -487,9 +578,11 @@ public class RTree {
                         final List<ChildSlot> children = node.getChildren();
                         parentNode.set((IntermediateNode)node);
                         slotInParent.set(slotIndex);
-                        currentId.set(children.get(slotIndex).getChildId());
+                        final ChildSlot childSlot = children.get(slotIndex);
+                        currentId.set(childSlot.getChildId());
                         return true;
                     } else {
+                        //logger.info("path to leaf; path={}", nodeIdPath(node));
                         leafNode.set((LeafNode)node);
                         return false;
                     }
@@ -503,7 +596,7 @@ public class RTree {
                                                        @Nonnull final Node node) {
         final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
-        final int numSiblings = config.getMinS() - 1;
+        final int numSiblings = config.getMinS();
         final Node[] siblings = new Node[numSiblings];
 
         final IntermediateNode parentNode = Objects.requireNonNull(node.getParentNode());
@@ -555,69 +648,76 @@ public class RTree {
         }, executor).thenApply(vignore -> Lists.newArrayList(siblings));
     }
 
+    @Nonnull
+    private CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, byte[] nodeId) {
+        return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithPrefix(nodeId))))
+                .thenApply(keyValues -> nodeFromKeyValues(nodeId, keyValues));
+    }
+
     @SuppressWarnings("ConstantValue")
-    public CompletableFuture<Node> fetchNode(@Nonnull final Transaction transaction, byte[] nodeId) {
-        return AsyncUtil.collect(transaction.getRange(Range.startsWith(nodeId)))
-                .thenApply(keyValues -> {
-                    List<ChildSlot> childSlots = null;
-                    List<ItemSlot> itemSlots = null;
-                    Kind nodeKind = null;
-                    for (final KeyValue keyValue : keyValues) {
-                        final Tuple keyTuple = Tuple.fromBytes(keyValue.getKey());
-                        Verify.verify(keyTuple.size() == 3);
-                        final Kind currentNodeKind;
-                        switch ((byte)keyTuple.get(0)) {
-                            case 0x00:
-                                currentNodeKind = Kind.LEAF;
-                                break;
-                            case 0x01:
-                                currentNodeKind = Kind.INTERMEDIATE;
-                                break;
-                            default:
-                                throw new IllegalArgumentException("unknown node kind");
-                        }
-                        if (nodeKind == null) {
-                            nodeKind = currentNodeKind;
-                        } else if (nodeKind != currentNodeKind) {
-                            throw new IllegalArgumentException("same node id uses different node kinds");
-                        }
+    @Nonnull
+    protected Node nodeFromKeyValues(final byte[] nodeId, final List<KeyValue> keyValues) {
+        List<ChildSlot> childSlots = null;
+        List<ItemSlot> itemSlots = null;
+        Kind nodeKind = null;
+        for (final KeyValue keyValue : keyValues) {
+            final byte[] rawKey = keyValue.getKey();
+            final int tupleOffset = getSubspacePrefix().length + NODE_ID_LENGTH;
+            final Tuple keyTuple = Tuple.fromBytes(rawKey, tupleOffset, rawKey.length - tupleOffset);
+            Verify.verify(keyTuple.size() == 3);
+            final Kind currentNodeKind;
+            switch ((byte)(long)keyTuple.get(0)) {
+                case 0x00:
+                    currentNodeKind = Kind.LEAF;
+                    break;
+                case 0x01:
+                    currentNodeKind = Kind.INTERMEDIATE;
+                    break;
+                default:
+                    throw new IllegalArgumentException("unknown node kind");
+            }
+            if (nodeKind == null) {
+                nodeKind = currentNodeKind;
+            } else if (nodeKind != currentNodeKind) {
+                throw new IllegalArgumentException("same node id uses different node kinds");
+            }
 
-                        final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
+            final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
 
-                        if (nodeKind == Kind.LEAF) {
-                            if (itemSlots == null) {
-                                itemSlots = Lists.newArrayList();
-                            }
-                            itemSlots.add(new ItemSlot(keyTuple.getBigInteger(1), keyTuple.getNestedTuple(2),
-                                    valueTuple.getNestedTuple(0), new Point(valueTuple.getNestedTuple(1))));
-                        } else {
-                            Verify.verify(nodeKind == Kind.INTERMEDIATE);
-                            if (childSlots == null) {
-                                childSlots = Lists.newArrayList();
-                            }
-                            childSlots.add(new ChildSlot(keyTuple.getBigInteger(1),
-                                    keyTuple.getNestedTuple(2), valueTuple.getBytes(0),
-                                    new Rectangle(valueTuple.getNestedTuple(1))));
-                        }
-                    }
+            if (nodeKind == Kind.LEAF) {
+                if (itemSlots == null) {
+                    itemSlots = Lists.newArrayList();
+                }
+                itemSlots.add(new ItemSlot(keyTuple.getBigInteger(1), keyTuple.getNestedTuple(2),
+                        valueTuple.getNestedTuple(0), new Point(valueTuple.getNestedTuple(1))));
+            } else {
+                Verify.verify(nodeKind == Kind.INTERMEDIATE);
+                if (childSlots == null) {
+                    childSlots = Lists.newArrayList();
+                }
+                childSlots.add(new ChildSlot(keyTuple.getBigInteger(1),
+                        keyTuple.getNestedTuple(2), valueTuple.getBytes(0),
+                        new Rectangle(valueTuple.getNestedTuple(1))));
+            }
+        }
 
-                    if (nodeKind == null && Arrays.equals(Node.ROOT_ID, nodeId)) {
-                        // root node but nothing read -- root node is the only node that can be empty --
-                        // this only happens when the R-Tree is completely empty.
-                        itemSlots = Lists.newArrayList();
-                    }
+        if (nodeKind == null && Arrays.equals(rootId, nodeId)) {
+            // root node but nothing read -- root node is the only node that can be empty --
+            // this only happens when the R-Tree is completely empty.
+            nodeKind = Kind.LEAF;
+            itemSlots = Lists.newArrayList();
+        }
 
-                    Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
-                                  (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
-                    return nodeKind == Kind.LEAF
-                           ? new LeafNode(nodeId, itemSlots)
-                           : new IntermediateNode(nodeId, childSlots);
-                });
+        Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
+                      (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
+        return nodeKind == Kind.LEAF
+               ? new LeafNode(nodeId, itemSlots)
+               : new IntermediateNode(nodeId, childSlots);
     }
 
     public void updateNodeSlotsForNodes(@Nonnull final Transaction transaction, @Nonnull List<? extends Node> nodes) {
         for (final Node node : nodes) {
-            transaction.clear(Range.startsWith(node.getId()));
+            transaction.clear(Range.startsWith(packWithPrefix(node.getId())));
             for (final NodeSlot nodeSlot : node.getSlots()) {
                 writeNodeSlot(transaction, node.getId(), nodeSlot);
             }
@@ -625,18 +725,19 @@ public class RTree {
     }
 
     public void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
+        final byte[] packedKey;
+        final byte[] packedValue;
         if (nodeSlot instanceof ItemSlot) {
             final ItemSlot itemSlot = (ItemSlot)nodeSlot;
-            final byte[] packedKey = Tuple.from((byte)0x00, itemSlot.getHilbertValue(), itemSlot.getKey()).pack(nodeId);
-            final byte[] packedValue = Tuple.from(itemSlot.getValue(), itemSlot.getPosition().getCoordinates()).pack();
-            transaction.set(packedKey, packedValue);
+            packedKey = Tuple.from((byte)0x00, itemSlot.getHilbertValue(), itemSlot.getKey()).pack(packWithPrefix(nodeId));
+            packedValue = Tuple.from(itemSlot.getValue(), itemSlot.getPosition().getCoordinates()).pack();
         } else {
             Verify.verify(nodeSlot instanceof ChildSlot);
             final ChildSlot childSlot = (ChildSlot)nodeSlot;
-            final byte[] packedKey = Tuple.from((byte)0x01, childSlot.getLargestHilbertValue(), childSlot.getLargestKey()).pack(nodeId);
-            final byte[] packedValue = Tuple.from(childSlot.getChildId(), childSlot.getMbr().getRanges()).pack();
-            transaction.set(packedKey, packedValue);
+            packedKey = Tuple.from((byte)0x01, childSlot.getLargestHilbertValue(), childSlot.getLargestKey()).pack(packWithPrefix(nodeId));
+            packedValue = Tuple.from(childSlot.getChildId(), childSlot.getMbr().getRanges()).pack();
         }
+        transaction.set(packedKey, packedValue);
     }
 
     private static int chooseSlotIndexForUpdate(@Nonnull final IntermediateNode node,
@@ -709,8 +810,7 @@ public class RTree {
                 } else {
                     mbr = mbr.unionWith(position);
                 }
-            }
-            if (slot instanceof ChildSlot) {
+            }  else if (slot instanceof ChildSlot) {
                 final var mbrForSlot = ((ChildSlot)slot).getMbr();
                 if (mbr == null) {
                     mbr = mbrForSlot;
@@ -724,9 +824,9 @@ public class RTree {
         return mbr;
     }
 
-    private static byte[] newNodeId() {
+    public static byte[] newRandomNodeId() {
         final UUID uuid = UUID.randomUUID();
-        final byte[] uuidBytes = new byte[17];
+        final byte[] uuidBytes = new byte[NODE_ID_LENGTH];
         ByteBuffer.wrap(uuidBytes)
                 .order(ByteOrder.BIG_ENDIAN)
                 .putLong(uuid.getMostSignificantBits())
@@ -734,13 +834,46 @@ public class RTree {
         return uuidBytes;
     }
 
-    private enum Kind {
+    public static byte[] newSequentialNodeId() {
+        final long nodeIdAsLong = nodeIdState.getAndIncrement();
+        final byte[] uuidBytes = new byte[NODE_ID_LENGTH];
+        ByteBuffer.wrap(uuidBytes)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putLong(0L)
+                .putLong(nodeIdAsLong);
+        return uuidBytes;
+    }
+
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+    @Nonnull
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
+    }
+
+    @Nonnull
+    private static String nodeIdPath(@Nonnull Node node) {
+        final List<String> nodeIds = Lists.newArrayList();
+        do {
+            nodeIds.add(bytesToHex(node.getId()));
+            node = node.getParentNode();
+        } while (node != null);
+        Collections.reverse(nodeIds);
+        return String.join(", ", nodeIds);
+    }
+
+    enum Kind {
         INTERMEDIATE,
         LEAF
     }
 
-    private abstract static class Node {
-        public static byte[] ROOT_ID = new byte[16]; // all zeros for the root
+    abstract class Node {
         private final byte[] id;
 
         @Nullable
@@ -786,7 +919,7 @@ public class RTree {
         public abstract List<ItemSlot> getItems();
 
         public boolean isRoot() {
-            return Arrays.equals(ROOT_ID, id);
+            return Arrays.equals(rootId, id);
         }
 
         @Nonnull
@@ -810,7 +943,7 @@ public class RTree {
         public abstract Node newOfSameKind();
     }
 
-    private static class LeafNode extends Node {
+    private class LeafNode extends Node {
         @Nonnull
         private List<ItemSlot> items;
 
@@ -858,11 +991,11 @@ public class RTree {
         @Nonnull
         @Override
         public LeafNode newOfSameKind() {
-            return new LeafNode(newNodeId(), Lists.newArrayList());
+            return new LeafNode(nodeIdSupplier.get(), Lists.newArrayList());
         }
     }
 
-    private static class IntermediateNode extends Node {
+    private class IntermediateNode extends Node {
         @Nonnull
         private List<ChildSlot> children;
 
@@ -910,7 +1043,14 @@ public class RTree {
         @Nonnull
         @Override
         public IntermediateNode newOfSameKind() {
-            return new IntermediateNode(newNodeId(), Lists.newArrayList());
+            return new IntermediateNode(nodeIdSupplier.get(), Lists.newArrayList());
+        }
+
+        @Nonnull
+        public String getPlotMbrs() {
+            return getChildren().stream()
+                    .map(child -> child.getMbr().toPlotString())
+                    .collect(Collectors.joining("\n"));
         }
     }
 
@@ -937,7 +1077,10 @@ public class RTree {
         }
     }
 
-    private static class ItemSlot extends NodeSlot {
+    /**
+     * Rectangle.
+     */
+    static class ItemSlot extends NodeSlot {
         @Nonnull
         private final Tuple value;
         @Nonnull
@@ -957,6 +1100,10 @@ public class RTree {
         @Nonnull
         public Point getPosition() {
             return position;
+        }
+
+        public String toString() {
+            return "[" + getPosition() + ";" + getHilbertValue() + "; " + getKey() + "]";
         }
     }
 
@@ -1004,6 +1151,13 @@ public class RTree {
         public Rectangle getMbr() {
             return mbr;
         }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            //return "[" + getMbr() + ";" + getLargestHilbertValue() + "]";
+            return getMbr().toString();
+        }
     }
 
     private static class TraversalState {
@@ -1011,9 +1165,9 @@ public class RTree {
         private final List<Deque<byte[]>> toBeProcessed;
 
         @Nullable
-        private Node currentLeafNode;
+        private LeafNode currentLeafNode;
 
-        private TraversalState(@Nullable final List<Deque<byte[]>> toBeProcessed, @Nullable final Node currentLeafNode) {
+        private TraversalState(@Nullable final List<Deque<byte[]>> toBeProcessed, @Nullable final LeafNode currentLeafNode) {
             this.toBeProcessed = toBeProcessed;
             this.currentLeafNode = currentLeafNode;
         }
@@ -1024,11 +1178,11 @@ public class RTree {
         }
 
         @Nonnull
-        public Node getCurrentLeafNode() {
+        public LeafNode getCurrentLeafNode() {
             return Objects.requireNonNull(currentLeafNode);
         }
 
-        public void setCurrentLeafNode(@Nullable final Node currentLeafNode) {
+        public void setCurrentLeafNode(@Nullable final LeafNode currentLeafNode) {
             this.currentLeafNode = currentLeafNode;
         }
 
@@ -1036,7 +1190,7 @@ public class RTree {
             return currentLeafNode == null;
         }
 
-        public static TraversalState of(@Nonnull final List<Deque<byte[]>> toBeProcessed, @Nonnull final Node currentLeafNode) {
+        public static TraversalState of(@Nonnull final List<Deque<byte[]>> toBeProcessed, @Nonnull final LeafNode currentLeafNode) {
             return new TraversalState(toBeProcessed, currentLeafNode);
         }
 
@@ -1045,23 +1199,151 @@ public class RTree {
         }
     }
 
-    private static class SplitNodeSlotOrAdjust {
-        public static SplitNodeSlotOrAdjust NONE = new SplitNodeSlotOrAdjust(null, false);
-        public static SplitNodeSlotOrAdjust ADJUST = new SplitNodeSlotOrAdjust(null, true);
+    /**
+     * TODO.
+     */
+    public class LeafIterator implements AsyncIterator<LeafNode> {
+
+        @Nonnull
+        private final ReadTransaction readTransaction;
+        @Nonnull
+        private final byte[] rootId;
+        @Nonnull
+        private final Predicate<Rectangle> mbrPredicate;
 
         @Nullable
-        private final ChildSlot childSlot;
+        private TraversalState currentState;
+        @Nullable
+        private CompletableFuture<TraversalState> nextStateFuture;
+
+        public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId) {
+            this(readTransaction, rootId, r -> true);
+        }
+
+        public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId, @Nonnull final Predicate<Rectangle> mbrPredicate) {
+            this.readTransaction = readTransaction;
+            this.rootId = rootId;
+            this.mbrPredicate = mbrPredicate;
+            this.currentState = null;
+            this.nextStateFuture = null;
+        }
+
+        @Override
+        public CompletableFuture<Boolean> onHasNext() {
+            if (nextStateFuture == null) {
+                if (currentState == null) {
+                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, mbrPredicate);
+                } else {
+                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, mbrPredicate);
+                }
+            }
+            return nextStateFuture.thenApply(traversalState -> !traversalState.isEnd());
+        }
+
+        @Override
+        public boolean hasNext() {
+            return onHasNext().join();
+        }
+
+        @Override
+        public LeafNode next() {
+            if (hasNext()) {
+                // underlying has already completed
+                currentState = Objects.requireNonNull(nextStateFuture).join();
+                nextStateFuture = null;
+                return currentState.getCurrentLeafNode();
+            }
+            throw new NoSuchElementException("called next() on exhausted iterator");
+        }
+
+        @Override
+        public void cancel() {
+            if (nextStateFuture != null) {
+                nextStateFuture.cancel(false);
+            }
+        }
+    }
+
+    /**
+     * TODO.
+     */
+    public class ItemIterator implements AsyncIterator<ItemSlot> {
+        @Nonnull
+        private final LeafIterator leafIterator;
+        @Nullable
+        private LeafNode currentLeafNode;
+        @Nullable
+        private Iterator<ItemSlot> currenLeafItemsIterator;
+
+        public ItemIterator(@Nonnull final LeafIterator leafIterator) {
+            this.leafIterator = leafIterator;
+            this.currentLeafNode = null;
+            this.currenLeafItemsIterator = null;
+        }
+
+        @Override
+        public CompletableFuture<Boolean> onHasNext() {
+            if (currenLeafItemsIterator != null && currenLeafItemsIterator.hasNext()) {
+                return CompletableFuture.completedFuture(true);
+            }
+            // we know that each leaf has items (or if it doesn't it is the root and we are done when there are no items
+            return leafIterator.onHasNext()
+                    .thenApply(hasNext -> {
+                        if (hasNext) {
+                            this.currentLeafNode = leafIterator.next();
+                            this.currenLeafItemsIterator = currentLeafNode.getItems().iterator();
+                            return currenLeafItemsIterator.hasNext();
+                        }
+                        return false;
+                    });
+        }
+
+        @Override
+        public boolean hasNext() {
+            return onHasNext().join();
+        }
+
+        @Override
+        public ItemSlot next() {
+            if (hasNext()) {
+                return Objects.requireNonNull(currenLeafItemsIterator).next();
+            }
+            throw new NoSuchElementException("called next() on exhausted iterator");
+        }
+
+        @Override
+        public void cancel() {
+            leafIterator.cancel();
+        }
+    }
+
+    private static class SplitNodeOrAdjust {
+        public static SplitNodeOrAdjust NONE = new SplitNodeOrAdjust(null, null, false);
+        public static SplitNodeOrAdjust ADJUST = new SplitNodeOrAdjust(null, null, true);
+
+        @Nullable
+        private final ChildSlot slotInParent;
+        @Nullable
+        private final Node splitNode;
 
         private final boolean parentNeedsAdjustment;
 
-        private SplitNodeSlotOrAdjust(@Nullable final ChildSlot childSlot, final boolean parentNeedsAdjustment) {
-            this.childSlot = childSlot;
+        private SplitNodeOrAdjust(@Nullable final ChildSlot slotInParent, @Nullable final Node splitNode, final boolean parentNeedsAdjustment) {
+            Verify.verify((slotInParent == null && splitNode == null) ||
+                          (slotInParent != null && splitNode != null));
+            this.slotInParent = slotInParent;
+            this.splitNode = splitNode;
             this.parentNeedsAdjustment = parentNeedsAdjustment;
         }
 
         @Nullable
-        public ChildSlot getSplitNodeSlot() {
-            return childSlot;
+        public ChildSlot getSlotInParent() {
+            return slotInParent;
+        }
+
+        @Nullable
+        public Node getSplitNode() {
+            return splitNode;
         }
 
         public boolean parentNeedsAdjustment() {
@@ -1069,7 +1351,7 @@ public class RTree {
         }
     }
 
-    private static class Point {
+    static class Point {
         @Nonnull
         private final Tuple coordinates;
 
@@ -1107,9 +1389,18 @@ public class RTree {
         public int hashCode() {
             return Objects.hash(coordinates);
         }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return coordinates.toString();
+        }
     }
 
-    private static class Rectangle {
+    /**
+     * Rectangle.
+     */
+    static class Rectangle {
         @Nonnull
         private final Tuple ranges;
 
@@ -1144,27 +1435,29 @@ public class RTree {
                 final Object coordinate = point.getCoordinate(d);
                 final Tuple coordinateTuple = Tuple.from(coordinate);
                 final Object low = getLow(d);
-                Tuple lowTuple = Tuple.from(low);
+                final Tuple lowTuple = Tuple.from(low);
                 if (TupleHelpers.compare(coordinateTuple, lowTuple) < 0) {
                     ranges[d] = coordinate;
                     isModified = true;
                 } else {
                     ranges[d] = low;
+                }
 
-                    final Object high = getHigh(d);
-                    final Tuple highTuple = Tuple.from(high);
-                    if (TupleHelpers.compare(coordinateTuple, highTuple) > 0) {
-                        ranges[getNumDimensions() + d] = coordinate;
-                        isModified = true;
-                    } else {
-                        ranges[getNumDimensions() + d] = high;
-                    }
+                final Object high = getHigh(d);
+                final Tuple highTuple = Tuple.from(high);
+                if (TupleHelpers.compare(coordinateTuple, highTuple) > 0) {
+                    ranges[getNumDimensions() + d] = coordinate;
+                    isModified = true;
+                } else {
+                    ranges[getNumDimensions() + d] = high;
                 }
             }
 
             if (!isModified) {
                 return this;
             }
+
+            Verify.verify(Arrays.stream(ranges).allMatch(Objects::nonNull));
 
             return new Rectangle(Tuple.from(ranges));
         }
@@ -1181,21 +1474,20 @@ public class RTree {
                 final Tuple otherHighTuple = Tuple.from(otherHigh);
 
                 final Object low = getLow(d);
-                Tuple lowTuple = Tuple.from(low);
+                final Tuple lowTuple = Tuple.from(low);
                 if (TupleHelpers.compare(otherLowTuple, lowTuple) < 0) {
                     ranges[d] = otherLow;
                     isModified = true;
                 } else {
                     ranges[d] = low;
-
-                    final Object high = getHigh(d);
-                    final Tuple highTuple = Tuple.from(high);
-                    if (TupleHelpers.compare(otherHighTuple, highTuple) > 0) {
-                        ranges[getNumDimensions() + d] = otherHigh;
-                        isModified = true;
-                    } else {
-                        ranges[getNumDimensions() + d] = high;
-                    }
+                }
+                final Object high = getHigh(d);
+                final Tuple highTuple = Tuple.from(high);
+                if (TupleHelpers.compare(otherHighTuple, highTuple) > 0) {
+                    ranges[getNumDimensions() + d] = otherHigh;
+                    isModified = true;
+                } else {
+                    ranges[getNumDimensions() + d] = high;
                 }
             }
 
@@ -1203,9 +1495,45 @@ public class RTree {
                 return this;
             }
 
+            Verify.verify(Arrays.stream(ranges).allMatch(Objects::nonNull));
+            
             return new Rectangle(Tuple.from(ranges));
         }
 
+        public boolean isOverlapping(@Nonnull final Rectangle other) {
+            Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
+
+            for (int d = 0; d < getNumDimensions(); d++) {
+                final Tuple otherLowTuple = Tuple.from(other.getLow(d));
+                final Tuple otherHighTuple = Tuple.from(other.getHigh(d));
+
+                final Tuple lowTuple = Tuple.from(getLow(d));
+                final Tuple highTuple = Tuple.from(getHigh(d));
+
+                if (TupleHelpers.compare(highTuple, otherLowTuple) < 0 ||
+                        TupleHelpers.compare(lowTuple, otherHighTuple) > 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public boolean contains(@Nonnull final Point point) {
+            Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
+
+            for (int d = 0; d < getNumDimensions(); d++) {
+                final Tuple otherTuple = Tuple.from(point.getCoordinate(d));
+
+                final Tuple lowTuple = Tuple.from(getLow(d));
+                final Tuple highTuple = Tuple.from(getHigh(d));
+
+                if (TupleHelpers.compare(highTuple, otherTuple) < 0 ||
+                        TupleHelpers.compare(lowTuple, otherTuple) > 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         @Override
         public boolean equals(final Object o) {
@@ -1224,6 +1552,35 @@ public class RTree {
             return Objects.hash(ranges);
         }
 
+        @Nonnull
+        public String toPlotString() {
+            final StringBuilder builder = new StringBuilder();
+            builder.append("rectangle(");
+            for (int d = 0; d < getNumDimensions(); d ++) {
+                builder.append(((Number)getLow(d)).longValue());
+                if (d + 1 < getNumDimensions()) {
+                    builder.append("|");
+                }
+            }
+
+            builder.append(" ");
+
+            for (int d = 0; d < getNumDimensions(); d ++) {
+                builder.append(((Number)getHigh(d)).longValue() - ((Number)getLow(d)).longValue());
+                if (d + 1 < getNumDimensions()) {
+                    builder.append(" ");
+                }
+            }
+            builder.append(")#");
+            return builder.toString();
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return ranges.toString();
+        }
+        
         @Nonnull
         public static Rectangle fromPoint(@Nonnull final Point point) {
             final Object[] mbrRanges = new Object[point.getNumDimensions() * 2];
