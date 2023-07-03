@@ -44,6 +44,7 @@ import java.util.Iterator;
 @AutoService(PostingsFormat.class)
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
+    private static boolean allowCheckDataIntegrity = true;
 
     public LuceneOptimizedPostingsFormat() {
         this(new Lucene84PostingsFormat());
@@ -52,6 +53,10 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     public LuceneOptimizedPostingsFormat(PostingsFormat postingsFormat) {
         super("RL" + postingsFormat.getName());
         this.postingsFormat = postingsFormat;
+    }
+
+    public static void setAllowCheckDataIntegrity(boolean allow) {
+        allowCheckDataIntegrity = allow;
     }
 
     @Override
@@ -93,7 +98,9 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         @Override
         public void checkIntegrity() throws IOException {
-            fieldsProducer.get().checkIntegrity();
+            if (allowCheckDataIntegrity) {
+                fieldsProducer.get().checkIntegrity();
+            }
         }
 
         @Override
