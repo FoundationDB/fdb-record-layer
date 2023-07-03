@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -135,7 +134,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public IndexWriter getWriter(LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
-            boolean allowIntegrityCheck = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CHECK_INTEGRITY_ENABLED), false);
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
@@ -145,7 +143,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
-                            .setCodec(new LuceneOptimizedCodec(allowIntegrityCheck))
+                            .setCodec(new LuceneOptimizedCodec())
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
                     IndexWriter oldWriter = writer;
