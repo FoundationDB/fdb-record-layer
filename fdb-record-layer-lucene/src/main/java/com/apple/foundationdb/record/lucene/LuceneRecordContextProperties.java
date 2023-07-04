@@ -70,9 +70,4 @@ public final class LuceneRecordContextProperties {
      * This controls the page size to scan the basic Lucene index.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_INDEX_CURSOR_PAGE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.cursor.pageSize", 201);
-
-    /**
-     * If enabled, allow checkIntegrity during indexing.
-     */
-    public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_CHECK_INTEGRITY_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.checkIntegrity", true);
 }

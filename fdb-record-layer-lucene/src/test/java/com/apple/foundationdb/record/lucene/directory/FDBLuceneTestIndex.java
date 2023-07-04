@@ -66,19 +66,8 @@ public class FDBLuceneTestIndex {
      * @param body body
      */
     public void indexDocument(String title, String body) throws IOException {
-        indexDocument(title, body, true);
-    }
-
-    /**
-     * Method to index a simple document.
-     *
-     * @param title title
-     * @param body body
-     * @param allowIntegrityCheck if false, skip data integrity verification
-     */
-    public void indexDocument(String title, String body, boolean allowIntegrityCheck) throws IOException {
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzer);
-        indexWriterConfig.setCodec(new LuceneOptimizedCodec(allowIntegrityCheck));
+        indexWriterConfig.setCodec(new LuceneOptimizedCodec());
         try (IndexWriter writer = new IndexWriter(directory, indexWriterConfig)) {
             Document document = new Document();
             document.add(new TextField("title", title, Field.Store.YES));

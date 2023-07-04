@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
@@ -914,6 +915,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void simpleInsertAndSearchSingleTransaction() {
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             // Save one record and try and search for it

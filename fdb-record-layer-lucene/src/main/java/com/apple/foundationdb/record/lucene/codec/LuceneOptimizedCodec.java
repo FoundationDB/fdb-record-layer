@@ -85,15 +85,7 @@ public class LuceneOptimizedCodec extends Codec {
      * Instantiates a new codec.
      */
     public LuceneOptimizedCodec() {
-        this(true);
-    }
-
-    /**
-     * Instantiates a new codec.
-     * @param allowIntegrityCheck if false, skip data integrity verification
-     */
-    public LuceneOptimizedCodec(boolean allowIntegrityCheck) {
-        this(Lucene87Codec.Mode.BEST_SPEED, allowIntegrityCheck);
+        this(Lucene87Codec.Mode.BEST_SPEED);
     }
 
     /**
@@ -102,15 +94,14 @@ public class LuceneOptimizedCodec extends Codec {
      * The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
      * @param mode stored fields compression mode to use for newly
      *             flushed/merged segments.
-     * @param allowIntegrityCheck if false, skip data integrity verification
      */
-    public LuceneOptimizedCodec(Lucene87Codec.Mode mode, boolean allowIntegrityCheck) {
+    public LuceneOptimizedCodec(Lucene87Codec.Mode mode) {
         super("RL");
         baseCodec = new Lucene87Codec(mode);
         compoundFormat = new LuceneOptimizedCompoundFormat();
         segmentInfoFormat = new LuceneOptimizedSegmentInfoFormat();
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
-        defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat(), allowIntegrityCheck);
+        defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
