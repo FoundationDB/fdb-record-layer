@@ -242,27 +242,112 @@ public class ScalarFunctionValue extends AbstractValue {
      * Physical operators.
      */
     @VisibleForTesting
+    @SuppressWarnings({"PMD.ControlStatementBraces", "checkstyle:NeedBraces"})
     public enum PhysicalOperator {
-        GREATEST_INT(ScalarFunction.GREATEST, TypeCode.INT, args -> greatest(args, Integer.class)),
-        GREATEST_LONG(ScalarFunction.GREATEST, TypeCode.LONG, args -> greatest(args, Long.class)),
-        GREATEST_BOOLEAN(ScalarFunction.GREATEST, TypeCode.BOOLEAN, args -> greatest(args, Boolean.class)),
-        GREATEST_STRING(ScalarFunction.GREATEST, TypeCode.STRING, args -> greatest(args, String.class)),
-        GREATEST_FLOAT(ScalarFunction.GREATEST, TypeCode.FLOAT, args -> greatest(args, Float.class)),
-        GREATEST_DOUBLE(ScalarFunction.GREATEST, TypeCode.DOUBLE, args -> greatest(args, Double.class)),
+        GREATEST_INT(ScalarFunction.GREATEST, TypeCode.INT, args -> {
+            int max = Integer.MIN_VALUE;
+            for (Object i : args) {
+                if (i == null) return null;
+                if ((int) i > max) max = (int) i;
+            }
+            return max;
+        }),
+        GREATEST_LONG(ScalarFunction.GREATEST, TypeCode.LONG, args -> {
+            long max = Long.MIN_VALUE;
+            for (Object l : args) {
+                if (l == null) return null;
+                if ((long) l > max) max = (long) l;
+            }
+            return max;
+        }),
+        GREATEST_BOOLEAN(ScalarFunction.GREATEST, TypeCode.BOOLEAN, args -> {
+            boolean max = false;
+            for (Object b : args) {
+                if (b == null) return null;
+                if ((boolean) b) max = true;
+            }
+            return max;
+        }),
+        GREATEST_STRING(ScalarFunction.GREATEST, TypeCode.STRING, args -> {
+            String max = (String) args.get(0);
+            for (Object s : args) {
+                if (s == null) return null;
+                if (((String) s).compareTo(max) > 0) max = (String) s;
+            }
+            return max;
+        }),
+        GREATEST_FLOAT(ScalarFunction.GREATEST, TypeCode.FLOAT, args -> {
+            float max = Float.MIN_VALUE;
+            for (Object f : args) {
+                if (f == null) return null;
+                if ((float) f > max) max = (float) f;
+            }
+            return max;
+        }),
+        GREATEST_DOUBLE(ScalarFunction.GREATEST, TypeCode.DOUBLE, args -> {
+            double max = Double.MIN_VALUE;
+            for (Object d : args) {
+                if (d == null) return null;
+                if ((double) d > max) max = (double) d;
+            }
+            return max;
+        }),
 
-        LEAST_INT(ScalarFunction.LEAST, TypeCode.INT, args -> least(args, Integer.class)),
-        LEAST_LONG(ScalarFunction.LEAST, TypeCode.LONG, args -> least(args, Long.class)),
-        LEAST_BOOLEAN(ScalarFunction.LEAST, TypeCode.BOOLEAN, args -> least(args, Boolean.class)),
-        LEAST_STRING(ScalarFunction.LEAST, TypeCode.STRING, args -> least(args, String.class)),
-        LEAST_FLOAT(ScalarFunction.LEAST, TypeCode.FLOAT, args -> least(args, Float.class)),
-        LEAST_DOUBLE(ScalarFunction.LEAST, TypeCode.DOUBLE, args -> least(args, Double.class)),
+        LEAST_INT(ScalarFunction.LEAST, TypeCode.INT, args -> {
+            int min = Integer.MAX_VALUE;
+            for (Object i : args) {
+                if (i == null) return null;
+                if ((int) i < min) min = (int) i;
+            }
+            return min;
+        }),
+        LEAST_LONG(ScalarFunction.LEAST, TypeCode.LONG, args -> {
+            long min = Long.MAX_VALUE;
+            for (Object l : args) {
+                if (l == null) return null;
+                if ((long) l < min) min = (long) l;
+            }
+            return min;
+        }),
+        LEAST_BOOLEAN(ScalarFunction.LEAST, TypeCode.BOOLEAN, args -> {
+            boolean min = true;
+            for (Object b : args) {
+                if (b == null) return null;
+                if (!((boolean) b)) min = false;
+            }
+            return min;
+        }),
+        LEAST_STRING(ScalarFunction.LEAST, TypeCode.STRING, args -> {
+            String min = (String) args.get(0);
+            for (Object s : args) {
+                if (s == null) return null;
+                if (((String) s).compareTo(min) < 0) min = (String) s;
+            }
+            return min;
+        }),
+        LEAST_FLOAT(ScalarFunction.LEAST, TypeCode.FLOAT, args -> {
+            float min = Float.MAX_VALUE;
+            for (Object f : args) {
+                if (f == null) return null;
+                if ((float) f < min) min = (Float) f;
+            }
+            return min;
+        }),
+        LEAST_DOUBLE(ScalarFunction.LEAST, TypeCode.DOUBLE, args -> {
+            double min = Double.MAX_VALUE;
+            for (Object d : args) {
+                if (d == null) return null;
+                if ((double) d < min) min = (Double) d;
+            }
+            return min;
+        }),
 
-        COALESCE_INT(ScalarFunction.COALESCE, TypeCode.INT, args -> coalesce(args, Integer.class)),
-        COALESCE_LONG(ScalarFunction.COALESCE, TypeCode.LONG, args -> coalesce(args, Long.class)),
-        COALESCE_BOOLEAN(ScalarFunction.COALESCE, TypeCode.BOOLEAN, args -> coalesce(args, Boolean.class)),
-        COALESCE_STRING(ScalarFunction.COALESCE, TypeCode.STRING, args -> coalesce(args, String.class)),
-        COALESCE_FLOAT(ScalarFunction.COALESCE, TypeCode.FLOAT, args -> coalesce(args, Float.class)),
-        COALESCE_DOUBLE(ScalarFunction.COALESCE, TypeCode.DOUBLE, args -> coalesce(args, Double.class));
+        COALESCE_INT(ScalarFunction.COALESCE, TypeCode.INT, args -> coalesce(args)),
+        COALESCE_LONG(ScalarFunction.COALESCE, TypeCode.LONG, args -> coalesce(args)),
+        COALESCE_BOOLEAN(ScalarFunction.COALESCE, TypeCode.BOOLEAN, args -> coalesce(args)),
+        COALESCE_STRING(ScalarFunction.COALESCE, TypeCode.STRING, args -> coalesce(args)),
+        COALESCE_FLOAT(ScalarFunction.COALESCE, TypeCode.FLOAT, args -> coalesce(args)),
+        COALESCE_DOUBLE(ScalarFunction.COALESCE, TypeCode.DOUBLE, args -> coalesce(args));
 
         @Nonnull
         private final ScalarFunction scalarFunction;
@@ -296,39 +381,10 @@ public class ScalarFunctionValue extends AbstractValue {
             return evaluateFunction.apply(args);
         }
 
-        @SuppressWarnings("unchecked")
-        private static <T extends Comparable<T>> T greatest(final List<Object> args, Class<T> clazz) {
-            T max = (T) args.get(0);
-            for (Object i : args) {
-                if (i == null) {
-                    return null;
-                }
-                if (((T) i).compareTo(max) > 0) {
-                    max = (T) i;
-                }
-            }
-            return max;
-        }
-
-        @SuppressWarnings("unchecked")
-        private static <T extends Comparable<T>> T least(final List<Object> args, Class<T> clazz) {
-            T min = (T) args.get(0);
-            for (Object i : args) {
-                if (i == null) {
-                    return null;
-                }
-                if (((T) i).compareTo(min) < 0) {
-                    min = (T) i;
-                }
-            }
-            return min;
-        }
-
-        @SuppressWarnings("unchecked")
-        private static <T extends Comparable<T>> T coalesce(final List<Object> args, Class<T> clazz) {
+        private static Object coalesce(final List<Object> args) {
             for (Object i : args) {
                 if (i != null) {
-                    return (T) i;
+                    return i;
                 }
             }
             return null;
