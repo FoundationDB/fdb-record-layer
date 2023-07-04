@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +50,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -157,22 +155,19 @@ public class ScalarFunctionValue extends AbstractValue {
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
                                      @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() >= 2);
-        Type resultType = arguments.get(0).getResultType();
+        Type resultType = null;
         for (final var arg : arguments) {
             Type argType = arg.getResultType();
             SemanticException.check(argType.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
-            if (resultType.isUnresolved()) {
+            if (resultType == null || resultType.isUnresolved()) {
                 resultType = argType;
             } else if (!argType.isUnresolved()) {
                 resultType = Type.maximumType(resultType, argType);
+                SemanticException.check(resultType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
-            SemanticException.check(resultType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         }
 
-        final Optional<ScalarFunction> scalarFunction = Enums.getIfPresent(ScalarFunction.class, builtInFunction.getFunctionName().toUpperCase(Locale.getDefault())).toJavaUtil();
-        Verify.verify(scalarFunction.isPresent());
-
-        final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of(scalarFunction.get(), resultType.getTypeCode()));
+        final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of((((ScalarFn)builtInFunction).getScalarFunction()), resultType.getTypeCode()));
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate scalar function due to type mismatch(es)");
 
@@ -191,14 +186,26 @@ public class ScalarFunctionValue extends AbstractValue {
         return mapBuilder.build();
     }
 
+    private static class ScalarFn extends BuiltInFunction<Value> {
+        private final ScalarFunction scalarFunction;
+
+        public ScalarFn(String name, ScalarFunction scalarFunction) {
+            super(name, ImmutableList.of(), new Type.Any(), ScalarFunctionValue::encapsulate);
+            this.scalarFunction = scalarFunction;
+        }
+
+        public ScalarFunction getScalarFunction() {
+            return scalarFunction;
+        }
+    }
+
     /**
      * The {@code greatest} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class GreatestFn extends BuiltInFunction<Value> {
+    public static class GreatestFn extends ScalarFn {
         public GreatestFn() {
-            super("greatest",
-                    ImmutableList.of(), new Type.Any(), ScalarFunctionValue::encapsulate);
+            super("greatest", ScalarFunction.GREATEST);
         }
     }
 
@@ -206,10 +213,9 @@ public class ScalarFunctionValue extends AbstractValue {
      * The {@code least} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class LeastFn extends BuiltInFunction<Value> {
+    public static class LeastFn extends ScalarFn {
         public LeastFn() {
-            super("least",
-                    ImmutableList.of(), new Type.Any(), ScalarFunctionValue::encapsulate);
+            super("least", ScalarFunction.LEAST);
         }
     }
 
@@ -217,10 +223,9 @@ public class ScalarFunctionValue extends AbstractValue {
      * The {@code coalesce} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class CoalesceFn extends BuiltInFunction<Value> {
+    public static class CoalesceFn extends ScalarFn {
         public CoalesceFn() {
-            super("coalesce",
-                    ImmutableList.of(), new Type.Any(), ScalarFunctionValue::encapsulate);
+            super("coalesce", ScalarFunction.COALESCE);
         }
     }
 
