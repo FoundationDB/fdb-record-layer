@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -41,7 +42,6 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -56,8 +56,6 @@ class LikeOperatorValueTest {
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
     private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
-    private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
-    private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
     private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
@@ -68,23 +66,23 @@ class LikeOperatorValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of(List.of(INT_1, INT_1, STRING_NULL)),
-                    Arguments.of(List.of(LONG_1, LONG_1, STRING_NULL)),
-                    Arguments.of(List.of(FLOAT_1, FLOAT_1, STRING_NULL)),
-                    Arguments.of(List.of(DOUBLE_1, DOUBLE_1, STRING_NULL)),
-                    Arguments.of(List.of(BOOLEAN_1, BOOLEAN_1, STRING_NULL)),
+                    Arguments.of(INT_1, INT_1, STRING_NULL),
+                    Arguments.of(LONG_1, LONG_1, STRING_NULL),
+                    Arguments.of(FLOAT_1, FLOAT_1, STRING_NULL),
+                    Arguments.of(DOUBLE_1, DOUBLE_1, STRING_NULL),
+                    Arguments.of(BOOLEAN_1, BOOLEAN_1, STRING_NULL),
 
-                    Arguments.of(List.of(STRING_1, INT_1, STRING_NULL)),
-                    Arguments.of(List.of(STRING_1, LONG_1, STRING_NULL)),
-                    Arguments.of(List.of(STRING_1, FLOAT_1, STRING_NULL)),
-                    Arguments.of(List.of(STRING_1, DOUBLE_1, STRING_NULL)),
-                    Arguments.of(List.of(STRING_1, BOOLEAN_1, STRING_NULL)),
+                    Arguments.of(STRING_1, INT_1, STRING_NULL),
+                    Arguments.of(STRING_1, LONG_1, STRING_NULL),
+                    Arguments.of(STRING_1, FLOAT_1, STRING_NULL),
+                    Arguments.of(STRING_1, DOUBLE_1, STRING_NULL),
+                    Arguments.of(STRING_1, BOOLEAN_1, STRING_NULL),
 
-                    Arguments.of(List.of(INT_1, STRING_1, STRING_NULL)),
-                    Arguments.of(List.of(LONG_1, STRING_1, STRING_NULL)),
-                    Arguments.of(List.of(FLOAT_1, STRING_1, STRING_NULL)),
-                    Arguments.of(List.of(DOUBLE_1, STRING_1, STRING_NULL)),
-                    Arguments.of(List.of(BOOLEAN_1, STRING_1, STRING_NULL))
+                    Arguments.of(INT_1, STRING_1, STRING_NULL),
+                    Arguments.of(LONG_1, STRING_1, STRING_NULL),
+                    Arguments.of(FLOAT_1, STRING_1, STRING_NULL),
+                    Arguments.of(DOUBLE_1, STRING_1, STRING_NULL),
+                    Arguments.of(BOOLEAN_1, STRING_1, STRING_NULL)
             );
         }
     }
@@ -174,10 +172,13 @@ class LikeOperatorValueTest {
     @ParameterizedTest
     @SuppressWarnings({"rawtypes", "unchecked"})
     @ArgumentsSource(InvalidInputArgumentsProvider.class)
-    void testSemanticException(List<Value> args) {
-        BuiltInFunction function = new LikeOperatorValue.LikeFn();
+    void testSemanticException(Value lhs, Value rhs, Value escapeChar) {
+        BuiltInFunction like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
         try {
-            function.encapsulate(args);
+            like.encapsulate(Arrays.asList(
+                    lhs,
+                    pattern.encapsulate(Arrays.asList(rhs, escapeChar))));
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof SemanticException);
@@ -189,11 +190,13 @@ class LikeOperatorValueTest {
     @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
     void testLike(String lhs, String rhs, final String escapeChar, Boolean result) {
-        BuiltInFunction function = new LikeOperatorValue.LikeFn();
-        Typed value = function.encapsulate(Arrays.asList(
+        BuiltInFunction like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
+        Typed value = like.encapsulate(Arrays.asList(
                     new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)));
+                    pattern.encapsulate(Arrays.asList(
+                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
+                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))));
         Assertions.assertTrue(value instanceof LikeOperatorValue);
         Object actualValue = ((LikeOperatorValue)value).eval(null, evaluationContext);
         Assertions.assertEquals(result, actualValue);

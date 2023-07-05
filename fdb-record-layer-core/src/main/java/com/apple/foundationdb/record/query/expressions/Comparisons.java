@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -924,119 +923,6 @@ public class Comparisons {
         @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
-        }
-    }
-
-    public static class LikeComparison implements Comparison {
-        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Comparison");
-
-        @Nonnull
-        protected final String pattern;
-        @Nullable
-        protected final String escapeChar;
-
-        public LikeComparison(@Nonnull String pattern, @Nullable String escapeChar) {
-            this.pattern = pattern;
-            this.escapeChar = escapeChar;
-        }
-
-        @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
-            if (fannedOut || fieldDescriptor.isRepeated()) {
-                throw new RecordCoreException("Like operation on repeated field",
-                        "fieldName", fieldDescriptor.getFullName());
-            }
-            if (!fieldDescriptor.getJavaType().equals(JavaType.STRING)) {
-                throw new RecordCoreException("Like operand of incorrect type",
-                        "fieldName", fieldDescriptor.getFullName(),
-                        "fieldType", fieldDescriptor.getJavaType());
-            }
-        }
-
-        @Nonnull
-        @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            return pattern;
-        }
-
-        @Nonnull
-        @Override
-        public Type getType() {
-            return Type.LIKE;
-        }
-
-        @Nonnull
-        @Override
-        public Comparison withType(@Nonnull final Type newType) {
-            Verify.verify(Type.LIKE == newType);
-            return this;
-        }
-
-        @Nullable
-        @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return LikeOperatorValue.like((String)value, pattern, escapeChar);
-        }
-
-        @Nonnull
-        @Override
-        public String typelessString() {
-            return toPrintable(pattern) + (escapeChar != null ? toPrintable(escapeChar) : "");
-        }
-
-        @Override
-        public String toString() {
-            return Type.LIKE + " " + typelessString();
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            LikeComparison that = (LikeComparison)o;
-            return Objects.equals(pattern, that.pattern) && Objects.equals(escapeChar, that.escapeChar);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(pattern, escapeChar);
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
-            case LEGACY:
-                return Type.LIKE.name().hashCode() + PlanHashable.objectPlanHash(hashKind, pattern) + PlanHashable.objectsPlanHash(hashKind, escapeChar);
-            case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, Type.LIKE, pattern, escapeChar);
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, Type.LIKE);
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            switch (hashKind) {
-            case STRUCTURAL_WITH_LITERALS:
-                return HashUtils.queryHash(hashKind, BASE_HASH, Type.LIKE, pattern, escapeChar);
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return HashUtils.queryHash(hashKind, BASE_HASH, Type.LIKE);
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
-        }
-
-        @Nonnull
-        @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
-            return this;
-
         }
     }
 
