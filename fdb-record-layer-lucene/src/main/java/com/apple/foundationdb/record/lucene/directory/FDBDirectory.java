@@ -521,19 +521,23 @@ public class FDBDirectory extends Directory {
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
         }
-        boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
-            FDBLuceneFileReference value = cache.get(name);
-            if (value == null) {
-                return false;
-            }
-            context.ensureActive().clear(metaSubspace.pack(name));
-            context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-            cache.remove(name);
-            return true;
-        })));
+        try {
+            boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
+                FDBLuceneFileReference value = cache.get(name);
+                if (value == null) {
+                    return false;
+                }
+                context.ensureActive().clear(metaSubspace.pack(name));
+                context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                cache.remove(name);
+                return true;
+            })));
 
-        if (!deleted) {
-            throw new NoSuchFileException(name);
+            if (!deleted) {
+                throw new NoSuchFileException(name);
+            }
+        } finally {
+            context.increment(LuceneEvents.Counts.LUCENE_DELETE_FILE);
         }
     }
 
@@ -581,7 +585,12 @@ public class FDBDirectory extends Directory {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        return new FDBIndexOutput(name, name, this);
+        long startTime = System.nanoTime();
+        try {
+            return new FDBIndexOutput(name, name, this);
+        } finally {
+            context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
+        }
     }
 
     /**
@@ -637,26 +646,30 @@ public class FDBDirectory extends Directory {
                     LogMessageKeys.SOURCE_FILE, source,
                     LuceneLogMessageKeys.DEST_FILE, dest));
         }
-        final byte[] key = metaSubspace.pack(source);
-        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, getFileReferenceCacheAsync().thenApply(cache -> {
-            final FDBLuceneFileReference value = cache.get(source);
-            if (value == null) {
-                throw new RecordCoreArgumentException("Invalid source name in rename function for source")
-                        .addLogInfo(LogMessageKeys.SOURCE_FILE, source)
-                        .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
-                        .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
-                        .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                        .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
-            }
-            byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
-            context.ensureActive().set(metaSubspace.pack(dest), encodedBytes);
-            context.ensureActive().clear(key);
+        try {
+            final byte[] key = metaSubspace.pack(source);
+            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, getFileReferenceCacheAsync().thenApply(cache -> {
+                final FDBLuceneFileReference value = cache.get(source);
+                if (value == null) {
+                    throw new RecordCoreArgumentException("Invalid source name in rename function for source")
+                            .addLogInfo(LogMessageKeys.SOURCE_FILE, source)
+                            .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
+                            .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                            .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
+                }
+                byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
+                context.ensureActive().set(metaSubspace.pack(dest), encodedBytes);
+                context.ensureActive().clear(key);
 
-            cache.remove(source);
-            cache.put(dest, value);
+                cache.remove(source);
+                cache.put(dest, value);
 
-            return null;
-        }));
+                return null;
+            }));
+        } finally {
+            context.increment(LuceneEvents.Counts.LUCENE_RENAME_FILE);
+        }
     }
 
     @Override
