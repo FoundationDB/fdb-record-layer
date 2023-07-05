@@ -58,7 +58,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
-        return new LuceneOptimizedCompoundReader(dir, si, context);
+        return new LuceneOptimizedCompoundReader(dir, si);
     }
 
     @Override
