@@ -580,6 +580,7 @@ public class FDBDirectory extends Directory {
      */
     @Override
     @Nonnull
+    @SuppressWarnings("java:S2093")
     public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createOutput",
@@ -682,7 +683,7 @@ public class FDBDirectory extends Directory {
         return new FDBIndexInput(name, this);
     }
 
-    public IndexInput openLazyInput(@Nonnull final String name, @Nonnull final IOContext ioContext, long initialOffset, long position) throws IOException {
+    public IndexInput openLazyInput(@Nonnull final String name, long initialOffset, long position) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
