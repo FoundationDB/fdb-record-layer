@@ -15,9 +15,6 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Feature** Support Greatest and Least scalar functions [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2206)
-* **Feature** Support coalesce scalar function [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2207)
-
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -41,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.392.0
+
+* **Feature** Support Greatest and Least scalar functions [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2206)
+* **Feature** Support coalesce scalar function [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2207)
+
 
 ### 3.3.391.0
 
