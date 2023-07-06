@@ -563,7 +563,9 @@ public class Comparisons {
         TEXT_CONTAINS_ALL_PREFIXES,
         TEXT_CONTAINS_ANY_PREFIX,
         @API(API.Status.EXPERIMENTAL)
-        SORT(false);
+        SORT(false),
+        @API(API.Status.EXPERIMENTAL)
+        LIKE;
 
         private final boolean isEquality;
         private final boolean isUnary;
