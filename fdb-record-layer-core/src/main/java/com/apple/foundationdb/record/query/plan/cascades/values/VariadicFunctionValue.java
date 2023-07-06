@@ -1,5 +1,5 @@
 /*
- * ScalarFunctionValue.java
+ * VariadicFunctionValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
