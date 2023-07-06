@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -241,6 +242,18 @@ public class Comparisons {
         } else {
             throw new RecordCoreException("Illegal comparand value type: " + comparand);
         }
+    }
+
+    @Nullable
+    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
+    private static Boolean compareLike(@Nullable Object value, @Nullable Object pattern) {
+        if (!(value instanceof String)) {
+            throw new RecordCoreException("Illegal comparand value type: " + value);
+        }
+        if (!(pattern instanceof String)) {
+            throw new RecordCoreException("Illegal pattern value type: " + pattern);
+        }
+        return LikeOperatorValue.likeOperation((String)value, (String)pattern);
     }
 
     private static Boolean compareListStartsWith(@Nullable Object value, @Nullable List<?> comparand) {
@@ -639,6 +652,8 @@ public class Comparisons {
                 return compare(value, comparand) > 0;
             case GREATER_THAN_OR_EQUALS:
                 return compare(value, comparand) >= 0;
+            case LIKE:
+                return compareLike(value, comparand);
             default:
                 throw new RecordCoreException("Unsupported comparison type: " + type);
         }

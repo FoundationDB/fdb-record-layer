@@ -164,7 +164,8 @@ class LikeOperatorValueTest {
                     Arguments.of("__", "!_!_%", "!", true),
                     Arguments.of("abtext", "|_|_%", "|", false),
                     Arguments.of("__text", "|_|_%", "|", true),
-                    Arguments.of("__", "|_|_%", "|", true)
+                    Arguments.of("__", "|_|_%", "|", true),
+                    Arguments.of("\\\\|||", "_____", null, true)
             );
         }
     }
