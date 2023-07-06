@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ScalarVariadicFunctionValue extends AbstractValue {
+public class VariadicFunctionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Scalar-Function-Value");
 
     @Nonnull
@@ -68,15 +68,15 @@ public class ScalarVariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     private static final Supplier<Map<Pair<ScalarFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
-            Suppliers.memoize(ScalarVariadicFunctionValue::computeOperatorMap);
+            Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
     /**
-     * Constructs a new instance of {@link ScalarVariadicFunctionValue}.
+     * Constructs a new instance of {@link VariadicFunctionValue}.
      * @param operation The arithmetic operation.
      * @param children The children.
      */
-    public ScalarVariadicFunctionValue(@Nonnull PhysicalOperator operation,
-                                       @Nonnull List<Value> children) {
+    public VariadicFunctionValue(@Nonnull PhysicalOperator operation,
+                                 @Nonnull List<Value> children) {
         this.operation = operation;
         this.children = children;
     }
@@ -113,9 +113,9 @@ public class ScalarVariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public ScalarVariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
+    public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
-        return new ScalarVariadicFunctionValue(this.operation, ImmutableList.copyOf(newChildren));
+        return new VariadicFunctionValue(this.operation, ImmutableList.copyOf(newChildren));
     }
 
     @Override
@@ -175,7 +175,7 @@ public class ScalarVariadicFunctionValue extends AbstractValue {
         for (final var arg: arguments) {
             promotedArgs.add(PromoteValue.inject((Value) arg, resultType));
         }
-        return new ScalarVariadicFunctionValue(physicalOperator, promotedArgs);
+        return new VariadicFunctionValue(physicalOperator, promotedArgs);
     }
 
     private static Map<Pair<ScalarFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -190,7 +190,7 @@ public class ScalarVariadicFunctionValue extends AbstractValue {
         private final ScalarFunction scalarFunction;
 
         public ScalarFn(String name, ScalarFunction scalarFunction) {
-            super(name, ImmutableList.of(), new Type.Any(), ScalarVariadicFunctionValue::encapsulate);
+            super(name, ImmutableList.of(), new Type.Any(), VariadicFunctionValue::encapsulate);
             this.scalarFunction = scalarFunction;
         }
 
