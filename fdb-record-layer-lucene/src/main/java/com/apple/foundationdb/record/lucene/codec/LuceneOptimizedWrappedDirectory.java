@@ -131,14 +131,13 @@ class LuceneOptimizedWrappedDirectory extends Directory {
      * Opens a lazy input with performing a seek.
      *
      * @param name name
-     * @param ioContext ioContext
      * @param initialOffset offset
      * @param position current position
      * @return IndexInput
      * @throws IOException exception
      */
-    public IndexInput openLazyInput(@Nonnull final String name, @Nonnull final IOContext ioContext, long initialOffset, long position) throws IOException {
-        return fdbDirectory.openLazyInput(name, ioContext, initialOffset, position);
+    public IndexInput openLazyInput(@Nonnull final String name, long initialOffset, long position) throws IOException {
+        return fdbDirectory.openLazyInput(name, initialOffset, position);
     }
 
     @Override

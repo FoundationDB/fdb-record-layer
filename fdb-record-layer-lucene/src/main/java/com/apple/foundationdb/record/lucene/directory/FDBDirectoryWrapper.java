@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
@@ -102,6 +103,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+            long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
                     if (LOGGER.isTraceEnabled()) {
@@ -127,6 +129,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                 }
                 super.merge(mergeSource, trigger);
             }
+            state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
     }
 
