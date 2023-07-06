@@ -938,7 +938,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         AtomicLong scanned = new AtomicLong(recordScanned);
         final Throwable dummyThrowable = failed ? new Throwable() : null;
         for (int i = 0; i < repeats; i++) {
-            booker.handleLimitsPostRunnerTransaction(dummyThrowable, scanned, true);
+            booker.handleLimitsPostRunnerTransaction(dummyThrowable, scanned, true, null);
         }
     }
 

@@ -74,7 +74,7 @@ public class IndexingThrottle {
     static class Booker {
         /**
          * Keep track of success/failures and adjust transactions' scanned records limit when needed.
-         * Note that when duringRangesIteration=true,  a single thread processing is assumed.
+         * Note that when adjustLimits=true, a single thread processing is assumed.
          */
         @Nonnull private final IndexingCommon common;
         private long recordsLimit;
@@ -85,8 +85,8 @@ public class IndexingThrottle {
         private long countFailedTransactions = 0;
         private long countRunnerFailedTransactions = 0;
         private int consecutiveSuccessCount = 0;
-        private long forcedDelayTimestamp = 0;
-        private long recordsScannedSinceForcedDelay = 0;
+        private long forcedDelayTimestampMilliSeconds = 0;
+        private long recordsScannedSinceForcedDelayMilliSeconds = 0;
 
         Booker(@Nonnull IndexingCommon common) {
             this.common = common;
@@ -109,14 +109,16 @@ public class IndexingThrottle {
             // - Ignore failed transactions (they should be rare, and limited in number)
             int recordsPerSecond = common.config.getRecordsPerSecond();
             if (recordsPerSecond == IndexingCommon.UNLIMITED) {
-                recordsScannedSinceForcedDelay = forcedDelayTimestamp = 0; // in case config loaders changes from UNLIMITED to limit
+                // in case config loader changes this value from UNLIMITED to limit
+                recordsScannedSinceForcedDelayMilliSeconds = 0;
+                forcedDelayTimestampMilliSeconds = 0;
                 return 0;
             }
             final long now = System.currentTimeMillis();
-            final long delta = Math.max(0, now - forcedDelayTimestamp);
-            final long toWait = Math.min(999, Math.max(0, (1000 * recordsScannedSinceForcedDelay) / recordsPerSecond - delta)); // to avoid floor we could have added (recordsPerSecond / 2) to the numerator, but it's neglectable here
-            forcedDelayTimestamp = now + toWait;
-            recordsScannedSinceForcedDelay = 0;
+            final long delta = Math.max(0, now - forcedDelayTimestampMilliSeconds);
+            final long toWait = Math.min(999, Math.max(0, (1000 * recordsScannedSinceForcedDelayMilliSeconds) / recordsPerSecond - delta)); // to avoid floor we could have added (recordsPerSecond / 2) to the numerator, but it's neglectable here
+            forcedDelayTimestampMilliSeconds = now + toWait;
+            recordsScannedSinceForcedDelayMilliSeconds = 0;
             return toWait;
         }
 
@@ -133,9 +135,9 @@ public class IndexingThrottle {
 
         void decreaseLimit(@Nonnull FDBException fdbException,
                            @Nullable List<Object> additionalLogMessageKeyValues,
-                           final boolean duringRangesIteration) {
+                           final boolean adjustLimits) {
             // TODO: decrease the limit only for certain errors
-            if (!duringRangesIteration) {
+            if (!adjustLimits) {
                 return; // no accounting for endpoints operations
             }
             countFailedTransactions++;
@@ -145,10 +147,9 @@ public class IndexingThrottle {
                 final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
                                 LogMessageKeys.ERROR, fdbException.getMessage(),
                                 LogMessageKeys.ERROR_CODE, fdbException.getCode(),
-                                LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                 LogMessageKeys.OLD_LIMIT, oldLimit)
-                        .addKeysAndValues(logMessageKeyValues());
+                        .addKeysAndValues(logMessageKeyValues())
+                        .addKeysAndValues(common.indexLogMessageKeyValues());
                 if (additionalLogMessageKeyValues != null) {
                     message.addKeysAndValues(additionalLogMessageKeyValues);
                 }
@@ -158,9 +159,10 @@ public class IndexingThrottle {
 
         void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
                                                @Nonnull final AtomicLong recordsScanned,
-                                               final boolean duringRangesIteration) {
+                                               final boolean adjustLimits,
+                                               final @Nullable List<Object> additionalLogMessageKeyValues) {
             final long recordsScannedThisTransaction = recordsScanned.get();
-            if (!duringRangesIteration) {
+            if (!adjustLimits) {
                 if (exception == null) {
                     synchronized (this) { // In this mode, multi threads are allowed
                         totalRecordsScannedSuccess += recordsScannedThisTransaction;
@@ -172,9 +174,9 @@ public class IndexingThrottle {
             if (exception == null) {
                 countSuccessfulTransactions++;
                 totalRecordsScannedSuccess += recordsScannedThisTransaction;
-                recordsScannedSinceForcedDelay += recordsScannedThisTransaction;
+                recordsScannedSinceForcedDelayMilliSeconds += recordsScannedThisTransaction;
                 if (consecutiveSuccessCount >= common.config.getIncreaseLimitAfter()) {
-                    increaseLimit();
+                    increaseLimit(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : new ArrayList<>());
                     consecutiveSuccessCount = 0; // do not increase again immediately after the next success
                 } else {
                     consecutiveSuccessCount++;
@@ -188,7 +190,7 @@ public class IndexingThrottle {
             }
         }
 
-        private void increaseLimit() {
+        private void increaseLimit(final @Nonnull List<Object> additionalLogMessageKeyValues) {
             final long maxLimit = common.config.getMaxLimit();
             if (recordsLimit >= maxLimit) {
                 return; // quietly
@@ -198,11 +200,10 @@ public class IndexingThrottle {
 
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("Re-increasing limit of online index build",
-                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                                LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                 LogMessageKeys.OLD_LIMIT, oldLimit)
+                        .addKeysAndValues(additionalLogMessageKeyValues)
                         .addKeysAndValues(logMessageKeyValues())
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
         }
@@ -224,10 +225,12 @@ public class IndexingThrottle {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
                             KeyValueLogMessage.build("Decreasing the limit to the new max limit.",
-                                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                     LogMessageKeys.OLD_LIMIT, recordsLimit,
                                     LogMessageKeys.LIMIT, maxLimit,
-                                    LogMessageKeys.MAX_LIMIT, maxLimit).toString());
+                                    LogMessageKeys.MAX_LIMIT, maxLimit)
+                                    .addKeysAndValues(logMessageKeyValues())
+                                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                                    .toString());
                 }
                 recordsLimit = maxLimit;
             }
@@ -267,10 +270,8 @@ public class IndexingThrottle {
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull final BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
                                                           @Nullable final List<Object> additionalLogMessageKeyValues,
-                                                          final boolean duringRangesIteration) {
-        List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
-                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                LogMessageKeys.INDEXER_ID, common.getUuid()));
+                                                          final boolean adjustLimits) {
+        List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(common.indexLogMessageKeyValues());
         if (additionalLogMessageKeyValues != null) {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
@@ -286,12 +287,11 @@ public class IndexingThrottle {
                 expectedIndexStatesOrThrow(store, context);
                 return buildFunction.apply(store, recordsScanned);
             }), (result, exception) -> {
-                booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, duringRangesIteration);
+                booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
                 return Pair.of(result, exception);
             }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                 if (e == null) {
                     // Here: success path - also the common path (or so we hope)
-                    common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                     ret.complete(value);
                     return AsyncUtil.READY_FALSE;
                 }
@@ -311,13 +311,13 @@ public class IndexingThrottle {
                     return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                 }
                 // Here: decrease limit, log, delay continue
-                booker.decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues, duringRangesIteration);
+                booker.decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues, adjustLimits);
                 if (LOGGER.isWarnEnabled()) {
                     final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,
                                     LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
                                     LogMessageKeys.DELAY, delay.getNextDelayMillis())
-                            .addKeysAndValues(onlineIndexerLogMessageKeyValues)
+                            .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
                             .addKeysAndValues(logMessageKeyValues());
                     LOGGER.warn(message.toString(), e);
                 }
@@ -339,7 +339,7 @@ public class IndexingThrottle {
 
     private void expectedIndexStatesOrThrow(FDBRecordStore store, FDBRecordContext context) {
         List<IndexState> indexStates = common.getTargetIndexes().stream().map(store::getIndexState).collect(Collectors.toList());
-        if (indexStates.stream().anyMatch(state -> state == expectedIndexState)) {
+        if (indexStates.stream().allMatch(state -> state == expectedIndexState)) {
             return;
         }
         // possible exceptions:
@@ -371,6 +371,10 @@ public class IndexingThrottle {
 
     public int getLimit() {
         return (int) booker.getRecordsLimit();
+    }
+
+    public long getTotalRecordsScannedScuccessfully() {
+        return booker.totalRecordsScannedSuccess;
     }
 }
 

@@ -836,8 +836,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     // Public could use IndexBuildState.getTotalRecordsScanned instead.
     long getTotalRecordsScanned() {
-        // TODO: use Throttle.Booker's internal count instead
-        return common.getTotalRecordsScanned().get();
+        return indexer == null ? 0 : indexer.getTotalRecordsScannedScuccessfully();
     }
 
     private FDBDatabaseRunner getRunner() {

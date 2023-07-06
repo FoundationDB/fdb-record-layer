@@ -667,6 +667,10 @@ public abstract class IndexingBase {
         return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues, duringRangesIteration);
     }
 
+    public long getTotalRecordsScannedScuccessfully() {
+        return throttle.getTotalRecordsScannedScuccessfully();
+    }
+
     protected void timerIncrement(FDBStoreTimer.Counts event) {
         // helper function to reduce complexity
         final FDBStoreTimer timer = getRunner().getTimer();
