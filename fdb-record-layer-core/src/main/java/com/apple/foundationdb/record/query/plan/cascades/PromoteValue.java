@@ -52,12 +52,20 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
     private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =
-            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in));
+            ImmutableMap.<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>>builder()
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in))
+                    .put(Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in))
+                    .put(Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in))
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.DOUBLE), (descriptor, in) -> (Double) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.FLOAT), (descriptor, in) -> (Float) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.LONG), (descriptor, in) -> (Long) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.INT), (descriptor, in) -> (Integer) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN), (descriptor, in) -> (Boolean) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.STRING), (descriptor, in) -> (String) null)
+                    .build();
     /**
      * The hash value of this expression.
      */
