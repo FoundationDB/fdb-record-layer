@@ -26,26 +26,35 @@ import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.directory.DirectoryLayer;
+import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import org.davidmoten.hilbert.HilbertCurve;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /**
  * Tests for {@link RankedSet}.
@@ -53,39 +62,147 @@ import java.util.function.Predicate;
 @Tag(Tags.RequiresFDB)
 public class RTreeTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(RTreeTest.class);
-    private Database db;
-    private Subspace rtSubspace;
 
-    private RTree.Config config = RTree.DEFAULT_CONFIG;
+    private static final int NUM_SAMPLES = 10_000;
+
+    private static final int NUM_QUERIES = 10_000;
+    private static Database db;
+    private static DirectorySubspace rtSubspace;
+
+    private static Tuple[] keys;
+    private static Tuple[] values;
+    private static RTree.Point[] points;
+
     private static final boolean TRACE = false;
 
-    @BeforeEach
-    public void setUp() throws Exception {
+    @BeforeAll
+    public static void setUpDb() throws Exception {
         FDB fdb = FDB.instance();
         if (TRACE) {
             NetworkOptions options = fdb.options();
             options.setTraceEnable("/tmp");
             options.setTraceLogGroup("RTreeTest");
         }
-        this.db = fdb.open();
-        this.rtSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
+        db = fdb.open();
+        rtSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(RTree.class.getSimpleName())).get();
         db.run(tr -> {
             tr.clear(rtSubspace.range());
             return null;
         });
+        //randomInserts(db, rtSubspace);
+        bitemporalInserts(db, rtSubspace);
+    }
+
+    @AfterAll
+    public static void closeDb() {
+        db.close();
+    }
+
+    public static void randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace) {
+        final Random random = new Random(0);
+        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+        keys = new Tuple[NUM_SAMPLES];
+        values = new Tuple[NUM_SAMPLES];
+        points = new RTree.Point[NUM_SAMPLES];
+        final BigInteger[] hvs = new BigInteger[NUM_SAMPLES];
+
+        for (int i = 0; i < NUM_SAMPLES; ++i) {
+            keys[i] = Tuple.from(i);
+            values[i] = Tuple.from("value" + i);
+            points[i] = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
+            hvs[i] = hc.index((long)points[i].getCoordinate(0), (long)points[i].getCoordinate(1));
+        }
+
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final int numInsertsPerBatch = 1_000;
+        for (int i = 0; i < NUM_SAMPLES; ) {
+            final int batchStart = i; // lambdas
+            i += db.run(tr -> {
+                int j;
+                for (j = 0; j < numInsertsPerBatch; j ++) {
+                    final int index = batchStart + j;
+                    if (index == NUM_SAMPLES) {
+                        break;
+                    }
+                    rt.insert(tr, hvs[index], keys[index], values[index], points[index]).join();
+                }
+
+                return j;
+            });
+        }
+    }
+
+    public static void bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace) throws Exception {
+        final int smear = 100;
+        final Random random = new Random(0);
+        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+        keys = new Tuple[NUM_SAMPLES];
+        values = new Tuple[NUM_SAMPLES];
+        points = new RTree.Point[NUM_SAMPLES];
+        final BigInteger[] hvs = new BigInteger[NUM_SAMPLES];
+
+        try (FileWriter fw = new FileWriter("points.csv", false);
+                BufferedWriter bw = new BufferedWriter(fw);
+                PrintWriter out = new PrintWriter(bw)) {
+            final double step = (double)1000 / NUM_SAMPLES;
+            double current = 0.0d;
+            for (int i = 0; i < NUM_SAMPLES; ++i) {
+                long x;
+                long y;
+                do {
+                    x = (int)current + random.nextInt(2 * smear) - smear;
+                    y = (int)current + random.nextInt(2 * smear) - smear;
+                } while (x < 0 || y < 0 || x > 1000 || y > 1000);
+                out.println(x + "," + y);
+                keys[i] = Tuple.from(i);
+                values[i] = Tuple.from("value" + i);
+                points[i] = new RTree.Point(Tuple.from(x, y));
+                hvs[i] = hc.index((long)points[i].getCoordinate(0), (long)points[i].getCoordinate(1));
+                current += step;
+            }
+        }
+
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final int numInsertsPerBatch = 1_000;
+        for (int i = 0; i < NUM_SAMPLES; ) {
+            final int batchStart = i; // lambdas
+            i += db.run(tr -> {
+                int j;
+                for (j = 0; j < numInsertsPerBatch; j ++) {
+                    final int index = batchStart + j;
+                    if (index == NUM_SAMPLES) {
+                        break;
+                    }
+                    rt.insert(tr, hvs[index], keys[index], values[index], points[index]).join();
+                }
+
+                return j;
+            });
+        }
+    }
+
+    @Nonnull
+    public static Stream<Arguments> queries() {
+        final Random random = new Random(1);
+        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
+        for (int i = 0; i < NUM_QUERIES; i ++) {
+            int area = random.nextInt(1000 * 1000);
+
+            int min = area / 1000 + 1;
+            int width = random.nextInt(1000 - min + 1) + min;
+            int height = area / width;
+
+            long xLow = random.nextInt(1000 - width + 1);
+            long yLow = random.nextInt(1000 - height + 1);
+
+            argumentsBuilder.add(Arguments.of(new RTree.Rectangle(Tuple.from(xLow, yLow, xLow + width, yLow + height))));
+        }
+        return argumentsBuilder.build().stream();
     }
 
     @ParameterizedTest
-    @ValueSource(ints = { 100000 })
-    public void randomInserts(int numSamples) {
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
-        final Random r = new Random(0);
-        final Tuple[] keys = new Tuple[numSamples];
-        final Tuple[] values = new Tuple[numSamples];
-        final RTree.Point[] points = new RTree.Point[numSamples];
-        final BigInteger[] hvs = new BigInteger[numSamples];
-        final RTree.Rectangle query = new RTree.Rectangle(Tuple.from(250, 250, 750, 750));
-        //final RTree.Rectangle query = new RTree.Rectangle(Tuple.from(0, 0, 500, 500));
+    @MethodSource("queries")
+    public void query(@Nonnull final RTree.Rectangle query) throws Exception {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -97,11 +214,7 @@ public class RTreeTest extends FDBTestBase {
         final long queryLowY = ((Number)query.getLow(1)).longValue();
         final long queryHighY = ((Number)query.getHigh(1)).longValue();
 
-        for (int i = 0; i < numSamples; ++i) {
-            keys[i] = Tuple.from(i);
-            values[i] = Tuple.from("value" + i);
-            points[i] = new RTree.Point(Tuple.from((long)r.nextInt(1000), (long)r.nextInt(1000)));
-
+        for (int i = 0; i < NUM_SAMPLES; ++i) {
             if (query.contains(points[i])) {
                 numPointsSatisfyingQuery ++;
             }
@@ -115,53 +228,42 @@ public class RTreeTest extends FDBTestBase {
             if (queryLowY <= pointY && pointY <= queryHighY) {
                 numPointsSatisfyingQueryY ++;
             }
-
-            hvs[i] = hc.index((long)points[i].getCoordinate(0), (long)points[i].getCoordinate(1));
         }
 
         final InstrumentedRTree rt = newRTree();
-        final int numInsertsPerBatch = 1_000;
-        for (int i = 0; i < numSamples; ) {
-            final int batchStart = i; // lambdas
-            i += db.run(tr -> {
-                int j;
-                for (j = 0; j < numInsertsPerBatch; j ++) {
-                    final int index = batchStart + j;
-                    if (index == numSamples) {
-                        break;
-                    }
-                    rt.insert(tr, hvs[index], keys[index], values[index], points[index]).join();
-                }
-                
-                return j;
-            });
-        }
-
-
-
-//        db.run(tr -> {
-//            AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true), itemSlot -> {
-//                System.out.println(itemSlot.getKey() + "; " + itemSlot.getHilbertValue());
-//            }).join();
-//            return null;
-//        });
-
-        rt.resetCounters();
-
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate), itemSlot -> {
-                nresults.incrementAndGet();
+                if (query.contains(itemSlot.getPosition())) {
+                    nresults.incrementAndGet();
+                }
             }).join();
             return null;
         });
 
-        logger.info("nresults = {}", nresults.get());
-        logger.info("expected nresults = {}", numPointsSatisfyingQuery);
-        logger.info("num points satisfying X range in query = {}", numPointsSatisfyingQueryX);
-        logger.info("num points satisfying Y range in query = {}", numPointsSatisfyingQueryY);
+        Assertions.assertEquals(numPointsSatisfyingQuery, nresults.get());
 
-        rt.logCounters();
+//        logger.info("nresults = {}", nresults.get());
+//        logger.info("expected nresults = {}", numPointsSatisfyingQuery);
+//        logger.info("num points satisfying X range in query = {}", numPointsSatisfyingQueryX);
+//        logger.info("num points satisfying Y range in query = {}", numPointsSatisfyingQueryY);
+
+//        rt.logCounters();
+
+        final double ffPredicate = (double)nresults.get() / NUM_SAMPLES;
+//        logger.info("ff of predicate = {}", ffPredicate);
+        final double ffSargable = (double)rt.getReadSlotCounter() / NUM_SAMPLES;
+//        logger.info("ff of sargable = {}", ffSargable);
+        final double overread = (ffSargable / ffPredicate - 1d) * 100d;
+//        logger.info("over-read = {}%", overread);
+
+        try (FileWriter fw = new FileWriter("myfile.txt", true);
+                BufferedWriter bw = new BufferedWriter(fw);
+                PrintWriter out = new PrintWriter(bw))
+        {
+            out.println(NUM_SAMPLES + "," + query.area().doubleValue() / 1000 / 1000 * 100.0d + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + rt.getReadSlotCounter());
+        }
+        //System.err.println(NUM_SAMPLES + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + ffPredicate + "," + ffSargable);
     }
 
     //
@@ -193,6 +295,30 @@ public class RTreeTest extends FDBTestBase {
             readNodesCounter.set(0L);
             readLeafNodesCounter.set(0L);
             readIntermediateNodesCounter.set(0L);
+        }
+
+        public long getReadSlotCounter() {
+            return readSlotCounter.get();
+        }
+
+        public long getReadLeafSlotCounter() {
+            return readLeafSlotCounter.get();
+        }
+
+        public long getReadIntermediateSlotCounter() {
+            return readIntermediateSlotCounter.get();
+        }
+
+        public long getReadNodesCounter() {
+            return readNodesCounter.get();
+        }
+
+        public long getReadLeafNodesCounter() {
+            return readLeafNodesCounter.get();
+        }
+
+        public long getReadIntermediateNodesCounter() {
+            return readIntermediateNodesCounter.get();
         }
 
         public void logCounters() {

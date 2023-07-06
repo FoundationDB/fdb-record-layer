@@ -264,15 +264,7 @@ public class RTree {
                         }
                         toBeProcessed.add(toBeProcessedThisLevel);
 
-                        byte[] nextId = null;
-                        for (int level = toBeProcessed.size() - 1; level >= 0; level --) {
-                            toBeProcessedThisLevel = toBeProcessed.get(level);
-                            if (!toBeProcessedThisLevel.isEmpty()) {
-                                nextId = toBeProcessedThisLevel.pollFirst();
-                                break;
-                            }
-                        }
-
+                        byte[] nextId = resolveNextIdForFetch(toBeProcessed);
                         if (nextId == null) {
                             return false;
                         }
@@ -297,33 +289,36 @@ public class RTree {
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
 
         return AsyncUtil.whileTrue(() -> {
-            int level;
-            byte[] currentId = null;
-            for (level = toBeProcessed.size() - 1; level >= 0; level--) {
-                final Deque<byte[]> toBeProcessedThisLevel = toBeProcessed.get(level);
-                if (!toBeProcessedThisLevel.isEmpty()) {
-                    currentId = toBeProcessedThisLevel.pollFirst();
-                    break;
-                }
-            }
-
-            if (currentId == null) {
+            byte[] nextId = resolveNextIdForFetch(toBeProcessed);
+            if (nextId == null) {
                 return AsyncUtil.READY_FALSE;
             }
 
-            final int branchLevel = level; // lambdas
-            return fetchLeftmostPathToLeaf(transaction, currentId, mbrPredicate).thenApply(nestedTraversalState -> {
+            return fetchLeftmostPathToLeaf(transaction, nextId, mbrPredicate).thenApply(nestedTraversalState -> {
                 if (nestedTraversalState.isEnd()) {
                     return true;
                 }
                 leafNode.set(nestedTraversalState.getCurrentLeafNode());
-                toBeProcessed.subList(branchLevel + 1, toBeProcessed.size()).clear();
                 toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
                 return false;
             });
         }, executor).thenApply(v -> leafNode.get() == null
                                     ? TraversalState.end()
                                     : TraversalState.of(toBeProcessed, leafNode.get()));
+    }
+
+    @Nullable
+    private static byte[] resolveNextIdForFetch(final List<Deque<byte[]>> toBeProcessed) {
+        byte[] nextId = null;
+        for (int level = toBeProcessed.size() - 1; level >= 0; level--) {
+            final Deque<byte[]> toBeProcessedThisLevel = toBeProcessed.get(level);
+            if (!toBeProcessedThisLevel.isEmpty()) {
+                nextId = toBeProcessedThisLevel.pollFirst();
+                toBeProcessed.subList(level + 1, toBeProcessed.size()).clear();
+                break;
+            }
+        }
+        return nextId;
     }
 
     public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
@@ -408,7 +403,7 @@ public class RTree {
             // if this is the root we need to grow the tree taller
             //
             if (targetNode.isRoot()) {
-                logger.info("splitting root node; size={}", targetNode.size());
+                //logger.info("splitting root node; size={}", targetNode.size());
                 // temporarily overfill the old root node
                 targetNode.insertSlot(slotIndexInTargetNode, newSlot);
                 splitRootNode(transaction, targetNode);
@@ -430,19 +425,19 @@ public class RTree {
 
                 final Node splitNode;
                 if (numSlots == siblingNodes.size() * config.getMaxM()) {
-                    logger.info("splitting node; node={}, siblings={}",
-                            bytesToHex(targetNode.getId()),
-                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+//                    logger.info("splitting node; node={}, siblings={}",
+//                            bytesToHex(targetNode.getId()),
+//                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     splitNode = targetNode.newOfSameKind();
                     // link this split node to become the last node of the siblings
                     splitNode.linkToParent(Objects.requireNonNull(targetNode.getParentNode()),
                             siblingNodes.get(siblingNodes.size() - 1).getSlotIndexInParent() + 1);
                     siblingNodes.add(splitNode);
                 } else {
-                    logger.info("handling overflow; node={}, numSlots={}, siblings={}",
-                            bytesToHex(targetNode.getId()),
-                            numSlots,
-                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+//                    logger.info("handling overflow; node={}, numSlots={}, siblings={}",
+//                            bytesToHex(targetNode.getId()),
+//                            numSlots,
+//                            siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     splitNode = null;
                 }
 
@@ -1424,6 +1419,14 @@ public class RTree {
 
         public Object getHigh(final int dimension) {
             return ranges.get((ranges.size() >> 1) + dimension);
+        }
+
+        public BigInteger area() {
+            BigInteger currentArea = BigInteger.ONE;
+            for (int d = 0; d < getNumDimensions(); d ++) {
+                currentArea = currentArea.multiply(BigInteger.valueOf(((Number)getHigh(d)).longValue() - ((Number)getLow(d)).longValue()));
+            }
+            return currentArea;
         }
 
         public Rectangle unionWith(@Nonnull final Point point) {
