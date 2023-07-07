@@ -389,7 +389,6 @@ public class FDBDirectory extends Directory {
                         LuceneLogMessageKeys.DATA_SIZE, value.length,
                         LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
             }
-            Verify.verify(value.length <= blockSize);
             context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
             return value.length;
         });

@@ -70,6 +70,7 @@ message RecordTypeUnion {
     optional ComplexDocument _ComplexDocument = 2;
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
+    optional ManyFieldsDocument _ManyFieldsDocument = 5;
 }
 
 message NestedMapDocument {
@@ -86,4 +87,41 @@ message NestedMapDocument {
     repeated Entry entry = 2;
     optional int64 group = 3;
     optional string text2 = 4;
+}
+
+message ManyFieldsDocument {
+    message Header {
+        optional int64 header_id = 1;
+    }
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    optional string text0 = 2;
+    optional string text1 = 3;
+    optional string text2 = 4;
+    optional string text3 = 5;
+    optional string text4 = 6;
+    optional string text5 = 7;
+    optional string text6 = 8;
+    optional string text7 = 9;
+    optional string text8 = 10;
+    optional string text9 = 11;
+    optional int64 long0 = 12;
+    optional int64 long1 = 13;
+    optional int64 long2 = 14;
+    optional int64 long3 = 15;
+    optional int64 long4 = 16;
+    optional int64 long5 = 17;
+    optional int64 long6 = 18;
+    optional int64 long7 = 19;
+    optional int64 long8 = 20;
+    optional int64 long9 = 21;
+    optional bool bool0 = 22;
+    optional bool bool1 = 23;
+    optional bool bool2 = 24;
+    optional bool bool3 = 25;
+    optional bool bool4 = 26;
+    optional bool bool5 = 27;
+    optional bool bool6 = 28;
+    optional bool bool7 = 29;
+    optional bool bool8 = 30;
+    optional bool bool9 = 31;
 }
