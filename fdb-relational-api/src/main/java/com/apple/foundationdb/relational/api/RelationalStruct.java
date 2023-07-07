@@ -139,7 +139,7 @@ public interface RelationalStruct extends Struct, Wrapper {
     static int getOneBasedPosition(String columnName, RelationalStruct relationalStruct) throws SQLException {
         StructMetaData metaData = relationalStruct.getMetaData();
         for (int i = 1; i <= metaData.getColumnCount(); i++) {
-            if (metaData.getColumnName(i).equals(columnName)) {
+            if (metaData.getColumnName(i).equalsIgnoreCase(columnName)) {
                 return i;
             }
         }

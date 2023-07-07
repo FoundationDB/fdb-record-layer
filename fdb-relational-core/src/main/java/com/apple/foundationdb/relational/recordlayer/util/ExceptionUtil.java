@@ -72,6 +72,8 @@ public final class ExceptionUtil {
         } else if (re instanceof SemanticException) {
             if (((SemanticException) re).getErrorCode().equals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE)) {
                 code = ErrorCode.CANNOT_CONVERT_TYPE;
+            } else if (((SemanticException) re).getErrorCode().equals(SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE)) {
+                code = ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION;
             } else {
                 code = ErrorCode.INTERNAL_ERROR;
             }

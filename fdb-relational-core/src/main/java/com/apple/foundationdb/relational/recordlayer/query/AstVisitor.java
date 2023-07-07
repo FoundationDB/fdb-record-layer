@@ -1189,8 +1189,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Object visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
+        final List<Typed> args = ctx.functionArgs().children.stream()
+                .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
+                .map(arg -> (Typed) arg.accept(this))
+                .collect(Collectors.toList());
+        BuiltInFunction<? extends Value> scalarFunction = ParserUtils.getExplicitFunction(ctx.scalarFunctionName().getText());
+        return (Value) ParserUtils.encapsulate(scalarFunction, args);
     }
 
     @Override // not supported yet

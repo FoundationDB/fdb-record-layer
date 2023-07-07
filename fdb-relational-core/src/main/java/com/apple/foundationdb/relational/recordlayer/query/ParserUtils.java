@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
+import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -146,13 +147,16 @@ public final class ParserUtils {
         functionMap.put("MOD", ArithmeticValue.ModFn.class); // should be case-insensitive
         functionMap.put("+", ArithmeticValue.AddFn.class);
         functionMap.put("-", ArithmeticValue.SubFn.class);
+        functionMap.put("greatest", VariadicFunctionValue.GreatestFn.class);
+        functionMap.put("least", VariadicFunctionValue.LeastFn.class);
+        functionMap.put("coalesce", VariadicFunctionValue.CoalesceFn.class);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
     public static BuiltInFunction<? extends Value> getExplicitFunction(@Nonnull final String functionName) {
         final var result = FunctionCatalog.getFunctionSingleton(functionMap.get(functionName));
-        Assert.thatUnchecked(result.isPresent(), String.format("unsupported function '%s'", functionName));
+        Assert.thatUnchecked(result.isPresent(), String.format("unsupported function '%s'", functionName), ErrorCode.UNSUPPORTED_OPERATION);
         return (BuiltInFunction<? extends Value>) result.get();
     }
 

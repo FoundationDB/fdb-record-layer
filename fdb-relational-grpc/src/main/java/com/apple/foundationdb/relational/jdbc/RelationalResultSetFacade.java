@@ -277,33 +277,48 @@ class RelationalResultSetFacade implements RelationalResultSet {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
-        return TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
+        RelationalStruct s = TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
+        wasNull = s == null;
+        return s;
     }
 
     @Override
     public Object getObject(int oneBasedColumn) throws SQLException {
         int type = getMetaData().getColumnType(oneBasedColumn);
+        final Object o;
         switch (type) {
             case Types.VARCHAR:
-                return getString(oneBasedColumn);
+                o = getString(oneBasedColumn);
+                break;
             case Types.INTEGER:
-                return getInt(oneBasedColumn);
+                o = getInt(oneBasedColumn);
+                break;
             case Types.BIGINT:
-                return getLong(oneBasedColumn);
+                o = getLong(oneBasedColumn);
+                break;
             case Types.STRUCT:
-                return getStruct(oneBasedColumn);
+                o = getStruct(oneBasedColumn);
+                break;
             case Types.ARRAY:
-                return getArray(oneBasedColumn);
+                o = getArray(oneBasedColumn);
+                break;
             case Types.DOUBLE:
-                return getDouble(oneBasedColumn);
+                o = getDouble(oneBasedColumn);
+                break;
             case Types.BOOLEAN:
-                return getBoolean(oneBasedColumn);
+                o = getBoolean(oneBasedColumn);
+                break;
             case Types.BINARY:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
                 Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
                 return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
             default:
                 throw new SQLException("Unsupported type " + type);
+        }
+        if (wasNull()) {
+            return null;
+        } else {
+            return o;
         }
     }
 
@@ -319,8 +334,10 @@ class RelationalResultSetFacade implements RelationalResultSet {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumnMetadata().getColumnMetadata(index);
         Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-        return column == null || !column.hasArray() ? null :
+        RelationalArrayFacade array = column == null || !column.hasArray() ? null :
                 new RelationalArrayFacade(columnMetadata.getArrayMetadata(), column.getArray());
+        wasNull = array == null;
+        return array;
     }
 
     @Override

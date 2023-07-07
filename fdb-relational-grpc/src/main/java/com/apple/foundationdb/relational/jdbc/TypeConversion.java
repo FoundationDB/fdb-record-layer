@@ -249,11 +249,13 @@ public class TypeConversion {
                         (a, b) -> a == null ? b.clearArray() : b.setArray((Array) a));
                 break;
             case Types.BIGINT:
-                column = toColumn(relationalStruct.getLong(oneBasedIndex),
+                long l = relationalStruct.getLong(oneBasedIndex);
+                column = toColumn(relationalStruct.wasNull() ? null : l,
                         (a, b) -> a == null ? b.clearLong() : b.setLong((Long) a));
                 break;
             case Types.BOOLEAN:
-                column = toColumn(relationalStruct.getBoolean(oneBasedIndex),
+                boolean bool = relationalStruct.getBoolean(oneBasedIndex);
+                column = toColumn(relationalStruct.wasNull() ? null : bool,
                         (a, b) -> a == null ? b.clearBoolean() : b.setBoolean((Boolean) a));
                 break;
             case Types.VARCHAR:
@@ -265,7 +267,8 @@ public class TypeConversion {
                         (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom((byte[]) a)));
                 break;
             case Types.DOUBLE:
-                column = toColumn(relationalStruct.getDouble(oneBasedIndex),
+                double d = relationalStruct.getDouble(oneBasedIndex);
+                column = toColumn(relationalStruct.wasNull() ? null : d,
                         (a, b) -> a == null ? b.clearDouble() : b.setDouble((Double) a));
                 break;
             default:

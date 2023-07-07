@@ -291,11 +291,11 @@ public abstract class RowStruct implements RelationalStruct {
 
     private int getOneBasedPosition(String columnLabel) throws SQLException {
         for (int pos = 1; pos <= metaData.getColumnCount(); pos++) {
-            if (metaData.getColumnName(pos).equals(columnLabel)) {
+            if (metaData.getColumnName(pos).equalsIgnoreCase(columnLabel)) {
                 return pos;
             }
         }
-        throw new InvalidColumnReferenceException(columnLabel).toSqlException();
+        throw new InvalidColumnReferenceException("Invalid column: " + columnLabel).toSqlException();
     }
 
     private int getZeroBasedPosition(int oneBasedPosition) {

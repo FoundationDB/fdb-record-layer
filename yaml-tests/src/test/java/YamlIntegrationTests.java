@@ -166,4 +166,9 @@ public class YamlIntegrationTests {
     public void updateReturning() throws Exception {
         doRun("update-returning.yaml");
     }
+
+    @Test
+    void functions() throws Exception {
+        doRun("functions.yaml");
+    }
 }
