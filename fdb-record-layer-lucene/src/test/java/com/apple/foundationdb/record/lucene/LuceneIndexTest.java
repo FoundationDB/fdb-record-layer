@@ -515,6 +515,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void largeMetadataTest() {
+        // Test a document with many fields, where the field metadata is larger than a data block
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
@@ -526,6 +527,66 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MANY_FIELDS_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    /**
+     * Make sure the text search for individual fields is not confused when there are multiple fields in the fieldsFormat schema.
+     * Fields are overlapping (0 and 1).
+     */
+    @Test
+    void differentFieldSearch() {
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
+            TestRecordsTextProto.ManyFieldsDocument doc1 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(11L)
+                    .setText0("matching text for field 0 pineapple")
+                    .setText1("non matching text for field 1 orange")
+                    .build();
+            TestRecordsTextProto.ManyFieldsDocument doc2 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(387L)
+                    .setText0("non matching text for field 0 orange")
+                    .setText1("matching text for field 1 pineapple")
+                    .build();
+            recordStore.saveRecord(doc1);
+            recordStore.saveRecord(doc2);
+
+            // Make sure the text search for individual fields
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(11)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(387)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text1:pineapple"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    /**
+     * Make sure the text search for individual fields is not confused when there are multiple fields in the fieldsFormat schema.
+     * This test has no overlap in the fields (0/1 vs 3/4).
+     */
+    @Test
+    void differentFieldSearchNoOverlap() {
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
+            TestRecordsTextProto.ManyFieldsDocument doc1 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(11L)
+                    .setText0("matching text for field 0 pineapple")
+                    .setText1("non matching text for field 1 orange")
+                    .build();
+            TestRecordsTextProto.ManyFieldsDocument doc2 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(387L)
+                    .setText3("non matching text for field 3 orange")
+                    .setText4("matching text for field 4 pineapple")
+                    .build();
+            recordStore.saveRecord(doc1);
+            recordStore.saveRecord(doc2);
+
+            // Make sure the text search for individual fields
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(11)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(387)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text4:pineapple"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
