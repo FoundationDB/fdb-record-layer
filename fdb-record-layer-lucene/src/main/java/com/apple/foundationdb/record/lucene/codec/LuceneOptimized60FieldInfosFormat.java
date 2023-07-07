@@ -105,6 +105,10 @@ import org.apache.lucene.store.IndexOutput;
  * This has been added because the existing header strategy wrote
  * the file name.
  *
+ * This class is a close to the original ({@link org.apache.lucene.codecs.lucene60.Lucene60FieldInfosFormat}), with the
+ * changes marked with a "CUSTOMIZED" comment.
+ * The changes implemented are the removal of the fields' info from every file, replacing them with a bitset (at the file reference)
+ * of the fields from the central "field schema" for that file.
  */
 public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
     /** Extension of field infos. */
@@ -140,6 +144,7 @@ public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
                         CODEC_NAME,
                         FORMAT_START,
                         FORMAT_CURRENT);
+                // END CUSTOMIZED
 
                 final int size = input.readVInt(); //read in the size
                 infos = new FieldInfo[size];
@@ -292,6 +297,7 @@ public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
         try (IndexOutput output = directory.createOutput(fileName, context)) {
             // CUSTOMIZED FROM CodecUtil.writeIndexHeader()
             CodecUtil.writeHeader(output, CODEC_NAME, FORMAT_CURRENT);
+            // END CUSTOMIZED
             output.writeVInt(infos.size());
             for (FieldInfo fi : infos) {
                 fi.checkConsistency();
