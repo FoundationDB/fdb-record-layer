@@ -33,6 +33,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.MinMaxPriorityQueue;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -49,7 +50,10 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
@@ -65,7 +69,7 @@ public class RTreeTest extends FDBTestBase {
 
     private static final int NUM_SAMPLES = 10_000;
 
-    private static final int NUM_QUERIES = 10_000;
+    private static final int NUM_QUERIES = 1;
     private static Database db;
     private static DirectorySubspace rtSubspace;
 
@@ -202,7 +206,7 @@ public class RTreeTest extends FDBTestBase {
 
     @ParameterizedTest
     @MethodSource("queries")
-    public void query(@Nonnull final RTree.Rectangle query) throws Exception {
+    public void queryWithFilters(@Nonnull final RTree.Rectangle query) throws Exception {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -264,6 +268,65 @@ public class RTreeTest extends FDBTestBase {
             out.println(NUM_SAMPLES + "," + query.area().doubleValue() / 1000 / 1000 * 100.0d + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + rt.getReadSlotCounter());
         }
         //System.err.println(NUM_SAMPLES + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + ffPredicate + "," + ffSargable);
+    }
+
+    @ParameterizedTest
+    @MethodSource("queries")
+    public void queryTopNWithFilters(@Nonnull final RTree.Rectangle query) throws Exception {
+        final TopNTraversal topNTraversal = new TopNTraversal(query, 3);
+
+        int numPointsSatisfyingQuery = 0;
+        int numPointsSatisfyingQueryX = 0;
+        int numPointsSatisfyingQueryY = 0;
+        final long queryLowX = ((Number)query.getLow(0)).longValue();
+        final long queryHighX = ((Number)query.getHigh(0)).longValue();
+        final long queryLowY = ((Number)query.getLow(1)).longValue();
+        final long queryHighY = ((Number)query.getHigh(1)).longValue();
+
+        for (int i = 0; i < NUM_SAMPLES; ++i) {
+            if (query.contains(points[i])) {
+                numPointsSatisfyingQuery ++;
+            }
+
+            final long pointX = ((Number)points[i].getCoordinate(0)).longValue();
+            final long pointY = ((Number)points[i].getCoordinate(1)).longValue();
+            if (queryLowX <= pointX && pointX <= queryHighX) {
+                numPointsSatisfyingQueryX ++;
+            }
+
+            if (queryLowY <= pointY && pointY <= queryHighY) {
+                numPointsSatisfyingQueryY ++;
+            }
+        }
+
+        final InstrumentedRTree rt = newRTree();
+        final AtomicLong nresults = new AtomicLong(0L);
+        db.run(tr -> {
+            AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
+                if (query.contains(itemSlot.getPosition())) {
+                    topNTraversal.addItemSlot(itemSlot);
+                    nresults.incrementAndGet();
+                }
+            }).join();
+            return null;
+        });
+
+        topNTraversal.getTopNItemSlots().forEach(System.out::println);
+
+        //Assertions.assertEquals(numPointsSatisfyingQuery, nresults.get());
+
+        final double ffPredicate = (double)nresults.get() / NUM_SAMPLES;
+        final double ffSargable = (double)rt.getReadSlotCounter() / NUM_SAMPLES;
+        final double overread = (ffSargable / ffPredicate - 1d) * 100d;
+
+        rt.logCounters();
+
+//        try (FileWriter fw = new FileWriter("myfile.txt", true);
+//                BufferedWriter bw = new BufferedWriter(fw);
+//                PrintWriter out = new PrintWriter(bw))
+//        {
+//            out.println(NUM_SAMPLES + "," + query.area().doubleValue() / 1000 / 1000 * 100.0d + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + rt.getReadSlotCounter());
+//        }
     }
 
     //
@@ -345,6 +408,52 @@ public class RTreeTest extends FDBTestBase {
                 readIntermediateNodesCounter.incrementAndGet();
             }
             return resultNode;
+        }
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private static class TopNTraversal implements Predicate<RTree.Rectangle> {
+        private static Comparator<RTree.ItemSlot> comparator =
+                Comparator.<RTree.ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
+                        .thenComparing(itemSlot -> itemSlot.getKey());
+
+        @Nonnull
+        private RTree.Rectangle query;
+        @Nonnull
+        private final int n;
+        @Nonnull
+        private final MinMaxPriorityQueue<RTree.ItemSlot> topN;
+
+        @SuppressWarnings("UnstableApiUsage")
+        public TopNTraversal(@Nonnull final RTree.Rectangle query, @Nonnull final int n) {
+            this.query = query;
+            this.n = n;
+            this.topN = MinMaxPriorityQueue.orderedBy(comparator).maximumSize(n).create();
+        }
+
+        @Nonnull
+        public List<RTree.ItemSlot> getTopNItemSlots() {
+            return new ArrayList<>(topN);
+        }
+
+        @Override
+        public boolean test(final RTree.Rectangle rectangle) {
+            return rectangle.isOverlapping(query);
+        }
+
+        public void addItemSlot(@Nonnull final RTree.ItemSlot itemSlot) {
+            topN.add(itemSlot);
+
+            if (false && topN.size() == n) {
+                final RTree.ItemSlot maximumItemSlot = Objects.requireNonNull(topN.peekLast());
+
+                if (comparator.compare(maximumItemSlot, itemSlot) >= 0) {
+                    // maximum item slot must be somewhere between minX and maxX
+                    final Tuple ranges = query.getRanges();
+                    final Tuple newRanges = Tuple.from(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
+                    this.query = new RTree.Rectangle(newRanges);
+                }
+            }
         }
     }
 }

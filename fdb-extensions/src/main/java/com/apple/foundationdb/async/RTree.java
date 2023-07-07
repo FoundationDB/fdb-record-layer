@@ -250,26 +250,28 @@ public class RTree {
                                                                       @Nonnull final byte[] rootId,
                                                                       @Nonnull final Predicate<Rectangle> mbrPredicate) {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
-        final List<Deque<byte[]>> toBeProcessed = Lists.newArrayList();
+        final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
                 .thenApply(node -> {
                     if (node.getKind() == Kind.INTERMEDIATE) {
                         final List<ChildSlot> children = node.getChildren();
-                        Deque<byte[]> toBeProcessedThisLevel = new ArrayDeque<>();
-                        for (final ChildSlot child : children) {
+                        Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
+                        for (Iterator<ChildSlot> iterator = children.iterator(); iterator.hasNext(); ) {
+                            final ChildSlot child = iterator.next();
                             if (mbrPredicate.test(child.getMbr())) {
-                                toBeProcessedThisLevel.addLast(child.getChildId());
+                                toBeProcessedThisLevel.addLast(child);
+                                iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
                             }
                         }
                         toBeProcessed.add(toBeProcessedThisLevel);
 
-                        byte[] nextId = resolveNextIdForFetch(toBeProcessed);
-                        if (nextId == null) {
+                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate);
+                        if (nextChildSlot == null) {
                             return false;
                         }
 
-                        currentId.set(Objects.requireNonNull(nextId));
+                        currentId.set(Objects.requireNonNull(nextChildSlot.getChildId()));
                         return true;
                     } else {
                         leafNode.set((LeafNode)node);
@@ -285,16 +287,16 @@ public class RTree {
                                                                   @Nonnull final TraversalState traversalState,
                                                                   @Nonnull final Predicate<Rectangle> mbrPredicate) {
 
-        final List<Deque<byte[]>> toBeProcessed = traversalState.getToBeProcessed();
+        final List<Deque<ChildSlot>> toBeProcessed = traversalState.getToBeProcessed();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
 
         return AsyncUtil.whileTrue(() -> {
-            byte[] nextId = resolveNextIdForFetch(toBeProcessed);
-            if (nextId == null) {
+            final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate);
+            if (nextChildSlot == null) {
                 return AsyncUtil.READY_FALSE;
             }
 
-            return fetchLeftmostPathToLeaf(transaction, nextId, mbrPredicate).thenApply(nestedTraversalState -> {
+            return fetchLeftmostPathToLeaf(transaction, nextChildSlot.getChildId(), mbrPredicate).thenApply(nestedTraversalState -> {
                 if (nestedTraversalState.isEnd()) {
                     return true;
                 }
@@ -308,17 +310,20 @@ public class RTree {
     }
 
     @Nullable
-    private static byte[] resolveNextIdForFetch(final List<Deque<byte[]>> toBeProcessed) {
-        byte[] nextId = null;
+    private static ChildSlot resolveNextIdForFetch(@Nonnull final List<Deque<ChildSlot>> toBeProcessed,
+                                                   @Nonnull final Predicate<Rectangle> mbrPredicate) {
         for (int level = toBeProcessed.size() - 1; level >= 0; level--) {
-            final Deque<byte[]> toBeProcessedThisLevel = toBeProcessed.get(level);
-            if (!toBeProcessedThisLevel.isEmpty()) {
-                nextId = toBeProcessedThisLevel.pollFirst();
-                toBeProcessed.subList(level + 1, toBeProcessed.size()).clear();
-                break;
+            final Deque<ChildSlot> toBeProcessedThisLevel = toBeProcessed.get(level);
+
+            while (!toBeProcessedThisLevel.isEmpty()) {
+                final ChildSlot nextChild = toBeProcessedThisLevel.pollFirst();
+                if (mbrPredicate.test(nextChild.getMbr())) {
+                    toBeProcessed.subList(level + 1, toBeProcessed.size()).clear();
+                    return nextChild;
+                }
             }
         }
-        return nextId;
+        return null;
     }
 
     public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
@@ -1157,18 +1162,18 @@ public class RTree {
 
     private static class TraversalState {
         @Nullable
-        private final List<Deque<byte[]>> toBeProcessed;
+        private final List<Deque<ChildSlot>> toBeProcessed;
 
         @Nullable
         private LeafNode currentLeafNode;
 
-        private TraversalState(@Nullable final List<Deque<byte[]>> toBeProcessed, @Nullable final LeafNode currentLeafNode) {
+        private TraversalState(@Nullable final List<Deque<ChildSlot>> toBeProcessed, @Nullable final LeafNode currentLeafNode) {
             this.toBeProcessed = toBeProcessed;
             this.currentLeafNode = currentLeafNode;
         }
 
         @Nonnull
-        public List<Deque<byte[]>> getToBeProcessed() {
+        public List<Deque<ChildSlot>> getToBeProcessed() {
             return Objects.requireNonNull(toBeProcessed);
         }
 
@@ -1185,12 +1190,34 @@ public class RTree {
             return currentLeafNode == null;
         }
 
-        public static TraversalState of(@Nonnull final List<Deque<byte[]>> toBeProcessed, @Nonnull final LeafNode currentLeafNode) {
+        public static TraversalState of(@Nonnull final List<Deque<ChildSlot>> toBeProcessed, @Nonnull final LeafNode currentLeafNode) {
             return new TraversalState(toBeProcessed, currentLeafNode);
         }
 
         public static TraversalState end() {
             return new TraversalState(null, null);
+        }
+    }
+
+    private static class MbrAndId {
+        @Nonnull
+        private final Rectangle mbr;
+        @Nonnull
+        private final byte[] nodeId;
+
+        public MbrAndId(@Nonnull final Rectangle mbr, @Nonnull final byte[] nodeId) {
+            this.mbr = mbr;
+            this.nodeId = nodeId;
+        }
+
+        @Nonnull
+        public Rectangle getMbr() {
+            return mbr;
+        }
+
+        @Nonnull
+        public byte[] getNodeId() {
+            return nodeId;
         }
     }
 
