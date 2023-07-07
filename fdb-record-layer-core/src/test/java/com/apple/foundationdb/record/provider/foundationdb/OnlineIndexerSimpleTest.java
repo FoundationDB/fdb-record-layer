@@ -43,12 +43,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -70,6 +72,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -948,7 +951,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     private void decreaseLimit(IndexingThrottle.Booker booker) {
         FDBException dummyException = new FDBException("Dummy Exception for Booker", 5);
-        booker.decreaseLimit(dummyException, Collections.emptyList(), true);
+        booker.decreaseLimit(dummyException, Collections.emptyList());
     }
 
     @Test
@@ -991,7 +994,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             // try decrease - should get last failure scanned (100) * 0.9
             decreaseLimit(booker);
             assertEquals(90, booker.getRecordsLimit());
-            final long waitTime = booker.waitTimeMilliseconds();
+            long waitTime = booker.waitTimeMilliseconds();
             assertThat("wait time should be smaller than a second", waitTime < 1000);
             // now increase more
             postTransaction(booker, 6);
@@ -1007,6 +1010,105 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertEquals(1000, booker.getRecordsLimit());
             decreaseLimit(booker);
             assertEquals(450, booker.getRecordsLimit());
+            // check wait time
+            waitTime = booker.waitTimeMilliseconds();
+            assertThat("wait time should be smaller than a second", waitTime < 1000);
+            // this wait time should be very close to a second
+            postTransaction(booker, 1, 1000, false);
+            waitTime = booker.waitTimeMilliseconds();
+            assertThat("wait time should be smaller than a second", waitTime < 1000);
+            assertThat("wait time should be big (after not doing much)", waitTime > 900);
         }
     }
+
+    void mayRetryAfterHandlingException(@Nonnull IndexingThrottle.Booker booker, @Nullable Throwable ex, int currTries, boolean shouldRetryExpected) {
+        final FDBException fdbException = IndexingThrottle.getFDBException(ex);
+        final boolean shouldRetry = booker.mayRetryAfterHandlingException(fdbException, Collections.emptyList(), currTries, true);
+        assertEquals(shouldRetryExpected, shouldRetry);
+    }
+
+    @Test
+    void testIndexingThrottleBookerExceptions() {
+        final OnlineIndexer.Config config = OnlineIndexer.Config.newBuilder()
+                .setInitialLimit(100)
+                .setRecordsPerSecond(100)
+                .setIncreaseLimitAfter(5)
+                .setMaxRetries(5)
+                .setMaxLimit(1000)
+                .build();
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            final IndexingCommon common = new IndexingCommon(context.newRunner(),
+                    recordStore.asBuilder(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
+                    null,
+                    config,
+                    false, false, 0
+            );
+
+            final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
+            assertEquals(100, booker.getRecordsLimit());
+            mayRetryAfterHandlingException(booker, new IllegalStateException("illegal state"), 1, false);
+            assertEquals(100, booker.getRecordsLimit());
+            mayRetryAfterHandlingException(booker, new RecordCoreRetriableTransactionException("Retriable", new FDBException("commit_unknown_result", 1021)), 1, false); // retriable in runner, that is
+            assertEquals(100, booker.getRecordsLimit());
+            mayRetryAfterHandlingException(booker, new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101)), 1, true);
+            assertEquals(1, booker.getRecordsLimit()); // last failure count is still zero, down to minimum
+            mayRetryAfterHandlingException(booker, new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101)), 6, false); // exceed max retries
+            postTransaction(booker, 100);
+            assertEquals(1000, booker.getRecordsLimit()); // up to max
+            postTransaction(booker, 1, 1000, true); // set last failure count to 1000
+            mayRetryAfterHandlingException(booker, new RecordCoreRetriableTransactionException("Retriable and lessener", new FDBException("not_committed", 1020)), 1, true);
+            assertEquals(900, booker.getRecordsLimit()); // reduce limit to last failure - 10%
+        }
+    }
+
+    @Test
+    public void runWithWeakReadSemantics() {
+        boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
+        boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();
+        AtomicLong readVersionA = new AtomicLong();
+        AtomicLong readVersionB = new AtomicLong();
+        try {
+            fdb.setTrackLastSeenVersion(true);
+            Index index = runAsyncSetup();
+
+            FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                    .setIndex(index)
+                    .setWeakReadSemantics(weakReadSemantics)
+                    .build()) {
+                indexBuilder.buildCommitRetryAsync((recordStore, recordsScanned) -> {
+                    assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
+                    assertTrue(recordStore.getContext().hasReadVersion());
+                    final Long readVersion;
+                    try {
+                        readVersion = recordStore.getContext().getReadVersionAsync().get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                    readVersionA.set(readVersion);
+                    return null;
+                }, null).handle((val, e) -> null);
+                indexBuilder.buildCommitRetryAsync((recordStore, recordsScanned) -> {
+                    assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
+                    assertTrue(recordStore.getContext().hasReadVersion());
+                    final Long readVersion;
+                    try {
+                        readVersion = recordStore.getContext().getReadVersionAsync().get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                    readVersionB.set(readVersion);
+                    return null;
+                }, null).handle((val, e) -> null);
+                assertEquals(readVersionA.get(), readVersionB.get(), "weak read semantics did not preserve read version");
+            }
+        } finally {
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
+            fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
+        }
+    }
+
 }

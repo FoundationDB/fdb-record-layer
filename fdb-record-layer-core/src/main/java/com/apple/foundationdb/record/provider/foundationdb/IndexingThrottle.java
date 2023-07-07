@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.util.LoggableException;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,13 +134,24 @@ public class IndexingThrottle {
                     );
         }
 
-        void decreaseLimit(@Nonnull FDBException fdbException,
-                           @Nullable List<Object> additionalLogMessageKeyValues,
-                           final boolean adjustLimits) {
-            // TODO: decrease the limit only for certain errors
-            if (!adjustLimits) {
-                return; // no accounting for endpoints operations
+        boolean mayRetryAfterHandlingException(@Nullable FDBException fdbException,
+                                               @Nullable List<Object> additionalLogMessageKeyValues,
+                                               int currTries,
+                                               final boolean adjustLimits) {
+            if (currTries >= common.config.getMaxRetries() || fdbException == null || !lessenWorkCodes.contains(fdbException.getCode())) {
+                // Here: should not retry or no more retries. There is no real need to handle limits.
+                return false;
             }
+            if (adjustLimits) {
+                // Here: decrease limit, log, delay continue
+                decreaseLimit(fdbException, additionalLogMessageKeyValues);
+            }
+            return true;
+        }
+
+        void decreaseLimit(@Nonnull FDBException fdbException,
+                           @Nullable List<Object> additionalLogMessageKeyValues) {
+            // TODO: decrease the limit only for certain errors
             countFailedTransactions++;
             long oldLimit = recordsLimit;
             recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * 9) / 10)));
@@ -261,7 +273,8 @@ public class IndexingThrottle {
     // null if there is none. This can be then used to determine, for
     // example, the error code associated with this FDBException.
     @Nullable
-    private FDBException getFDBException(@Nullable Throwable e) {
+    @VisibleForTesting
+    static FDBException getFDBException(@Nullable Throwable e) {
         return IndexingBase.findException(e, FDBException.class);
     }
 
@@ -306,12 +319,10 @@ public class IndexingThrottle {
                     }
                 }
                 int currTries = tries.getAndIncrement();
-                if (currTries >= common.config.getMaxRetries() || fdbE == null || !lessenWorkCodes.contains(fdbE.getCode())) {
-                    // Here: should not retry. Or no more retries.
+                boolean mayRetry = booker.mayRetryAfterHandlingException(fdbE, additionalLogMessageKeyValues, currTries, adjustLimits);
+                if (!mayRetry) {
                     return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
                 }
-                // Here: decrease limit, log, delay continue
-                booker.decreaseLimit(fdbE, onlineIndexerLogMessageKeyValues, adjustLimits);
                 if (LOGGER.isWarnEnabled()) {
                     final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,
