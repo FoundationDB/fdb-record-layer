@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -85,7 +86,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
             if (queryPredicate.equals(ConstantPredicate.NULL)) {
                 return Optional.of(ConstantPredicate.NULL);
             }
-            return predicateOptional;
+            return Optional.of(NotPredicate.not(queryPredicate));
         }
         return Optional.empty();
     }

@@ -610,6 +610,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case IN:
                 case NOT_EQUALS:
                 case SORT:
+                case LIKE:
                     return false;
                 default:
                     throw new RecordCoreException(String.format("unexpected comparison type '%s'", comparison.getType()));

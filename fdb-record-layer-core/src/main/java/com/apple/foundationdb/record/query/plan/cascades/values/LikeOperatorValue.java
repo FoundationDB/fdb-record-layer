@@ -78,6 +78,11 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         String lhs = (String)srcChild.eval(store, context);
         String rhs = (String)patternChild.eval(store, context);
+        return likeOperation(lhs, rhs);
+    }
+
+    @Nullable
+    public static Boolean likeOperation(final String lhs, final String rhs) {
         if (lhs == null || rhs == null) {
             return null;
         }
