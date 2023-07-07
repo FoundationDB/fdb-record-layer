@@ -1090,7 +1090,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     }
                     readVersionA.set(readVersion);
                     return null;
-                }, null).handle((val, e) -> null);
+                }, null).handle((val, e) -> null).join();
                 indexBuilder.buildCommitRetryAsync((recordStore, recordsScanned) -> {
                     assertSame(weakReadSemantics, recordStore.getContext().getWeakReadSemantics());
                     assertTrue(recordStore.getContext().hasReadVersion());
@@ -1102,7 +1102,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     }
                     readVersionB.set(readVersion);
                     return null;
-                }, null).handle((val, e) -> null);
+                }, null).handle((val, e) -> null).join();
                 assertEquals(readVersionA.get(), readVersionB.get(), "weak read semantics did not preserve read version");
             }
         } finally {
