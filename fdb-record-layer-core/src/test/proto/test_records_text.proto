@@ -90,9 +90,6 @@ message NestedMapDocument {
 }
 
 message ManyFieldsDocument {
-    message Header {
-        optional int64 header_id = 1;
-    }
     optional int64 doc_id = 1 [(field).primary_key = true];
     optional string text0 = 2;
     optional string text1 = 3;
