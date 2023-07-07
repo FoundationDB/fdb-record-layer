@@ -527,7 +527,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MANY_FIELDS_INDEX), context, "_0.cfs", true);
         }
-  }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"Ω", "ç"})
