@@ -1004,6 +1004,7 @@ expression
     : notOperator=(NOT | '!') expression                            #notExpression     // done
     | expression logicalOperator expression                         #logicalExpression // done
     | predicate IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)     #isExpression      // done
+    | predicate NOT? LIKE predicate (ESCAPE STRING_LITERAL)?        #likePredicate // done
     | predicate                                                     #predicateExpression // done
     ;
 

@@ -1,0 +1,162 @@
+#
+# like.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template like_tests_schema_template
+---
+- query: create schema template like_tests_schema_template
+    create table A(a1 string, primary key(a1))
+---
+- query: drop database /FRL/LIKE_YAML
+---
+- query: create database /FRL/LIKE_YAML
+---
+- query: create schema /FRL/LIKE_YAML/LIKE_SCHEMA with template like_tests_schema_template
+---
+- connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
+---
+- query: insert into A values
+    (null),
+    ('abcdefghijklmnopqrstuvwxyz'),
+    ('___abcdef'),
+    ('%%abcdef'),
+    ('*abcdef'),
+    ('ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
+    ('école'),
+    ('ありがとう'),
+    ('学校'),
+    ('مدرسة'),
+    ('(abcdefghijk)'),
+    ('[abcdefghijk]'),
+    ('{abcdefghijk}'),
+    ('^$'),
+    ('\\||%')
+- count: 15
+---
+- query: select * from A WHERE A1 LIKE 'abc'
+- result: []
+---
+- query: select * from A WHERE A1 LIKE '%abc'
+- result: []
+---
+- query: select * from A WHERE A1 LIKE '%abc%'
+- unorderedResult: [
+    {'abcdefghijklmnopqrstuvwxyz'},
+    {'___abcdef'},
+    {'%%abcdef'},
+    {'*abcdef'},
+    {'(abcdefghijk)'},
+    {'[abcdefghijk]'},
+    {'{abcdefghijk}'}]
+---
+- query: select * from A WHERE A1 LIKE '_abc%'
+- unorderedResult: [
+    {'(abcdefghijk)'},
+    {'[abcdefghijk]'},
+    {'{abcdefghijk}'},
+    {'*abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '%ABC%'
+- unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
+---
+- query: select * from A WHERE A1 LIKE '%ABC%X_Z'
+- unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
+---
+- query: select * from A WHERE A1 LIKE '%ABC%XY_Z'
+- unorderedResult: []
+---
+- query: select * from A WHERE A1 LIKE '__'
+- unorderedResult: [
+    {'学校'},
+    {'^$'}]
+---
+- query: select * from A WHERE A1 LIKE '_____'
+- unorderedResult: [
+    {'école'},
+    {'ありがとう'},
+    {'مدرسة'},
+    {'\\||%'}]
+---
+- query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
+- result: [{'___abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '\_%' ESCAPE '\'
+- result: [{'___abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '\_%' ESCAPE '|'
+- result: [{'\\||%'}]
+---
+- query: select * from A WHERE A1 LIKE '\_%'
+- result: [{'\\||%'}]
+---
+- query: select * from A WHERE A1 LIKE '\_\_\_abcdef' ESCAPE '\'
+- result: [{'___abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '\_\_\_______' ESCAPE '\'
+- result: [{'___abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '\__\_______' ESCAPE '\'
+- result: [{'___abcdef'}]
+---
+- query: select * from A WHERE A1 LIKE '\__\______\_' ESCAPE '\'
+- result: []
+---
+- query: select * from A WHERE A1 LIKE '%\%' ESCAPE '\'
+- result: [{'\\||%'}]
+---
+- query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
+- unorderedResult: [
+    {'abcdefghijklmnopqrstuvwxyz'},
+    {'%%abcdef'},
+    {'*abcdef'},
+    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+    {'école'},
+    {'ありがとう'},
+    {'学校'},
+    {'مدرسة'},
+    {'(abcdefghijk)'},
+    {'[abcdefghijk]'},
+    {'{abcdefghijk}'},
+    {'^$'},
+    {'\\||%'}
+    ]
+---
+- query: select * from A WHERE A1 NOT LIKE '%'
+- unorderedResult: []
+---
+- query: select * from A WHERE A1 NOT LIKE '%abcde%'
+- unorderedResult: [
+    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
+    {'école'},
+    {'ありがとう'},
+    {'学校'},
+    {'مدرسة'},
+    {'^$'},
+    {'\\||%'} ]
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop database /FRL/LIKE_YAML
+---
+- query: drop schema template like_tests_schema_template
+...
+
+

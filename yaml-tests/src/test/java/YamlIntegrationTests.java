@@ -168,6 +168,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    void like() throws Exception {
+        doRun("like.yaml");
+    }
+    
+    @Test
     void functions() throws Exception {
         doRun("functions.yaml");
     }

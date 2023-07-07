@@ -48,8 +48,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
@@ -747,6 +749,34 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final Typed equals = ParserUtils.encapsulate(RelOpValue.EqualsFn.class, List.of(left, right));
             return (Value) ParserUtils.encapsulate(combineFunc, List.of(nullClause, equals));
         }
+    }
+
+    @Override
+    @ExcludeFromJacocoGeneratedReport
+    public Value visitLikePredicate(RelationalParser.LikePredicateContext ctx) {
+        Assert.thatUnchecked(ctx.predicate().size() == 2);
+        String escapeChar = null;
+        if (ctx.STRING_LITERAL() != null) {
+            escapeChar = ParserUtils.normalizeString(ctx.STRING_LITERAL().getText());
+            Assert.thatUnchecked(escapeChar != null);
+            Assert.thatUnchecked(escapeChar.length() == 1);
+        }
+        final var likeFn = new LikeOperatorValue.LikeFn();
+        final var patternFn = new PatternForLikeValue.PatternForLikeFn();
+        var result = (Value) ParserUtils.encapsulate(
+                likeFn,
+                List.of(
+                        (Value) visit(ctx.predicate(0)),
+                        (Value) ParserUtils.encapsulate(
+                                patternFn,
+                                List.of(
+                                        (Value) visit(ctx.predicate(1)),
+                                        new LiteralValue<>(escapeChar))
+                        )));
+        if (ctx.NOT() != null) {
+            result = new NotValue(result);
+        }
+        return result;
     }
 
     ///// Predicates ///////
