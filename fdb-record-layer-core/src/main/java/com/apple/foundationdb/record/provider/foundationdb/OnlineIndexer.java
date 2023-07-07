@@ -836,7 +836,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     // Public could use IndexBuildState.getTotalRecordsScanned instead.
     long getTotalRecordsScanned() {
-        return indexer == null ? 0 : indexer.getTotalRecordsScannedScuccessfully();
+        return common.getTotalRecordsScanned().get();
     }
 
     private FDBDatabaseRunner getRunner() {

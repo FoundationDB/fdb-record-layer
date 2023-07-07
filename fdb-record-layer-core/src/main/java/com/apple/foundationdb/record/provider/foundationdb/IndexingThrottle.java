@@ -305,6 +305,7 @@ public class IndexingThrottle {
             }, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
                 if (e == null) {
                     // Here: success path - also the common path (or so we hope)
+                    common.getTotalRecordsScanned().addAndGet(recordsScanned.get());
                     ret.complete(value);
                     return AsyncUtil.READY_FALSE;
                 }

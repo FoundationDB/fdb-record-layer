@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -56,7 +57,7 @@ public class IndexingCommon {
     @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
-
+    @Nonnull private final AtomicLong totalRecordsScanned;
     private final boolean useSynchronizedSession;
     private final boolean trackProgress;
     private final long leaseLengthMillis;
@@ -107,6 +108,7 @@ public class IndexingCommon {
         this.recordStoreBuilder = recordStoreBuilder;
         this.leaseLengthMillis = leaseLengthMillis;
 
+        this.totalRecordsScanned = new AtomicLong(0);
         this.targetIndexContexts = new ArrayList<>(targetIndexes.size());
         this.allRecordTypes = new HashSet<>();
 
@@ -167,6 +169,7 @@ public class IndexingCommon {
 
         logIf(true, keyValues,
                 LogMessageKeys.TARGET_INDEX_NAME, getTargetIndexesNames(),
+                LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
                 LogMessageKeys.INDEXER_ID, uuid);
 
         if (moreKeyValues != null && !moreKeyValues.isEmpty()) {
@@ -264,6 +267,11 @@ public class IndexingCommon {
 
     public void setSynchronizedSessionRunner(@Nullable final SynchronizedSessionRunner synchronizedSessionRunner) {
         this.synchronizedSessionRunner = synchronizedSessionRunner;
+    }
+
+    @Nonnull
+    public AtomicLong getTotalRecordsScanned() {
+        return totalRecordsScanned;
     }
 
     public int getConfigLoaderInvocationCount() {
