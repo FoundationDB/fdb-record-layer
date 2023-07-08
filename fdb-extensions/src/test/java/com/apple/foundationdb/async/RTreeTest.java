@@ -128,7 +128,7 @@ public class RTreeTest extends FDBTestBase {
                     if (index == NUM_SAMPLES) {
                         break;
                     }
-                    rt.insert(tr, hvs[index], keys[index], values[index], points[index]).join();
+                    rt.insert(tr, points[index], hvs[index], keys[index], values[index]).join();
                 }
 
                 return j;
@@ -177,7 +177,7 @@ public class RTreeTest extends FDBTestBase {
                     if (index == NUM_SAMPLES) {
                         break;
                     }
-                    rt.insert(tr, hvs[index], keys[index], values[index], points[index]).join();
+                    rt.insert(tr, points[index], hvs[index], keys[index], values[index]).join();
                 }
 
                 return j;
