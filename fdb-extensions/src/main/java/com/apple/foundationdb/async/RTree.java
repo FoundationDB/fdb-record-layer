@@ -1,5 +1,5 @@
 /*
- * RankedSet.java
+ * RTree.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -365,18 +365,18 @@ public class RTree {
 
             if (currentNewSlot != null) {
                 return insertSlotIntoTargetNode(transaction, currentNode.get(), currentNewSlot, insertSlotIndex.get())
-                        .thenApply(splitNodeOrAdjust -> {
+                        .thenApply(nodeOrAdjust -> {
                             if (currentNode.get().isRoot()) {
                                 return false;
                             }
                             currentNode.set(currentNode.get().getParentNode());
-                            parentSlot.set(splitNodeOrAdjust.getSlotInParent());
-                            insertSlotIndex.set(splitNodeOrAdjust.getSplitNode() == null ? -1 : splitNodeOrAdjust.getSplitNode().getSlotIndexInParent());
-                            return splitNodeOrAdjust.getSplitNode() != null || splitNodeOrAdjust.parentNeedsAdjustment();
+                            parentSlot.set(nodeOrAdjust.getSlotInParent());
+                            insertSlotIndex.set(nodeOrAdjust.getSplitNode() == null ? -1 : nodeOrAdjust.getSplitNode().getSlotIndexInParent());
+                            return nodeOrAdjust.getSplitNode() != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
-                final SplitNodeOrAdjust splitNodeSlotOrAdjust = updateSlotsAndAdjustNode(transaction, currentNode.get());
+                final NodeOrAdjust splitNodeSlotOrAdjust = updateSlotsAndAdjustNode(transaction, currentNode.get());
                 Verify.verify(splitNodeSlotOrAdjust.getSlotInParent() == null);
                 if (currentNode.get().isRoot()) {
                     return AsyncUtil.READY_FALSE;
@@ -390,10 +390,10 @@ public class RTree {
     }
 
     @Nonnull
-    private CompletableFuture<SplitNodeOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
-                                                                          @Nonnull final Node targetNode,
-                                                                          @Nonnull final NodeSlot newSlot,
-                                                                          final int slotIndexInTargetNode) {
+    private CompletableFuture<NodeOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
+                                                                     @Nonnull final Node targetNode,
+                                                                     @Nonnull final NodeSlot newSlot,
+                                                                     final int slotIndexInTargetNode) {
         if (targetNode.getSlots().size() < config.getMaxM()) {
             logger.trace("regular insert without splitting; node={}; size={}", bytesToHex(targetNode.getId()), targetNode.size());
             targetNode.insertSlot(slotIndexInTargetNode, newSlot);
@@ -410,10 +410,10 @@ public class RTree {
             // node has left some space -- indicate that we are done splitting at the current node
             if (!targetNode.isRoot()) {
                 return CompletableFuture.completedFuture(adjustSlotInParent(targetNode)
-                                                         ? SplitNodeOrAdjust.ADJUST
-                                                         : SplitNodeOrAdjust.NONE);
+                                                         ? NodeOrAdjust.ADJUST
+                                                         : NodeOrAdjust.NONE);
             }
-            return CompletableFuture.completedFuture(SplitNodeOrAdjust.NONE); // no split and no adjustment
+            return CompletableFuture.completedFuture(NodeOrAdjust.NONE); // no split and no adjustment
         } else {
             //
             // if this is the root we need to grow the tree taller
@@ -423,7 +423,7 @@ public class RTree {
                 // temporarily overfill the old root node
                 targetNode.insertSlot(slotIndexInTargetNode, newSlot);
                 splitRootNode(transaction, targetNode);
-                return CompletableFuture.completedFuture(SplitNodeOrAdjust.NONE);
+                return CompletableFuture.completedFuture(NodeOrAdjust.NONE);
             }
 
             //
@@ -440,6 +440,7 @@ public class RTree {
                                 .sum());
 
                 final Node splitNode;
+                final List<Node> newSiblingNodes;
                 if (numSlots == siblingNodes.size() * config.getMaxM()) {
                     logger.trace("splitting node; node={}, siblings={}",
                             bytesToHex(targetNode.getId()),
@@ -448,13 +449,15 @@ public class RTree {
                     // link this split node to become the last node of the siblings
                     splitNode.linkToParent(Objects.requireNonNull(targetNode.getParentNode()),
                             siblingNodes.get(siblingNodes.size() - 1).getSlotIndexInParent() + 1);
-                    siblingNodes.add(splitNode);
+                    newSiblingNodes = Lists.newArrayList(siblingNodes);
+                    newSiblingNodes.add(splitNode);
                 } else {
                     logger.trace("handling overflow; node={}, numSlots={}, siblings={}",
                             bytesToHex(targetNode.getId()),
                             numSlots,
                             siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     splitNode = null;
+                    newSiblingNodes = siblingNodes;
                 }
 
                 // temporarily overfill targetNode
@@ -468,8 +471,8 @@ public class RTree {
                                 .flatMap(siblingNode -> siblingNode.getSlots().stream())
                                 .iterator();
 
-                final int base = numSlots / siblingNodes.size();
-                int rest = numSlots % siblingNodes.size();
+                final int base = numSlots / newSiblingNodes.size();
+                int rest = numSlots % newSiblingNodes.size();
 
                 List<List<NodeSlot>> newNodeSlotLists = Lists.newArrayList();
                 List<NodeSlot> currentNodeSlots = Lists.newArrayList();
@@ -487,32 +490,30 @@ public class RTree {
                     }
                 }
 
-                Verify.verify(siblingNodes.size() == newNodeSlotLists.size());
+                Verify.verify(newSiblingNodes.size() == newNodeSlotLists.size());
 
-                final Iterator<Node> siblingNodesIterator = siblingNodes.iterator();
+                final Iterator<Node> newSiblingNodesIterator = newSiblingNodes.iterator();
                 final Iterator<List<NodeSlot>> newNodeSlotsIterator = newNodeSlotLists.iterator();
 
-                while (siblingNodesIterator.hasNext()) {
-                    final Node siblingNode = siblingNodesIterator.next();
+                while (newSiblingNodesIterator.hasNext()) {
+                    final Node newSiblingNode = newSiblingNodesIterator.next();
                     Verify.verify(newNodeSlotsIterator.hasNext());
                     final List<NodeSlot> newNodeSlots = newNodeSlotsIterator.next();
-                    siblingNode.setSlots(newNodeSlots);
+                    newSiblingNode.setSlots(newNodeSlots);
                 }
 
-                updateNodeSlotsForNodes(transaction, siblingNodes);
+                updateNodeSlotsForNodes(transaction, newSiblingNodes);
 
                 for (final Node siblingNode : siblingNodes) {
-                    if (siblingNode != splitNode) {
-                        adjustSlotInParent(siblingNode);
-                    }
+                    adjustSlotInParent(siblingNode);
                 }
 
                 if (splitNode == null) {
-                    return SplitNodeOrAdjust.ADJUST;
+                    return NodeOrAdjust.ADJUST;
                 }
 
                 final var lastSlotOfSplitNode = splitNode.getSlots().get(splitNode.size() - 1);
-                return new SplitNodeOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
+                return new NodeOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
                         lastSlotOfSplitNode.getKey(), splitNode.getId(), computeMbr(splitNode.getSlots())), splitNode,
                         true);
             });
@@ -578,18 +579,18 @@ public class RTree {
 
             if (currentDeleteSlot != null) {
                 return deleteSlotFromTargetNode(transaction, currentNode.get(), currentDeleteSlot, deleteSlotIndex.get())
-                        .thenApply(splitNodeOrAdjust -> {
+                        .thenApply(nodeOrAdjust -> {
                             if (currentNode.get().isRoot()) {
                                 return false;
                             }
                             currentNode.set(currentNode.get().getParentNode());
-                            parentSlot.set(splitNodeOrAdjust.getSlotInParent());
-                            deleteSlotIndex.set(splitNodeOrAdjust.getSplitNode() == null ? -1 : splitNodeOrAdjust.getSplitNode().getSlotIndexInParent());
-                            return splitNodeOrAdjust.getSplitNode() != null || splitNodeOrAdjust.parentNeedsAdjustment();
+                            parentSlot.set(nodeOrAdjust.getSlotInParent());
+                            deleteSlotIndex.set(nodeOrAdjust.getTombstoneNode() == null ? -1 : nodeOrAdjust.getTombstoneNode().getSlotIndexInParent());
+                            return nodeOrAdjust.getTombstoneNode() != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
-                final SplitNodeOrAdjust splitNodeSlotOrAdjust = updateSlotsAndAdjustNode(transaction, currentNode.get());
+                final NodeOrAdjust splitNodeSlotOrAdjust = updateSlotsAndAdjustNode(transaction, currentNode.get());
                 Verify.verify(splitNodeSlotOrAdjust.getSlotInParent() == null);
                 if (currentNode.get().isRoot()) {
                     return AsyncUtil.READY_FALSE;
@@ -603,10 +604,10 @@ public class RTree {
     }
 
     @Nonnull
-    public CompletableFuture<SplitNodeOrAdjust> deleteSlotFromTargetNode(@Nonnull final Transaction transaction,
-                                                                         @Nonnull final Node targetNode,
-                                                                         @Nonnull final NodeSlot deleteSlot,
-                                                                         final int slotIndexInTargetNode) {
+    public CompletableFuture<NodeOrAdjust> deleteSlotFromTargetNode(@Nonnull final Transaction transaction,
+                                                                    @Nonnull final Node targetNode,
+                                                                    @Nonnull final NodeSlot deleteSlot,
+                                                                    final int slotIndexInTargetNode) {
         //
         // We need to keep the number of slots per node between minM <= size() <= maxM unless this is the root node.
         //
@@ -617,7 +618,7 @@ public class RTree {
             if (targetNode.getKind() == Kind.INTERMEDIATE) {
                 // If this node is the root and the root node is an intermediate node, then it should at least have two
                 // children.
-                Verify.verify(!targetNode.isRoot() || targetNode.getSlots().size() > 2);
+                Verify.verify(!targetNode.isRoot() || targetNode.getSlots().size() >= 2);
                 // if this is a delete of an intermediate node, that node is a split node and all
                 // slots need to be updated (i.e. cleared)
                 updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
@@ -629,10 +630,10 @@ public class RTree {
             // node is not under-flowing -- indicate that we are done fusing at the current node
             if (!targetNode.isRoot()) {
                 return CompletableFuture.completedFuture(adjustSlotInParent(targetNode)
-                                                         ? SplitNodeOrAdjust.ADJUST
-                                                         : SplitNodeOrAdjust.NONE);
+                                                         ? NodeOrAdjust.ADJUST
+                                                         : NodeOrAdjust.NONE);
             }
-            return CompletableFuture.completedFuture(SplitNodeOrAdjust.NONE); // no fuse and no adjustment
+            return CompletableFuture.completedFuture(NodeOrAdjust.NONE); // no fuse and no adjustment
         } else {
             //
             // Node is under min-capacity -- borrow some children/items from the siblings if possible
@@ -648,18 +649,20 @@ public class RTree {
                                 .sum());
 
                 final Node tombstoneNode;
+                final List<Node> newSiblingNodes;
                 if (numSlots == siblingNodes.size() * config.getMinM()) {
                     logger.trace("fusing nodes; node={}, siblings={}",
                             bytesToHex(targetNode.getId()),
                             siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     tombstoneNode = siblingNodes.get(siblingNodes.size() - 1);
-                    siblingNodes.remove(siblingNodes.size() - 1);
+                    newSiblingNodes = siblingNodes.subList(0, siblingNodes.size() - 1);
                 } else {
                     logger.trace("handling underflow; node={}, numSlots={}, siblings={}",
                             bytesToHex(targetNode.getId()),
                             numSlots,
                             siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     tombstoneNode = null;
+                    newSiblingNodes = siblingNodes;
                 }
 
                 // temporarily underfill targetNode
@@ -673,8 +676,8 @@ public class RTree {
                                 .flatMap(siblingNode -> siblingNode.getSlots().stream())
                                 .iterator();
 
-                final int base = numSlots / siblingNodes.size();
-                int rest = numSlots % siblingNodes.size();
+                final int base = numSlots / newSiblingNodes.size();
+                int rest = numSlots % newSiblingNodes.size();
 
                 List<List<NodeSlot>> newNodeSlotLists = Lists.newArrayList();
                 List<NodeSlot> currentNodeSlots = Lists.newArrayList();
@@ -692,7 +695,7 @@ public class RTree {
                     }
                 }
 
-                Verify.verify(siblingNodes.size() == newNodeSlotLists.size());
+                Verify.verify(newSiblingNodes.size() == newNodeSlotLists.size());
 
                 if (tombstoneNode != null) {
                     // remove the slots for the tombstone node and update
@@ -700,15 +703,15 @@ public class RTree {
                     updateNodeSlotsForNodes(transaction, Collections.singletonList(tombstoneNode));
                 }
 
-                final Iterator<Node> siblingNodesIterator = siblingNodes.iterator();
+                final Iterator<Node> newSiblingNodesIterator = newSiblingNodes.iterator();
                 final Iterator<List<NodeSlot>> newNodeSlotsIterator = newNodeSlotLists.iterator();
 
                 // assign the slots to the appropriate nodes
-                while (siblingNodesIterator.hasNext()) {
-                    final Node siblingNode = siblingNodesIterator.next();
+                while (newSiblingNodesIterator.hasNext()) {
+                    final Node newSiblingNode = newSiblingNodesIterator.next();
                     Verify.verify(newNodeSlotsIterator.hasNext());
                     final List<NodeSlot> newNodeSlots = newNodeSlotsIterator.next();
-                    siblingNode.setSlots(newNodeSlots);
+                    newSiblingNode.setSlots(newNodeSlots);
                 }
 
                 final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
@@ -717,21 +720,21 @@ public class RTree {
                     // The parent node (root) would only have one child after this delete.
                     // We shrink the tree by removing the root and making the last remaining sibling the root.
                     //
-                    promoteNodeToRoot(transaction, Iterables.getOnlyElement(siblingNodes));
-                    return SplitNodeOrAdjust.NONE;
+                    promoteNodeToRoot(transaction, Iterables.getOnlyElement(newSiblingNodes));
+                    return NodeOrAdjust.NONE;
                 }
 
-                updateNodeSlotsForNodes(transaction, siblingNodes);
+                updateNodeSlotsForNodes(transaction, newSiblingNodes);
 
-                for (final Node siblingNode : siblingNodes) {
-                    adjustSlotInParent(siblingNode);
+                for (final Node newSiblingNode : newSiblingNodes) {
+                    adjustSlotInParent(newSiblingNode);
                 }
 
                 if (tombstoneNode == null) {
-                    return SplitNodeOrAdjust.ADJUST;
+                    return NodeOrAdjust.ADJUST;
                 }
 
-                return new SplitNodeOrAdjust(parentNode.getChildren().get(tombstoneNode.getSlotIndexInParent()),
+                return new NodeOrAdjust(parentNode.getChildren().get(tombstoneNode.getSlotIndexInParent()),
                         tombstoneNode, true);
             });
         }
@@ -748,16 +751,16 @@ public class RTree {
     // GENERAL HELPER METHODS
 
     @Nonnull
-    public SplitNodeOrAdjust updateSlotsAndAdjustNode(@Nonnull final Transaction transaction,
-                                                      @Nonnull final Node targetNode) {
+    public NodeOrAdjust updateSlotsAndAdjustNode(@Nonnull final Transaction transaction,
+                                                 @Nonnull final Node targetNode) {
         updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
         if (targetNode.isRoot()) {
-            return SplitNodeOrAdjust.NONE;
+            return NodeOrAdjust.NONE;
         }
 
         return adjustSlotInParent(targetNode)
-               ? SplitNodeOrAdjust.ADJUST
-               : SplitNodeOrAdjust.NONE;
+               ? NodeOrAdjust.ADJUST
+               : NodeOrAdjust.NONE;
     }
 
     private static boolean adjustSlotInParent(final @Nonnull Node targetNode) {
@@ -1584,22 +1587,22 @@ public class RTree {
         }
     }
 
-    private static class SplitNodeOrAdjust {
-        public static SplitNodeOrAdjust NONE = new SplitNodeOrAdjust(null, null, false);
-        public static SplitNodeOrAdjust ADJUST = new SplitNodeOrAdjust(null, null, true);
+    private static class NodeOrAdjust {
+        public static NodeOrAdjust NONE = new NodeOrAdjust(null, null, false);
+        public static NodeOrAdjust ADJUST = new NodeOrAdjust(null, null, true);
 
         @Nullable
         private final ChildSlot slotInParent;
         @Nullable
-        private final Node splitNode;
+        private final Node node;
 
         private final boolean parentNeedsAdjustment;
 
-        private SplitNodeOrAdjust(@Nullable final ChildSlot slotInParent, @Nullable final Node splitNode, final boolean parentNeedsAdjustment) {
-            Verify.verify((slotInParent == null && splitNode == null) ||
-                          (slotInParent != null && splitNode != null));
+        private NodeOrAdjust(@Nullable final ChildSlot slotInParent, @Nullable final Node node, final boolean parentNeedsAdjustment) {
+            Verify.verify((slotInParent == null && node == null) ||
+                          (slotInParent != null && node != null));
             this.slotInParent = slotInParent;
-            this.splitNode = splitNode;
+            this.node = node;
             this.parentNeedsAdjustment = parentNeedsAdjustment;
         }
 
@@ -1610,7 +1613,12 @@ public class RTree {
 
         @Nullable
         public Node getSplitNode() {
-            return splitNode;
+            return node;
+        }
+
+        @Nullable
+        public Node getTombstoneNode() {
+            return node;
         }
 
         public boolean parentNeedsAdjustment() {
