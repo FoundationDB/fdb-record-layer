@@ -66,6 +66,7 @@ public class LuceneOptimizedCodec extends Codec {
     private final PostingsFormat defaultPostingsFormat;
     private final DocValuesFormat defaultDocValuesFormat;
     private final LiveDocsFormat liveDocsFormat;
+    private final FieldInfosFormat fieldInfosFormat;
 
     private final PostingsFormat postingsFormat = new PerFieldPostingsFormat() {
         @Override
@@ -105,6 +106,7 @@ public class LuceneOptimizedCodec extends Codec {
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
+        fieldInfosFormat = new LuceneOptimizedFieldInfosFormat(new LuceneOptimized60FieldInfosFormat());
     }
 
 
@@ -130,7 +132,7 @@ public class LuceneOptimizedCodec extends Codec {
 
     @Override
     public FieldInfosFormat fieldInfosFormat() {
-        return baseCodec.fieldInfosFormat();
+        return fieldInfosFormat;
     }
 
     @Override
