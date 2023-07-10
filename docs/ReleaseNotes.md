@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.394.0
+
+
 ### 3.3.393.0
 
 * **Feature** Add more metrics to Lucene operations [(Issue #2210)](https://github.com/FoundationDB/fdb-record-layer/issues/2210)
