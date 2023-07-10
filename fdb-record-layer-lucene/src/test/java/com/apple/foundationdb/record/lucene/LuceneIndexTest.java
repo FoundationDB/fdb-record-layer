@@ -117,6 +117,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MANY_FIELDS_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
@@ -229,6 +230,62 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
+    private static final Index MANY_FIELDS_INDEX = new Index(
+            "many_fields_idx",
+            concat( function(LuceneFunctionNames.LUCENE_TEXT, field("text0")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text1")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text3")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text4")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text5")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text6")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text7")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text8")),
+                    function(LuceneFunctionNames.LUCENE_TEXT, field("text9")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long0")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long0")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long1")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long1")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long2")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long2")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long3")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long3")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long4")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long4")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long5")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long5")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long6")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long6")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long7")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long7")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long8")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long8")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("long9")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("long9")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool0")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool0")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool1")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool1")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool2")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool2")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool3")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool3")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool4")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool4")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool5")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool5")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool6")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool6")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool7")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool7")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool8")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool8")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("bool9")),
+                    function(LuceneFunctionNames.LUCENE_SORTED, field("bool9"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
+                    LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
+
     private static final Index ANALYZER_CHOOSER_TEST_LUCENE_INDEX = new Index("analyzer_chooser_test_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                     LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, TestAnalyzerFactory.ANALYZER_FACTORY_NAME));
@@ -331,6 +388,42 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
+    private TestRecordsTextProto.ManyFieldsDocument createManyFieldsDocument(long docId, String text, long number, boolean bool) {
+        return TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                .setDocId(docId)
+                .setText0(text)
+                .setText1(text)
+                .setText2(text)
+                .setText3(text)
+                .setText4(text)
+                .setText5(text)
+                .setText6(text)
+                .setText7(text)
+                .setText8(text)
+                .setText9(text)
+                .setLong0(number)
+                .setLong1(number)
+                .setLong2(number)
+                .setLong3(number)
+                .setLong4(number)
+                .setLong5(number)
+                .setLong6(number)
+                .setLong7(number)
+                .setLong8(number)
+                .setLong9(number)
+                .setBool0(bool)
+                .setBool1(bool)
+                .setBool2(bool)
+                .setBool3(bool)
+                .setBool4(bool)
+                .setBool5(bool)
+                .setBool6(bool)
+                .setBool7(bool)
+                .setBool8(bool)
+                .setBool9(bool)
+                .build();
+    }
+
     @Override
     protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
         return super.addDefaultProps(props)
@@ -417,6 +510,83 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void largeMetadataTest() {
+        // Test a document with many fields, where the field metadata is larger than a data block
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
+            recordStore.saveRecord(createManyFieldsDocument(1623L, "propose a Vision", 1L,  true));
+            recordStore.saveRecord(createManyFieldsDocument(1547L, "different smoochies", 2L, false));
+
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(1623L)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text0:Vision AND bool0: true"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MANY_FIELDS_INDEX), context, "_0.cfs", true);
+        }
+    }
+
+    /**
+     * Make sure the text search for individual fields is not confused when there are multiple fields in the fieldsFormat schema.
+     * Fields are overlapping (0 and 1).
+     */
+    @Test
+    void differentFieldSearch() {
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
+            TestRecordsTextProto.ManyFieldsDocument doc1 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(11L)
+                    .setText0("matching text for field 0 pineapple")
+                    .setText1("non matching text for field 1 orange")
+                    .build();
+            TestRecordsTextProto.ManyFieldsDocument doc2 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(387L)
+                    .setText0("non matching text for field 0 orange")
+                    .setText1("matching text for field 1 pineapple")
+                    .build();
+            recordStore.saveRecord(doc1);
+            recordStore.saveRecord(doc2);
+
+            // Make sure the text search for individual fields
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(11)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(387)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text1:pineapple"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    /**
+     * Make sure the text search for individual fields is not confused when there are multiple fields in the fieldsFormat schema.
+     * This test has no overlap in the fields (0/1 vs 3/4).
+     */
+    @Test
+    void differentFieldSearchNoOverlap() {
+        try (FDBRecordContext context = openContext()) {
+
+            rebuildIndexMetaData(context, MANY_FIELDS_DOC, MANY_FIELDS_INDEX);
+            TestRecordsTextProto.ManyFieldsDocument doc1 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(11L)
+                    .setText0("matching text for field 0 pineapple")
+                    .setText1("non matching text for field 1 orange")
+                    .build();
+            TestRecordsTextProto.ManyFieldsDocument doc2 = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+                    .setDocId(387L)
+                    .setText3("non matching text for field 3 orange")
+                    .setText4("matching text for field 4 pineapple")
+                    .build();
+            recordStore.saveRecord(doc1);
+            recordStore.saveRecord(doc2);
+
+            // Make sure the text search for individual fields
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(11)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeyTuples(List.of(Tuple.from(387)),
+                    recordStore.scanIndex(MANY_FIELDS_INDEX, fullTextSearch(MANY_FIELDS_INDEX, "text4:pineapple"), null, ScanProperties.FORWARD_SCAN));
         }
     }
 
