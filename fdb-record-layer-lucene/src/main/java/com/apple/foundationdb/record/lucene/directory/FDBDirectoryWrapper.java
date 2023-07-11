@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -52,6 +53,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
+
+    // Lucene Optimized Codec Singleton
+    private static final Codec CODEC = new LuceneOptimizedCodec();
 
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
@@ -146,7 +150,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
-                            .setCodec(new LuceneOptimizedCodec())
+                            .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
                     IndexWriter oldWriter = writer;
