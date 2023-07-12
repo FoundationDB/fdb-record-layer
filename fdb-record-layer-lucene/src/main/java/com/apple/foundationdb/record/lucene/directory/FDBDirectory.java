@@ -423,14 +423,31 @@ public class FDBDirectory extends Directory  {
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
-        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, reference, block));
+        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, resourceDescription, reference, block));
+    }
+
+    /**
+     * Reads known data from the directory.
+     * @param nestedResourceDescription Description should be non-null, opaque string describing this nestedResource; used for logging
+     * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
+     * @param referenceFuture the reference where the data supposedly lives
+     * @param block the block where the data is stored
+     * @return Completable future of the data returned
+     * @throws RecordCoreException if blockCache fails to get the data from the block
+     * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
+        return referenceFuture.thenCompose(reference -> readBlock(nestedResourceDescription, resourceDescription, reference, block));
     }
 
     @Nonnull
-    private CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
+    private CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("readBlock",
                     LuceneLogMessageKeys.FILE_NAME, resourceDescription,
+                    LuceneLogMessageKeys.FILE_REFERENCE, nestedResourceDescription,
                     LuceneLogMessageKeys.BLOCK_NUMBER, block));
         }
         if (reference == null) {

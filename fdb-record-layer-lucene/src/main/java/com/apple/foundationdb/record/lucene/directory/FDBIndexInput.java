@@ -45,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 public class FDBIndexInput extends IndexInput {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBIndexInput.class);
     private final String resourceDescription;
+    private final String nestedResourceDescription;
     private final FDBDirectory fdbDirectory;
     private final CompletableFuture<FDBLuceneFileReference> reference;
     /*
@@ -69,7 +70,7 @@ public class FDBIndexInput extends IndexInput {
      * @throws IOException exception
      */
     public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory) throws IOException {
-        this(resourceDescription, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription), 0L,
+        this(resourceDescription, resourceDescription, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription), 0L,
                 0L, 0, null);
     }
 
@@ -94,6 +95,7 @@ public class FDBIndexInput extends IndexInput {
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         this.resourceDescription = resourceDescription;
+        this.nestedResourceDescription = resourceDescription; // Not Nested
         this.fdbDirectory = fdbDirectory;
         this.reference = fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription);
         this.position = position;
@@ -114,7 +116,7 @@ public class FDBIndexInput extends IndexInput {
      * @param currentData future with CurrentData Fetch
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory,
+    public FDBIndexInput(@Nonnull final String nestedResourceDescription, @Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory,
                          @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
                          int currentBlock, @Nullable CompletableFuture<byte[]> currentData) throws IOException {
         super(resourceDescription);
@@ -123,6 +125,7 @@ public class FDBIndexInput extends IndexInput {
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         this.resourceDescription = resourceDescription;
+        this.nestedResourceDescription = nestedResourceDescription;
         this.fdbDirectory = fdbDirectory;
         this.reference = reference;
         this.position = position;
@@ -156,7 +159,7 @@ public class FDBIndexInput extends IndexInput {
      *
      */
     private void readBlock() {
-        this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+        this.currentData = fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, currentBlock);
         this.actualCurrentData = null;
     }
 
@@ -241,7 +244,7 @@ public class FDBIndexInput extends IndexInput {
         // Good Place to perform stack dumps if you want to know who is performing a read...
         //Thread.dumpStack();
         final FDBLuceneFileReference fileReference = getFileReference();
-        return new FDBIndexInput(resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
+        return new FDBIndexInput(sliceDescription, resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
                 new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
                 offset + initialOffset, 0L, currentBlock, currentData
                 );
@@ -348,7 +351,7 @@ public class FDBIndexInput extends IndexInput {
      */
     public int prefetch(int beginBlock, int length) {
         for (int i = 0; i < length; i++) {
-            fdbDirectory.readBlock(resourceDescription, reference, beginBlock + i);
+            fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, beginBlock + i);
         }
         return length;
     }
