@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
@@ -53,6 +54,7 @@ public class RecordQueryPlannerConfiguration {
     private final boolean deferFetchAfterUnionAndIntersection;
     private final boolean deferFetchAfterInJoinAndInUnion;
     private final boolean optimizeForIndexFilters;
+    private final boolean optimizeForRequiredResults;
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
     private final boolean useFullKeyForValueIndex;
@@ -81,6 +83,7 @@ public class RecordQueryPlannerConfiguration {
                                             boolean deferFetchAfterUnionAndIntersection,
                                             boolean deferFetchAfterInJoinAndInUnion,
                                             boolean optimizeForIndexFilters,
+                                            boolean optimizeForRequiredResults,
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
                                             boolean useFullKeyForValueIndex,
@@ -101,6 +104,7 @@ public class RecordQueryPlannerConfiguration {
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
         this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
         this.optimizeForIndexFilters = optimizeForIndexFilters;
+        this.optimizeForRequiredResults = optimizeForRequiredResults;
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
@@ -206,6 +210,16 @@ public class RecordQueryPlannerConfiguration {
      */
     public boolean shouldOptimizeForIndexFilters() {
         return optimizeForIndexFilters;
+    }
+
+    /**
+     * Get whether the query planner should attempt to consider the set of required result fields while finding the
+     * best index for a record type access. If a query does not set the set of required results
+     * ({@link RecordQuery#getRequiredResults()}), enabling this switch is meaningless.
+     * @return whether the planner should optimize for the set of required results
+     */
+    public boolean shouldOptimizeForRequiredResults() {
+        return optimizeForRequiredResults;
     }
 
     /**
@@ -338,6 +352,7 @@ public class RecordQueryPlannerConfiguration {
         private boolean deferFetchAfterUnionAndIntersection = false;
         private boolean deferFetchAfterInJoinAndInUnion = false;
         private boolean optimizeForIndexFilters = false;
+        private boolean optimizeForRequiredResults = false;
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
         private boolean useFullKeyForValueIndex = true;
@@ -366,6 +381,7 @@ public class RecordQueryPlannerConfiguration {
             this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
             this.deferFetchAfterInJoinAndInUnion = configuration.deferFetchAfterInJoinAndInUnion;
             this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
+            this.optimizeForRequiredResults = configuration.optimizeForRequiredResults;
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
@@ -417,6 +433,17 @@ public class RecordQueryPlannerConfiguration {
 
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
             this.optimizeForIndexFilters = optimizeForIndexFilters;
+            return this;
+        }
+
+        /**
+         * Set whether the query planner should attempt to consider the set of required result fields while finding the
+         * best index for a record type access. If a query does not set the set of required results
+         * ({@link RecordQuery#getRequiredResults()}), enabling this switch is meaningless.
+         * @return this builder
+         */
+        public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
+            this.optimizeForRequiredResults = optimizeForRequiredResults;
             return this;
         }
 
@@ -607,6 +634,7 @@ public class RecordQueryPlannerConfiguration {
                     deferFetchAfterUnionAndIntersection,
                     deferFetchAfterInJoinAndInUnion,
                     optimizeForIndexFilters,
+                    optimizeForRequiredResults,
                     maxTaskQueueSize,
                     maxTotalTaskCount,
                     useFullKeyForValueIndex,
