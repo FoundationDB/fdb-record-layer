@@ -29,7 +29,6 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** OnlineIndexer: IndexingThrottle: re-write limit handling  [(Issue #2106)](https://github.com/FoundationDB/fdb-record-layer/issues/2106)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +38,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.396.0
+
+* **Feature** OnlineIndexer: IndexingThrottle: re-write limit handling  [(Issue #2106)](https://github.com/FoundationDB/fdb-record-layer/issues/2106)
 
 ### 3.3.395.0
 
