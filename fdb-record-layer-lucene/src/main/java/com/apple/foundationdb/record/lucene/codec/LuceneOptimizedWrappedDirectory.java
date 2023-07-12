@@ -112,7 +112,7 @@ class LuceneOptimizedWrappedDirectory extends Directory {
                         FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
                         List<Long> words = getBitSetWords(fieldInfos);
                         reference.setBitSetWords(words);
-                        byte[] schema = fdbDirectory.readSchema(words).get();
+                        byte[] schema = fdbDirectory.readSchema(words);
                         if (schema == null) {
                             fdbDirectory.writeSchema(words, outputStream.toByteArray()).get();
                         }
@@ -163,14 +163,11 @@ class LuceneOptimizedWrappedDirectory extends Directory {
                     () -> {
                         try {
                             return fdbDirectory.readSchema(fdbDirectory.getFDBLuceneFileReference(
-                                    convertToDataFile(name)).getBitSetWords()).get();
-                        } catch (InterruptedException ie) {
-                            LOG.error("Interrupted Exception During Open Input", ie);
-                            Thread.currentThread().interrupt();
-                        } catch (ExecutionException e) {
-                            LOG.error("Execution Exception", e);
+                                            convertToDataFile(name)).getBitSetWords());
+                        } catch (IOException e) {
+                            LOG.error("Read schema failed", e);
+                            throw new RuntimeException(e);
                         }
-                        return null;
                     });
         } else {
             return wrappedDirectory.openInput(name, context);
@@ -217,6 +214,10 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     @Override
     public Set<String> getPendingDeletions() throws IOException {
         return Collections.emptySet();
+    }
+
+    public FDBDirectory getFdbDirectory() {
+        return fdbDirectory;
     }
 
     public static String convertToDataFile(String name) {

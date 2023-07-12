@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.google.common.base.Suppliers;
 import org.apache.lucene.store.IndexInput;
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -29,12 +30,12 @@ import java.util.function.Supplier;
  * An {@code IndexInput} optimized for FDB storage.
  */
 public class LuceneOptimizedWrappedIndexInput extends IndexInput {
-    byte[] value;
+    Supplier<byte[]> value;
     private int position;
 
     public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull Supplier<byte[]> supplier) {
         super(name);
-        value = supplier.get();
+        value = Suppliers.memoize( () -> supplier.get());
         position = 0;
     }
 
@@ -55,7 +56,7 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
 
     @Override
     public long length() {
-        return value.length;
+        return value.get().length;
     }
 
     @Override
@@ -65,12 +66,12 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
 
     @Override
     public byte readByte() throws IOException {
-        return value[position++];
+        return value.get()[position++];
     }
 
     @Override
     public void readBytes(final byte[] b, final int offset, final int len) throws IOException {
-        System.arraycopy(value, position, b, offset, len);
+        System.arraycopy(value.get(), position, b, offset, len);
         position = position + len;
     }
 }
