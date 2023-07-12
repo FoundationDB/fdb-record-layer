@@ -171,14 +171,6 @@ public class RTreeScanTest extends FDBTestBase {
         logger.trace("ff of sargable = {}", ffSargable);
         final double overread = (ffSargable / ffPredicate - 1d) * 100d;
         logger.trace("over-read = {}%", overread);
-
-//        try (FileWriter fw = new FileWriter("myfile.txt", true);
-//                BufferedWriter bw = new BufferedWriter(fw);
-//                PrintWriter out = new PrintWriter(bw))
-//        {
-//            out.println(NUM_SAMPLES + "," + query.area().doubleValue() / 1000 / 1000 * 100.0d + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + rt.getReadSlotCounter());
-//        }
-        //System.err.println(NUM_SAMPLES + "," + nresults + "," + numPointsSatisfyingQueryX + "," + numPointsSatisfyingQueryY + "," + ffPredicate + "," + ffSargable);
     }
 
     @SuppressWarnings({"UnstableApiUsage", "ResultOfMethodCallIgnored"})
