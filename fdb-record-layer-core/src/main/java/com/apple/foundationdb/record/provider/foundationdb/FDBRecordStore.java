@@ -261,6 +261,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nullable
     protected final FDBRecordStoreStateCache storeStateCache;
+    @Nonnull
+    protected final StateCacheabilityOnOpen stateCacheabilityOnOpen;
 
     @Nullable
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
@@ -288,6 +290,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
+                             @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
                              @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
@@ -297,6 +300,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.indexMaintenanceFilter = indexMaintenanceFilter;
         this.pipelineSizer = pipelineSizer;
         this.storeStateCache = storeStateCache;
+        this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
         this.userVersionChecker = userVersionChecker;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
@@ -2071,6 +2075,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             omitUnsplitRecordSuffix = info.getOmitUnsplitRecordSuffix();
         }
         final boolean[] dirty = new boolean[1];
+        final boolean newStore = isNewStoreHeader(storeHeader);
+        if (Math.max(storeHeader.getFormatVersion(), formatVersion) >= CACHEABLE_STATE_FORMAT_VERSION
+                && (stateCacheabilityOnOpen.isUpdateExistingStores() || newStore)) {
+            boolean cacheable = stateCacheabilityOnOpen.isCacheable();
+            if (info.getCacheable() != cacheable) {
+                if (newStore) {
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(KeyValueLogMessage.of("setting initial store state cacheability",
+                                LogMessageKeys.OLD, info.getCacheable(),
+                                LogMessageKeys.NEW, cacheable,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                    }
+                } else {
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info(KeyValueLogMessage.of("updating store state cacheability",
+                                LogMessageKeys.OLD, info.getCacheable(),
+                                LogMessageKeys.NEW, cacheable,
+                                subspaceProvider.logKey(), subspaceProvider.toString(context)));
+                    }
+                }
+                info.setCacheable(cacheable);
+                dirty[0] = true;
+            }
+        }
         final CompletableFuture<Void> checkedUserVersion = checkUserVersion(userVersionChecker, storeHeader, info, dirty);
         final CompletableFuture<Void> checkedRebuild = checkedUserVersion.thenCompose(vignore -> checkPossiblyRebuild(userVersionChecker, info, dirty));
         return checkedRebuild.thenCompose(vignore -> {
@@ -2089,7 +2117,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (userVersionChecker == null) {
             return AsyncUtil.DONE;
         }
-        final boolean newStore = info.getFormatVersion() == 0;
+        final boolean newStore = isNewStoreHeader(storeHeader);
         final int oldUserVersion = newStore ? -1 : info.getUserVersion();
         return userVersionChecker.checkUserVersion(storeHeader, metaDataProvider)
                 .thenApply(newUserVersion -> {
@@ -2123,6 +2151,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                     return null;
                 });
+    }
+
+    private static boolean isNewStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfoOrBuilder storeInfo) {
+        return storeInfo.getFormatVersion() == 0;
     }
 
     @Nonnull
@@ -2544,6 +2576,92 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
         return markIndexWriteOnly(index)
                 .thenRun(() -> clearIndexData(index));
+    }
+
+    /**
+     * Enum controlling how the store state cacheability flag should be changed when the store is opened.
+     * By default, the store state data is not cacheable and must be re-read every time to ensure transactional
+     * consistency between the store's meta-data and the rest of the data. To enable the transactional cache,
+     * the store state cacheability flag in the store header must be set. This enum allows the store state
+     * cacheability flag to be automatically set when the store is opened (that is, either during an
+     * explicit call to {@link #checkVersion(UserVersionChecker, StoreExistenceCheck)} or during
+     * {@link Builder#createOrOpen()} or its variants).
+     *
+     * <p>
+     * Note that some care must be taken when changing this value. In particular, if there are multiple
+     * processes trying to concurrently access the same stores, and some are configured with {@link #CACHEABLE}
+     * while others are configured with {@link #NOT_CACHEABLE}, then different instances can end up stepping
+     * on each other, switching the value of the flag every time. It is therefore advised that to switch between
+     * {@link #NOT_CACHEABLE} and {@link #CACHEABLE} (unless one can take an outage in order to change this value
+     * in one deployment) to first roll out a change from {@link #NOT_CACHEABLE} to {@link #DEFAULT}, and then to
+     * roll out a second change from {@link #DEFAULT} to {@link #CACHEABLE}.
+     * </p>
+     *
+     * @see #setStateCacheabilityAsync(boolean)
+     * @see com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCache
+     */
+    public enum StateCacheabilityOnOpen {
+        /**
+         * By default, the state cacheability is not changed when the store is opened. New stores are
+         * not given a cacheable store state.
+         */
+        DEFAULT(false, false),
+        /**
+         * On existing stores, the store state cacheability flag is not changed. New stores will begin
+         * with a cacheable store state.
+         */
+        CACHEABLE_IF_NEW(false, true),
+        /**
+         * Update the store state cacheability flag to {@code false} during {@link #checkVersion(UserVersionChecker, StoreExistenceCheck)}.
+         */
+        NOT_CACHEABLE(true, false),
+        /**
+         * Update the store state cacheability flag to {@code true} during {@link #checkVersion(UserVersionChecker, StoreExistenceCheck)}.
+         */
+        CACHEABLE(true, true),
+        ;
+
+        private final boolean updateExistingStores;
+        private final boolean cacheable;
+
+        StateCacheabilityOnOpen(boolean updateExistingStores, boolean cacheable) {
+            this.updateExistingStores = updateExistingStores;
+            this.cacheable = cacheable;
+        }
+
+        /**
+         * Whether to update existing stores. If this is {@code false}, the value of the store
+         * state cacheability flag will be left as-is on any store that has already been created.
+         *
+         * @return whether to update stores that have already been created
+         */
+        public boolean isUpdateExistingStores() {
+            return updateExistingStores;
+        }
+
+        /**
+         * Whether the store state should be marked as cacheable.
+         *
+         * @return the desired value of the store state cacheability flag
+         */
+        public boolean isCacheable() {
+            return cacheable;
+        }
+    }
+
+    /**
+     * Determines what happens to the store state cacheability flag when the store is opened.
+     * During {@link #checkVersion(UserVersionChecker, StoreExistenceCheck)} or
+     * {@link Builder#createOrOpen()} or its alternatives, the value of this enum will determine
+     * how the store cacheability should be updated, if at all.
+     *
+     * @return how to update the state cacheability during store opening
+     * @see StateCacheabilityOnOpen
+     * @see #setStateCacheabilityAsync(boolean)
+     */
+    @Nonnull
+    public StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
+        return stateCacheabilityOnOpen;
     }
 
     /**
@@ -4677,6 +4795,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         private FDBRecordStoreStateCache storeStateCache = null;
 
+        @Nonnull
+        private StateCacheabilityOnOpen stateCacheabilityOnOpen = StateCacheabilityOnOpen.DEFAULT;
+
         protected Builder() {
         }
 
@@ -4704,6 +4825,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintenanceFilter = other.indexMaintenanceFilter;
             this.pipelineSizer = other.pipelineSizer;
             this.storeStateCache = other.storeStateCache;
+            this.stateCacheabilityOnOpen = other.stateCacheabilityOnOpen;
         }
 
         /**
@@ -4721,6 +4843,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.indexMaintenanceFilter = store.indexMaintenanceFilter;
             this.pipelineSizer = store.pipelineSizer;
             this.storeStateCache = store.storeStateCache;
+            this.stateCacheabilityOnOpen = store.stateCacheabilityOnOpen;
         }
 
         @Override
@@ -4888,6 +5011,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         @Nonnull
+        public StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
+            return stateCacheabilityOnOpen;
+        }
+
+        @Override
+        @Nonnull
+        public Builder setStateCacheabilityOnOpen(@Nonnull final StateCacheabilityOnOpen stateCacheabilityOnOpen) {
+            this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
+            return this;
+        }
+
+        @Override
+        @Nonnull
         public Builder copyBuilder() {
             return new Builder(this);
         }
@@ -4907,7 +5043,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw new RecordCoreException("serializer must be supplied");
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
-                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache,
+                    serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache, stateCacheabilityOnOpen,
                     userVersionChecker);
         }
 

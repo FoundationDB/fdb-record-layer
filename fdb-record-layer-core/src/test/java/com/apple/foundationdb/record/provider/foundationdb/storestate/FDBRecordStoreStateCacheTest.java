@@ -54,7 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -1021,6 +1021,232 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void openSimpleStoreWithCacheabilityOnOpen(FDBRecordContext context, FDBRecordStore.StateCacheabilityOnOpen cacheabilityOnOpen) {
+        RecordMetaData metaData = simpleMetaData(NO_HOOK);
+        recordStore = getStoreBuilder(context, metaData)
+                .setStateCacheabilityOnOpen(cacheabilityOnOpen)
+                .createOrOpen();
+    }
+
+    /**
+     * Validate that the store state cacheability flag can be set during check version.
+     */
+    @Test
+    void setCacheabilityDuringStoreOpening() {
+        FDBRecordStoreStateCache originalCache = fdb.getStoreStateCache();
+        try {
+            FDBRecordStoreStateCache storeStateCache = MetaDataVersionStampStoreStateCacheFactory.newInstance()
+                    .getCache(fdb);
+            fdb.setStoreStateCache(storeStateCache);
+
+            try (FDBRecordContext context = fdb.openContext()) {
+                if (context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT) == null) {
+                    context.setMetaDataVersionStamp();
+                }
+                commit(context);
+            }
+
+            // Create the store, initially not cacheable
+            FDBStoreTimer timer = new FDBStoreTimer();
+            byte[] metaDataVersionStamp1;
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.DEFAULT);
+                assertNotCacheable();
+                metaDataVersionStamp1 = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Open the store, this time changing to make cacheable
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp1);
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE_IF_NEW);
+                assertNotCacheable();
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Open the store, this time changing to make cacheable
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp1);
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE);
+                assertCacheable();
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Open the store, again with DEFAULT behavior. It should now be marked cacheable
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp1);
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.DEFAULT);
+                assertCacheable();
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Turn off caching during check version. The actual opening should be a hit, but the next one
+            // should miss as it turns off state cacheability
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp1);
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.NOT_CACHEABLE);
+                assertNotCacheable();
+                commit(context);
+            }
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Opening the store again should be a cache miss
+            byte[] metaDataVersionStamp2;
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                metaDataVersionStamp2 = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
+                assertFalse(Arrays.equals(metaDataVersionStamp2, metaDataVersionStamp1),
+                        "Turning off store state cacheability should update the meta-data version stamp");
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE_IF_NEW);
+                assertNotCacheable();
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Open again. This time, using NOT_CACHEABLE should not induce any changes (including to the meta-data versionstamp)
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp2);
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.NOT_CACHEABLE);
+                assertNotCacheable();
+                commit(context);
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                assertArrayEquals(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT), metaDataVersionStamp2,
+                        "Meta-data version stamp should not be changed if the store state was originally not cacheable");
+            }
+
+        } finally {
+            fdb.setStoreStateCache(originalCache);
+        }
+    }
+
+    @Test
+    void setCacheabilityOnStoreCreation() {
+        FDBRecordStoreStateCache originalCache = fdb.getStoreStateCache();
+
+        try {
+            FDBRecordStoreStateCache storeStateCache = MetaDataVersionStampStoreStateCacheFactory.newInstance()
+                    .getCache(fdb);
+            fdb.setStoreStateCache(storeStateCache);
+
+            try (FDBRecordContext context = openContext()) {
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.DEFAULT);
+                assertNotCacheable();
+                // do not commit
+            }
+
+            // Creating a new store with CACHEABLE_IF_NEW should set the store state cacheability
+            try (FDBRecordContext context = openContext()) {
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE_IF_NEW);
+                assertCacheable();
+                commit(context);
+            }
+
+            final FDBStoreTimer timer = new FDBStoreTimer();
+
+            // Open the store again loading the cache
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.DEFAULT);
+                assertCacheable();
+            }
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+            // Open the store a third time, this time using the cache
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                openSimpleStoreWithCacheabilityOnOpen(context, FDBRecordStore.StateCacheabilityOnOpen.DEFAULT);
+                assertCacheable();
+            }
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            timer.reset();
+
+        } finally {
+            fdb.setStoreStateCache(originalCache);
+        }
+    }
+
+    @Test
+    void doNotSetCacheabilityDuringCheckVersionOnOldFormatVersion() throws Exception {
+        FDBRecordStoreStateCache originalCache = fdb.getStoreStateCache();
+        try {
+            FDBRecordStore.Builder storeBuilder;
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                storeBuilder = recordStore.asBuilder();
+                // do not commit
+            }
+
+            storeBuilder.setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1);
+
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder
+                        .setContext(context)
+                        .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE_IF_NEW)
+                        .create();
+                // At this older format version, the store should not be marked as cacheable
+                assertNotCacheable();
+                commit(context);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder
+                        .setContext(context)
+                        .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE)
+                        .open();
+                assertNotCacheable();
+                commit(context);
+            }
+
+            // Update the format version and commit
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder
+                        .setContext(context)
+                        .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE)
+                        .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                        .open();
+                assertCacheable();
+                recordStore.setStateCacheability(false);
+                commit(context);
+            }
+
+            // Set the format version on the builder so that store state caching isn't supported. However,
+            // it should read the format version from the store and determine that it actually *is* supported,
+            // and therefore should update the cacheability
+            try (FDBRecordContext context = openContext()) {
+                recordStore = storeBuilder
+                        .setContext(context)
+                        .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE)
+                        .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1)
+                        .open();
+                assertCacheable();
+                commit(context);
+            }
+
+        } finally {
+            fdb.setStoreStateCache(originalCache);
+        }
+    }
+
     @ParameterizedTest(name = "useWithDifferentDatabase (factory = {0})")
     @MethodSource("factorySource")
     public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
@@ -1098,5 +1324,17 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         } finally {
             fdb.setStoreStateCache(currentCache);
         }
+    }
+
+    private void assertCacheable() {
+        assertTrue(isStoreCachable(), "Store state should be cacheable");
+    }
+
+    private void assertNotCacheable() {
+        assertFalse(isStoreCachable(), "Store state should not be cacheable");
+    }
+
+    private boolean isStoreCachable() {
+        return recordStore.getRecordStoreState().getStoreHeader().getCacheable();
     }
 }
