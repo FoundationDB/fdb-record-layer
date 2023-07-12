@@ -68,52 +68,38 @@
            (8, 2, 1, 400),
            (9, 2, 1, 400)
 ---
-- query: explain select col1, sum(col2) from T1 group by col1;
-- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
----
 - query: select col1, sum(col2) from T1 group by col1;
+- explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
 - result: [{!l 10, !l 15}, {!l 20, !l 76}]
 ---
-- query: explain select col1 from T1 group by col1;
-- result: [{!sc "Index(VI1"}]
----
 - query: select col1 from T1 group by col1;
+- explainContains: "Index(VI1"
 - result: [{!l 10}, {!l 20}]
 ---
-- query: explain select sum(col2) from T1 group by col1;
-- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
----
 - query: select sum(col2) from T1 group by col1;
+- explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
 - result: [{!l 15}, {!l 76}]
 ---
-- query: explain select col1, sum(col2) + 1 from T1 group by col1;
-- result: [{!sc "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"}]
----
 - query: select col1, sum(col2) + 1 from T1 group by col1;
+- explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
 - result: [{!l 10, !l 16}, {!l 20, !l 77}]
 ---
-- query: explain select min(col3) from T2 group by col1, col2;
-- result: [{!sc "AGGREGATE BY (min_l("}]
----
 - query: select min(col3) from T2 group by col1, col2;
+- explainContains: "AGGREGATE BY (min_l("
 - result: [{!l 1}, {!l 2}, {!l 3}]
 ---
-- query: explain select max(col2) from t2 group by col1, col3;
-- result: [{!sc "AGGREGATE BY (max_l("}]
----
 - query: select max(col2) from t2 group by col1, col3;
+- explainContains: "AGGREGATE BY (max_l("
 - result: [{!l 1}, {!l 2}, {!l 1}, {!l 2}, {!l 1}, {!l 1}, {!l 1}]
 ---
 # this should use the aggregate index in the future, for now, it is using streaming aggregate
 # over base table scan.
-- query: explain select max(col2) from t2;
-- result: [{!sc "AGGREGATE BY (max_l"}]
----
 - query: select max(col2) from t2;
+- explainContains: "AGGREGATE BY (max_l"
 - result: [{!l 2}]
 ---
-- query: explain select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
-- result: [{!sc "AGGREGATE BY (sum_l"}]
+- query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
+- explainContains: "AGGREGATE BY (sum_l"
 ---
 - query: select max(col2) from t2 group by col1, col3;
 - result: [{!l 1}, {!l 2}, {!l 1}, {!l 2}, {!l 1}, {!l 1}, {!l 1}]
@@ -123,8 +109,8 @@
 #- result: [{!l 220}]
 #---
 # make sure we're not choosing the aggregate index (because we aggregate by col3 not col2)
-- query: explain select max(col3) from t2 group by col1, col3;
-- result: [{!sc "AGGREGATE BY (max_l"}]
+- query: select max(col3) from t2 group by col1, col3;
+- explainContains: "AGGREGATE BY (max_l"
 ---
 - query: select min_ever(col3) from T2 group by col1, col2;
 - result: [{!l 1}, {!l 2}, {!l 3}]
@@ -135,21 +121,19 @@
 - query: select min_ever(col3) from t2
 - result: [{!l 1}]
 ---
-- query: explain select min_ever(col3) from t2
-- result: [{!sc "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"}]
+- query: select min_ever(col3) from t2
+- explainContains: "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"
 ---
 - query: select col1, sum(col2) from T1 where col1 > 15 group by col1;
+- explainContains: "map(AggregateIndexScan(Index(MV1 "
 - result: [{!l 20, !l 76}]
 ---
-- query: explain select col1, sum(col2) from T1 where col1 > 15 group by col1;
-- result: [{!sc "map(AggregateIndexScan(Index(MV1 "}]
----
 - query: select sum(col2) from T1 where col1  = 10 group by col1
-- explain: [{"map(AggregateIndexScan(Index(MV1 [EQUALS promote(@0 as LONG)] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[(($c0._1)._0 as _0)])"}]
+- explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@0 as LONG)] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[(($c0._1)._0 as _0)])"
 - result: [{!l 15}]
 ---
 - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
-- explain: [{"map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@1 as LONG) && LESS_THAN_OR_EQUALS promote(@0 as LONG)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[(($c0._1)._0 as _0)])"}]
+- explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@1 as LONG) && LESS_THAN_OR_EQUALS promote(@0 as LONG)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[(($c0._1)._0 as _0)])"
 - result: [{!l 15}]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"

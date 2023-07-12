@@ -45,44 +45,44 @@
 - connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
 ---
 - query: select id from t3 where tombstone = true or tombstone is not null
-- explain: [{!sc "map(Covering(Index(I4 <,>"}]
+- explainContains: "map(Covering(Index(I4 <,>"
 ---
 - query: select id from t3 where tombstone = true or tombstone is not null
-- explain: [{!sc "map(Covering(Index(I4 <,>"}]
+- explainContains: "map(Covering(Index(I4 <,>"
 ---
 - query: select id from t3 where tombstone = true or tombstone is not null
-- explain: [{!sc "map(Covering(Index(I4 <,>"}]
+- explainContains: "map(Covering(Index(I4 <,>"
 ---
 - query: select col1 from t1 where col1 > 55 and col1 < 100
-- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
+- explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
 ---
 - query: select col1 from t1 where col1 > 55 and col1 < 199
-- explain: [{!sc "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
+- explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
 ---
 - query: select col1 from t1 where col1 > 50 and col1 < 350
-- explain: [{!sc "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"}]
+- explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
 ---
 - query: select tombstone from t2 where tombstone is null
-- explain: [{!sc "map(Scan("}]
+- explainContains: "map(Scan("
 ---
 - query: select tombstone from t2 where tombstone is not null
-- explain: [{!sc "map(Covering(Index(I3 ([null],>)"}]
+- explainContains: "map(Covering(Index(I3 ([null],>)"
 ---
 - query: select id from t5 where col1 < 40 or col1 > 90
-- explain: [{!sc "map(Covering(Index(I6 <,>"}]
+- explainContains: "map(Covering(Index(I6 <,>"
 ---
 - query: select id from t5 where col1 < 40 or col1 > 90
-- explain: [{!sc "map(Covering(Index(I6 <,>"}]
+- explainContains: "map(Covering(Index(I6 <,>"
 ---
 - query: select id from t5 where col1 < 40 or col1 > 90
-- explain: [{!sc "map(Covering(Index(I6 <,>"}]
+- explainContains: "map(Covering(Index(I6 <,>"
 ---
 - query: select id from t1 where col1 < 100
-- explain: [{!sc "map(Covering(Index(I1 "}]
+- explainContains: "map(Covering(Index(I1 "
 - result: []
 ---
 - query: select id from t1 where col1 < 453
-- explain: [{!sc "map(Covering(Index(I2 "}]
+- explainContains: "map(Covering(Index(I2 "
 - result: []
 ---
 - query: insert into T1
@@ -94,30 +94,30 @@
            (6, 879, 7)
 ---
 - query: select id from t1 where col1 < 200
-- explain: [{!sc "map(Covering(Index(I1 "}]
+- explainContains: "map(Covering(Index(I1 "
 - result: [{ID: 1}]
 ---
 - query: select id from t1 where col1 < 201
-- explain: [{!sc "map(Covering(Index(I2 "}]
+- explainContains: "map(Covering(Index(I2 "
 - result: [{ID: 1}, {ID: 2}]
 ---
 - query: select id from t1 where col1 < 250
-- explain: [{!sc "map(Covering(Index(I2 "}]
+- explainContains: "map(Covering(Index(I2 "
 - result: [{ID: 1}, {ID: 2}, {ID: 3}]
 ---
 - query: select id from t1 where col1 < 500
-- explain: [{!sc "map(Covering(Index(I2"}]
+- explainContains: "map(Covering(Index(I2"
 - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
 ---
 - query: select id from t1 use index (i1)
-- error: "XXXXX"
+- error: "0AF00"
 ---
 - query: select id from t1 use index (i2)
-- error: "XXXXX"
+- error: "0AF00"
 ---
 - query: select id from t1
 # Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
-- explain: [{!sc "Scan("}]
+- explainContains: "Scan("
 - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
 ---
 - query: drop database /FRL/SPARSE_YAML

@@ -113,6 +113,11 @@ public class YamlIntegrationTests {
     }
 
     @Test
+    public void aggregateEmptyTable() throws Exception {
+        doRun("aggregate-empty-table.yaml");
+    }
+
+    @Test
     public void aggregateIndexTestsCount() throws Exception {
         doRun("aggregate-index-tests-count.yaml");
     }

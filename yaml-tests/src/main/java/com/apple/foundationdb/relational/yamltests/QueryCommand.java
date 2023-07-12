@@ -49,6 +49,7 @@ class QueryCommand extends Command {
         RESULT("result"),
         UNORDERED_RESULT("unorderedResult"),
         EXPLAIN("explain"),
+        EXPLAIN_CONTAINS("explainContains"),
         COUNT("count"),
         ERROR("error");
 
@@ -172,6 +173,38 @@ class QueryCommand extends Command {
         return resultSet.getContinuation();
     }
 
+    private void checkExplain(Object queryResults, SQLException sqlException,
+                                        QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
+        if (sqlException != null) {
+            logAndThrowUnexpectedException(sqlException);
+        }
+        logger.debug("matching plan for query '{}'", query);
+        final var resultSet = (RelationalResultSet) queryResults;
+        resultSet.next();
+        String actualPlan = resultSet.getString(1);
+        boolean success = false;
+        if (queryConfigWithValue.config == QueryConfig.EXPLAIN) {
+            success = queryConfigWithValue.val.equals(actualPlan);
+        } else if (queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
+            success = actualPlan.contains((String) queryConfigWithValue.val);
+        } else {
+            Assertions.fail("Unknown config");
+        }
+        if (success) {
+            logger.debug("✔️ plan match!");
+        } else {
+            logger.error("‼️ plan mismatch:\n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                    "↪ expected plan" + (queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS ? " fragment" : "") + ":\n" +
+                    queryConfigWithValue.val + "\n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                    "↩ actual plan:\n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                    actualPlan);
+            Assertions.fail("incorrect plan!");
+        }
+    }
+
     private Continuation executeWithAConfig(@Nonnull String query, @Nonnull final CliCommandFactory factory,
                                             @Nonnull QueryConfigWithValue queryConfigWithValue) throws Exception {
         logger.debug("executing query '{}'", query);
@@ -181,7 +214,7 @@ class QueryCommand extends Command {
         final var config = queryConfigWithValue.config;
         final var savedDebugger = Debugger.getDebugger();
 
-        if (config == QueryConfig.EXPLAIN && Debugger.getDebugger() == null) {
+        if ((config == QueryConfig.EXPLAIN || config == QueryConfig.EXPLAIN_CONTAINS) && Debugger.getDebugger() == null) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
             Debugger.setup();
         }
@@ -204,7 +237,8 @@ class QueryCommand extends Command {
                 continuation = checkForResult(queryResults, sqlException, queryConfigWithValue, query);
                 break;
             case EXPLAIN:
-                checkForResult(queryResults, sqlException, queryConfigWithValue, query);
+            case EXPLAIN_CONTAINS:
+                checkExplain(queryResults, sqlException, queryConfigWithValue, query);
                 break;
             case ERROR:
                 continuation = checkForError(queryResults, sqlException, Matchers.string(queryConfigWithValue.val, "expected error code"), query);
@@ -229,7 +263,7 @@ class QueryCommand extends Command {
         for (int i = 0; configIterator.hasNext(); i++) {
             Object o = configIterator.next();
             var queryConfigWithValue = getQueryConfigWithValue(o);
-            if (queryConfigWithValue.config == QueryConfig.EXPLAIN) {
+            if (queryConfigWithValue.config == QueryConfig.EXPLAIN || queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
                 Assert.that(i == 0, "EXPLAIN config should be the first config specified.");
                 executeWithAConfig("explain " + queryString, factory, queryConfigWithValue);
             } else {

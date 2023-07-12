@@ -23,11 +23,13 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -287,11 +289,16 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = context.getEvaluationContext();
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
-                final var planResult = planner.planGraph(() ->
-                                GroupExpressionRef.of(relationalExpression),
-                        configuration.getReadableIndexes().map(s -> s),
-                        IndexQueryabilityFilter.TRUE,
-                        isReverseSort, typedEvaluationContext);
+                final QueryPlanResult planResult;
+                try {
+                    planResult = planner.planGraph(() ->
+                                    GroupExpressionRef.of(relationalExpression),
+                            configuration.getReadableIndexes().map(s -> s),
+                            IndexQueryabilityFilter.TRUE,
+                            isReverseSort, typedEvaluationContext);
+                } catch (RecordCoreException ex) {
+                    throw ExceptionUtil.toRelationalException(ex);
+                }
 
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();

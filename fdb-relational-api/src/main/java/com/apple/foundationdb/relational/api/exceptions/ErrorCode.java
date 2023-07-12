@@ -75,6 +75,7 @@ public enum ErrorCode {
 
     // Class 0A - Feature not supported
     UNSUPPORTED_OPERATION("0A000"),
+    UNSUPPORTED_QUERY("0AF00"),
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),

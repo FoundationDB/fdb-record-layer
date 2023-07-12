@@ -293,7 +293,7 @@ public class SimpleDirectAccessInsertionTests {
                 reviewerBuilder.addString("EMAIL", "isabel.hawthowrne@apples.com");
                 var statsStrutBuilder = JDBCRelationalStruct.newBuilder();
                 statsStrutBuilder.addLong("START_DATE", 12L);
-                statsStrutBuilder.addString("SCHOOL_NAME", "l'ecole populaire");
+                statsStrutBuilder.addString("SCHOOL_NAME", "l'école populaire");
                 statsStrutBuilder.addString("HOMETOWN", "Athens, GA");
                 reviewerBuilder.addStruct("STATS", statsStrutBuilder.build());
                 var reviewer = reviewerBuilder.build();

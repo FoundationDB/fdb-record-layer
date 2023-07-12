@@ -77,6 +77,8 @@ public final class ExceptionUtil {
             } else {
                 code = ErrorCode.INTERNAL_ERROR;
             }
+        } else if (re.getMessage().contains("Cascades planner could not plan query")) {
+            code = ErrorCode.UNSUPPORTED_QUERY;
         }
 
         Map<String, Object> extraContext = re.getLogInfo();
