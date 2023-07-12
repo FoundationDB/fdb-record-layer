@@ -132,6 +132,8 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
         /** Wait to read a file reference. */
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
+        /** Wait to read schema. */
+        WAIT_LUCENE_GET_SCHEMA("lucene get schema"),
         /** Wait to read a data block. */
         WAIT_LUCENE_GET_DATA_BLOCK("lucene get data block"),
         /** Wait for lucene to load the file cache. */
