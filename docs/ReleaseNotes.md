@@ -15,17 +15,17 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Lucene: allow fieldsProducer close (and commit) only if it was initialized [(Issue #2222)](https://github.com/FoundationDB/fdb-record-layer/issues/2222)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** a wider index should be preferred over a narrower index if choosing an index scan over the wider index avoids a fetch [(Issue #2218)](https://github.com/FoundationDB/fdb-record-layer/issues/2218)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Stores can now be configured to update their state cacheability during store opening or creation [(Issue #2203)](https://github.com/FoundationDB/fdb-record-layer/issues/2203)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.395.0
+
+* **Bug fix** Lucene: allow fieldsProducer close (and commit) only if it was initialized [(Issue #2222)](https://github.com/FoundationDB/fdb-record-layer/issues/2222)
+* **Performance** a wider index should be preferred over a narrower index if choosing an index scan over the wider index avoids a fetch [(Issue #2218)](https://github.com/FoundationDB/fdb-record-layer/issues/2218)
+* **Feature** Stores can now be configured to update their state cacheability during store opening or creation [(Issue #2203)](https://github.com/FoundationDB/fdb-record-layer/issues/2203)
 
 ### 3.3.394.0
 
