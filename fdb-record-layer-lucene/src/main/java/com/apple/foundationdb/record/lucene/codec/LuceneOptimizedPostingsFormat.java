@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
@@ -37,6 +36,7 @@ import org.apache.lucene.index.Terms;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Iterator;
+import java.util.function.Supplier;
 
 /**
  * {@code PostingsFormat} optimized for FDB storage.
@@ -72,7 +72,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
     private static class LazyFieldsProducer extends FieldsProducer {
 
-        private Supplier<FieldsProducer> fieldsProducer;
+        private final Supplier<FieldsProducer> fieldsProducer;
 
         private boolean initialized;
 
@@ -80,11 +80,11 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
             fieldsProducer = Suppliers.memoize(() -> {
                 try {
                     PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
-                    return new BlockTreeTermsReader(postingsReader, state);
+                    BlockTreeTermsReader blockTreeTermsReader = new BlockTreeTermsReader(postingsReader, state);
+                    initialized = true;
+                    return blockTreeTermsReader;
                 } catch (IOException ioe) {
                     throw new UncheckedIOException(ioe);
-                } finally {
-                    initialized = true;
                 }
             });
         }
