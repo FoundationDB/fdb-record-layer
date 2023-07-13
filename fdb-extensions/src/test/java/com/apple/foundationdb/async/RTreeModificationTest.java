@@ -91,11 +91,11 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10, 100, 1000, 10000})
+    @ValueSource(ints = {10, 100, 1000, 10_000})
     public void testAllDeleted(final int numSamples) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
-
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        validateRTree(db, rt);
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numSamples; ) {
             final int batchStart = i; // lambdas
@@ -126,13 +126,16 @@ public class RTreeModificationTest extends FDBTestBase {
                 db.run(tr -> tr.getRange(Range.startsWith(rt.getSubspacePrefix())).asList().join());
         Assertions.assertTrue(keyValues.isEmpty());
 
+        validateRTree(db, rt);
     }
 
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
     public void testRandomDeletes(final int numSamples, final int numDeletes) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        validateRTree(db, rt);
+
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numDeletes; ) {
             final int batchStart = i; // lambdas
@@ -156,6 +159,8 @@ public class RTreeModificationTest extends FDBTestBase {
             return null;
         });
         Assertions.assertEquals(numSamples - numDeletes, nresults.get());
+
+        validateRTree(db, rt);
     }
 
     //
@@ -236,6 +241,15 @@ public class RTreeModificationTest extends FDBTestBase {
                 return j;
             });
         }
+    }
+
+    static void validateRTree(@Nonnull final Database db, @Nonnull final InstrumentedRTree rt) {
+        db.run(tr -> {
+            rt.validate(tr).join();
+            return null;
+        });
+
+        rt.resetCounters();
     }
 
     static class Item {
