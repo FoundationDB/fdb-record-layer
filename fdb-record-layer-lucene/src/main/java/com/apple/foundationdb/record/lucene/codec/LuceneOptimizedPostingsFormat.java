@@ -44,7 +44,7 @@ import java.util.function.Supplier;
 @AutoService(PostingsFormat.class)
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
-    private static boolean allowCheckDataIntegrity = true;
+    static boolean allowCheckDataIntegrity = true;
 
     public LuceneOptimizedPostingsFormat() {
         this(new Lucene84PostingsFormat());

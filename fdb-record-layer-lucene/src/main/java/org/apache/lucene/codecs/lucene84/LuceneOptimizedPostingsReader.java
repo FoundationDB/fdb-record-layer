@@ -2016,6 +2016,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void checkIntegrity() throws IOException {
+        // Should this checksum verification be skipped for fdb?
         if (docIn != null) {
             CodecUtil.checksumEntireFile(docIn.get());
         }

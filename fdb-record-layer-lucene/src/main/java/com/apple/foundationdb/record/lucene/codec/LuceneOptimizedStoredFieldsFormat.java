@@ -98,7 +98,9 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
         @Override
         public void checkIntegrity() throws IOException {
-            storedFieldsReader.get().checkIntegrity();
+            if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
+                storedFieldsReader.get().checkIntegrity();
+            }
         }
 
         @Override

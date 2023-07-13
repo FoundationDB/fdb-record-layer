@@ -113,7 +113,9 @@ public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
 
         @Override
         public void checkIntegrity() throws IOException {
-            docValuesProducer.get().checkIntegrity();
+            if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
+                docValuesProducer.get().checkIntegrity();
+            }
         }
 
         @Override

@@ -75,7 +75,9 @@ public class LuceneOptimizedPointsFormat extends PointsFormat {
 
         @Override
         public void checkIntegrity() throws IOException {
-            pointsReader.get().checkIntegrity();
+            if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
+                pointsReader.get().checkIntegrity();
+            }
         }
 
         @Override
