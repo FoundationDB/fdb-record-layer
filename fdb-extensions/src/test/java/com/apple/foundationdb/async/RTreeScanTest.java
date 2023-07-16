@@ -35,10 +35,12 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Streams;
+import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -47,6 +49,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -270,5 +274,84 @@ public class RTreeScanTest extends FDBTestBase {
                 }
             }
         }
+    }
+
+    @Test
+    void name() {
+        final HilbertCurve hc4 = HilbertCurve.bits(1).dimensions(3);
+        System.out.println(hc4.index(0, 0, 0));
+        System.out.println(hc4.index(0, 0, 1));
+        System.out.println(hc4.index(0, 1, 0));
+        System.out.println(hc4.index(0, 1, 1));
+        System.out.println(hc4.index(1, 0, 0));
+        System.out.println(hc4.index(1, 0, 1));
+        System.out.println(hc4.index(1, 1, 0));
+        System.out.println(hc4.index(1, 1, 1));
+
+        System.out.println(hc4.index(0, 1, 1));
+        System.out.println(index(1, 0, 1, 1));
+
+
+
+    }
+
+    public static BigInteger index(int bits, long... point) {
+        return toIndex(bits, transposedIndex(bits, point));
+    }
+
+    static BigInteger toIndex(int bits, long... transposedIndex) {
+        int length = bits * transposedIndex.length;
+        byte[] b = new byte[length];
+        int bIndex = length - 1;
+        long mask = 1L << (bits - 1);
+        for (int i = 0; i < bits; i++) {
+            for (int j = 0; j < transposedIndex.length; j++) {
+                if ((transposedIndex[j] & mask) != 0) {
+                    b[length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
+                }
+                bIndex--;
+            }
+            mask >>= 1;
+        }
+        // b is expected to be BigEndian
+        return new BigInteger(1, b);
+    }
+
+    static long[] transposedIndex(int bits, long... point) {
+        final long M = 1L << (bits - 1);
+        final int n = point.length; // n: Number of dimensions
+        final long[] x = Arrays.copyOf(point, n);
+        long p;
+        long q;
+        long t;
+        int i;
+        // Inverse undo
+        for (q = M; q > 1; q >>= 1) {
+            p = q - 1;
+            for (i = 0; i < n; i++) {
+                if ((x[i] & q) != 0) {
+                    x[0] ^= p; // invert
+                } else {
+                    t = (x[0] ^ x[i]) & p;
+                    x[0] ^= t;
+                    x[i] ^= t;
+                }
+            }
+        } // exchange
+        // Gray encode
+        for (i = 1; i < n; i++) {
+            x[i] ^= x[i - 1];
+        }
+        t = 0;
+        for (q = M; q > 1; q >>= 1) {
+            if ((x[n - 1] & q) != 0) {
+                t ^= q - 1;
+            }
+        }
+        for (i = 0; i < n; i++) {
+            x[i] ^= t;
+        }
+
+        return x;
     }
 }
