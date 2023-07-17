@@ -278,21 +278,29 @@ public class RTreeScanTest extends FDBTestBase {
 
     @Test
     void name() {
-        final HilbertCurve hc4 = HilbertCurve.bits(1).dimensions(3);
-        System.out.println(hc4.index(0, 0, 0));
-        System.out.println(hc4.index(0, 0, 1));
-        System.out.println(hc4.index(0, 1, 0));
-        System.out.println(hc4.index(0, 1, 1));
-        System.out.println(hc4.index(1, 0, 0));
-        System.out.println(hc4.index(1, 0, 1));
-        System.out.println(hc4.index(1, 1, 0));
-        System.out.println(hc4.index(1, 1, 1));
+        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+        System.out.println(hc.index( 0, 1));
+        System.out.println(index(63, 0, 1));
 
-        System.out.println(hc4.index(0, 1, 1));
-        System.out.println(index(1, 0, 1, 1));
+        //System.out.println(hc.index( Long.MAX_VALUE, 0));
+        System.out.println(index(64, Long.MAX_VALUE, 0));
+        System.out.println(index(64, Long.MAX_VALUE, 1));
 
+        System.out.println(shiftCoordinate(-1));
+        System.out.println(shiftCoordinate(0));
+        System.out.println(shiftCoordinate(1));
+        System.out.println(shiftCoordinate(Long.MIN_VALUE));
+        System.out.println(shiftCoordinate(Long.MAX_VALUE));
 
+        System.out.println("==========================");
+        System.out.println(index(64, shiftCoordinate(Long.MIN_VALUE), shiftCoordinate(Long.MIN_VALUE)));
+        System.out.println(index(64, shiftCoordinate(Long.MAX_VALUE), shiftCoordinate(Long.MIN_VALUE)));
+    }
 
+    static long shiftCoordinate(long coordinate) {
+        return coordinate < 0
+               ? (Long.MAX_VALUE - (-coordinate - 1L))
+               : (coordinate | (1L << 63));
     }
 
     public static BigInteger index(int bits, long... point) {
@@ -301,32 +309,32 @@ public class RTreeScanTest extends FDBTestBase {
 
     static BigInteger toIndex(int bits, long... transposedIndex) {
         int length = bits * transposedIndex.length;
-        byte[] b = new byte[length];
+        byte[] b = new byte[length / 8 + 1];
         int bIndex = length - 1;
         long mask = 1L << (bits - 1);
         for (int i = 0; i < bits; i++) {
             for (int j = 0; j < transposedIndex.length; j++) {
                 if ((transposedIndex[j] & mask) != 0) {
-                    b[length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
+                    b[b.length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
                 }
                 bIndex--;
             }
-            mask >>= 1;
+            mask >>>= 1;
         }
         // b is expected to be BigEndian
         return new BigInteger(1, b);
     }
 
-    static long[] transposedIndex(int bits, long... point) {
+    static long[] transposedIndex(int bits, long... unsignedPoint) {
         final long M = 1L << (bits - 1);
-        final int n = point.length; // n: Number of dimensions
-        final long[] x = Arrays.copyOf(point, n);
+        final int n = unsignedPoint.length; // n: Number of dimensions
+        final long[] x = Arrays.copyOf(unsignedPoint, n);
         long p;
         long q;
         long t;
         int i;
         // Inverse undo
-        for (q = M; q > 1; q >>= 1) {
+        for (q = M; q != 1; q >>>= 1) {
             p = q - 1;
             for (i = 0; i < n; i++) {
                 if ((x[i] & q) != 0) {
@@ -343,7 +351,7 @@ public class RTreeScanTest extends FDBTestBase {
             x[i] ^= x[i - 1];
         }
         t = 0;
-        for (q = M; q > 1; q >>= 1) {
+        for (q = M; q != 1; q >>>= 1) {
             if ((x[n - 1] & q) != 0) {
                 t ^= q - 1;
             }

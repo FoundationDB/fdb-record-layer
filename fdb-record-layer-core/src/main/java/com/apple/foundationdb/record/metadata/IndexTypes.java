@@ -159,6 +159,11 @@ public class IndexTypes {
      */
     public static final String PERMUTED_MAX = "permuted_" + FunctionNames.MAX;
 
+    /**
+     * An index using multiple numerical dimensions based on a Hilbert R-tree.
+     */
+    public static final String MULTI_DIMENSIONAL = "multi_dimensional";
+
     private IndexTypes() {
     }
 }
