@@ -440,6 +440,7 @@ public class RecordQueryPlannerConfiguration {
          * Set whether the query planner should attempt to consider the set of required result fields while finding the
          * best index for a record type access. If a query does not set the set of required results
          * ({@link RecordQuery#getRequiredResults()}), enabling this switch is meaningless.
+         * @param optimizeForRequiredResults set the optimizeForRequiredResults parameter
          * @return this builder
          */
         public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
