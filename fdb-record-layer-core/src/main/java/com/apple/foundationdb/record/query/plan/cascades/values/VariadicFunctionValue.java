@@ -356,7 +356,7 @@ public class VariadicFunctionValue extends AbstractValue {
         private final TypeCode type;
 
         @Nonnull
-        private final Function<List<Object>, Object> evaluateFunction;
+        private final transient Function<List<Object>, Object> evaluateFunction;
 
         PhysicalOperator(@Nonnull final ScalarFunction scalarFunction,
                          @Nonnull final TypeCode type,
