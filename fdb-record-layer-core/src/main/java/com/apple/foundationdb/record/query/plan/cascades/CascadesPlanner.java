@@ -950,7 +950,9 @@ public class CascadesPlanner implements QueryPlanner {
                     taskStack.push(this);
                 }
                 for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
-                    taskStack.push(new ExploreGroup(context, reference, evaluationContext));
+                    if (!((GroupExpressionRef<? extends RelationalExpression>)reference).needsExploration()) {
+                        taskStack.push(new ExploreGroup(context, reference, evaluationContext));
+                    }
                 }
             }
         }

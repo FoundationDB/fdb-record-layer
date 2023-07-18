@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushMapThroughFet
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
@@ -69,6 +70,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUpdateRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
@@ -117,6 +119,7 @@ public class PlannerRuleSet {
             new PushReferencedFieldsThroughDistinctRule(),
             new PushReferencedFieldsThroughFilterRule(),
             new PushReferencedFieldsThroughSelectRule(),
+            new PushReferencedFieldsThroughUniqueRule(),
             new PushRequestedOrderingThroughSortRule(),
             new PushRequestedOrderingThroughDistinctRule(),
             new PushRequestedOrderingThroughUnionRule(),
@@ -126,7 +129,8 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughGroupByRule(),
             new PushRequestedOrderingThroughDeleteRule(),
             new PushRequestedOrderingThroughInsertRule(),
-            new PushRequestedOrderingThroughUpdateRule()
+            new PushRequestedOrderingThroughUpdateRule(),
+            new PushRequestedOrderingThroughUniqueRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
