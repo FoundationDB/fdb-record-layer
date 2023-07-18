@@ -40,22 +40,19 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A relational planner expression representing a stream of distinct records. This expression has a single child which
- * is also a {@link RelationalExpression}. This expression represents this underlying expression with its result
- * set de-duplicated.
- *
- * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
+ * A relational planner expression representing a stream of unique records. This expression has a single child which
+ * is also a {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalUniqueExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
+    public LogicalUniqueExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
         this(Quantifier.forEach(innerRef));
     }
 
-    public LogicalDistinctExpression(@Nonnull Quantifier inner) {
+    public LogicalUniqueExpression(@Nonnull Quantifier inner) {
         this.inner = inner;
     }
 
@@ -78,8 +75,8 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
+    public LogicalUniqueExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new LogicalUniqueExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Nonnull
@@ -118,7 +115,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.UNORDERED_DISTINCT_OPERATOR,
+                        NodeInfo.UNORDERED_UNIQUE_OPERATOR,
                         ImmutableList.of(),
                         ImmutableMap.of()),
                 childGraphs);

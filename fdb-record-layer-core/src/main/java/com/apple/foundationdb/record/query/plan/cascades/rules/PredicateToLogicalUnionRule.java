@@ -28,13 +28,16 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -255,15 +258,19 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
             final var neededForEachQuantifiers =
                     ownedForEachAliases.stream().map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(aliasToQuantifierMap.get(alias).getRangesOver())).collect(ImmutableList.toImmutableList());
 
-            final var unionLegExpression =
+            final var selectExpressionLeg =
                     new SelectExpression(lowerResultValue,
                             ImmutableList.copyOf(Iterables.concat(neededForEachQuantifiers, neededAdditionalQuantifiers)),
                             ImmutableList.<QueryPredicate>builder().addAll(fixedAtomicPredicates).add(orTermPredicate).build());
-            final ExpressionRef<? extends RelationalExpression> memoizedReference = call.memoizeExpression(unionLegExpression);
-            relationalExpressionReferences.add(memoizedReference);
+            final ExpressionRef<? extends RelationalExpression> memoizedSelectExpressionLeg = call.memoizeExpression(selectExpressionLeg);
+            final var uniqueExpressionLeg = new LogicalUniqueExpression(Quantifier.forEach(memoizedSelectExpressionLeg));
+            final var memoizedUniqueExpressionLeg = call.memoizeExpression(uniqueExpressionLeg);
+            relationalExpressionReferences.add(memoizedUniqueExpressionLeg);
         }
         
         var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
+
+        unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalDistinctExpression(Quantifier.forEach(unionReferenceBuilder.reference())));
 
         if (!isSimpleResultValue) {
             final ExpressionRef<? extends RelationalExpression> unionReference = unionReferenceBuilder.reference();

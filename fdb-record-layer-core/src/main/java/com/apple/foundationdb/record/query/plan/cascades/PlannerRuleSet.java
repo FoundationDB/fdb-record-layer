@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysical
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.InComparisonToExplodeRule;
@@ -137,6 +138,7 @@ public class PlannerRuleSet {
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
+            new ImplementUniqueRule(),
             new RemoveSortRule(),
             new PushDistinctBelowFilterRule(),
             new MergeFetchIntoCoveringIndexRule(),
