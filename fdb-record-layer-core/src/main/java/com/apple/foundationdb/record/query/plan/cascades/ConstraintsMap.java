@@ -202,13 +202,17 @@ public class ConstraintsMap {
         return watermarkGoalTick > watermarkCommittedTick;
     }
 
+    public boolean hasNeverBeenExplored() {
+        return watermarkCommittedTick < 0L;
+    }
+
     /**
      * This method indicates whether the reference containing this map is currently being explored for the first time (a full
      * exploration). That means that the reference has started exploration but has not yet finished it.
      * @return {@code true} if the associated reference is currently being fully explored, {@code false} otherwise.
      */
     public boolean isFullyExploring() {
-        return watermarkCommittedTick < 0 && isExploring();
+        return hasNeverBeenExplored() && isExploring();
     }
 
     /**
@@ -219,7 +223,7 @@ public class ConstraintsMap {
      * @return {@code true} if the associated reference is currently being fully explored, {@code false} otherwise.
      */
     public boolean isExploredForAttributes(@Nonnull final Set<PlannerConstraint<?>> attributes) {
-        if (watermarkCommittedTick < 0) {
+        if (hasNeverBeenExplored()) {
             // never been planned
             return false;
         } else {

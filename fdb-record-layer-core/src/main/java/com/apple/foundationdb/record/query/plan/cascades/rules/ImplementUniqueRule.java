@@ -24,45 +24,51 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUniqueExpression;
 
 /**
  * This rule implements {@link LogicalUniqueExpression} by absorbing it if the inner reference is already distinct.
  */
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
 
     @Nonnull
-    private static final BindingMatcher<PlanPartition> anyPlanPartitionMatcher = anyPlanPartition();
+    private static final CollectionMatcher<PlanPartition> anyPlanPartitionMatcher = all(anyPlanPartition());
 
     @Nonnull
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher = planPartitions(
             where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
-                                   && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(), any(anyPlanPartitionMatcher)));
+                                   && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
+                    rollUpTo(anyPlanPartitionMatcher, ImmutableSet.of())));
 
     @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
 
     public ImplementUniqueRule() {
-        super(root);
+        super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var innerPlanPartition = call.get(anyPlanPartitionMatcher);
-        call.yield(innerPlanPartition.getPlans());
+        final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
+        innerPlanPartitions.forEach(partition -> call.yield(partition.getPlans()));
     }
 }

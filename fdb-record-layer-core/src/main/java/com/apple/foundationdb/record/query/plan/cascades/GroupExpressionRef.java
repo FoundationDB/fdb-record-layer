@@ -338,6 +338,10 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return constraintsMap.isExploring();
     }
 
+    public boolean hasNeverBeenExplored() {
+        return constraintsMap.hasNeverBeenExplored();
+    }
+
     public boolean isFullyExploring() {
         return constraintsMap.isFullyExploring();
     }
