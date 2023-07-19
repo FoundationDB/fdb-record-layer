@@ -517,7 +517,7 @@ public class FDBDirectory extends Directory  {
         // entire range before doing anything with the data
         final AsyncIterable<KeyValue> rangeIterable = context.ensureActive()
                 .getRange(metaSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL);
-        CompletableFuture<Void> future = AsyncUtil.forEach(rangeIterable, kv -> {
+        CompletableFuture<Void> fileCacheFuture = AsyncUtil.forEach(rangeIterable, kv -> {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
             outMap.put(name, fileReference);
@@ -530,11 +530,6 @@ public class FDBDirectory extends Directory  {
                     displayList.add(entry.getKey());
                     totalSize += entry.getValue().getSize();
                     actualTotalSize += entry.getValue().getActualSize();
-                    try {
-                        readSchema(entry.getValue().getBitSetWords());
-                    } catch (IOException ioe) {
-                        LOGGER.error("read schema cache attemp failed", ioe);
-                    }
                 }
                 LOGGER.debug(getLogMessage("listAllFiles",
                         LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
@@ -547,7 +542,19 @@ public class FDBDirectory extends Directory  {
             // should use the class variable
             fileReferenceCache.compareAndSet(null, outMap);
         });
-        return context.instrument(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, future, start);
+        final CompletableFuture<Void> fieldInfoFuture =
+                AsyncUtil.forEach(context.ensureActive().getRange(schemaSubspace.range(),
+                                ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+                        keyValue -> {
+                            final Tuple tuple = schemaSubspace.unpack(keyValue.getKey());
+                            BitSet bitSet = BitSet.valueOf(
+                                    tuple.getNestedTuple(0).stream().mapToLong(obj -> (Long)obj).toArray());
+                            fieldInfosDataCache.put(bitSet, keyValue.getValue());
+                        });
+
+        return CompletableFuture.allOf(
+                context.instrument(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, fileCacheFuture, start),
+                context.instrument(LuceneEvents.Events.LUCENE_READ_FULL_SCHEMA, fieldInfoFuture));
     }
 
     @Nonnull

@@ -42,6 +42,8 @@ public class LuceneEvents {
         LUCENE_READ_BLOCK("lucene block reads"),
         /** Time to read a schema from Lucene's FDBDirectory. */
         LUCENE_READ_SCHEMA("lucene schema read"),
+        /** Time to read all schemas from Lucene's FDBDirectory. */
+        LUCENE_READ_FULL_SCHEMA("lucene schema full read"),
         /** Time to read a lucene block from FBB loader. */
         LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
         /** Time to list all files from Lucene's FDBDirectory. */
