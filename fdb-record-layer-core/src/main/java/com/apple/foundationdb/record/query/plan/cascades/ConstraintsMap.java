@@ -202,6 +202,10 @@ public class ConstraintsMap {
         return watermarkGoalTick > watermarkCommittedTick;
     }
 
+    /**
+     * This method indicates whether a reference containing this map has not been explored yet.
+     * @return {@code true} if the associated reference has not been explored yet, {@code false} otherwise.
+     */
     public boolean hasNeverBeenExplored() {
         return watermarkCommittedTick < 0L;
     }
