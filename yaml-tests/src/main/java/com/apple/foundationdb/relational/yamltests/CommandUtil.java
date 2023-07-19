@@ -29,6 +29,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.StringTokenizer;
@@ -75,5 +76,32 @@ public class CommandUtil {
         }
         String protoClassName = lcsTokenizer.nextToken();
         return new ImmutablePair<>(templateName, protoClassName);
+    }
+
+    /**
+     * Utility class that encapsulates <a href="https://en.wikipedia.org/wiki/ANSI_escape_code">ANSI escape sequences</a> for colors.
+     */
+    public enum Color {
+        RESET("\u001B[0m"),
+        BLACK("\u001B[30m"),
+        RED("\u001B[31m"),
+        GREEN("\u001B[32m"),
+        YELLOW("\u001B[33m"),
+        BLUE("\u001B[34m"),
+        PURPLE("\u001B[35m"),
+        CYAN("\u001B[36m"),
+        WHITE("\u001B[37m");
+
+        @Nonnull
+        private final String ansi;
+
+        Color(@Nonnull final String ansi) {
+            this.ansi = ansi;
+        }
+
+        @Override
+        public String toString() {
+            return ansi;
+        }
     }
 }

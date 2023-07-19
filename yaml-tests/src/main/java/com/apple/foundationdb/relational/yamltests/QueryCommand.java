@@ -30,13 +30,17 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.github.difflib.text.DiffRow;
+import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -173,8 +177,10 @@ class QueryCommand extends Command {
         return resultSet.getContinuation();
     }
 
-    private void checkExplain(Object queryResults, SQLException sqlException,
-                                        QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
+    private void checkExplain(@Nonnull Object queryResults,
+                              @Nullable final SQLException sqlException,
+                              @Nonnull final QueryConfigWithValue queryConfigWithValue,
+                              @Nonnull final String query) throws Exception {
         if (sqlException != null) {
             logAndThrowUnexpectedException(sqlException);
         }
@@ -193,7 +199,23 @@ class QueryCommand extends Command {
         if (success) {
             logger.debug("✔️ plan match!");
         } else {
+            final var expectedPlan = queryConfigWithValue.val.toString();
+            final var diffGenerator = DiffRowGenerator.create()
+                    .showInlineDiffs(true)
+                    .inlineDiffByWord(true)
+                    .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
+                    .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
+                    .build();
+            final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
+                    Collections.singletonList(expectedPlan),
+                    Collections.singletonList(actualPlan));
+            final var diff = new StringBuilder();
+            for (final var diffRow : diffRows) {
+                diff.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
+            }
             logger.error("‼️ plan mismatch:\n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                    diff +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
                     "↪ expected plan" + (queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS ? " fragment" : "") + ":\n" +
                     queryConfigWithValue.val + "\n" +
