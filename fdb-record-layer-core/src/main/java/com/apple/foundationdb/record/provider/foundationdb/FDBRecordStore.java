@@ -163,7 +163,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStore.class);
 
     public static final int DEFAULT_PIPELINE_SIZE = 10;
-    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> DEFAULT_PIPELINE_SIZE;
+    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> pipelineOperation == PipelineOperation.INSERT ? 1 : DEFAULT_PIPELINE_SIZE;
 
     // The maximum number of records to allow before triggering online index builds
     // instead of a transactional rebuild.

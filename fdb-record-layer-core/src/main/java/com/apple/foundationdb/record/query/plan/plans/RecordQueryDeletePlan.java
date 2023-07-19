@@ -104,7 +104,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                         RecordCursor.fromFuture(store.deleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
                                 .filter(isDeleted -> isDeleted)
                                 .map(ignored -> outerQueryResult),
-                continuation, store.getPipelineSize(PipelineOperation.UPDATE));
+                continuation, store.getPipelineSize(PipelineOperation.DELETE));
     }
 
     @Override
