@@ -486,7 +486,15 @@ public class FDBDirectory extends Directory  {
 
     public byte[] readSchema(List<Long> bitSetWords) throws IOException {
         BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
-        return fieldInfosDataCache.asMap().computeIfAbsent(bitSet, ignore -> context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords)));
+        final byte[] cached = fieldInfosDataCache.getIfPresent(bitSet);
+        if (cached == null) {
+            final byte[] bytes = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords));
+            if (bytes != null) {
+                fieldInfosDataCache.put(bitSet, bytes);
+            }
+            return bytes;
+        }
+        return cached;
     }
 
     /**
