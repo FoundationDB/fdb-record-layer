@@ -387,18 +387,16 @@ public class FDBDirectory extends Directory  {
         });
     }
 
-    public CompletableFuture<Integer> writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
-        return CompletableFuture.supplyAsync( () -> {
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(getLogMessage("Write lucene data",
-                        LuceneLogMessageKeys.DATA_SIZE, value.length,
-                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
-            }
-            context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
-            return value.length;
-        });
+    public int writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene data",
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+        }
+        context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
+        return value.length;
     }
 
     /**
