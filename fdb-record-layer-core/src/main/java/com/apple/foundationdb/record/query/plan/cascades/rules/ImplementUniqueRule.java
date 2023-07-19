@@ -40,7 +40,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUniqueExpression;
 
@@ -57,7 +57,7 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher = planPartitions(
             where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
                                    && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
-                    rollUpTo(anyPlanPartitionMatcher, ImmutableSet.of())));
+                    rollUp(anyPlanPartitionMatcher)));
 
     @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));

@@ -26,12 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -44,7 +40,7 @@ import java.util.Set;
  * is also a {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalUniqueExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalUniqueExpression implements RelationalExpressionWithChildren {
     @Nonnull
     private final Quantifier inner;
 
@@ -102,22 +98,11 @@ public class LogicalUniqueExpression implements RelationalExpressionWithChildren
 
     @Override
     public int hashCodeWithoutChildren() {
-        return 31;
+        return 251;
     }
 
     @Override
     public int hashCode() {
         return semanticHashCode();
-    }
-
-    @Nonnull
-    @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.UNORDERED_UNIQUE_OPERATOR,
-                        ImmutableList.of(),
-                        ImmutableMap.of()),
-                childGraphs);
     }
 }

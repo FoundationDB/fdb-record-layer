@@ -154,12 +154,6 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Unordered Distinct",
             "An unordered distinct operator processes its input records and returns the set of distinct records. It does not require its input records to be ordered but does impose a memory overhead as it needs to track records it has already encountered.");
-
-    public static final NodeInfo UNORDERED_UNIQUE_OPERATOR = new NodeInfo(
-            "Unique",
-            NodeIcon.COMPUTATION_OPERATOR,
-            "Unique",
-            "A unique operator that outputs a stream of unique records. It does not require input records to be ordered and does not reorder output records.");
     public static final NodeInfo UNORDERED_PRIMARY_KEY_DISTINCT_OPERATOR = new NodeInfo(
             "UnorderedPrimaryKeyDistinct",
             NodeIcon.COMPUTATION_OPERATOR,
@@ -248,7 +242,6 @@ public class NodeInfo {
                 TYPE_FILTER_OPERATOR,
                 UNION_OPERATOR,
                 UNORDERED_DISTINCT_OPERATOR,
-                UNORDERED_UNIQUE_OPERATOR,
                 UNORDERED_PRIMARY_KEY_DISTINCT_OPERATOR,
                 UNORDERED_UNION_OPERATOR);
     }
