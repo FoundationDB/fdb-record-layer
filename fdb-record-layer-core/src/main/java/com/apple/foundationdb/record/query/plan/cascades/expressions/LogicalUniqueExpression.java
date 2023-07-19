@@ -1,5 +1,5 @@
 /*
- * LogicalDistinctPlan.java
+ * LogicalUniqueExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,12 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -40,22 +36,19 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A relational planner expression representing a stream of distinct records. This expression has a single child which
- * is also a {@link RelationalExpression}. This expression represents this underlying expression with its result
- * set de-duplicated.
- *
- * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
+ * A relational planner expression representing a stream of unique records. This expression has a single child which
+ * is also a {@link RelationalExpression}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+public class LogicalUniqueExpression implements RelationalExpressionWithChildren {
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
+    public LogicalUniqueExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
         this(Quantifier.forEach(innerRef));
     }
 
-    public LogicalDistinctExpression(@Nonnull Quantifier inner) {
+    public LogicalUniqueExpression(@Nonnull Quantifier inner) {
         this.inner = inner;
     }
 
@@ -78,8 +71,8 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Nonnull
     @Override
-    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
+    public LogicalUniqueExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        return new LogicalUniqueExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Nonnull
@@ -105,22 +98,11 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
 
     @Override
     public int hashCodeWithoutChildren() {
-        return 31;
+        return 251;
     }
 
     @Override
     public int hashCode() {
         return semanticHashCode();
-    }
-
-    @Nonnull
-    @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.UNORDERED_DISTINCT_OPERATOR,
-                        ImmutableList.of(),
-                        ImmutableMap.of()),
-                childGraphs);
     }
 }

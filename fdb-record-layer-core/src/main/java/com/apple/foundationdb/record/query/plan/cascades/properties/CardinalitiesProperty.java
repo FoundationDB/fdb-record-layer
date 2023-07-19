@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProj
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -505,6 +506,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitLogicalIntersectionExpression(@Nonnull final LogicalIntersectionExpression logicalIntersectionExpression) {
         return intersectCardinalities(fromChildren(logicalIntersectionExpression));
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitLogicalUniqueExpression(@Nonnull final LogicalUniqueExpression logicalUniqueExpression) {
+        return fromChild(logicalUniqueExpression);
     }
 
     @Nonnull
