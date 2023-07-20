@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -86,9 +85,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -97,7 +94,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
-import static com.apple.foundationdb.record.lucene.LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
@@ -1298,7 +1294,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 null, false));
         FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout( event -> {
             // Make AsyncToSync calls timeout after one second
-                return new ImmutablePair<>(1L, TimeUnit.SECONDS);
+            return new ImmutablePair<>(1L, TimeUnit.SECONDS);
         });
         // Save many records (create many segments)
         for (long i = 0 ; i < 20 ; i++) {
