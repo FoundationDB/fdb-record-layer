@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -77,6 +78,11 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
         super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
+    }
+
+    @Override
+    public PipelineOperation getPipelineOperation() {
+        return PipelineOperation.UPDATE;
     }
 
     @Nonnull

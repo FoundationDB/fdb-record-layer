@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -67,6 +68,11 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
         super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue);
+    }
+
+    @Override
+    public PipelineOperation getPipelineOperation() {
+        return PipelineOperation.INSERT;
     }
 
     @Nonnull

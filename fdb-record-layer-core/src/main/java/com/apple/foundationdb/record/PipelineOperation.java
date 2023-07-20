@@ -54,6 +54,10 @@ public class PipelineOperation {
     public static final PipelineOperation SYNTHETIC_RECORD_JOIN = new PipelineOperation("SYNTHETIC_RECORD_JOIN");
     @Nonnull
     public static final PipelineOperation UPDATE = new PipelineOperation("UPDATE");
+    @Nonnull
+    public static final PipelineOperation DELETE = new PipelineOperation("DELETE");
+    @Nonnull
+    public static final PipelineOperation INSERT = new PipelineOperation("INSERT");
 
     private final String name;
 
