@@ -466,7 +466,10 @@ public class FDBDirectory extends Directory  {
         byte[] value = fieldInfosDataMap.get(bitSet);
         if (value == null) {
             value = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords));
-            fieldInfosDataMap.put(bitSet, value);
+            // don't populate if no values in DB
+            if (value != null) {
+                fieldInfosDataMap.put(bitSet, value);
+            }
         }
         return value;
     }
