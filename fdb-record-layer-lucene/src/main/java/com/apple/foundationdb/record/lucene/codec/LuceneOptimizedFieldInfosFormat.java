@@ -20,29 +20,18 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.lucene.codecs.FieldInfosFormat;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.BitSet;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 /**
  * This class attempts to reduce the number of .fnm entries when numerous segments are present in FDB.
- *
  */
 public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOptimizedFieldInfosFormat.class);
-
     private final FieldInfosFormat fieldInfosFormat;
 
     public LuceneOptimizedFieldInfosFormat(FieldInfosFormat fieldInfosFormat) {
@@ -52,34 +41,10 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
-        // UnWrap Directory in attempt to use a cache mechanism
-        if (directory instanceof LuceneOptimizedCompoundReader) {
-            Directory next = ((LuceneOptimizedCompoundReader)directory).getDirectory();
-            if (next instanceof LuceneOptimizedWrappedDirectory) {
-                FDBDirectory fdbDirectory = ((LuceneOptimizedWrappedDirectory)next).getFdbDirectory();
-                String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, "fnm");
-                List<Long> bitSetWords = fdbDirectory.getFDBLuceneFileReference(
-                        LuceneOptimizedWrappedDirectory.convertToDataFile(fileName)).getBitSetWords();
-                BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
-                try {
-                    return fdbDirectory.getFieldInfos(bitSet, () -> {
-                        try {
-                            return fieldInfosFormat.read(
-                                    ((LuceneOptimizedCompoundReader)directory).getDirectory(),
-                                    segmentInfo, segmentSuffix, iocontext);
-                        } catch (IOException ioe) {
-                            LOGGER.error("Failure during reading FieldInfoFormats, corrupted index");
-                            throw new RuntimeException(ioe);
-                        }
-                    });
-                } catch (ExecutionException ee) {
-                    throw new IOException(ee);
-                }
-            }
-        }
+        // Note on caching: This (fieldInfos) were cached here as well, to reduce the costs of parsing the (cached) bytes,
+        // but that resulted in a deadlock. The current implementation reads and parses the data every time.
         return fieldInfosFormat.read(
-                ((LuceneOptimizedCompoundReader) directory).getDirectory(),
-                segmentInfo, segmentSuffix, iocontext);
+                ((LuceneOptimizedCompoundReader)directory).getDirectory(), segmentInfo, segmentSuffix, iocontext);
     }
 
     @Override
