@@ -105,7 +105,6 @@ public class FDBIndexInput extends IndexInput {
     /**
      * Constructor that is utilized by splice calls to take into account initial offsets and modifications to length.
      *
-     * @param nestedResourceDescription opaque description of file; used for logging
      * @param resourceDescription opaque description of file; used for logging
      * @param fdbDirectory FDB directory mapping
      * @param reference future Reference
