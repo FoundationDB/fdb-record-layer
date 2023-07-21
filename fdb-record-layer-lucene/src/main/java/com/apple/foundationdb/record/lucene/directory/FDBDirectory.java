@@ -45,7 +45,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
@@ -71,10 +70,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -152,10 +150,7 @@ public class FDBDirectory extends Directory  {
     // True if sharedCacheManager is present until sharedCache has been set (or not).
     private boolean sharedCachePending;
 
-    // FieldInfo Cache attempting to optimize schema lookup per segment
-    private final Cache<BitSet, FieldInfos> fieldInfosCache;
-
-    private final Cache<BitSet, byte[]> fieldInfosDataCache;
+    private final Map<BitSet, byte[]> fieldInfosDataMap;
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
         this(subspace, context, null, null);
@@ -196,12 +191,7 @@ public class FDBDirectory extends Directory  {
                 .maximumSize(maximumSize)
                 .recordStats()
                 .build();
-        this.fieldInfosCache = CacheBuilder.newBuilder()
-                .maximumSize(DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE)
-                .build();
-        this.fieldInfosDataCache = CacheBuilder.newBuilder()
-                .maximumSize(DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE)
-                .build();
+        this.fieldInfosDataMap = new ConcurrentHashMap<>();
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
@@ -471,7 +461,17 @@ public class FDBDirectory extends Directory  {
 
     public byte[] readSchema(List<Long> bitSetWords) throws IOException {
         BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
-        return fieldInfosDataCache.asMap().computeIfAbsent(bitSet, ignore -> context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords)));
+        // In order to avoid a deadlock, and since the readSchema is idempotent, perform a non-blocking, non-atomic cache
+        // population. There may be a few threads that make calls to FDB, but they should all be returning the same result
+        byte[] value = fieldInfosDataMap.get(bitSet);
+        if (value == null) {
+            value = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords));
+            // don't populate if no values in DB
+            if (value != null) {
+                fieldInfosDataMap.put(bitSet, value);
+            }
+        }
+        return value;
     }
 
     /**
@@ -513,11 +513,6 @@ public class FDBDirectory extends Directory  {
                     displayList.add(entry.getKey());
                     totalSize += entry.getValue().getSize();
                     actualTotalSize += entry.getValue().getActualSize();
-                    try {
-                        readSchema(entry.getValue().getBitSetWords());
-                    } catch (IOException ioe) {
-                        LOGGER.error("read schema cache attemp failed", ioe);
-                    }
                 }
                 LOGGER.debug(getLogMessage("listAllFiles",
                         LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
@@ -827,9 +822,5 @@ public class FDBDirectory extends Directory  {
 
     Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
         return blockCache;
-    }
-
-    public FieldInfos getFieldInfos(BitSet bitSet, Callable<FieldInfos> loader) throws ExecutionException {
-        return fieldInfosCache.get(bitSet, loader);
     }
 }
