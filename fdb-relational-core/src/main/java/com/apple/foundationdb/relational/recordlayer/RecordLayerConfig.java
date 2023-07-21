@@ -20,24 +20,28 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
  */
-public class RecordLayerConfig {
+public final class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
     private final int formatVersion;
+    private final Map<String, IndexState> indexStateMap;
 
-    public RecordLayerConfig(FDBRecordStoreBase.UserVersionChecker userVersionChecker, SerializerRegistry serializerRegistry, int formatVersion) {
-        this.userVersionChecker = userVersionChecker;
-        this.serializerRegistry = serializerRegistry;
-        this.formatVersion = formatVersion;
+    private RecordLayerConfig(RecordLayerConfigBuilder builder) {
+        this.userVersionChecker = builder.userVersionChecker;
+        this.serializerRegistry = builder.serializerRegistry;
+        this.formatVersion = builder.formatVersion;
+        this.indexStateMap = builder.indexStateMap;
     }
 
     public FDBRecordStoreBase.UserVersionChecker getUserVersionChecker() {
@@ -52,10 +56,44 @@ public class RecordLayerConfig {
         return formatVersion;
     }
 
+    public Map<String, IndexState> getIndexStateMap() {
+        return indexStateMap;
+    }
+
     public static RecordLayerConfig getDefault() {
-        return new RecordLayerConfig(
-                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
-                storePath -> DynamicMessageRecordSerializer.instance(),
-                FDBRecordStore.DEFAULT_FORMAT_VERSION);
+        return new RecordLayerConfigBuilder().build();
+    }
+
+    public static class RecordLayerConfigBuilder {
+        private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
+        private final SerializerRegistry serializerRegistry;
+        private int formatVersion;
+        private Map<String, IndexState> indexStateMap;
+
+        public RecordLayerConfigBuilder() {
+            this.userVersionChecker = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion);
+            this.serializerRegistry = storePath -> DynamicMessageRecordSerializer.instance();
+            this.formatVersion = FDBRecordStore.DEFAULT_FORMAT_VERSION;
+            this.indexStateMap = Map.of();
+        }
+
+        public RecordLayerConfigBuilder setIndexStateMap(Map<String, IndexState> indexStateMap) {
+            this.indexStateMap = indexStateMap;
+            return this;
+        }
+
+        public RecordLayerConfigBuilder setFormatVersion(int formatVersion) {
+            this.formatVersion = formatVersion;
+            return this;
+        }
+
+        public RecordLayerConfigBuilder setUserVersionChecker(FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
+            this.userVersionChecker = userVersionChecker;
+            return this;
+        }
+
+        public RecordLayerConfig build() {
+            return new RecordLayerConfig(this);
+        }
     }
 }

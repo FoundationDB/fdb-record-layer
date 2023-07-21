@@ -1,5 +1,5 @@
 /*
- * standard_tests.proto
+ * disabled_index_tests.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,24 +20,30 @@
 
 syntax = "proto3";
 
-// make sure to use this package naming convention:
-// com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
-// adding "generated" is important to exclude the generated Java file from Jacoco reports.
-// suffixing the namespace with your test name is important for segregating similarly-named
-// generated-Java-classes (such as RecordTypeUnion) into separate packages, otherwise you
-// get an error from `protoc`.
-package com.apple.foundationdb.relational.yamltests.generated.standardtests;
+package com.apple.foundationdb.relational.yamltests.generated.disabledtests;
 
-option java_outer_classname = "StandardTestsProto";
+option java_outer_classname = "DisabledTestsProto";
 
 import "record_metadata_options.proto";
 
 message T1 {
   int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  int64 COL1 = 2;
-  int64 COL2 = 3;
+  bool TOMBSTONE = 2;
+}
+
+message T2 {
+  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  bool TOMBSTONE = 2 [(com.apple.foundationdb.record.field).index = {}];;
+}
+
+// T3$TOMBSTONE is disabled in tests
+message T3 {
+  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  bool TOMBSTONE = 2 [(com.apple.foundationdb.record.field).index = {}];;
 }
 
 message RecordTypeUnion {
   T1 _T1 = 1;
+  T2 _T2 = 2;
+  T3 _T3 = 3;
 }

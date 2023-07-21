@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,6 +43,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public abstract class Command {
 
@@ -93,14 +95,12 @@ public abstract class Command {
                     logger.debug("connected to '{}'", uri);
                 }
             };
-        } else if ("load".equals(commandString)) {
+        } else if ("load schema template".equals(commandString)) {
             return new Command() {
                 @Override
                 public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
-                    // final var schemaTemplateName = Matchers.notNull(Matchers.string(Matchers.notNull(loadSchemaTemplateEntry, "schema template").getValue(), "table name"), "table name");
-
-                    logger.debug("loading '{}'", loadCommandString);
+                    logger.debug("loading template '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
                     final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     // save schema template
@@ -113,6 +113,34 @@ public abstract class Command {
                     ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
                     try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
                         metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(loadCommandString), Options.NONE).execute(transaction);
+                        connection.commit();
+                    }
+                }
+            };
+        } else if ("set schema state".equals(commandString)) {
+            return new Command() {
+                @Override
+                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
+                    final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "set schema state"), "set schema state").getValue(), "set schema state");
+                    logger.debug("setting schema state '{}'", loadCommandString);
+                    // current connection should be __SYS/catalog
+                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
+                    StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                    SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(loadCommandString);
+                    RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
+                            .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
+                            .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
+                            .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
+                            .build();
+                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                            .setRlConfig(rlConfig)
+                            .setStoreCatalog(backingCatalog)
+                            .build();
+
+                    ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
+                    try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
+                        metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
                         connection.commit();
                     }
                 }

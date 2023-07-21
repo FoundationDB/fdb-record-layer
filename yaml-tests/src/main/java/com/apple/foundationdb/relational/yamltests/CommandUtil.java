@@ -20,18 +20,28 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.util.JsonFormat;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
+import java.io.IOException;
 import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 /**
@@ -46,36 +56,63 @@ public class CommandUtil {
      */
     public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
-        Pair<String, String> templateNameAndProtoClassName = parseLoadCommandString(loadCommandString);
-        try {
-            Class<?> act = Class.forName(templateNameAndProtoClassName.getRight());
-            Method method = act.getMethod("getDescriptor");
-            Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
-            metaData = RecordMetaData.build(o);
-        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException |
-                ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
+        if (templateNameAndSourceName.getRight().endsWith(".json")) {
+            metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
+        } else {
+            try {
+                Class<?> act = Class.forName(templateNameAndSourceName.getRight());
+                Method method = act.getMethod("getDescriptor");
+                Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
+                metaData = RecordMetaData.build(o);
+            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException |
+                    ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndProtoClassName.getLeft(), 1);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
     }
 
-    private static Pair<String, String> parseLoadCommandString(String loadCommandString) {
+    public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {
+        SchemaInstanceOuterClass.SchemaInstance.Builder builder = SchemaInstanceOuterClass.SchemaInstance.newBuilder();
+        try {
+            JsonFormat.parser().ignoringUnknownFields().merge(loadCommandString, builder);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return builder.build();
+    }
+
+    public static Map<String, IndexState> fromIndexStateProto(Map<String, SchemaInstanceOuterClass.IndexState> indexStateProtoMap) {
+        Map<String, IndexState> result = new HashMap<>();
+        for (Map.Entry<String, SchemaInstanceOuterClass.IndexState> k : indexStateProtoMap.entrySet()) {
+            result.put(k.getKey(), IndexState.fromCode((long) k.getValue().getNumber()));
+        }
+        return result;
+    }
+
+    private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName) {
+        RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
+        try {
+            String json = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
+            JsonFormat.parser().ignoringUnknownFields().merge(json, builder);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return RecordMetaData.build(builder.build());
+    }
+
+    private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
         StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
-        if (lcsTokenizer.countTokens() != 5) {
-            Assertions.fail("Expecting load schema template command consisting of 5 tokens");
+        if (lcsTokenizer.countTokens() != 3) {
+            Assertions.fail("Expecting load command consisting of 3 tokens");
         }
-        if (!"schema".equals(lcsTokenizer.nextToken())) {
-            Assertions.fail("Expecting load schema template command to start with schema template");
-        }
-        if (!"template".equals(lcsTokenizer.nextToken())) {
-            Assertions.fail("Expecting load schema template command to start with schema template");
-        }
-        String templateName = lcsTokenizer.nextToken();
+        String first = lcsTokenizer.nextToken();
         if (!"from".equals(lcsTokenizer.nextToken())) {
-            Assertions.fail("Expecting load schema template command to start with schema template");
+            Assertions.fail("Expecting load command looking like X from Y");
         }
-        String protoClassName = lcsTokenizer.nextToken();
-        return new ImmutablePair<>(templateName, protoClassName);
+        String second = lcsTokenizer.nextToken();
+        return new ImmutablePair<>(first, second);
     }
 
     /**

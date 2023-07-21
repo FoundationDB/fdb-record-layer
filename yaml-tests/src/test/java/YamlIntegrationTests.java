@@ -77,6 +77,11 @@ public class YamlIntegrationTests {
         doRun("standard-tests-proto.yaml");
     }
 
+    @Test
+    public void standardTestsWithMetaData() throws Exception {
+        doRun("standard-tests-metadata.yaml");
+    }
+
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
     public void deprecatedFieldsTestsWithProto() throws Exception {
         doRun("deprecated-fields-tests-proto.yaml");
@@ -150,6 +155,11 @@ public class YamlIntegrationTests {
     @Test
     public void sparseIndex() throws Exception {
         doRun("sparse-index-tests.yaml");
+    }
+
+    @Test
+    public void disabledIndexWithProto() throws Exception {
+        doRun("disabled-index-tests-proto.yaml");
     }
 
     @Test

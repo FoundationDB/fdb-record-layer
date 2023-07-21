@@ -1,5 +1,5 @@
 #
-# standard-tests-proto.yaml
+# standard-tests-metadata.yaml
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -20,34 +20,34 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template standard_tests_proto_template
+- query: drop schema template standard_tests_metadata_template
 ---
-- query: drop database /FRL/STANDARD_PROTO_YAML
+- query: drop database /FRL/STANDARD_METADATA_YAML
 ---
-- query: create database /FRL/STANDARD_PROTO_YAML
+- query: create database /FRL/STANDARD_METADATA_YAML
 ---
-- load schema template: STANDARD_TESTS_PROTO_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtests.StandardTestsProto
+- load schema template: STANDARD_TESTS_METADATA_TEMPLATE from src/main/resources/standard_tests_metadata.json
 ---
-- query: create schema /FRL/STANDARD_PROTO_YAML/test with template STANDARD_TESTS_PROTO_TEMPLATE
+- query: create schema /FRL/STANDARD_METADATA_YAML/test with template STANDARD_TESTS_METADATA_TEMPLATE
 ---
-- set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/STANDARD_PROTO_YAML\", \"template_name\": \"STANDARD_TESTS_PROTO_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
+- set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/STANDARD_METADATA_YAML\", \"template_name\": \"STANDARD_TESTS_METADATA_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
 ---
-- connect: "jdbc:embed:/FRL/STANDARD_PROTO_YAML?schema=TEST"
+- connect: "jdbc:embed:/FRL/STANDARD_METADATA_YAML?schema=TEST"
 ---
 - query: INSERT INTO T1
     VALUES (1, 10, 1),
-           (2, 10, 2),
-           (3, 10, 3),
-           (4, 10, 4),
-           (5, 10, 5),
-           (6, 20, 6),
-           (7, 20, 7),
-           (8, 20, 8),
-           (9, 20, 9),
-           (10, 20, 10),
-           (11, 20, 11),
-           (12, 20, 12),
-           (13, 20, 13)
+    (2, 10, 2),
+    (3, 10, 3),
+    (4, 10, 4),
+    (5, 10, 5),
+    (6, 20, 6),
+    (7, 20, 7),
+    (8, 20, 8),
+    (9, 20, 9),
+    (10, 20, 10),
+    (11, 20, 11),
+    (12, 20, 12),
+    (13, 20, 13)
 ---
 - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
 - result: [{ID: !l 5, !l 10, !l 5}]
@@ -63,7 +63,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template standard_tests_proto_template
+- query: drop schema template standard_tests_metadata_template
 ---
-- query: drop database /FRL/STANDARD_PROTO_YAML
+- query: drop database /FRL/STANDARD_METADATA_YAML
 ...

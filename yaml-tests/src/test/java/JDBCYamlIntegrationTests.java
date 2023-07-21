@@ -256,12 +256,23 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    @Disabled("The standard-tests-proto.yaml has 'load schema template' which is not supported")
+    @Disabled("The standard-tests-proto.yaml has 'load template' which is not supported")
     public void standardTestsWithProto() throws Exception {
         super.standardTestsWithProto();
     }
 
     @Override
+    @Disabled("The standard-tests-metadata.yaml has 'load template' which is not supported")
+    public void standardTestsWithMetaData() throws Exception {
+        super.standardTestsWithMetaData();
+    }
+
+    @Override
+    @Disabled("The disabled-index-tests-proto.yaml has 'load schema template' which is not supported")
+    public void disabledIndexWithProto() throws Exception {
+        super.disabledIndexWithProto();
+    }
+
     @Disabled("The deprecated-fields-tests-proto.yaml has 'load schema template' which is not supported")
     public void deprecatedFieldsTestsWithProto() throws Exception {
         super.deprecatedFieldsTestsWithProto();
