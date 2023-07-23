@@ -368,7 +368,35 @@ public class RTree {
     @Nonnull
     public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
                                         @Nonnull final Predicate<Rectangle> mbrPredicate) {
-        AsyncIterator<LeafNode> leafIterator = new LeafIterator(readTransaction, rootId, mbrPredicate);
+        return scan(readTransaction, null, null, mbrPredicate);
+    }
+
+    /**
+     * Perform a scan over the tree within the transaction passed in using a predicate that is also passed in to
+     * eliminate subtrees from the scan. This predicate may be stateful which allows for dynamic adjustments of the
+     * queried area while the scan is active.
+     * <br>
+     * A scan of the tree offers all items that pass the {@code mbrPredicate} test in Hilbert Value order using an
+     * {@link AsyncIterator}. The predicate that is passed in is applied to intermediate nodes as well as leaf nodes,
+     * but not to elements contained in a leaf node. The caller should filter out items in a downstream operation.
+     * A scan of the tree will not prefetch the next node before the items of the current node have been consumed. This
+     * guarantees that the semantics of the mbr predicate can be adapted in response to the items being consumed.
+     * (this allows for efficient scans for {@code ORDER BY x, y LIMIT n} queries).
+     * @param readTransaction the transaction to use
+     * @param lastHilbertValue the last Hilbert value that was returned by a previous call to this method
+     * @param lastKey the last key that was returned by a previous call to this method
+     * @param mbrPredicate a predicate on an mbr {@link Rectangle}
+     * @return an {@link AsyncIterator} of {@link ItemSlot}s.
+     */
+    @Nonnull
+    public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
+                                        @Nullable final BigInteger lastHilbertValue,
+                                        @Nullable final Tuple lastKey,
+                                        @Nonnull final Predicate<Rectangle> mbrPredicate) {
+        Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
+                                    (lastHilbertValue != null && lastKey != null));
+        AsyncIterator<LeafNode> leafIterator =
+                new LeafIterator(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate);
         return new ItemIterator(leafIterator);
     }
 
@@ -386,6 +414,8 @@ public class RTree {
     @Nonnull
     private CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final ReadTransaction readTransaction,
                                                                       @Nonnull final byte[] nodeId,
+                                                                      @Nullable final BigInteger lastHilbertValue,
+                                                                      @Nullable final Tuple lastKey,
                                                                       @Nonnull final Predicate<Rectangle> mbrPredicate) {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
         final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
@@ -397,6 +427,19 @@ public class RTree {
                         Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
                         for (Iterator<ChildSlot> iterator = childSlots.iterator(); iterator.hasNext(); ) {
                             final ChildSlot childSlot = iterator.next();
+                            if (lastHilbertValue != null &&
+                                    lastKey != null) {
+                                final int hilbertValueAndKeyCompare = childSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey);
+                                if (hilbertValueAndKeyCompare < 0) {
+                                    //
+                                    // The (lastHilbertValue, lastKey) pair is larger than the
+                                    // (largestHilbertValue, largestKey) pair of the current child. Advance to the next
+                                    // child.
+                                    //
+                                    continue;
+                                }
+                            }
+
                             if (mbrPredicate.test(childSlot.getMbr())) {
                                 toBeProcessedThisLevel.addLast(childSlot);
                                 iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
@@ -427,7 +470,7 @@ public class RTree {
      * being the greater).
      * @param readTransaction the transaction to use
      * @param traversalState traversal state to start from. The initial traversal state is always obtained by initially
-     *        calling {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], Predicate)}.
+     *        calling {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate)}.
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}. This predicate is evaluated for each node that
      *        is processed.
      * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link LeafNode} whose
@@ -436,6 +479,8 @@ public class RTree {
     @Nonnull
     private CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final ReadTransaction readTransaction,
                                                                   @Nonnull final TraversalState traversalState,
+                                                                  @Nullable final BigInteger lastHilbertValue,
+                                                                  @Nullable final Tuple lastKey,
                                                                   @Nonnull final Predicate<Rectangle> mbrPredicate) {
 
         final List<Deque<ChildSlot>> toBeProcessed = traversalState.getToBeProcessed();
@@ -448,16 +493,18 @@ public class RTree {
             }
 
             // fetch the left-most path rooted at the current child to its left-most leaf and concatenate the paths
-            return fetchLeftmostPathToLeaf(readTransaction, nextChildSlot.getChildId(), mbrPredicate).thenApply(nestedTraversalState -> {
-                if (nestedTraversalState.isEnd()) {
-                    // no more data in this subtree
-                    return true;
-                }
-                // combine the traversal states
-                leafNode.set(nestedTraversalState.getCurrentLeafNode());
-                toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
-                return false;
-            });
+            return fetchLeftmostPathToLeaf(readTransaction, nextChildSlot.getChildId(), lastHilbertValue,
+                    lastKey, mbrPredicate)
+                    .thenApply(nestedTraversalState -> {
+                        if (nestedTraversalState.isEnd()) {
+                            // no more data in this subtree
+                            return true;
+                        }
+                        // combine the traversal states
+                        leafNode.set(nestedTraversalState.getCurrentLeafNode());
+                        toBeProcessed.addAll(nestedTraversalState.getToBeProcessed());
+                        return false;
+                    });
         }, executor).thenApply(v -> leafNode.get() == null
                                     ? TraversalState.end()
                                     : TraversalState.of(toBeProcessed, leafNode.get()));
@@ -1962,6 +2009,22 @@ public class RTree {
          */
         @Nonnull
         protected abstract Tuple getSlotValue();
+
+        /**
+         * Compare this node slot's {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)} pair.
+         * We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
+         * @param hilbertValue Hilbert value
+         * @param key first key
+         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
+         */
+        public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
+                                             @Nonnull final Tuple key) {
+            final int hilbertValueCompare = getHilbertValue().compareTo(hilbertValue);
+            if (hilbertValueCompare != 0) {
+                return hilbertValueCompare;
+            }
+            return TupleHelpers.compare(getKey(), key);
+        }
     }
 
     /**
@@ -2124,15 +2187,20 @@ public class RTree {
 
     /**
      * An {@link AsyncIterator} over the leaf nodes that represent the result of a scan over the tree. This iterator
-     * interfaces with the scan logic (see {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], Predicate)} and
-     * {@link #fetchNextPathToLeaf(ReadTransaction, TraversalState, Predicate)}) and wraps intermediate
-     * {@link TraversalState}s created by these methods.
+     * interfaces with the scan logic
+     * (see {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate)} and
+     * {@link #fetchNextPathToLeaf(ReadTransaction, TraversalState, BigInteger, Tuple, Predicate)}) and wraps
+     * intermediate {@link TraversalState}s created by these methods.
      */
     public class LeafIterator implements AsyncIterator<LeafNode> {
         @Nonnull
         private final ReadTransaction readTransaction;
         @Nonnull
         private final byte[] rootId;
+        @Nullable
+        private final BigInteger lastHilbertValue;
+        @Nullable
+        private final Tuple lastKey;
         @Nonnull
         private final Predicate<Rectangle> mbrPredicate;
 
@@ -2142,9 +2210,15 @@ public class RTree {
         private CompletableFuture<TraversalState> nextStateFuture;
 
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-        public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId, @Nonnull final Predicate<Rectangle> mbrPredicate) {
+        public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId,
+                            @Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey,
+                            @Nonnull final Predicate<Rectangle> mbrPredicate) {
+            Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
+                                        (lastHilbertValue != null && lastKey != null));
             this.readTransaction = readTransaction;
             this.rootId = rootId;
+            this.lastHilbertValue = lastHilbertValue;
+            this.lastKey = lastKey;
             this.mbrPredicate = mbrPredicate;
             this.currentState = null;
             this.nextStateFuture = null;
@@ -2154,9 +2228,9 @@ public class RTree {
         public CompletableFuture<Boolean> onHasNext() {
             if (nextStateFuture == null) {
                 if (currentState == null) {
-                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, mbrPredicate);
+                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate);
                 } else {
-                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, mbrPredicate);
+                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, lastHilbertValue, lastKey, mbrPredicate);
                 }
             }
             return nextStateFuture.thenApply(traversalState -> !traversalState.isEnd());

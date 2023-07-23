@@ -62,6 +62,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -121,6 +122,15 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                         prefixKeyPart = null;
                     }
 
+                    final BigInteger lastHilbertValue;
+                    final Tuple lastKey;
+                    if (innerContinuation != null) {
+                        
+                    } else {
+                        lastHilbertValue = null;
+                        lastKey = null;
+                    }
+
                     final int limit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
                     final RTree rTree = new RTree(extraSubspace, getExecutor(), config, RTree::newRandomNodeId,
@@ -128,9 +138,11 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                     final ReadTransaction rT = state.context.readTransaction(true);
                     final var dimensionRanges = mDScanBounds.getDimensionRanges();
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                            rTree.scan(rT, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
+                            rTree.scan(rT, lastHilbertValue, lastKey, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
                             cursorLimitManager, timer, limit);
                     return itemSlotCursor
+                            .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
+                                                itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) >= 0)
                             .filter(itemSlot -> rangesContainPosition(dimensionRanges, itemSlot.getPosition()))
                             .map(itemSlot -> {
                                 final List<Object> keyItems = Lists.newArrayListWithExpectedSize(columnSize);
