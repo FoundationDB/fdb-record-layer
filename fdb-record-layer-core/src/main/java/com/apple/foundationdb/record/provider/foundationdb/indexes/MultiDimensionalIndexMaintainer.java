@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
@@ -30,6 +29,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RTree;
 import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -48,10 +48,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.MultiDimensionalIndexScanBounds;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
@@ -65,7 +70,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 /**
  * An index maintainer for keeping a {@link com.apple.foundationdb.async.RTree}.
@@ -82,63 +86,71 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("resource")
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange scanRange,
-                                         @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
-        if (!scanType.equals(IndexScanType.BY_VALUE)) {
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
+                                         @Nonnull final ScanProperties scanProperties) {
+        if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan multidimensional index by value.");
         }
+        if (!(scanBounds instanceof MultiDimensionalIndexScanBounds)) {
+            throw new RecordCoreException("Need proper multidimensional index scan bounds.");
+        }
+        final MultiDimensionalIndexScanBounds mDScanBounds = (MultiDimensionalIndexScanBounds)scanBounds;
 
         final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
         final int prefixCount = dimensionsKeyExpression.getPrefixCount();
-        final int dimensionsCount = dimensionsKeyExpression.getDimensionsCount();
+        final int columnSize = dimensionsKeyExpression.getColumnSize();
 
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, scanProperties);
 
         final Function<byte[], RecordCursor<IndexEntry>> outerFunction;
         if (prefixCount > 0) {
-            outerFunction = outerContinuation -> scan(scanRange.prefix(prefixCount), outerContinuation, scanProperties);
+            outerFunction = outerContinuation -> scan(mDScanBounds.getPrefixRange(), outerContinuation, scanProperties);
         } else {
             outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
         }
 
-        RecordCursor.flatMapPipelined(outerFunction,
-                (outer, innerContinuation) -> {
+        return RecordCursor.flatMapPipelined(outerFunction,
+                (outerIndexEntry, innerContinuation) -> {
                     Subspace extraSubspace = getSecondarySubspace();
-                    if (outer != null) {
-                        extraSubspace = extraSubspace.subspace(outer.getKey());
+                    final Tuple prefixKeyPart;
+                    if (outerIndexEntry != null) {
+                        prefixKeyPart = outerIndexEntry.getKey();
+                        Verify.verify(prefixKeyPart.size() == prefixCount);
+                        extraSubspace = extraSubspace.subspace(prefixKeyPart);
+                    } else {
+                        prefixKeyPart = null;
                     }
+
                     final int limit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
                     final RTree rTree = new RTree(extraSubspace, getExecutor(), config, RTree::newRandomNodeId,
                             new OnReadLimiter(cursorLimitManager, timer));
                     final ReadTransaction rT = state.context.readTransaction(true);
+                    final var dimensionRanges = mDScanBounds.getDimensionRanges();
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                            rTree.scan(rT, overlapsWithMbr(scanRange, prefixCount, dimensionsCount)),
+                            rTree.scan(rT, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
                             cursorLimitManager, timer, limit);
-                    itemSlotCursor.filter(itemSlot -> {
-                                //TODO filter out false-positives frome the same leaf node
-                                return true;
-                            })
+                    return itemSlotCursor
+                            .filter(itemSlot -> rangesContainPosition(dimensionRanges, itemSlot.getPosition()))
                             .map(itemSlot -> {
-                                //TODO create new IndexEntry
-                            })
-
+                                final List<Object> keyItems = Lists.newArrayListWithExpectedSize(columnSize);
+                                if (prefixKeyPart != null) {
+                                    keyItems.addAll(prefixKeyPart.getItems());
+                                }
+                                keyItems.addAll(itemSlot.getPosition().getCoordinates().getItems());
+                                keyItems.addAll(itemSlot.getKey().getItems());
+                                Verify.verify(keyItems.size() == columnSize);
+                                return new IndexEntry(state.index, Tuple.fromList(keyItems), itemSlot.getValue());
+                            });
                 },
                 continuation,
-                state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD);
+                state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
+    }
 
-        final CompletableFuture<TupleRange> scoreRangeFuture = RankedSetIndexHelper.rankRangeToScoreRange(state,
-                getGroupingCount(), extraSubspace, config, scanRange);
-        return RecordCursor.mapFuture(getExecutor(), scoreRangeFuture, continuation,
-                (scoreRange, scoreContinuation) -> {
-                    if (scoreRange == null) {
-                        return RecordCursor.empty(getExecutor());
-                    } else {
-                        return scan(scoreRange, scoreContinuation, scanProperties);
-                    }
-                });
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        throw new RecordCoreException("index maintainer does not support this scan api");
     }
 
     @Nonnull
@@ -148,14 +160,6 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
         return (DimensionsKeyExpression)root;
     }
-
-
-//    @Nonnull
-//    @Override
-//    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-//        return super.scan(scanBounds, continuation, scanProperties);
-//    }
-
 
     @Override
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
@@ -231,10 +235,115 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         return function.apply(rankedSet, values);
     }
 
-    private static Predicate<RTree.Rectangle> overlapsWithMbr(@Nonnull final TupleRange tupleRange,
-                                                              final int prefixCount,
-                                                              final int dimensionsCount) {
-        return r -> true;
+    private static boolean rangesOverlapWithMbr(@Nonnull final List<TupleRange> dimensionRanges, @Nonnull final RTree.Rectangle mbr) {
+        Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
+
+        for (int d = 0; d < mbr.getNumDimensions(); d++) {
+            final Tuple lowTuple = Tuple.from(mbr.getLow(d));
+            final Tuple highTuple = Tuple.from(mbr.getHigh(d));
+
+            final TupleRange dimensionRange = dimensionRanges.get(d);
+
+            switch (dimensionRange.getLowEndpoint()) {
+                case TREE_START:
+                    break;
+                case RANGE_INCLUSIVE:
+                case RANGE_EXCLUSIVE:
+                    final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
+                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                            TupleHelpers.compare(highTuple, dimensionLow) < 0) {
+                        return false;
+                    }
+                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                            TupleHelpers.compare(highTuple, dimensionLow) <= 0) {
+                        return false;
+                    }
+                    break;
+                case TREE_END:
+                case CONTINUATION:
+                case PREFIX_STRING:
+                default:
+                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
+            }
+
+            switch (dimensionRange.getHighEndpoint()) {
+                case TREE_END:
+                    break;
+                case RANGE_INCLUSIVE:
+                case RANGE_EXCLUSIVE:
+                    final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
+                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                            TupleHelpers.compare(lowTuple, dimensionHigh) > 0) {
+                        return false;
+                    }
+                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                            TupleHelpers.compare(highTuple, dimensionHigh) >= 0) {
+                        return false;
+                    }
+                    break;
+                case TREE_START:
+                case CONTINUATION:
+                case PREFIX_STRING:
+                default:
+                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
+            }
+        }
+        return true;
+    }
+
+    private static boolean rangesContainPosition(@Nonnull final List<TupleRange> dimensionRanges, @Nonnull final RTree.Point point) {
+        Preconditions.checkArgument(point.getNumDimensions() == dimensionRanges.size());
+
+        for (int d = 0; d < point.getNumDimensions(); d++) {
+            final Tuple coordinate = Tuple.from(point.getCoordinate(d));
+
+            final TupleRange dimensionRange = dimensionRanges.get(d);
+
+            switch (dimensionRange.getLowEndpoint()) {
+                case TREE_START:
+                    break;
+                case RANGE_INCLUSIVE:
+                case RANGE_EXCLUSIVE:
+                    final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
+                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                            TupleHelpers.compare(coordinate, dimensionLow) < 0) {
+                        return false;
+                    }
+                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                            TupleHelpers.compare(coordinate, dimensionLow) <= 0) {
+                        return false;
+                    }
+                    break;
+                case TREE_END:
+                case CONTINUATION:
+                case PREFIX_STRING:
+                default:
+                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
+            }
+
+            switch (dimensionRange.getHighEndpoint()) {
+                case TREE_END:
+                    break;
+                case RANGE_INCLUSIVE:
+                case RANGE_EXCLUSIVE:
+                    final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
+                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                            TupleHelpers.compare(coordinate, dimensionHigh) > 0) {
+                        return false;
+                    }
+                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                            TupleHelpers.compare(coordinate, dimensionHigh) >= 0) {
+                        return false;
+                    }
+                    break;
+                case TREE_START:
+                case CONTINUATION:
+                case PREFIX_STRING:
+                default:
+                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
+            }
+        }
+        return true;
     }
 
     static class OnReadLimiter implements RTree.OnReadListener {

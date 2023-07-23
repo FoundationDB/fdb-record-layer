@@ -2316,7 +2316,7 @@ public class RTree {
      * format and provides helpers for Euclidean operations. Note that the coordinates used here do not need to be
      * numbers.
      */
-    static class Point {
+    public static class Point {
         @Nonnull
         private final Tuple coordinates;
 
