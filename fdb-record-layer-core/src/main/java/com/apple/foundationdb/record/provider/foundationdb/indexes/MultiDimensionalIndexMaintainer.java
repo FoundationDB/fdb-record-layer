@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -52,12 +54,15 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.MultiDimensionalIndexScanBounds;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -122,14 +127,10 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                         prefixKeyPart = null;
                     }
 
-                    final BigInteger lastHilbertValue;
-                    final Tuple lastKey;
-                    if (innerContinuation != null) {
-                        
-                    } else {
-                        lastHilbertValue = null;
-                        lastKey = null;
-                    }
+                    final Continuation parsedContinuation = Continuation.fromBytes(innerContinuation);
+                    final BigInteger lastHilbertValue =
+                            parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
+                    final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
                     final int limit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
@@ -141,7 +142,7 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                             rTree.scan(rT, lastHilbertValue, lastKey, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
                             cursorLimitManager, timer, limit);
                     return itemSlotCursor
-                            .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
+                            .filter(itemSlot -> lastHilbertValue == null ||
                                                 itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) >= 0)
                             .filter(itemSlot -> rangesContainPosition(dimensionRanges, itemSlot.getPosition()))
                             .map(itemSlot -> {
@@ -422,7 +423,7 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                         timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         timer.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
                         valuesSeen++;
-                        nextResult = RecordCursorResult.withNextValue(itemSlot, continuationHelper());
+                        nextResult = RecordCursorResult.withNextValue(itemSlot, new Continuation(itemSlot.getHilbertValue(), itemSlot.getKey()));
                     } else if (valuesSeen >= limit) {
                         // Source iterator hit limit that we passed down.
                         nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
@@ -439,6 +440,84 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                 }
                 nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
                 return CompletableFuture.completedFuture(nextResult);
+            }
+        }
+    }
+
+    private static class Continuation implements RecordCursorContinuation {
+        @Nullable
+        final BigInteger lastHilbertValue;
+        @Nullable
+        final Tuple lastKey;
+
+        @Nullable
+        private ByteString cachedByteString;
+        @Nullable
+        private byte[] cachedBytes;
+
+        private Continuation(@Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey) {
+            this.lastHilbertValue = lastHilbertValue;
+            this.lastKey = lastKey;
+        }
+
+        @Nullable
+        public BigInteger getLastHilbertValue() {
+            return lastHilbertValue;
+        }
+
+        @Nullable
+        public Tuple getLastKey() {
+            return lastKey;
+        }
+
+        @Nonnull
+        @Override
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            }
+
+            if (cachedByteString == null) {
+                cachedByteString = RecordCursorProto.MultiDimensionalIndexScanContinuation.newBuilder()
+                        .setLastHilbertValue(ByteString.copyFrom(Objects.requireNonNull(lastHilbertValue).toByteArray()))
+                        .setLastKey(ByteString.copyFrom(Objects.requireNonNull(lastKey).pack()))
+                        .build()
+                        .toByteString();
+            }
+            return cachedByteString;
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (isEnd()) {
+                return null;
+            }
+            if (cachedBytes == null) {
+                cachedBytes = toByteString().toByteArray();
+            }
+            return cachedBytes;
+        }
+
+        @Override
+        public boolean isEnd() {
+            return lastHilbertValue == null || lastKey == null;
+        }
+
+        @Nullable
+        private static Continuation fromBytes(@Nullable byte[] continuationBytes) {
+            if (continuationBytes != null) {
+                final RecordCursorProto.MultiDimensionalIndexScanContinuation parsed;
+                try {
+                    parsed = RecordCursorProto.MultiDimensionalIndexScanContinuation.parseFrom(continuationBytes);
+                } catch (InvalidProtocolBufferException ex) {
+                    throw new RecordCoreException("error parsing continuation", ex)
+                            .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
+                }
+                return new Continuation(new BigInteger(parsed.getLastHilbertValue().toByteArray()),
+                        Tuple.fromBytes(parsed.toByteArray()));
+            } else {
+                return null;
             }
         }
     }
