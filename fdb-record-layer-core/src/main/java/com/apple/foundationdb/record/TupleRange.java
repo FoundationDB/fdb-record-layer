@@ -184,6 +184,53 @@ public class TupleRange {
     }
 
     /**
+     * Create a {@link TupleRange} over a prefix of the keys of this range.
+     * For example, if this range is over all {@link Tuple}s from <code>("a", 3)</code> exclusive to
+     * <code>("b", 4)</code> inclusive and one calls this method with {@code prefixCount} of {@code 1}, this will create
+     * a range from <code>("a")</code> inclusive to <code>("b")</code> inclusive. Note that the newly returned
+     * {@link TupleRange} is guaranteed to encompass the old range.
+     *
+     * @param prefixCount the number of prefix parts to consider
+     * @return a new {@link TupleRange} of a prefix of {@coe predixCount} parts of this tuple range
+     */
+    @Nonnull
+    public TupleRange prefix(final int prefixCount) {
+        final Tuple newLow;
+        final EndpointType newLowEndpoint;
+        if (low == null) {
+            // assert TREE_START
+            newLow = null;
+            newLowEndpoint = lowEndpoint;
+        } else {
+            if (low.size() > prefixCount) {
+                newLow = Tuple.fromList(low.getItems().subList(0, prefixCount));
+            } else {
+                newLow = low;
+            }
+            newLowEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        final Tuple newHigh;
+        final EndpointType newHighEndpoint;
+        if (high == null) {
+            // assert TREE_END
+            newHigh = null;
+            newHighEndpoint = highEndpoint;
+        } else {
+            if (TupleHelpers.equals(low, high)) {
+                newHigh = newLow;
+            } else {
+                if (high.size() > prefixCount) {
+                    newHigh = Tuple.fromList(high.getItems().subList(0, prefixCount));
+                } else {
+                    newHigh = high;
+                }
+            }
+            newHighEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        return new TupleRange(newLow, newHigh, newLowEndpoint, newHighEndpoint);
+    }
+
+    /**
      * Create a <code>TupleRange</code> over all keys beginning with a given {@link Tuple}.
      * This is a shortcut for creating a <code>TupleRange</code> with <code>prefix</code>
      * as both the low- and high-endpoint and setting both endpoint types to

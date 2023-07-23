@@ -67,5 +67,5 @@ public interface IndexMaintainerFactory {
      * @return a new index maintainer for the type of index given
      */
     @Nonnull
-    IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
+    IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state);
 }

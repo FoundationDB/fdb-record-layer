@@ -23,15 +23,16 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBTestBase;
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.async.RTreeModificationTest.InstrumentedRTree;
 import com.apple.foundationdb.async.RTreeModificationTest.Item;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Streams;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -120,7 +122,7 @@ public class RTreeScanTest extends FDBTestBase {
 
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryWithFilters(@Nonnull final RTree.Rectangle query) throws Exception {
+    public void queryWithFilters(@Nonnull final RTree.Rectangle query) {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -149,7 +151,9 @@ public class RTreeScanTest extends FDBTestBase {
             }
         }
 
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final OnReadCounters onReadCounters = new OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
+
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate), itemSlot -> {
@@ -167,11 +171,11 @@ public class RTreeScanTest extends FDBTestBase {
         logger.trace("num points satisfying X range in query = {}", numPointsSatisfyingQueryX);
         logger.trace("num points satisfying Y range in query = {}", numPointsSatisfyingQueryY);
 
-        rt.logCounters();
+        onReadCounters.logCounters();
 
         final double ffPredicate = (double)nresults.get() / NUM_SAMPLES;
         logger.trace("ff of predicate = {}", ffPredicate);
-        final double ffSargable = (double)rt.getReadSlotCounter() / NUM_SAMPLES;
+        final double ffSargable = (double)onReadCounters.getReadSlotCounter() / NUM_SAMPLES;
         logger.trace("ff of sargable = {}", ffSargable);
         final double overread = (ffSargable / ffPredicate - 1d) * 100d;
         logger.trace("over-read = {}%", overread);
@@ -193,8 +197,8 @@ public class RTreeScanTest extends FDBTestBase {
                 expectedResultsQueue.add(items[i]);
             }
         }
-
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final OnReadCounters onReadCounters = new OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
@@ -217,7 +221,7 @@ public class RTreeScanTest extends FDBTestBase {
                     return 1;
                 }).allMatch(r -> true);
 
-        rt.logCounters();
+        onReadCounters.logCounters();
     }
 
     //
@@ -361,5 +365,72 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         return x;
+    }
+
+    static class OnReadCounters implements RTree.OnReadListener {
+        private final AtomicLong readSlotCounter = new AtomicLong(0);
+        private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
+        private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
+
+        private final AtomicLong readNodesCounter = new AtomicLong(0);
+        private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
+        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
+
+        public void resetCounters() {
+            readSlotCounter.set(0L);
+            readLeafSlotCounter.set(0L);
+            readIntermediateSlotCounter.set(0L);
+            readNodesCounter.set(0L);
+            readLeafNodesCounter.set(0L);
+            readIntermediateNodesCounter.set(0L);
+        }
+
+        public long getReadSlotCounter() {
+            return readSlotCounter.get();
+        }
+
+        public long getReadLeafSlotCounter() {
+            return readLeafSlotCounter.get();
+        }
+
+        public long getReadIntermediateSlotCounter() {
+            return readIntermediateSlotCounter.get();
+        }
+
+        public long getReadNodesCounter() {
+            return readNodesCounter.get();
+        }
+
+        public long getReadLeafNodesCounter() {
+            return readLeafNodesCounter.get();
+        }
+
+        public long getReadIntermediateNodesCounter() {
+            return readIntermediateNodesCounter.get();
+        }
+
+        public void logCounters() {
+            logger.info("num read slots = {}", readSlotCounter.get());
+            logger.info("num read leaf slots = {}", readLeafSlotCounter.get());
+            logger.info("num read intermediate slots = {}", readIntermediateSlotCounter.get());
+            logger.info("num read nodes = {}", readNodesCounter.get());
+            logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
+            logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
+        }
+
+        @Override
+        public void onRead(@Nonnull final byte[] nodeId, @Nonnull final RTree.Kind nodeKind,
+                           @Nonnull final List<KeyValue> keyValues) {
+            readSlotCounter.addAndGet(keyValues.size());
+            readNodesCounter.incrementAndGet();
+            if (nodeKind == RTree.Kind.LEAF) {
+                readLeafSlotCounter.addAndGet(keyValues.size());
+                readLeafNodesCounter.incrementAndGet();
+            } else {
+                Verify.verify(nodeKind == RTree.Kind.INTERMEDIATE);
+                readIntermediateSlotCounter.addAndGet(keyValues.size());
+                readIntermediateNodesCounter.incrementAndGet();
+            }
+        }
     }
 }

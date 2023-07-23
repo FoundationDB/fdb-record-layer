@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.async.RTree;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -39,7 +39,7 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * A factory for {@link RankIndexMaintainer} indexes.
+ * A factory for {@link MultiDimensionalIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
@@ -59,7 +59,7 @@ public class MultiDimensionalIndexMaintainerFactory implements IndexMaintainerFa
             @Override
             public void validate(@Nonnull MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
-                validateGrouping(1);
+                validateNotGrouping();
                 validateNotVersion();
             }
 
@@ -67,28 +67,28 @@ public class MultiDimensionalIndexMaintainerFactory implements IndexMaintainerFa
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                    RankedSet.Config oldOptions = RankedSetIndexHelper.getConfig(oldIndex);
-                    RankedSet.Config newOptions = RankedSetIndexHelper.getConfig(index);
-                    if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
-                        if (oldOptions.getNLevels() != newOptions.getNLevels()) {
-                            throw new MetaDataException("rank levels changed",
+                    final RTree.Config oldOptions = RTreeIndexHelper.getConfig(oldIndex);
+                    final RTree.Config newOptions = RTreeIndexHelper.getConfig(index);
+                    if (changedOptions.contains(IndexOptions.RTREE_MIN_M)) {
+                        if (oldOptions.getMinM() != newOptions.getMinM()) {
+                            throw new MetaDataException("rtree minM changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_NLEVELS);
+                        changedOptions.remove(IndexOptions.RTREE_MIN_M);
                     }
-                    if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
-                        if (!oldOptions.getHashFunction().equals(newOptions.getHashFunction())) {
-                            throw new MetaDataException("rank hash function changed",
+                    if (changedOptions.contains(IndexOptions.RTREE_MAX_M)) {
+                        if (oldOptions.getMaxM() != newOptions.getMaxM()) {
+                            throw new MetaDataException("rtree minM changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
+                        changedOptions.remove(IndexOptions.RTREE_MAX_M);
                     }
-                    if (changedOptions.contains(IndexOptions.RANK_COUNT_DUPLICATES)) {
-                        if (oldOptions.isCountDuplicates() != newOptions.isCountDuplicates()) {
-                            throw new MetaDataException("rank count duplicate changed",
+                    if (changedOptions.contains(IndexOptions.RTREE_SPLIT_S)) {
+                        if (oldOptions.getSplitS() != newOptions.getSplitS()) {
+                            throw new MetaDataException("rtree splitS changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_COUNT_DUPLICATES);
+                        changedOptions.remove(IndexOptions.RTREE_SPLIT_S);
                     }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);
@@ -98,7 +98,7 @@ public class MultiDimensionalIndexMaintainerFactory implements IndexMaintainerFa
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
-        return new RankIndexMaintainer(state);
+    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+        return new MultiDimensionalIndexMaintainer(state);
     }
 }

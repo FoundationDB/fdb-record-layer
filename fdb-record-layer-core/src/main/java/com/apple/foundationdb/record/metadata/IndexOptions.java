@@ -172,6 +172,28 @@ public class IndexOptions {
      */
     public static final String PERMUTED_SIZE_OPTION = "permutedSize";
 
+    /**
+     * Minimum number of slots in a node of an R-tree (except for the root node for which that minimum number may be as
+     * low as {@code 0}. See {@link  com.apple.foundationdb.async.RTree#DEFAULT_S} for suggestions on how to set this
+     * option as well as {@link #RTREE_MAX_M}. Be aware that the following inequality must hold
+     * {@code MAX_M / MIN_M >= (S + 1) / S}.
+     */
+    public static final String RTREE_MIN_M = "rtreeMinimumM";
+
+    /**
+     * Maximum number of slots in a node of an R-tree. See {@link  com.apple.foundationdb.async.RTree#DEFAULT_S}
+     * for suggestions on how to set this option.  Be aware that the following inequality must hold
+     * {@code MAX_M / MIN_M >= (S + 1) / S}.
+     */
+    public static final String RTREE_MAX_M = "rtreeMaximumM";
+
+    /**
+     * The magic split number. The insert code path always considers {@code S} siblings for overflow handling as well
+     * as perform {@code S} to {@code S + 1} sibling splits (default 2-to-3 splits) and {@code S + 1} to {@code S}
+     * sibling fuses.
+     */
+    public static final String RTREE_SPLIT_S = "rtreeSplitS";
+
     private IndexOptions() {
     }
 }

@@ -29,10 +29,8 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +41,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
@@ -59,8 +55,6 @@ import java.util.stream.Stream;
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {
-    private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
-
     private static final int NUM_TEST_RUNS = 10;
     private static final int NUM_SAMPLES = 10_000;
 
@@ -94,8 +88,11 @@ public class RTreeModificationTest extends FDBTestBase {
     @ValueSource(ints = {10, 100, 1000, 10_000})
     public void testAllDeleted(final int numSamples) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
+
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numSamples; ) {
             final int batchStart = i; // lambdas
@@ -127,14 +124,17 @@ public class RTreeModificationTest extends FDBTestBase {
         Assertions.assertTrue(keyValues.isEmpty());
 
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
     }
 
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
     public void testRandomDeletes(final int numSamples, final int numDeletes) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
 
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numDeletes; ) {
@@ -161,6 +161,7 @@ public class RTreeModificationTest extends FDBTestBase {
         Assertions.assertEquals(numSamples - numDeletes, nresults.get());
 
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
     }
 
     //
@@ -243,13 +244,11 @@ public class RTreeModificationTest extends FDBTestBase {
         }
     }
 
-    static void validateRTree(@Nonnull final Database db, @Nonnull final InstrumentedRTree rt) {
+    static void validateRTree(@Nonnull final Database db, @Nonnull final RTree rt) {
         db.run(tr -> {
             rt.validate(tr).join();
             return null;
         });
-
-        rt.resetCounters();
     }
 
     static class Item {
@@ -287,80 +286,6 @@ public class RTreeModificationTest extends FDBTestBase {
         @Nonnull
         public Tuple getValue() {
             return value;
-        }
-    }
-
-    static class InstrumentedRTree extends RTree {
-        private final AtomicLong readSlotCounter = new AtomicLong(0);
-        private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
-
-        private final AtomicLong readNodesCounter = new AtomicLong(0);
-        private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
-
-        public InstrumentedRTree(final Subspace subspace) {
-            super(subspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId);
-            resetCounters();
-        }
-
-        public void resetCounters() {
-            readSlotCounter.set(0L);
-            readLeafSlotCounter.set(0L);
-            readIntermediateSlotCounter.set(0L);
-            readNodesCounter.set(0L);
-            readLeafNodesCounter.set(0L);
-            readIntermediateNodesCounter.set(0L);
-        }
-
-        public long getReadSlotCounter() {
-            return readSlotCounter.get();
-        }
-
-        public long getReadLeafSlotCounter() {
-            return readLeafSlotCounter.get();
-        }
-
-        public long getReadIntermediateSlotCounter() {
-            return readIntermediateSlotCounter.get();
-        }
-
-        public long getReadNodesCounter() {
-            return readNodesCounter.get();
-        }
-
-        public long getReadLeafNodesCounter() {
-            return readLeafNodesCounter.get();
-        }
-
-        public long getReadIntermediateNodesCounter() {
-            return readIntermediateNodesCounter.get();
-        }
-
-        public void logCounters() {
-            logger.info("num read slots = {}", readSlotCounter.get());
-            logger.info("num read leaf slots = {}", readLeafSlotCounter.get());
-            logger.info("num read intermediate slots = {}", readIntermediateSlotCounter.get());
-            logger.info("num read nodes = {}", readNodesCounter.get());
-            logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
-            logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
-        }
-
-        @Nonnull
-        @Override
-        protected RTree.Node nodeFromKeyValues(final byte[] nodeId, final List<KeyValue> keyValues) {
-            final RTree.Node resultNode = super.nodeFromKeyValues(nodeId, keyValues);
-            readSlotCounter.addAndGet(keyValues.size());
-            readNodesCounter.incrementAndGet();
-            if (resultNode.getKind() == Kind.LEAF) {
-                readLeafSlotCounter.addAndGet(keyValues.size());
-                readLeafNodesCounter.incrementAndGet();
-            } else {
-                Verify.verify(resultNode.getKind() == Kind.INTERMEDIATE);
-                readIntermediateSlotCounter.addAndGet(keyValues.size());
-                readIntermediateNodesCounter.incrementAndGet();
-            }
-            return resultNode;
         }
     }
 }

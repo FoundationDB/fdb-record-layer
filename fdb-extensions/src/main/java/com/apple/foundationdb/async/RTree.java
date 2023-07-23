@@ -163,14 +163,17 @@ public class RTree {
      *     respect to each other. Example: {@code MIN_M = 25}, {@code MAX_M = 32}, {@code S = 2}, two nodes at
      *     already at maximum capacity containing a combined total of 64 children when a new child is inserted.
      *     We split the two nodes into three as indicated by {@code S = 2}. We have 65 children but there is no way
-     *     of distributing them among three nodes such that none of them underflows.</li>
+     *     of distributing them among three nodes such that none of them underflows. This constraint can be
+     *     formulated as {@code S * MAX_M / (S + 1) >= MIN_M}.</li>
      *     <li>When fusing {@code S + 1} to {@code S} nodes, we re-distribute the children of {@code S + 1} nodes
      *     into {@code S + 1} nodes which may cause an overflow if {@code S} and {@code M} are not set carefully with
      *     respect to each other. Example: {@code MIN_M = 25}, {@code MAX_M = 32}, {@code S = 2}, three nodes at
      *     already at minimum capacity containing a combined total of 75 children when a child is deleted.
      *     We fuse the three nodes into two as indicated by {@code S = 2}. We have 75 children but there is no way
-     *     of distributing them among two nodes such that none of them overflows.</li>
+     *     of distributing them among two nodes such that none of them overflows. This constraint can be formulated as
+     *     {@code (S + 1) * MIN_M / S <= MAX_M}</li>.
      * </ol>
+     * Both constraints are in fact the same constraint and can be written as {@code MAX_M / MIN_M >= (S + 1) / S}.
      */
     public static final int DEFAULT_S = 2;
 
@@ -182,6 +185,9 @@ public class RTree {
     protected final Config config;
     @Nonnull
     protected final Supplier<byte[]> nodeIdSupplier;
+
+    @Nonnull
+    protected final OnReadListener onReadListener;
 
     /**
      * Only used for debugging to keep node ids readable.
@@ -289,11 +295,13 @@ public class RTree {
      * @param config configuration to use
      * @param nodeIdSupplier supplier to be invoked when new nodes are created
      */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config, @Nonnull final Supplier<byte[]> nodeIdSupplier) {
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config,
+                 @Nonnull final Supplier<byte[]> nodeIdSupplier, @Nonnull OnReadListener onReadListener) {
         this.subspacePrefix = subspace.getKey();
         this.executor = executor;
         this.config = config;
         this.nodeIdSupplier = nodeIdSupplier;
+        this.onReadListener = onReadListener;
     }
 
     /**
@@ -302,7 +310,7 @@ public class RTree {
      * @param executor an executor to use when running asynchronous tasks
      */
     public RTree(Subspace subspace, Executor executor) {
-        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId);
+        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId, OnReadListener.NOOP);
     }
 
     /**
@@ -1443,6 +1451,8 @@ public class RTree {
         Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
                       (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
 
+        onReadListener.onRead(nodeId, nodeKind, keyValues);
+
         return checkNode(nodeKind == Kind.LEAF
                          ? new LeafNode(nodeId, itemSlots)
                          : new IntermediateNode(nodeId, childSlots));
@@ -1719,7 +1729,7 @@ public class RTree {
     /**
      * Enum to capture the kind of node.
      */
-    enum Kind {
+    public enum Kind {
         INTERMEDIATE,
         LEAF
     }
@@ -1958,7 +1968,7 @@ public class RTree {
      * An item slot that is used by {@link LeafNode}s. Holds the actual data of the item as well as the items Hilbert
      * value and its key.
      */
-    static class ItemSlot extends NodeSlot {
+    public static class ItemSlot extends NodeSlot {
         @Nonnull
         private final Tuple value;
         @Nonnull
@@ -2358,7 +2368,7 @@ public class RTree {
      * with its serialization format and provides helpers for Euclidean operations. Note that the coordinates used here
      * do not need to be numbers.
      */
-    static class Rectangle {
+    public static class Rectangle {
         /**
          * A tuple that holds the coordinates of this N-dimensional rectangle. The layout is defined as
          * {@code (low1, low2, ..., lowN, high1, high2, ..., highN}. Note that we don't use nested {@link Tuple}s for
@@ -2567,5 +2577,17 @@ public class RTree {
             }
             return new Rectangle(Tuple.from(mbrRanges));
         }
+    }
+
+    /**
+     * Function interface for a call back whenever we read the slots for a node.
+     */
+    @FunctionalInterface
+    public interface OnReadListener {
+        OnReadListener NOOP = (nodeId, nodeKind, keyValues) -> { };
+
+        void onRead(@Nonnull byte[] nodeId,
+                    @Nonnull Kind nodeKind,
+                    @Nonnull List<KeyValue> keyValues);
     }
 }

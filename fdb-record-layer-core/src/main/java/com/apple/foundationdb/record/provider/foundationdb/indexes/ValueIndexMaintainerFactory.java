@@ -62,7 +62,7 @@ public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new ValueIndexMaintainer(state);
     }
 }
