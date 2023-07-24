@@ -94,7 +94,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
@@ -103,7 +102,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
-import static com.apple.foundationdb.record.provider.common.text.TextSamples.ROMEO_AND_JULIET_PROLOGUE;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
@@ -133,6 +131,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
+    // The fork/join pool parallelism factor (the number of active threads in the pool).
+    private static final int PARALLELISM = 8;
+
     @BeforeAll
     public static void setup() {
         //set up the English Synonym Map so that we don't spend forever setting it up for every test, because this takes a long time
@@ -144,14 +145,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             TextSamples.AETHELRED,
             TextSamples.PARTIAL_ROMEO_AND_JULIET_PROLOGUE,
             TextSamples.FRENCH,
-            ROMEO_AND_JULIET_PROLOGUE,
+            TextSamples.ROMEO_AND_JULIET_PROLOGUE,
             TextSamples.ROMEO_AND_JULIET_PROLOGUE_END
     ));
 
     final List<String> textSamples = Arrays.asList(
-            ROMEO_AND_JULIET_PROLOGUE,
+            TextSamples.ROMEO_AND_JULIET_PROLOGUE,
             TextSamples.AETHELRED,
-            ROMEO_AND_JULIET_PROLOGUE,
+            TextSamples.ROMEO_AND_JULIET_PROLOGUE,
             TextSamples.ANGSTROM,
             TextSamples.AETHELRED,
             TextSamples.FRENCH
@@ -807,7 +808,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         for (int i = 0; i < 200; i++) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
-                String[] randomWords = generateRandomWords(500);
+                String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
                 final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
                         .setDocId(i)
                         .setText(randomWords[1])
@@ -1279,21 +1280,23 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * This tests is reproducing a thread deadlock that happened with Lucene threads when reading schema information.
+     * This test is reproducing a thread deadlock that happened with Lucene threads when reading schema information.
      * The fix for the deadlock has removed the {@code Map.computeIfAbsent} call (with the {@code synchronized} block)
      * that blocked the {@code asyncToSync} calls.
      * This test creates a large enough set of {@link org.apache.lucene.index.SegmentReader} futures so as to flood the thread pool,
-     * and then queries Lucene. THe large number of futures in the pool, together with the {@code synchronized} block
+     * and then queries Lucene. The large number of futures in the pool, together with the {@code synchronized} block
      * would cause a deadlock.
      */
     @Test
     void testQueryWithManyDocuments() {
-        String[] words = generateRandomWords(1000);
-        FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
+        // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
+        // (random words) rather than using random English words from a canned text. With English text, Lucene compression
+        // reduces the size of the segment such that we need many more records to create the required number of segments
+        FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                 null, false));
         FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout( event -> {
-            // Make AsyncToSync calls timeout after one second
+            // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
             return new ImmutablePair<>(1L, TimeUnit.SECONDS);
         });
         // Save many records (create many segments)
@@ -1304,7 +1307,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
                             .setDocId(i * 1000 + j)
                             .setGroup(1)
-                            .setText(selectWords(words, 500))
+                            .setText(LuceneIndexTestUtils.generateRandomWords(1000)[1])
                             .build();
                     recordStore.saveRecord(document1);
                 }
@@ -1317,15 +1320,5 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             // Random words are up to 10 characters long, so this would never match
             assertPrimaryKeys("text:morningstart", false, Set.of());
         }
-    }
-
-    private String selectWords(String[] words, int count) {
-        Random random = new Random();
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0 ; i < count ; i++) {
-            builder.append(words[random.nextInt(words.length)]);
-            builder.append(" ");
-        }
-        return builder.toString();
     }
 }

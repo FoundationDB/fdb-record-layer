@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.Collections;
+import java.util.Random;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -186,4 +187,23 @@ public class LuceneIndexTestUtils {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
+    public static String[] generateRandomWords(int numberOfWords) {
+        assert numberOfWords > 0 : "Number of words have to be greater than 0";
+        StringBuilder builder = new StringBuilder();
+        Random random = new Random();
+        char[] word = null;
+        for (int i = 0; i < numberOfWords; i++) {
+            word = new char[random.nextInt(8) + 3]; // words of length 3 through 10. (1 and 2 letter words are boring.)
+            for (int j = 0; j < word.length; j++) {
+                word[j] = (char)('a' + random.nextInt(26));
+            }
+            if (i != numberOfWords - 1) {
+                builder.append(word).append(" ");
+            }
+        }
+        String[] returnValue = new String[2];
+        returnValue[0] = new String(word);
+        returnValue[1] = builder.toString();
+        return returnValue;
+    }
 }
