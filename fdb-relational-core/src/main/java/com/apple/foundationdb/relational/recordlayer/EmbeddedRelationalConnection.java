@@ -89,7 +89,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public RelationalStatement createStatement() throws SQLException {
-        return new ErrorCapturingStatement(new EmbeddedRelationalStatement(this));
+        return new EmbeddedRelationalStatement(this);
     }
 
     @Override

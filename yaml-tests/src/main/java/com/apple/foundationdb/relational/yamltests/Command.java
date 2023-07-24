@@ -53,19 +53,28 @@ public abstract class Command {
                                          String errorCode, String query) throws Exception {
         if (queryResults != null) {
             Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
-            Assert.that(queryResults instanceof ErrorCapturingResultSet,
-                    String.format("‼️ another error is encountered while trying to print to" +
-                            "print unexpected query result!%n" +
-                            "unexpected query result of type '%s' (expecting '%s')",
-                            queryResults.getClass().getSimpleName(),
-                            ErrorCapturingResultSet.class.getSimpleName()));
-            Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
-            Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a result set%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "%s%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                    resultSetPrettyPrinter)
-            );
+            if (queryResults instanceof ErrorCapturingResultSet) {
+                Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
+                Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a result set%n" +
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                        "%s%n" +
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                        resultSetPrettyPrinter)
+                );
+            } else if (queryResults instanceof Integer) {
+                Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a count %n" +
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                        "%s%n" +
+                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                        queryResults)
+                );
+            } else {
+                Assert.fail(String.format("‼️ another error is encountered while trying to print to" +
+                        "print unexpected query result!%n" +
+                        "unexpected query result of type '%s' (expecting '%s')",
+                        queryResults.getClass().getSimpleName(),
+                        ErrorCapturingResultSet.class.getSimpleName()));
+            }
         }
         logger.debug("checking error code resulted from executing '{}'", query);
         if (sqlException == null) {

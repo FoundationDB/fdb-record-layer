@@ -64,7 +64,7 @@ public final class ExceptionUtil {
             // Async handling can make a RecordCoreStorageException with cause of RecordCoreStorageException
             // when 'Transaction is not active' exception.
             code = ErrorCode.TRANSACTION_INACTIVE;
-        } else if (re.getCause() instanceof RecordAlreadyExistsException) {
+        } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
         } else if (re instanceof MetaDataException) {
             //TODO(bfines) map this to specific error codes based on the violation

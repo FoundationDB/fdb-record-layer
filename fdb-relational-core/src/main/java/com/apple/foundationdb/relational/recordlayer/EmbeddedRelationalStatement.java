@@ -103,6 +103,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             checkOpen();
+            if (currentResultSet != null) {
+                currentResultSet.close();
+            }
             Assert.notNull(sql);
             conn.ensureTransactionActive();
             final var resultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
@@ -115,29 +118,31 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                     return true;
                 } else {
                     //this is an update statement, so generate the row count and set the update clause
-                    currentResultSet = null;
-                    currentRowCount = countUpdates(pair.getLeft());
-                    pair.getLeft().close();
-                    return false;
+                    try (ErrorCapturingResultSet updateResultSet = new ErrorCapturingResultSet(pair.getLeft())) {
+                        currentResultSet = null;
+                        currentRowCount = countUpdates(updateResultSet);
+                        return false;
+                    }
                 }
             } else {
                 currentResultSet = null;
                 //ddl statements are updates that don't return results, so they get 0 for row count
                 currentRowCount = 0;
-                if (getConnection().getAutoCommit()) {
-                    getConnection().commit();
+                if (conn.getAutoCommit()) {
+                    conn.commit();
                 }
                 return false;
             }
-        } catch (RelationalException ve) {
-            if (getConnection().getAutoCommit()) {
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
                 try {
-                    getConnection().rollback();
-                } catch (SQLException se) {
-                    ve.addSuppressed(se);
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
                 }
             }
-            throw ve.toSqlException();
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -212,11 +217,16 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             StructMetaData sourceMetaData = source.getMetaData();
             return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
                     source.openScan(row, options), conn));
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
             }
-            throw e.toSqlException();
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -244,11 +254,16 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
 
             final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
             return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
             }
-            throw e.toSqlException();
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -260,11 +275,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
             return schema.getDataBuilder(schemaAndTable[1]);
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
-            }
-            throw e.toSqlException();
+        } catch (RelationalException | RuntimeException ex) {
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -279,11 +291,8 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             final var typeAccessor = new java.util.ArrayList<>(List.of(schemaAndTable[1]));
             typeAccessor.addAll(nestedFields);
             return schema.getDataBuilder(String.join(".", typeAccessor));
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
-            }
-            throw e.toSqlException();
+        } catch (RelationalException | RuntimeException e) {
+            throw ExceptionUtil.toRelationalException(e).toSqlException();
         }
     }
 
@@ -306,21 +315,27 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             table.validateTable(options);
             final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
 
-            return executeMutation(() -> {
-                int rowCount = 0;
-                while (data.hasNext()) {
-                    Message message = data.next();
-                    if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
-                        rowCount++;
-                    }
+            int rowCount = 0;
+            while (data.hasNext()) {
+                Message message = data.next();
+                if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
+                    rowCount++;
                 }
-                return rowCount;
-            });
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
             }
-            throw e.toSqlException();
+            if (conn.getAutoCommit()) {
+                conn.commit();
+            }
+            return rowCount;
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -344,20 +359,26 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
             table.validateTable(options);
             final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
 
-            return executeMutation(() -> {
-                int rowCount = 0;
-                for (RelationalStruct struct : data) {
-                    if (table.insertRecord(struct, replaceOnDuplicate != null && replaceOnDuplicate)) {
-                        rowCount++;
-                    }
+            int rowCount = 0;
+            for (RelationalStruct struct : data) {
+                if (table.insertRecord(struct, replaceOnDuplicate != null && replaceOnDuplicate)) {
+                    rowCount++;
                 }
-                return rowCount;
-            });
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
             }
-            throw e.toSqlException();
+            if (conn.getAutoCommit()) {
+                conn.commit();
+            }
+            return rowCount;
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -365,37 +386,43 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
         try {
             checkOpen();
+            conn.ensureTransactionActive();
             options = Options.combine(conn.getOptions(), options);
             if (!keys.hasNext()) {
                 return 0;
             }
 
-            conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
 
             Table table = schema.loadTable(schemaAndTable[1]);
             table.validateTable(options);
 
-            return executeMutation(() -> {
-                int count = 0;
-                Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
-                while (toDelete != null) {
-                    if (table.deleteRecord(toDelete)) {
-                        count++;
-                    }
-                    toDelete = null;
-                    if (keys.hasNext()) {
-                        toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
-                    }
+            int count = 0;
+            Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
+            while (toDelete != null) {
+                if (table.deleteRecord(toDelete)) {
+                    count++;
                 }
-                return count;
-            });
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
+                toDelete = null;
+                if (keys.hasNext()) {
+                    toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
+                }
             }
-            throw e.toSqlException();
+            if (conn.getAutoCommit()) {
+                conn.commit();
+            }
+            return count;
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -420,6 +447,9 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                 if (row.getObject(keyLength - 1) != null) {
                     // We have a complete key. Delete only the one record
                     table.deleteRecord(row);
+                    if (conn.getAutoCommit()) {
+                        conn.commit();
+                    }
                     return;
                 }
             }
@@ -441,49 +471,41 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
                     }
                     continuation = scannedRows.getContinuation();
                 } while (scannedRows.terminatedEarly());
+                if (conn.getAutoCommit()) {
+                    conn.commit();
+                }
             }
-        } catch (RelationalException e) {
-            if (getConnection().getAutoCommit()) {
-                conn.rollback();
-            }
-            throw e.toSqlException();
-        }
-    }
-
-    private interface Mutation {
-        int execute() throws SQLException, RelationalException;
-    }
-
-    private int executeMutation(Mutation mutation) throws RelationalException {
-        int count = 0;
-        RelationalException err = null;
-        try {
-            count = mutation.execute();
-            if (conn.getAutoCommit()) {
-                conn.commit();
-            }
-        } catch (RuntimeException | RelationalException | SQLException re) {
-            err = ExceptionUtil.toRelationalException(re);
+        } catch (RelationalException | SQLException | RuntimeException ex) {
             if (conn.getAutoCommit()) {
                 try {
                     conn.rollback();
-                } catch (SQLException ve) {
-                    err.addSuppressed(ve);
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
                 }
             }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
-        if (err != null) {
-            throw err;
-        }
-        return count;
     }
 
     @Override
     public void close() throws SQLException {
-        if (currentResultSet != null) {
-            currentResultSet.close();
+        try {
+            if (currentResultSet != null) {
+                currentResultSet.close();
+            }
+            closed = true;
+        } catch (RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
-        closed = true;
     }
 
     /* ****************************************************************************************************************/
@@ -531,7 +553,7 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
         }
     }
 
-    private int countUpdates(@Nonnull RelationalResultSet resultSet) throws RelationalException, SQLException {
+    private int countUpdates(@Nonnull RelationalResultSet resultSet) throws SQLException {
         /*
          * This is a bit of a temporary hack both to address a bug(TODO), and also to get around the
          * way that RecordLayer DML plans are executed.
@@ -548,10 +570,24 @@ public class EmbeddedRelationalStatement implements RelationalStatement {
          *
          */
         int count = 0;
-        while (resultSet.next()) {
-            count++;
+        try {
+            while (resultSet.next()) {
+                count++;
+            }
+            if (conn.getAutoCommit()) {
+                conn.commit();
+            }
+            return count;
+        } catch (SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
-        return count;
     }
-
 }

@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
@@ -80,8 +81,16 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
                 throw new RelationalException("PreparedStatement.executeQuery must return a result set but was executed on a query that doesn't: " + sql,
                         ErrorCode.NO_RESULT_SET);
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
+        } catch (RelationalException | SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
     }
 
@@ -213,10 +222,22 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
 
     @Override
     public void close() throws SQLException {
-        if (resultSet != null) {
-            resultSet.close();
+        try {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            closed = true;
+        } catch (SQLException | RuntimeException ex) {
+            if (conn.getAutoCommit()) {
+                try {
+                    conn.rollback();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
+            }
+            throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
-        closed = true;
     }
 
     @Override
