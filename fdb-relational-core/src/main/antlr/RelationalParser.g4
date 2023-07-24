@@ -219,8 +219,8 @@ selectStatement
 insertStatementValue
     : selectStatement                                               #insertStatementValueSelect
     | insertFormat=(VALUES | VALUE)
-      recordConstructorUnambiguous
-        (',' recordConstructorUnambiguous )*                        #insertStatementValueValues
+      recordConstructorForInsert
+        (',' recordConstructorForInsert )*                        #insertStatementValueValues
     ;
 
 updatedElement
@@ -323,8 +323,7 @@ queryExpression
 
 // done
 querySpecification
-    : SELECT DISTINCT? selectElements
-      fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause? queryOptions?
+    : SELECT DISTINCT? selectElements fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause? queryOptions?
     ;
 
 unionParenthesis
@@ -345,14 +344,12 @@ selectElements // done
 // done
 selectElement
     : uid DOT STAR              #selectStarElement // done
-    | fullColumnName (AS? uid)? #selectColumnElement // done
     | functionCall (AS? uid)?   #selectFunctionElement // done (partially supported)
-    | expression (AS? uid)?     #selectExpressionElement // done  
+    | expression (AS? uid)?     #selectExpressionElement // done
     ;
 
 fromClause // done
-    : (FROM tableSources)?
-      (WHERE whereExpr=expression)?
+    : FROM tableSources (WHERE whereExpr=expression)?
     ;
 
 groupByClause // done
@@ -731,30 +728,12 @@ expressionsWithDefaults
     : expressionOrDefault (',' expressionOrDefault)*
     ;
 
-recordConstructorUnambiguous
-    : recordConstructorSingleOptionalName
-    | recordConstructorMultiple
-    ;
-
-recordConstructorAmbiguous
-    : recordConstructorSingleNamed
-    | recordConstructorMultiple
-    ;
-
-recordConstructorSingleNamed
-    : LR_BRACKET expressionWithName RR_BRACKET
-    ;
-
-recordConstructorSingleOptionalName
-    : LR_BRACKET expressionWithOptionalName RR_BRACKET
-    ;
-
-recordConstructorMultiple
+recordConstructorForInsert
     : LR_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RR_BRACKET
     ;
 
-simpleStrings
-    : STRING_LITERAL (',' STRING_LITERAL)*
+recordConstructor
+    : LR_BRACKET (expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RR_BRACKET
     ;
 
 userVariables
@@ -1029,7 +1008,7 @@ expressionAtom
     | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)
     | BINARY expressionAtom                                         #binaryExpressionAtom // done (unsupported)
     //| '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done
-    | recordConstructorAmbiguous                                    #recordConstructorExpressionAtom // done
+    | recordConstructor                                    #recordConstructorExpressionAtom // done
     //| ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom // done (unsupported)
     | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)

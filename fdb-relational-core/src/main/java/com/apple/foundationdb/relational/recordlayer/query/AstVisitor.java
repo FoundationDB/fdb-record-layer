@@ -483,19 +483,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitSelectColumnElement(RelationalParser.SelectColumnElementContext ctx) {
-        Column<Value> column;
-        if (ctx.uid() != null) {
-            column = ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this),
-                    Objects.requireNonNull(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class)));
-        } else {
-            column = ParserUtils.toColumn((Value) ctx.fullColumnName().accept(this));
-        }
-        scopes.getCurrentScope().addProjectionColumn(column);
-        return null;
-    }
-
-    @Override
     public Void visitSelectFunctionElement(RelationalParser.SelectFunctionElementContext ctx) {
         Column<Value> column;
         if (ctx.AS() != null) {
@@ -517,9 +504,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.AS() != null) {
             final String alias = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
             Assert.notNullUnchecked(alias, UNSUPPORTED_QUERY);
-            column = Column.of(Type.Record.Field.of(expression.getResultType(), Optional.of(alias), Optional.empty()), expression);
+            column = ParserUtils.toColumn(expression, alias);
         } else {
-            column = Column.unnamedOf(expression);
+            column = ParserUtils.toColumn(expression);
         }
         scopes.getCurrentScope().addProjectionColumn(column);
         return null;
@@ -963,20 +950,19 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitRecordConstructorSingleNamed(RelationalParser.RecordConstructorSingleNamedContext ctx) {
-        final var columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()));
-        return RecordConstructorValue.ofColumns(columns);
-    }
-
-    @Override
-    public Object visitRecordConstructorSingleOptionalName(RelationalParser.RecordConstructorSingleOptionalNameContext ctx) {
-        final var columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithOptionalName()));
-        return RecordConstructorValue.ofColumns(columns);
-    }
-
-    @Override
-    public Object visitRecordConstructorMultiple(RelationalParser.RecordConstructorMultipleContext ctx) {
+    public Object visitRecordConstructorForInsert(RelationalParser.RecordConstructorForInsertContext ctx) {
         final var columns = visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Override
+    public Object visitRecordConstructor(RelationalParser.RecordConstructorContext ctx) {
+        List<Column<? extends Value>> columns;
+        if (ctx.expressionWithName() != null) {
+            columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()));
+        } else {
+            columns = visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
+        }
         return RecordConstructorValue.ofColumns(columns);
     }
 
@@ -1504,8 +1490,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Object visitInsertStatementValueValues(RelationalParser.InsertStatementValueValuesContext ctx) {
         final var valuesBuilder = ImmutableList.<Value>builder();
-        Assert.thatUnchecked(!ctx.recordConstructorUnambiguous().isEmpty());
-        for (final var recordConstructorUnambiguous : ctx.recordConstructorUnambiguous()) {
+        Assert.thatUnchecked(!ctx.recordConstructorForInsert().isEmpty());
+        for (final var recordConstructorUnambiguous : ctx.recordConstructorForInsert()) {
             final var recordValue = (Value) visit(recordConstructorUnambiguous);
             final var resultType = recordValue.getResultType();
             Assert.thatUnchecked(resultType instanceof Type.Record, "Records in a values statement have to be of record type.", ErrorCode.CANNOT_CONVERT_TYPE);
