@@ -236,7 +236,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == items.length) {
                         break;
                     }
-                    rt.insert(tr, items[index].getPoint(), items[index].getHv(), items[index].getKey(), items[index].getValue()).join();
+                    rt.insertOrUpdate(tr, items[index].getPoint(), items[index].getHv(), items[index].getKey(), items[index].getValue()).join();
                 }
 
                 return j;

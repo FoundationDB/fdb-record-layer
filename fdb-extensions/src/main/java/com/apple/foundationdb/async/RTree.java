@@ -309,7 +309,7 @@ public class RTree {
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      */
-    public RTree(Subspace subspace, Executor executor) {
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
         this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId, OnReadListener.NOOP);
     }
 
@@ -555,11 +555,11 @@ public class RTree {
      * @return a completable future that completes when the insert is completed
      */
     @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final TransactionContext tc,
-                                          @Nonnull final Point point,
-                                          @Nonnull final BigInteger hilbertValue,
-                                          @Nonnull final Tuple key,
-                                          @Nonnull final Tuple value) {
+    public CompletableFuture<Void> insertOrUpdate(@Nonnull final TransactionContext tc,
+                                                  @Nonnull final Point point,
+                                                  @Nonnull final BigInteger hilbertValue,
+                                                  @Nonnull final Tuple key,
+                                                  @Nonnull final Tuple value) {
         //
         // Get to the leaf node we need to start the insert from and then call the appropriate method to perform
         // the actual insert/update.
@@ -2411,6 +2411,11 @@ public class RTree {
         @Nonnull
         public Object getCoordinate(final int dimension) {
             return coordinates.get(dimension);
+        }
+
+        @Nonnull
+        public Number getCoordinateAsNumber(final int dimension) {
+            return (Number)getCoordinate(dimension);
         }
 
         @Override

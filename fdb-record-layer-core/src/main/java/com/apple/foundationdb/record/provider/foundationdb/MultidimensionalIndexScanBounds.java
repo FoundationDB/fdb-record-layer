@@ -34,14 +34,14 @@ import static com.apple.foundationdb.record.IndexScanType.BY_VALUE;
  * {@link TupleRange} for an index scan.
  */
 @API(API.Status.UNSTABLE)
-public class MultiDimensionalIndexScanBounds implements IndexScanBounds {
+public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     @Nonnull
     private final TupleRange prefixRange;
 
     @Nonnull
     private final List<TupleRange> dimensionRanges;
 
-    public MultiDimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange, @Nonnull final List<TupleRange> dimensionRanges) {
+    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange, @Nonnull final List<TupleRange> dimensionRanges) {
         this.prefixRange = prefixRange;
         this.dimensionRanges = ImmutableList.copyOf(dimensionRanges);
     }

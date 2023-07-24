@@ -162,7 +162,7 @@ public class IndexTypes {
     /**
      * An index using multiple numerical dimensions based on a Hilbert R-tree.
      */
-    public static final String MULTI_DIMENSIONAL = "multi_dimensional";
+    public static final String MULTIDIMENSIONAL = "multidimensional";
 
     private IndexTypes() {
     }

@@ -52,28 +52,28 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     private final KeyExpression wholeKey;
-    private final int prefixCount;
-    private final int dimensionsCount;
+    private final int prefixSize;
+    private final int dimensionsSize;
 
 
     public DimensionsKeyExpression(@Nonnull final KeyExpression wholeKey,
-                                   final int prefixCount,
-                                   final int dimensionsCount) {
+                                   final int prefixSize,
+                                   final int dimensionsSize) {
         this.wholeKey = wholeKey;
-        this.prefixCount = prefixCount;
-        this.dimensionsCount = dimensionsCount;
+        this.prefixSize = prefixSize;
+        this.dimensionsSize = dimensionsSize;
     }
 
     public DimensionsKeyExpression(@Nonnull RecordMetaDataProto.Dimensions dimensions) throws DeserializationException {
-        this(KeyExpression.fromProto(dimensions.getWholeKey()), dimensions.getPrefixCount(), dimensions.getDimensionsCount());
+        this(KeyExpression.fromProto(dimensions.getWholeKey()), dimensions.getPrefixSize(), dimensions.getDimensionsSize());
     }
 
-    public int getPrefixCount() {
-        return prefixCount;
+    public int getPrefixSize() {
+        return prefixSize;
     }
 
-    public int getDimensionsCount() {
-        return dimensionsCount;
+    public int getDimensionsSize() {
+        return dimensionsSize;
     }
 
     @Nonnull
@@ -107,8 +107,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     public RecordMetaDataProto.Dimensions toProto() throws SerializationException {
         final RecordMetaDataProto.Dimensions.Builder builder = RecordMetaDataProto.Dimensions.newBuilder();
         builder.setWholeKey(getWholeKey().toKeyExpression());
-        builder.setPrefixCount(prefixCount);
-        builder.setDimensionsCount(dimensionsCount);
+        builder.setPrefixSize(prefixSize);
+        builder.setDimensionsSize(dimensionsSize);
         return builder.build();
     }
 
@@ -153,21 +153,21 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nullable
     public KeyExpression getPrefixSubKey() {
-        if (prefixCount == 0) {
+        if (prefixSize == 0) {
             return null;
         }
-        return getWholeKey().getSubKey(0, prefixCount);
+        return getWholeKey().getSubKey(0, prefixSize);
     }
 
     @Nonnull
     public KeyExpression getDimensionsSubKey() {
-        return getWholeKey().getSubKey(prefixCount, dimensionsCount);
+        return getWholeKey().getSubKey(prefixSize, dimensionsSize);
     }
 
     @Override
     public String toString() {
         return getWholeKey() +
-               " dimensions(" + prefixCount + ", " + dimensionsCount + ")" + prefixCount;
+               " dimensions(" + prefixSize + ", " + dimensionsSize + ")" + prefixSize;
     }
 
     @Override
@@ -182,13 +182,13 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
         DimensionsKeyExpression that = (DimensionsKeyExpression)o;
         return this.getWholeKey().equals(that.getWholeKey()) &&
-               (this.prefixCount == that.prefixCount) &&
-               (this.dimensionsCount == that.dimensionsCount);
+               (this.prefixSize == that.prefixSize) &&
+               (this.dimensionsSize == that.dimensionsSize);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(wholeKey, prefixCount, dimensionsCount);
+        return Objects.hash(wholeKey, prefixSize, dimensionsSize);
     }
 
     @Override
@@ -197,7 +197,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getWholeKey(), prefixCount, dimensionsCount);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getWholeKey(), prefixSize, dimensionsSize);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -205,7 +205,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, getWholeKey(), prefixCount, dimensionsCount);
+        return HashUtils.queryHash(hashKind, BASE_HASH, getWholeKey(), prefixSize, dimensionsSize);
     }
 
     @Nonnull

@@ -26,11 +26,9 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RTree;
-import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EndpointType;
-import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -47,11 +45,10 @@ import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpressio
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
-import com.apple.foundationdb.record.provider.foundationdb.MultiDimensionalIndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -68,7 +65,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -81,10 +77,10 @@ import java.util.function.Function;
  * An index maintainer for keeping a {@link com.apple.foundationdb.async.RTree}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
+public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     private final RTree.Config config;
 
-    public MultiDimensionalIndexMaintainer(IndexMaintainerState state) {
+    public MultidimensionalIndexMaintainer(IndexMaintainerState state) {
         super(state);
         this.config = RTreeIndexHelper.getConfig(state.index);
     }
@@ -97,19 +93,19 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan multidimensional index by value.");
         }
-        if (!(scanBounds instanceof MultiDimensionalIndexScanBounds)) {
+        if (!(scanBounds instanceof MultidimensionalIndexScanBounds)) {
             throw new RecordCoreException("Need proper multidimensional index scan bounds.");
         }
-        final MultiDimensionalIndexScanBounds mDScanBounds = (MultiDimensionalIndexScanBounds)scanBounds;
+        final MultidimensionalIndexScanBounds mDScanBounds = (MultidimensionalIndexScanBounds)scanBounds;
 
         final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
-        final int prefixCount = dimensionsKeyExpression.getPrefixCount();
+        final int prefixSize = dimensionsKeyExpression.getPrefixSize();
         final int columnSize = dimensionsKeyExpression.getColumnSize();
 
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, scanProperties);
 
         final Function<byte[], RecordCursor<IndexEntry>> outerFunction;
-        if (prefixCount > 0) {
+        if (prefixSize > 0) {
             outerFunction = outerContinuation -> scan(mDScanBounds.getPrefixRange(), outerContinuation, scanProperties);
         } else {
             outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
@@ -117,12 +113,12 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
 
         return RecordCursor.flatMapPipelined(outerFunction,
                 (outerIndexEntry, innerContinuation) -> {
-                    Subspace extraSubspace = getSecondarySubspace();
+                    Subspace rtSubspace = getSecondarySubspace();
                     final Tuple prefixKeyPart;
                     if (outerIndexEntry != null) {
                         prefixKeyPart = outerIndexEntry.getKey();
-                        Verify.verify(prefixKeyPart.size() == prefixCount);
-                        extraSubspace = extraSubspace.subspace(prefixKeyPart);
+                        Verify.verify(prefixKeyPart.size() == prefixSize);
+                        rtSubspace = rtSubspace.subspace(prefixKeyPart);
                     } else {
                         prefixKeyPart = null;
                     }
@@ -132,19 +128,20 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                             parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
                     final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
-                    final int limit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+                    final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
-                    final RTree rTree = new RTree(extraSubspace, getExecutor(), config, RTree::newRandomNodeId,
+                    final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
                             new OnReadLimiter(cursorLimitManager, timer));
-                    final ReadTransaction rT = state.context.readTransaction(true);
+                    final ReadTransaction transaction = state.context.readTransaction(true);
                     final var dimensionRanges = mDScanBounds.getDimensionRanges();
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                            rTree.scan(rT, lastHilbertValue, lastKey, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
-                            cursorLimitManager, timer, limit);
+                            rTree.scan(transaction, lastHilbertValue, lastKey, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
+                            cursorLimitManager, timer);
                     return itemSlotCursor
-                            .filter(itemSlot -> lastHilbertValue == null ||
+                            .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                 itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) >= 0)
                             .filter(itemSlot -> rangesContainPosition(dimensionRanges, itemSlot.getPosition()))
+                            .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                             .map(itemSlot -> {
                                 final List<Object> keyItems = Lists.newArrayListWithExpectedSize(columnSize);
                                 if (prefixKeyPart != null) {
@@ -178,76 +175,102 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
-        final int groupPrefixSize = getGroupingCount();
+        final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
+        final int prefixSize = dimensionsKeyExpression.getPrefixSize();
+        final int dimensionsSize = dimensionsKeyExpression.getDimensionsSize();
         final Subspace extraSubspace = getSecondarySubspace();
-        final List<CompletableFuture<Void>> ordinaryIndexFutures = new ArrayList<>(indexEntries.size());
         final Map<Subspace, CompletableFuture<Void>> rankFutures = Maps.newHashMapWithExpectedSize(indexEntries.size());
-        for (IndexEntry indexEntry : indexEntries) {
-            // Maintain an ordinary B-tree index by score.
-            CompletableFuture<Void> updateOrdinaryIndex = updateOneKeyAsync(savedRecord, remove, indexEntry);
-            if (!MoreAsyncUtil.isCompletedNormally(updateOrdinaryIndex)) {
-                ordinaryIndexFutures.add(updateOrdinaryIndex);
+        for (final IndexEntry indexEntry : indexEntries) {
+            final var indexKeyItems = indexEntry.getKey().getItems();
+            final Tuple prefixKey = Tuple.fromList(indexKeyItems.subList(0, prefixSize));
+            // Maintain an ordinary B-tree index.
+            updatePrimaryIndexForPrefix(savedRecord, remove, prefixKey);
+
+            final Subspace rtSubspace;
+            if (prefixSize > 0) {
+                rtSubspace = extraSubspace.subspace(prefixKey);
+            } else {
+                rtSubspace = extraSubspace;
             }
 
-            final Subspace rankSubspace;
-            final Tuple scoreKey;
-            if (groupPrefixSize > 0) {
-                final List<Object> keyValues = indexEntry.getKey().getItems();
-                rankSubspace = extraSubspace.subspace(Tuple.fromList(keyValues.subList(0, groupPrefixSize)));
-                scoreKey = Tuple.fromList(keyValues.subList(groupPrefixSize, keyValues.size()));
-            } else {
-                rankSubspace = extraSubspace;
-                scoreKey = indexEntry.getKey();
-            }
-            // It is unsafe to have two concurrent updates to the same ranked set, so ensure that at most
-            // one update per grouping key is ongoing at any given time
-            final Function<Void, CompletableFuture<Void>> futureSupplier = vignore -> RankedSetIndexHelper.updateRankedSet(
-                    state, rankSubspace, config, indexEntry.getKey(), scoreKey, remove
-            );
-            CompletableFuture<Void> existingFuture = rankFutures.get(rankSubspace);
+            // It is unsafe to have two concurrent updates to the same R-tree, so ensure that at most
+            // one update per prefix key is ongoing at any given time
+            final Function<Void, CompletableFuture<Void>> futureSupplier =
+                    vignore -> {
+                        final RTree.Point point =
+                                new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, dimensionsSize)));
+                        final BigInteger hilbertValue = RTreeIndexHelper.hilbertValue(point);
+
+                        final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
+                        state.index.trimPrimaryKey(primaryKeyParts);
+                        final List<Object> itemKeyParts = Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
+                        itemKeyParts.addAll(primaryKeyParts);
+                        final Tuple itemKey = Tuple.fromList(itemKeyParts);
+                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId, RTree.OnReadListener.NOOP);
+                        if (remove) {
+                            return rTree.delete(state.transaction,
+                                    hilbertValue,
+                                    itemKey);
+                        } else {
+                            return rTree.insertOrUpdate(state.transaction,
+                                    point,
+                                    hilbertValue,
+                                    itemKey,
+                                    indexEntry.getValue());
+                        }
+                    };
+            final CompletableFuture<Void> existingFuture = rankFutures.get(rtSubspace);
             if (existingFuture == null) {
-                rankFutures.put(rankSubspace, futureSupplier.apply(null));
+                rankFutures.put(rtSubspace, futureSupplier.apply(null));
             } else {
-                rankFutures.put(rankSubspace, existingFuture.thenCompose(futureSupplier));
+                rankFutures.put(rtSubspace, existingFuture.thenCompose(futureSupplier));
             }
         }
-        return CompletableFuture.allOf(AsyncUtil.whenAll(ordinaryIndexFutures), AsyncUtil.whenAll(rankFutures.values()));
+        return AsyncUtil.whenAll(rankFutures.values());
     }
 
-    public <M extends Message> CompletableFuture<Long> rank(@Nonnull FDBRecord<M> record) {
-        return rank(EvaluationContext.empty(), null, record);
+    /**
+     * Store a single key in the primary index.
+     * @param <M> the message type of the record
+     * @param savedRecord the record being indexed
+     * @param remove <code>true</code> if removing from index
+     * @param prefixKey the key for the prefix
+     */
+    private <M extends Message> void updatePrimaryIndexForPrefix(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                 final boolean remove,
+                                                                 @Nonnull final Tuple prefixKey) {
+        final long startTime = System.nanoTime();
+        final byte[] keyBytes = state.indexSubspace.pack(prefixKey);
+        final Tuple value = new Tuple();
+        final byte[] valueBytes = value.pack();
+        if (remove) {
+            state.transaction.clear(keyBytes);
+            if (state.store.getTimer() != null) {
+                state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.DELETE_INDEX_ENTRY, startTime);
+                state.store.countKeyValue(FDBStoreTimer.Counts.DELETE_INDEX_KEY, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES,
+                        FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES, keyBytes, valueBytes);
+            }
+        } else {
+            checkKeyValueSizes(savedRecord, prefixKey, value, keyBytes, valueBytes);
+            state.transaction.set(keyBytes, valueBytes);
+            if (state.store.getTimer() != null) {
+                state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.SAVE_INDEX_ENTRY, startTime);
+                state.store.countKeyValue(FDBStoreTimer.Counts.SAVE_INDEX_KEY, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES,
+                        FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, keyBytes, valueBytes);
+            }
+        }
     }
 
     @Override
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         return super.deleteWhere(tr, prefix).thenApply(v -> {
-            // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
-            // store data at the prefix key itself.
-            final Subspace rankSubspace = getSecondarySubspace();
-            final byte[] key = rankSubspace.pack(prefix);
+            final Subspace extraSubspace = getSecondarySubspace();
+            final byte[] key = extraSubspace.pack(prefix);
             tr.clear(key, ByteArrayUtil.strinc(key));
             return v;
         });
     }
-
-    private interface EvaluateEqualRange {
-        @Nonnull
-        CompletableFuture<Tuple> apply(@Nonnull RankedSet rankedSet, @Nonnull Tuple values);
-    }
-
-    private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
-                                                        @Nonnull EvaluateEqualRange function) {
-        Subspace rankSubspace = getSecondarySubspace();
-        Tuple values = range.getLow();
-        final int groupingCount = getGroupingCount();
-        if (groupingCount > 0) {
-            rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
-            values = TupleHelpers.subTuple(values, groupingCount, values.size());
-        }
-        final RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, config);
-        return function.apply(rankedSet, values);
-    }
-
+    
     private static boolean rangesOverlapWithMbr(@Nonnull final List<TupleRange> dimensionRanges, @Nonnull final RTree.Rectangle mbr) {
         Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
 
@@ -396,15 +419,12 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         private final CursorLimitManager cursorLimitManager;
         @Nonnull
         private final FDBStoreTimer timer;
-        private final int limit;
 
         public ItemSlotCursor(@Nonnull final Executor executor, @Nonnull final AsyncIterator<RTree.ItemSlot> iterator,
-                              @Nonnull final CursorLimitManager cursorLimitManager, @Nonnull final FDBStoreTimer timer,
-                              final int limit) {
+                              @Nonnull final CursorLimitManager cursorLimitManager, @Nonnull final FDBStoreTimer timer) {
             super(executor, iterator);
             this.cursorLimitManager = cursorLimitManager;
             this.timer = timer;
-            this.limit = limit;
         }
 
         @Nonnull
@@ -424,9 +444,6 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                         timer.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
                         valuesSeen++;
                         nextResult = RecordCursorResult.withNextValue(itemSlot, new Continuation(itemSlot.getHilbertValue(), itemSlot.getKey()));
-                    } else if (valuesSeen >= limit) {
-                        // Source iterator hit limit that we passed down.
-                        nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), NoNextReason.RETURN_LIMIT_REACHED);
                     } else {
                         // Source iterator is exhausted.
                         nextResult = RecordCursorResult.exhausted();
@@ -438,7 +455,8 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
                 if (stoppedReason.isEmpty()) {
                     throw new RecordCoreException("limit manager stopped cursor but did not report a reason");
                 }
-                nextResult = RecordCursorResult.withoutNextValue(continuationHelper(), stoppedReason.get());
+                Verify.verifyNotNull(nextResult, "should have seen at least one record");
+                nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), stoppedReason.get());
                 return CompletableFuture.completedFuture(nextResult);
             }
         }
@@ -449,7 +467,6 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         final BigInteger lastHilbertValue;
         @Nullable
         final Tuple lastKey;
-
         @Nullable
         private ByteString cachedByteString;
         @Nullable
@@ -478,7 +495,7 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
             }
 
             if (cachedByteString == null) {
-                cachedByteString = RecordCursorProto.MultiDimensionalIndexScanContinuation.newBuilder()
+                cachedByteString = RecordCursorProto.MultidimensionalIndexScanContinuation.newBuilder()
                         .setLastHilbertValue(ByteString.copyFrom(Objects.requireNonNull(lastHilbertValue).toByteArray()))
                         .setLastKey(ByteString.copyFrom(Objects.requireNonNull(lastKey).pack()))
                         .build()
@@ -507,9 +524,9 @@ public class MultiDimensionalIndexMaintainer extends StandardIndexMaintainer {
         @Nullable
         private static Continuation fromBytes(@Nullable byte[] continuationBytes) {
             if (continuationBytes != null) {
-                final RecordCursorProto.MultiDimensionalIndexScanContinuation parsed;
+                final RecordCursorProto.MultidimensionalIndexScanContinuation parsed;
                 try {
-                    parsed = RecordCursorProto.MultiDimensionalIndexScanContinuation.parseFrom(continuationBytes);
+                    parsed = RecordCursorProto.MultidimensionalIndexScanContinuation.parseFrom(continuationBytes);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("error parsing continuation", ex)
                             .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));

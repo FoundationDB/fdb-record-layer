@@ -39,12 +39,12 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * A factory for {@link MultiDimensionalIndexMaintainer} indexes.
+ * A factory for {@link MultidimensionalIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
-public class MultiDimensionalIndexMaintainerFactory implements IndexMaintainerFactory {
-    static final String[] TYPES = { IndexTypes.MULTI_DIMENSIONAL };
+public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFactory {
+    static final String[] TYPES = { IndexTypes.MULTIDIMENSIONAL};
 
     @Override
     @Nonnull
@@ -99,6 +99,6 @@ public class MultiDimensionalIndexMaintainerFactory implements IndexMaintainerFa
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        return new MultiDimensionalIndexMaintainer(state);
+        return new MultidimensionalIndexMaintainer(state);
     }
 }

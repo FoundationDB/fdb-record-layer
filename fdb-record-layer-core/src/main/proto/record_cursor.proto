@@ -116,7 +116,7 @@ message ComparatorContinuation {
     repeated CursorState child_state = 1;
 }
 
-message MultiDimensionalIndexScanContinuation {
+message MultidimensionalIndexScanContinuation {
     optional bytes lastHilbertValue = 1;
     optional bytes lastKey = 2;
 }

@@ -135,8 +135,8 @@ message Grouping {
 
 message Dimensions {
   required KeyExpression whole_key = 1;
-  optional int32 prefix_count = 2;
-  optional int32 dimensions_count = 3;
+  optional int32 prefix_size = 2;
+  optional int32 dimensions_size = 3;
 }
 
 message KeyWithValue {
