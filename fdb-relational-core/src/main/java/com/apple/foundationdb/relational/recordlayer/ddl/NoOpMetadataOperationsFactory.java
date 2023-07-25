@@ -58,7 +58,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
         return NoOpConstantAction.INSTANCE;
     }
 
@@ -70,7 +70,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
+    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
         return NoOpConstantAction.INSTANCE;
     }
 

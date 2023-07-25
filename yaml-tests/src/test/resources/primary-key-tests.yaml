@@ -20,13 +20,13 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template primary_key_tests_template
+- query: drop schema template if exists primary_key_tests_template
 ---
 - query: create schema template primary_key_tests_template
     CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
     create table t1(id s1, g bigint, primary key(id.a, id.b))
 ---
-- query: drop database /FRL/PRIMARY_KEY_YAML
+- query: drop database if exists /FRL/PRIMARY_KEY_YAML
 ---
 - query: create database /FRL/PRIMARY_KEY_YAML
 ---

@@ -466,7 +466,7 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
+            public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
                 Assertions.assertEquals("TEST_TEMPLATE", templateId, "Incorrect schema template name!");
                 called[0] = true;
                 return txn -> {
@@ -580,9 +580,9 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(command, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
                 Assertions.assertEquals(URI.create("/db_path"), dbUrl, "Incorrect database path!");
-                return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
+                return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, throwIfDoesNotExist, options);
             }
         });
     }
@@ -594,7 +594,7 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
                 Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbUrl, options);
             }

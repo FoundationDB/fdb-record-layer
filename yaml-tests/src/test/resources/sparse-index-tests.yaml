@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template sparse_index_tests_template
+- query: drop schema template if exists sparse_index_tests_template
 ---
 - query: create schema template sparse_index_tests_template
     create table t1(id integer, col1 integer, col2 integer, primary key(id))
@@ -36,7 +36,7 @@
     create table t5(id integer, col1 integer, primary key(id))
     create index i6 as select id from t5 where col1 < 40 or col1 > 90
 ---
-- query: drop database /FRL/SPARSE_YAML
+- query: drop database if exists /FRL/SPARSE_YAML
 ---
 - query: create database /FRL/SPARSE_YAML
 ---

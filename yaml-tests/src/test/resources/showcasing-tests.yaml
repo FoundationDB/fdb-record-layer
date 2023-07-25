@@ -30,7 +30,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template test_template
+- query: drop schema template if exists test_template
 ---
 # Here we use SQL to create the schema template.
 - query: create schema template test_template
@@ -42,7 +42,7 @@
 # load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
 # check standard-tests-proto.yaml and standard_tests.proto for more information.
 ---
-- query: drop database /FRL/YOUSSEF
+- query: drop database if exists /FRL/YOUSSEF
 ---
 - query: create database /FRL/YOUSSEF
 ---
@@ -82,6 +82,8 @@
 - result: [{10, 20}]
 - result: [{30, 40}]
 - result: [{50, 60}]
+---
+- query: drop schema template if exists test_template_nested
 ---
 # Here is a more complex schema template with nesting to show how to deal with nested
 # data.

@@ -70,7 +70,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
@@ -111,7 +111,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // save record in FDB
         Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
@@ -119,7 +119,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
 
         // delete the schema template.
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().deleteTemplate(txn, schema1.getSchemaTemplate().getName());
+            storeCatalog.getSchemaTemplateCatalog().deleteTemplate(txn, schema1.getSchemaTemplate().getName(), true);
             txn.commit();
         }
 
@@ -136,7 +136,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // save schema with template version 1L
         Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 1);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
@@ -144,7 +144,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // save schema template with version 2
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2);
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, template2);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, template2);
             txn.commit();
         }
         // repair schema
@@ -256,7 +256,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // test 2 successful consecutive transactions
         // update with schema1 (version = 1)
         try (Transaction txn1 = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn1, template1);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn1, template1);
             storeCatalog.createDatabase(txn1, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn1, schema1, false);
             // commit and close the write transaction
@@ -275,7 +275,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         }
         // update with schema2 (version = 2)
         try (Transaction txn2 = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn2, template2);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn2, template2);
             storeCatalog.saveSchema(txn2, schema2, false);
             txn2.commit();
         }
@@ -307,8 +307,8 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         // test 2 conflicting transactions
         try (Transaction txn3 = new RecordContextTransaction(fdb.openContext()); Transaction txn4 = new RecordContextTransaction(fdb.openContext())) {
             // update with 2 different schemas
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn3, schema1.getSchemaTemplate());
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn4, schema2.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn3, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn4, schema2.getSchemaTemplate());
             storeCatalog.saveSchema(txn3, schema1, false);
             storeCatalog.saveSchema(txn4, schema2, false);
             // commit the first write transaction
@@ -339,7 +339,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
         final Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 0);
         final SchemaTemplate template1 = generateTestSchemaTemplate("test_template_name", 0);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, template1);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, template1);
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();

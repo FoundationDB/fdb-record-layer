@@ -130,8 +130,10 @@ public class InMemoryCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) {
-        dbToSchemas.remove(dbUrl);
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
+        if (dbToSchemas.remove(dbUrl) == null && throwIfDoesNotExist) {
+            throw new RelationalException("Cannot delete unknown database " + dbUrl, ErrorCode.UNKNOWN_DATABASE);
+        }
         return true;
     }
 

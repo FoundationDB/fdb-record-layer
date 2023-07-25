@@ -21,76 +21,59 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
-import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 
-public class EmbeddedRelationalPreparedStatement implements RelationalPreparedStatement {
+public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStatement implements RelationalPreparedStatement {
     @Nonnull
     private final String sql;
-
+    @Nonnull
     private final Map<Integer, Object> parameters = new TreeMap<>();
+    @Nonnull
     private final Map<String, Object> namedParameters = new TreeMap<>();
 
-    private boolean closed;
-
-    private RelationalResultSet resultSet;
-
-    @Nonnull
-    private final EmbeddedRelationalConnection conn;
-
     public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) {
+        super(conn);
         this.sql = sql;
-        this.conn = conn;
     }
 
     @Override
     public RelationalResultSet executeQuery() throws SQLException {
+        checkOpen();
+        if (execute()) {
+            return currentResultSet;
+        } else {
+            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
+        }
+    }
+
+    @Override
+    public int executeUpdate() throws SQLException {
+        checkOpen();
+        if (execute()) {
+            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
+        }
+        return currentRowCount;
+    }
+
+    @Override
+    public boolean execute() throws SQLException {
         try {
-            checkOpen();
-            Assert.notNull(sql);
-            conn.ensureTransactionActive();
-            if (resultSet != null && !resultSet.isClosed()) {
-                resultSet.close();
-            }
-            final var optionalResultSet = conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> executeQueryInternal(sql));
-            if (optionalResultSet.isPresent()) {
-                resultSet = new ErrorCapturingResultSet(optionalResultSet.get());
-                return resultSet;
-            } else {
-                throw new RelationalException("PreparedStatement.executeQuery must return a result set but was executed on a query that doesn't: " + sql,
-                        ErrorCode.NO_RESULT_SET);
-            }
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
+            return executeInternal(sql);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
         }
     }
 
@@ -190,69 +173,15 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
         namedParameters.put(parameterName, x);
     }
 
-    private Optional<RelationalResultSet> executeQueryInternal(@Nonnull String query) throws RelationalException {
-        Options options = conn.getOptions();
-        if (conn.getSchema() == null) {
-            throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
-        }
-        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
-            final FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-            final var preparedStatementParameters = PreparedStatementParameters.of(parameters, namedParameters);
-            final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
-                    store.getRecordMetaData(),
-                    store.getRecordStoreState(),
-                    options);
-            final var planContext = PlanContext.Builder.create()
-                    .fromRecordStore(store)
-                    .fromDatabase(conn.getRecordLayerDatabase())
-                    .withMetricsCollector(conn.metricCollector)
-                    .withPreparedParameters(preparedStatementParameters)
-                    .withSchemaTemplate(conn.getSchemaTemplate())
-                    .build();
-            final Plan<?> plan = planGenerator.getPlan(query, planContext);
-            final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
-            if (plan instanceof QueryPlan) {
-                return Optional.of(((QueryPlan) plan).execute(executionContext));
-            } else {
-                plan.execute(executionContext);
-                return Optional.empty();
-            }
-        }
-    }
-
     @Override
-    public void close() throws SQLException {
-        try {
-            if (resultSet != null) {
-                resultSet.close();
-            }
-            closed = true;
-        } catch (SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
-    }
-
-    @Override
-    public ResultSet getResultSet() throws SQLException {
-        if (resultSet != null && !resultSet.isClosed()) {
-            var ret = resultSet;
-            resultSet = null;
-            return ret;
-        }
-        throw new SQLException("no open result set available");
-    }
-
-    @Override
-    public boolean isClosed() throws SQLException {
-        return closed;
+    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException {
+        return PlanContext.Builder.create()
+                .fromRecordStore(store)
+                .fromDatabase(conn.getRecordLayerDatabase())
+                .withMetricsCollector(conn.metricCollector)
+                .withPreparedParameters(PreparedStatementParameters.of(parameters, namedParameters))
+                .withSchemaTemplate(conn.getSchemaTemplate())
+                .build();
     }
 
     @Override
@@ -263,11 +192,5 @@ public class EmbeddedRelationalPreparedStatement implements RelationalPreparedSt
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
-    }
-
-    private void checkOpen() throws SQLException {
-        if (closed) {
-            throw new RelationalException("Prepared Statement closed", ErrorCode.STATEMENT_CLOSED).toSqlException();
-        }
     }
 }

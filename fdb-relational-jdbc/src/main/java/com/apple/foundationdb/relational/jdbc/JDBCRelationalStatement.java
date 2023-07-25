@@ -121,11 +121,11 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
     RelationalResultSet executeQuery(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
-        StatementResponse statementResponse = execute(sql, Options.NONE, parameters);
-        this.updateCount = STATEMENT_RESULT_SET;
-        this.currentResultSet = statementResponse.hasResultSet() ?
-                new RelationalResultSetFacade(statementResponse.getResultSet()) : RelationalResultSetFacade.EMPTY;
-        return this.currentResultSet;
+        if (execute(sql, parameters)) {
+            return currentResultSet;
+        } else {
+            throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
+        }
     }
 
     @Override
@@ -142,9 +142,25 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
     int executeUpdate(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
-        StatementResponse statementResponse = execute(sql, Options.NONE, parameters);
-        this.updateCount = statementResponse.getRowCount();
+        if (execute(sql, parameters)) {
+            throw new SQLException(String.format("query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
+        }
         return this.updateCount;
+    }
+
+    /**
+     * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
+     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
+     *                   (and non-null if preparedstatement).
+     * @return true if the execution produced a result set, false otherwise
+     * @throws SQLException if a database access error occurs or this method is called on a closed Statement
+     */
+    boolean execute(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+        StatementResponse response = execute(sql, Options.NONE, parameters);
+        this.currentResultSet = response.hasResultSet() ?
+                new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
+        this.updateCount = response.getRowCount();
+        return response.hasResultSet();
     }
 
     /**
@@ -203,11 +219,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        StatementResponse response = execute(sql, Options.NONE, null);
-        this.currentResultSet = response.hasResultSet() ?
-                new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
-        this.updateCount = response.getRowCount();
-        return response.hasResultSet();
+        return execute(sql, (Collection<Parameter>) null);
     }
 
     @Override

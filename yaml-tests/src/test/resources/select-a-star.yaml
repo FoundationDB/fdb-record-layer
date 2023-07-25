@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template select_a_star_template
+- query: drop schema template if exists select_a_star_template
 ---
 - query: create schema template select_a_star_template
     CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
@@ -28,7 +28,7 @@
     create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
-- query: drop database /FRL/SELECT_A_STAR_YAML
+- query: drop database if exists /FRL/SELECT_A_STAR_YAML
 ---
 - query: create database /FRL/SELECT_A_STAR_YAML
 ---

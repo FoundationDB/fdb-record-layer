@@ -20,13 +20,13 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template in_predicate_schema_template
+- query: drop schema template if exists in_predicate_schema_template
 ---
 - query: create schema template in_predicate_schema_template
     create type as struct ts(sa bigint, sb bigint)
     create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
 ---
-- query: drop database /FRL/IN_PREDICATE_DB
+- query: drop database if exists /FRL/IN_PREDICATE_DB
 ---
 - query: create database /FRL/IN_PREDICATE_DB
 ---

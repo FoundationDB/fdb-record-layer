@@ -67,7 +67,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", templateName, templateVersion);
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
@@ -104,7 +104,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         // save schema with template version 1
         Schema schema1 = generateTestSchema("test_schema_name", "/TEST/test_database_id", "test_template_name", 1);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schema1.getSchemaTemplate());
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.saveSchema(txn, schema1, false);
             txn.commit();
@@ -112,7 +112,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         // save schema template with version  2
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             SchemaTemplate template2 = generateTestSchemaTemplate("test_template_name", 2);
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, template2);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, template2);
             txn.commit();
         }
         // repair schema

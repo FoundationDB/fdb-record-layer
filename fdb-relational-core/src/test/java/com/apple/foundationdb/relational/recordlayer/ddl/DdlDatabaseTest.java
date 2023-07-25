@@ -34,7 +34,6 @@ import com.apple.foundationdb.relational.utils.TypeDefinition;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -58,35 +57,33 @@ public class DdlDatabaseTest {
             null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
-    @AfterEach
-    void tearDown() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                statement.execute("DROP DATABASE /test_db");
-            }
-        }
-    }
-
     @Test
     public void canCreateDatabase() throws Exception {
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
-            conn.setSchema("CATALOG");
-            try (Statement statement = conn.createStatement()) {
-                //create a database
-                statement.executeUpdate("CREATE DATABASE /test/test_db");
-                statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getTemplateName() + "\"");
+        try {
+            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
+                conn.setSchema("CATALOG");
+                try (Statement statement = conn.createStatement()) {
+                    //create a database
+                    statement.executeUpdate("CREATE DATABASE /test/test_db");
+                    statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getTemplateName() + "\"");
+                }
             }
-        }
-        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/TEST/TEST_DB"), Options.NONE)) {
-            conn.setSchema("FOO_SCHEM");
-            try (RelationalStatement statement = conn.createStatement()) {
+            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/TEST/TEST_DB"), Options.NONE)) {
+                conn.setSchema("FOO_SCHEM");
+                try (RelationalStatement statement = conn.createStatement()) {
 
-                //look to see if it's in the list
-                Set<String> databases = Set.of("/TEST/TEST_DB", "/__SYS");
-                try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
-                    ResultSetAssert.assertThat(rs)
-                            .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
+                    //look to see if it's in the list
+                    Set<String> databases = Set.of("/TEST/TEST_DB", "/__SYS");
+                    try (RelationalResultSet rs = statement.executeQuery("SHOW DATABASES")) {
+                        ResultSetAssert.assertThat(rs)
+                                .meetsForAllRows(ResultSetAssert.perRowCondition(resultSet -> databases.contains(resultSet.getString(1)), "Should be a valid database"));
+                    }
+                }
+            }
+        } finally {
+            try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS?schema=CATALOG"), Options.NONE)) {
+                try (Statement statement = conn.createStatement()) {
+                    statement.execute("DROP DATABASE /test/test_db");
                 }
             }
         }
@@ -153,7 +150,7 @@ public class DdlDatabaseTest {
             conn.setSchema("CATALOG");
             // assure that there is not a database with the same name from before
             try (Statement statement = conn.createStatement()) {
-                statement.executeUpdate("DROP DATABASE /test/test_db");
+                statement.executeUpdate("DROP DATABASE if exists /test/test_db");
             }
             try (Statement statement = conn.createStatement()) {
                 //create a database

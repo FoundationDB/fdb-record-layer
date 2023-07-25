@@ -20,12 +20,12 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template like_tests_schema_template
+- query: drop schema template if exists like_tests_schema_template
 ---
 - query: create schema template like_tests_schema_template
     create table A(a1 string, primary key(a1))
 ---
-- query: drop database /FRL/LIKE_YAML
+- query: drop database if exists /FRL/LIKE_YAML
 ---
 - query: create database /FRL/LIKE_YAML
 ---

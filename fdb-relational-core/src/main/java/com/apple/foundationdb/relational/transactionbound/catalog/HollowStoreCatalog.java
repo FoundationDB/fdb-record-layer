@@ -103,7 +103,7 @@ public class HollowStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 }

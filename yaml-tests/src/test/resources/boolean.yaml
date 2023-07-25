@@ -20,12 +20,12 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template boolean_tests_schema_template
+- query: drop schema template if exists boolean_tests_schema_template
 ---
 - query: create schema template boolean_tests_schema_template
     create table lb(a bigint, b boolean, primary key(a))
 ---
-- query: drop database /FRL/BOOLEAN_YAML
+- query: drop database if exists /FRL/BOOLEAN_YAML
 ---
 - query: create database /FRL/BOOLEAN_YAML
 ---

@@ -35,15 +35,17 @@ import java.sql.SQLException;
 
 public class DropDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
+    private final boolean throwIfDoesNotExist;
     private final Options options;
     private final StoreCatalog catalog;
     private final MetadataOperationsFactory metadataOperationsFactory;
 
     public DropDatabaseConstantAction(URI dbUrl,
-                                      StoreCatalog catalog,
+                                      boolean throwIfDoesNotExist, StoreCatalog catalog,
                                       MetadataOperationsFactory metadataOperationsFactory,
                                       Options options) {
         this.dbUrl = dbUrl;
+        this.throwIfDoesNotExist = throwIfDoesNotExist;
         this.options = options;
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.catalog = catalog;
@@ -65,6 +67,6 @@ public class DropDatabaseConstantAction implements ConstantAction {
             throw new RelationalException(se.getMessage(), ec, se);
         }
 
-        catalog.deleteDatabase(txn, dbUrl);
+        catalog.deleteDatabase(txn, dbUrl, throwIfDoesNotExist);
     }
 }

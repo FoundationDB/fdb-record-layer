@@ -79,7 +79,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         try {
             final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
             String schemaTemplateName = beforeSchema.getSchemaTemplate().getName();
-            throw new RelationalException("Schema " + schemaName + " already exists with mapping " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
+            throw new RelationalException("Schema " + schemaName + " already exists with template " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
         } catch (RelationalException ve) {
             if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
                 throw ve;

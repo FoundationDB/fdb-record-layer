@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template subquery_tests_template
+- query: drop schema template if exists subquery_tests_template
 ---
 - query: create schema template subquery_tests_template
     create table a(ida integer, x integer, primary key(ida))
@@ -31,7 +31,7 @@
     create index ib as select q from b
     create index ir as select sq.f from r, (select f from r.nr) sq;
 ---
-- query: drop database /FRL/SUBQUERY_YAML
+- query: drop database if exists /FRL/SUBQUERY_YAML
 ---
 - query: create database /FRL/SUBQUERY_YAML
 ---

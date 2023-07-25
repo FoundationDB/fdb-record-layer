@@ -20,14 +20,14 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template function_tests_schema_template
+- query: drop schema template if exists function_tests_schema_template
 ---
 - query: create schema template function_tests_schema_template
     create type as struct T(T1 integer)
     create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
     create table B(b1 bigint, b2 double, primary key(b1, b2))
 ---
-- query: drop database /FRL/FUNCTION_YAML
+- query: drop database if exists /FRL/FUNCTION_YAML
 ---
 - query: create database /FRL/FUNCTION_YAML
 ---
@@ -116,9 +116,9 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop database /FRL/FUNCTIONS_YAML
+- query: drop database /FRL/FUNCTION_YAML
 ---
-- query: drop schema template functions_tests_schema_template
+- query: drop schema template function_tests_schema_template
 ...
 
 

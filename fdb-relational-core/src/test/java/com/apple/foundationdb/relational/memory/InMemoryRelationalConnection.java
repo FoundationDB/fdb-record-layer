@@ -193,8 +193,8 @@ public class InMemoryRelationalConnection implements RelationalConnection {
 
             @Nonnull
             @Override
-            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-                return txn -> catalog.deleteDatabase(txn, dbUrl);
+            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+                return txn -> catalog.deleteDatabase(txn, dbUrl, throwIfDoesNotExist);
             }
         };
     }

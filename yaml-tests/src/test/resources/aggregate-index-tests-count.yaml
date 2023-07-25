@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template aggregate_index_tests_template_count
+- query: drop schema template if exists aggregate_index_tests_template_count
 ---
 - query: create schema template aggregate_index_tests_template_count
       create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
@@ -31,7 +31,7 @@
       create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
       create index mv5 as select col2 from t2
 ---
-- query: drop database /FRL/AGG_IDX_YAML_COUNT
+- query: drop database if exists /FRL/AGG_IDX_YAML_COUNT
 ---
 - query: create database /FRL/AGG_IDX_YAML_COUNT
 ---

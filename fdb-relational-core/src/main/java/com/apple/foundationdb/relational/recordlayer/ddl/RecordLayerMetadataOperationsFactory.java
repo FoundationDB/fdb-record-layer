@@ -46,9 +46,9 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
+    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
         return txn -> {
-            catalog.getSchemaTemplateCatalog().deleteTemplate(txn, templateId);
+            catalog.getSchemaTemplateCatalog().deleteTemplate(txn, templateId, throwIfDoesNotExist);
         };
     }
 
@@ -72,8 +72,8 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
 
     @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return new DropDatabaseConstantAction(dbUrl, catalog, this, options);
+    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+        return new DropDatabaseConstantAction(dbUrl, throwIfDoesNotExist, catalog, this, options);
     }
 
     @Nonnull

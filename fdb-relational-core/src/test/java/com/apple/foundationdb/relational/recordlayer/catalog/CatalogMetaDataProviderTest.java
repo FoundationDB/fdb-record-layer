@@ -67,7 +67,7 @@ class CatalogMetaDataProviderTest {
         RecordLayerSchemaTemplate schemaTemplate = createSchemaTemplate();
         try (Transaction txn = fdbConn.getTransactionManager().createTransaction(Options.NONE)) {
             //write template into template catalog
-            storeCatalog.getSchemaTemplateCatalog().updateTemplate(txn, schemaTemplate);
+            storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schemaTemplate);
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
             storeCatalog.createDatabase(txn, dbUri);

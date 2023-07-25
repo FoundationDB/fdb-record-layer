@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template orderby_tests_schema_template
+- query: drop schema template if exists orderby_tests_schema_template_1
 ---
 - query: create schema template orderby_tests_schema_template_1
     create table t1(a bigint, b bigint, c bigint, primary key(a))
@@ -41,7 +41,7 @@
     create table t4(p bigint, q st_6, primary key(p))
     create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
 ---
-- query: drop database /FRL/ORDERBY_YAML
+- query: drop database if exists /FRL/ORDERBY_YAML
 ---
 - query: create database /FRL/ORDERBY_YAML
 ---
@@ -229,5 +229,5 @@
 ---
 - query: drop database /FRL/ORDERBY_YAML
 ---
-- query: drop schema template orderby_tests_schema_template
+- query: drop schema template orderby_tests_schema_template_1
 ...

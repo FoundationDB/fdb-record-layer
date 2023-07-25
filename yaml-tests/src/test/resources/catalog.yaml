@@ -20,17 +20,17 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template test_template_1;
+- query: drop schema template if exists test_template_1;
 ---
 - query: create schema template test_template_1 
       create table t(a string, b string, primary key(a));
 ---
-- query: drop schema template test_template_2;
+- query: drop schema template if exists test_template_2;
 ---
 - query: create schema template test_template_2
       create table t(a string, b string, c string, primary key(a, b));
 ---
-- query: drop database /FRL/TEST_DB_1;
+- query: drop database if exists /FRL/TEST_DB_1;
 ---
 - query: create database /FRL/TEST_DB_1;
 ---
@@ -42,7 +42,7 @@
 ---
 - query: create schema /FRL/TEST_DB_1/S_14 with template test_template_2;
 ---
-- query: drop database /FRL/TEST_DB_2;
+- query: drop database if exists /FRL/TEST_DB_2;
 ---
 - query: create database /FRL/TEST_DB_2;
 ---

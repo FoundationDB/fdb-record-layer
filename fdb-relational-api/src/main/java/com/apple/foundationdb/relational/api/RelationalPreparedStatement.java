@@ -54,6 +54,12 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     RelationalResultSet executeQuery() throws SQLException;
 
+    @Override
+    boolean execute() throws SQLException;
+
+    @Override
+    RelationalResultSet getResultSet() throws SQLException;
+
     /**
      * Sets the designated parameter to the given Java <code>boolean</code> value.
      *
@@ -224,12 +230,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setObject(int parameterIndex, Object x) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default boolean execute() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

@@ -76,7 +76,7 @@ public class JDBCSimpleStatementTest {
                 // Exercise some methods to up our test coverage metrics
                 Assertions.assertEquals(connection, statement.getConnection());
                 // Make this better... currently returns zero how ever many rows we touch.
-                Assertions.assertEquals(0, statement.executeUpdate("Drop database \"" + TESTDB + "\""));
+                Assertions.assertEquals(0, statement.executeUpdate("Drop database if exists \"" + TESTDB + "\""));
                 Assertions.assertEquals(0,
                         statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
                                 "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))"));

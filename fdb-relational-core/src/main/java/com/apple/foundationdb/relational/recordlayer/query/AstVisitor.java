@@ -1686,13 +1686,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
         Assert.notNullUnchecked(dbName);
         Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
-        return  ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropDatabaseConstantAction(URI.create(dbName), Options.NONE));
+        boolean throwIfDoesNotExist = ctx.ifExists() == null;
+        return  ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropDatabaseConstantAction(URI.create(dbName), throwIfDoesNotExist, Options.NONE));
     }
 
     @Override
     public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
         final String id = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
-        return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropSchemaTemplateConstantAction(Assert.notNullUnchecked(id), Options.NONE));
+        boolean throwIfDoesNotExist = ctx.ifExists() == null;
+        return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropSchemaTemplateConstantAction(Assert.notNullUnchecked(id), throwIfDoesNotExist, Options.NONE));
     }
 
     @Override

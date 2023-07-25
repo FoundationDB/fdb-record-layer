@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template standard_tests_template
+- query: drop schema template if exists standard_tests_template
 ---
 - query: create schema template standard_tests_template
     CREATE TYPE AS STRUCT s1(a bigint, b bigint)
@@ -29,7 +29,7 @@
     create table t1(id bigint, g bigint, h s3, primary key(id))
     create table t2(id bigint, g bigint, h s3, primary key(id))
 ---
-- query: drop database /FRL/STANDARD_YAML
+- query: drop database if exists /FRL/STANDARD_YAML
 ---
 - query: create database /FRL/STANDARD_YAML
 ---

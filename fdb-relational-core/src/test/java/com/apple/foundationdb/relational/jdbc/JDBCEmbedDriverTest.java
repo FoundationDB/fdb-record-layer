@@ -93,7 +93,8 @@ public class JDBCEmbedDriverTest {
                 .unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement().unwrap(RelationalStatement.class)) {
                 // Make this better... currently returns zero how ever many rows we touch.
-                Assertions.assertEquals(0, statement.executeUpdate("Drop database \"" + TESTDB + "\""));
+                Assertions.assertEquals(0, statement.executeUpdate("Drop database if exists \"" + TESTDB + "\""));
+                Assertions.assertEquals(0, statement.executeUpdate("Drop schema template if exists test_template"));
                 Assertions.assertEquals(0,
                         statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
                                 "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))"));
@@ -129,7 +130,8 @@ public class JDBCEmbedDriverTest {
                 }
             } finally {
                 try (RelationalStatement statement = connection.createStatement()) {
-                    statement.executeUpdate("Drop database \"" + TESTDB + "\"");
+                    statement.executeUpdate("Drop database if exists \"" + TESTDB + "\"");
+                    statement.executeUpdate("Drop schema template if exists test_template");
                 }
             }
         }

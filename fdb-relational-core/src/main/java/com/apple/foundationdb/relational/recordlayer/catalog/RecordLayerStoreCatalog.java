@@ -168,7 +168,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             // Make sure the catalog's schematemplate is in place. It won't be if this is initial start up or if the
             // schemaTemplateCatalog is the non-persisting in-memory implementation.
             if (!schemaTemplateCatalog.doesSchemaTemplateExist(createTxn, this.catalogSchemaTemplate.getName())) {
-                schemaTemplateCatalog.updateTemplate(createTxn, this.catalogSchemaTemplate);
+                schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);
             }
             this.schemaTemplateCatalog = schemaTemplateCatalog;
             // Persist our hard-coded catalog schema.
@@ -336,7 +336,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
+    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
@@ -344,7 +344,9 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             final var allSchemasDeleted = deleteSchemas(recordStore, URI.create(dbId));
             if (allSchemasDeleted) {
                 // when all schemas are deleted, delete the databaseId from DATABASE_INFO table
-                recordStore.deleteRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId));
+                if (!recordStore.deleteRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId)) && throwIfDoesNotExist) {
+                    throw new RelationalException("Cannot delete unknown database: " + dbUrl, ErrorCode.UNKNOWN_DATABASE);
+                }
             } else {
                 return false;
             }

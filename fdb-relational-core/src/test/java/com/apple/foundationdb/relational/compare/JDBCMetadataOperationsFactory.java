@@ -53,13 +53,13 @@ public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory 
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return txn -> templateCatalog.updateTemplate(txn, template);
+        return txn -> templateCatalog.createTemplate(txn, template);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
-        return txn -> templateCatalog.deleteTemplate(txn, templateId);
+    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+        return txn -> templateCatalog.deleteTemplate(txn, templateId, throwIfDoesNotExist);
     }
 
     @Nonnull
@@ -111,7 +111,7 @@ public class JDBCMetadataOperationsFactory implements MetadataOperationsFactory 
 
     @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
         return txn -> {
             try (Connection sqlConn = getConnection(dbUrl)) {
                 try (Statement s = sqlConn.createStatement()) {

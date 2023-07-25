@@ -67,7 +67,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
         try (Connection connection = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE \"" + databasePath.getPath() + "\"");
+                statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
                 statement.executeUpdate("CREATE DATABASE \"" + databasePath.getPath() + "\"");
             }
         }

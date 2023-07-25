@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template join_tests_template
+- query: drop schema template if exists join_tests_template
 ---
 - query: create schema template join_tests_template
     create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
@@ -29,7 +29,7 @@
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
 ---
-- query: drop database /FRL/JOIN_YAML
+- query: drop database if exists /FRL/JOIN_YAML
 ---
 - query: create database /FRL/JOIN_YAML
 ---

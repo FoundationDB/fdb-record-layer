@@ -18,45 +18,10 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
-import com.apple.foundationdb.relational.cli.DbState;
-import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-
-public class YamlIntegrationTests {
-
-    private static final Logger logger = LogManager.getLogger(YamlIntegrationTests.class);
-
-    public YamlIntegrationTests() {
-        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-        }
-        Debugger.setup();
-    }
-
-    void doRun(@Nonnull final String fileName) throws Exception {
-        try (YamlRunner yamlRunner = new YamlRunner(fileName, createCliCommandFactory())) {
-            yamlRunner.run();
-        } catch (Exception e) {
-            logger.error("‼️ running test file '{}' was not successful", fileName, e);
-            throw e;
-        }
-    }
-
-    CliCommandFactory createCliCommandFactory() throws RelationalException {
-        return new DbStateCommandFactory(new DbState());
-    }
-
+public class YamlIntegrationTests extends YamlTestBase {
     @Test
     public void showcasingTests() throws Exception {
         doRun("showcasing-tests.yaml");
@@ -110,6 +75,12 @@ public class YamlIntegrationTests {
     @Test
     public void insertsUpdatesDeletes() throws Exception {
         doRun("inserts-updates-deletes.yaml");
+    }
+
+    @Test
+    @Disabled("TODO (Cannot insert into table after dropping and recreating schema template when using EmbeddedJDBCDriver)")
+    public void createDropCreateTemplate() throws Exception {
+        doRun("create-drop-create-template.yaml");
     }
 
     @Test
@@ -190,5 +161,10 @@ public class YamlIntegrationTests {
     @Test
     void functions() throws Exception {
         doRun("functions.yaml");
+    }
+
+    @Test
+    void createDrop() throws Exception {
+        doRun("create-drop.yaml");
     }
 }

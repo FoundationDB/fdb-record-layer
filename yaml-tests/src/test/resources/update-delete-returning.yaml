@@ -20,13 +20,13 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template update_returning_template
+- query: drop schema template if exists update_returning_template
 ---
 - query: create schema template update_returning_template
     create type as struct S(S1 bigint, S2 bigint)
     create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
 ---
-- query: drop database /FRL/UPDATE_RETURNING_YAML
+- query: drop database if exists /FRL/UPDATE_RETURNING_YAML
 ---
 - query: create database /FRL/UPDATE_RETURNING_YAML
 ---

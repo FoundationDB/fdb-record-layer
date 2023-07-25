@@ -20,11 +20,11 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template disabled_index_tests_proto_template
+- query: drop schema template if exists disabled_index_tests_proto_template
 ---
 - load schema template: DISABLED_INDEX_TESTS_PROTO_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.disabledtests.DisabledTestsProto
 ---
-- query: drop database /FRL/DISABLED_PROTO_YAML
+- query: drop database if exists /FRL/DISABLED_PROTO_YAML
 ---
 - query: create database /FRL/DISABLED_PROTO_YAML
 ---

@@ -20,9 +20,9 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template standard_tests_proto_template
+- query: drop schema template if exists standard_tests_proto_template
 ---
-- query: drop database /FRL/STANDARD_PROTO_YAML
+- query: drop database if exists /FRL/STANDARD_PROTO_YAML
 ---
 - query: create database /FRL/STANDARD_PROTO_YAML
 ---

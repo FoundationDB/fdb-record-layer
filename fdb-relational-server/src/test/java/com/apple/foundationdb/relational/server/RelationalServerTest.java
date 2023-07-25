@@ -92,7 +92,8 @@ public class RelationalServerTest {
         String testdb = "/FRL/server_test_db";
         JDBCServiceGrpc.JDBCServiceBlockingStub stub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         try {
-            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database \"" + testdb + "\"");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop database if exists \"" + testdb + "\"");
+            update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "Drop schema template if exists test_template");
             update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG,
                     "CREATE SCHEMA TEMPLATE test_template " +
                             "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
@@ -174,7 +175,7 @@ public class RelationalServerTest {
         // Run some queries which will tickle grpc.
         simpleJDBCServiceClientOperation();
         double after = countSampleValues(metricName, metricName + "_total", collectorRegistry);
-        Assertions.assertEquals(after - before, 6.0/* Expected Difference -- 4 calls*/);
+        Assertions.assertEquals(after - before, 7.0/* Expected Difference -- 4 calls*/);
         // Streaming is not implemented yet so these should be zero.
         var receivedAfter = findRecordedMetricOrThrow("grpc_server_msg_received", collectorRegistry);
         Assertions.assertEquals(0, receivedAfter.samples.size());

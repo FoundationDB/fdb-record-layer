@@ -102,9 +102,9 @@ option
     ;
 
 dropStatement
-   : DROP DATABASE path       #dropDatabaseStatement
-   | DROP SCHEMA TEMPLATE uid #dropSchemaTemplateStatement
-   | DROP SCHEMA uid          #dropSchemaStatement
+   : DROP DATABASE ifExists? path       #dropDatabaseStatement
+   | DROP SCHEMA TEMPLATE ifExists? uid #dropSchemaTemplateStatement
+   | DROP SCHEMA ifExists? uid          #dropSchemaStatement
    ;
 
 // details

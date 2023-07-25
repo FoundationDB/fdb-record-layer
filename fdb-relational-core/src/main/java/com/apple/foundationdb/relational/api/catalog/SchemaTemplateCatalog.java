@@ -79,34 +79,33 @@ public interface SchemaTemplateCatalog {
     SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 
     /**
-     * Update the Schema template in the catalog associated with the templateId.
-     *
-     * <p>
-     *     If no template with the specified name exists, it will be created with the version number specified in the template.
+     * Create the Schema template in the catalog associated with the templateId.
      *
      * @param txn the transaction to use
-     * @param newTemplate the template to update with
+     * @param newTemplate the template to create
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
-    void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException;
+    void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException;
 
     RelationalResultSet listTemplates(@Nonnull Transaction txn);
 
     /**
      * Deletes all versions of the schema template.
      *
-     * @param txn the transaction to use
-     * @param templateName the template to update with
+     * @param txn          the transaction to use
+     * @param templateName the template to delete
+     * @param throwIfDoesNotExist throw an exception if the template does not exist
      */
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName);
+    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, boolean throwIfDoesNotExist) throws RelationalException;
 
     /**
      * Deletes a specific version of the schema template, if exists.
      *
-     * @param txn the transaction to use
-     * @param templateName the template to update with
-     * @param version Version to use.
+     * @param txn          the transaction to use
+     * @param templateName the template to delete
+     * @param version      Version to use.
+     * @param throwIfDoesNotExist throw an exception if the template does not exist
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
+    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version, boolean throwIfDoesNotExist) throws RelationalException;
 }

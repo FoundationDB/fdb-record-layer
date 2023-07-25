@@ -147,7 +147,7 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeUpdate("DROP DATABASE /test/various_schemas");
+                    statement.executeUpdate("DROP DATABASE if exists /test/various_schemas");
                     statement.executeUpdate("CREATE DATABASE /test/various_schemas");
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE temp_various_schemas CREATE TABLE foo(a bigint, PRIMARY KEY(a))");
                 }
@@ -209,7 +209,7 @@ public class CaseSensitivityTest {
             conn.setSchema("CATALOG");
             try {
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeUpdate("DROP DATABASE /test/various_tables_db");
+                    statement.executeUpdate("DROP DATABASE if exists /test/various_tables_db");
                     statement.executeUpdate("CREATE DATABASE /test/various_tables_db");
                     for (String table : tables) {
                         statement.executeUpdate(String.format(
@@ -233,8 +233,8 @@ public class CaseSensitivityTest {
                 }
             } finally {
                 try (Statement statement = conn.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE /test/various_tables_db");
                     for (String table : tables) {
-                        statement.executeUpdate("DROP DATABASE /test/various_tables_db");
                         statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_table_" + table);
                     }
                 }
@@ -270,8 +270,8 @@ public class CaseSensitivityTest {
                 }
             } finally {
                 try (Statement statement = conn.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE /test/various_columns_db");
                     for (String column : columns) {
-                        statement.executeUpdate("DROP DATABASE /test/various_columns_db");
                         statement.executeUpdate("DROP SCHEMA TEMPLATE temp_various_column_" + column);
                     }
                 }
@@ -288,6 +288,19 @@ public class CaseSensitivityTest {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:/__SYS"), Options.NONE)) {
             conn.setSchema("CATALOG");
             try {
+                try (RelationalStatement statement = conn.createStatement()) {
+                    for (String schema : schemas) {
+                        StringBuilder template = new StringBuilder();
+                        template.append("CREATE SCHEMA TEMPLATE \"").append(schema).append("_template\" ");
+                        for (String table : tables) {
+                            template.append("CREATE TABLE \"").append(table).append("\" (");
+                            template.append(columns.stream().map(c -> "\"" + c + "\" bigint").collect(Collectors.joining(",")));
+                            template.append(", ").append("PRIMARY KEY (\"").append(columns.get(0)).append("\")");
+                            template.append(") ");
+                        }
+                        statement.executeUpdate(template.toString());
+                    }
+                }
                 for (String database : databases) {
                     // DDL
                     try (RelationalStatement statement = conn.createStatement()) {
@@ -296,15 +309,6 @@ public class CaseSensitivityTest {
                                 database)
                         );
                         for (String schema : schemas) {
-                            StringBuilder template = new StringBuilder();
-                            template.append("CREATE SCHEMA TEMPLATE \"").append(schema).append("_template\" ");
-                            for (String table : tables) {
-                                template.append("CREATE TABLE \"").append(table).append("\" (");
-                                template.append(columns.stream().map(c -> "\"" + c + "\" bigint").collect(Collectors.joining(",")));
-                                template.append(", ").append("PRIMARY KEY (\"").append(columns.get(0)).append("\")");
-                                template.append(") ");
-                            }
-                            statement.executeUpdate(template.toString());
                             statement.executeUpdate(String.format("CREATE SCHEMA \"%s/%s\" WITH TEMPLATE \"%s_template\"", database, schema, schema));
                         }
                     }
@@ -345,10 +349,10 @@ public class CaseSensitivityTest {
                 // Cleanup
                 try (RelationalStatement statement = conn.createStatement()) {
                     for (String database : databases) {
-                        statement.executeUpdate(String.format("DROP DATABASE \"%s\"", database));
+                        statement.executeUpdate(String.format("DROP DATABASE if exists \"%s\"", database));
                     }
                     for (String schema : schemas) {
-                        statement.executeUpdate(String.format("DROP SCHEMA TEMPLATE \"%s_template\"", schema));
+                        statement.executeUpdate(String.format("DROP SCHEMA TEMPLATE if exists \"%s_template\"", schema));
                     }
                 }
             }

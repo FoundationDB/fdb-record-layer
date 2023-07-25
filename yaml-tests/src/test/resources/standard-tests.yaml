@@ -20,13 +20,13 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template standard_tests_template
+- query: drop schema template if exists standard_tests_template
 ---
 - query: create schema template standard_tests_template
     create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
     create index i1 as select col1 from t1
 ---
-- query: drop database /FRL/STANDARD_YAML
+- query: drop database if exists /FRL/STANDARD_YAML
 ---
 - query: create database /FRL/STANDARD_YAML
 ---

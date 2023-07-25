@@ -134,10 +134,11 @@ public interface StoreCatalog {
      * note that this method do not clear the corresponding record store. It should be the responsibility of the
      * caller to make sure that the record store has been purged already (if needed to do so).
      *
-     * @param txn   the transaction to use
-     * @param dbUrl the path to the specific database to delete
+     * @param txn      the transaction to use
+     * @param dbUrl    the path to the specific database to delete
+     * @param throwIfDoesNotExist throws if the database does not exist
      * @return {@code true} if the operation finishes, else returns {@code false} if the transaction expires
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException;
+    boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException;
 }

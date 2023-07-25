@@ -107,11 +107,11 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         var versions = backingStore.get(newTemplate.getName());
         if (versions == null) {
             backingStore.putIfAbsent(newTemplate.getName(), new ConcurrentHashMap<>());
-            updateTemplate(txn, newTemplate);
+            createTemplate(txn, newTemplate);
             return;
         }
         versions = backingStore.get(newTemplate.getName());
@@ -119,12 +119,12 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         if (oldTemplate == null) {
             oldTemplate = versions.putIfAbsent(newTemplate.getVersion(), newTemplate);
             if (oldTemplate != null) {
-                updateTemplate(txn, newTemplate);
+                createTemplate(txn, newTemplate);
             }
         } else {
             final var replaced = versions.replace(newTemplate.getVersion(), oldTemplate, newTemplate);
             if (!replaced) {
-                updateTemplate(txn, newTemplate);
+                createTemplate(txn, newTemplate);
             }
         }
     }
@@ -140,14 +140,18 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName) {
-        backingStore.remove(templateName);
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, boolean throwIfDoesNotExist) throws RelationalException {
+        if (backingStore.remove(templateName) == null && throwIfDoesNotExist) {
+            throw new RelationalException("Cannot delete unknown schema template " + templateName, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) throws RelationalException {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) throws RelationalException {
         if (doesSchemaTemplateExist(txn, templateId, version)) {
             backingStore.get(templateId).remove(version);
+        } else if (throwIfDoesNotExist) {
+            throw new RelationalException("Cannot delete unknown schema template " + templateId, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
     }
 }

@@ -57,7 +57,7 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     }
 
     @Override
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) {
+    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) {
     }
 
     @Nonnull
@@ -92,11 +92,11 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId) {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, boolean throwIfDoesNotExist) {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) {
     }
 
 }

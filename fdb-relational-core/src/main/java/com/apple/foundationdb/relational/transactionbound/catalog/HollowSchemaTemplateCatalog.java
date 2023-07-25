@@ -58,7 +58,7 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
@@ -68,12 +68,12 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId) {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, boolean throwIfDoesNotExist) {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.").toUncheckedWrappedException();
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) throws RelationalException {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 }

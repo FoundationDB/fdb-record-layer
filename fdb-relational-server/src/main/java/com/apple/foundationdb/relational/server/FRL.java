@@ -198,10 +198,14 @@ public class FRL implements AutoCloseable {
                         for (Parameter parameter : parameters) {
                             addPreparedStatementParameter(relationalStatement, parameter, index++);
                         }
-                        try (RelationalResultSet rrs = relationalStatement.executeQuery()) {
-                            resultSet = TypeConversion.toProtobuf(rrs);
+                        if (relationalStatement.execute()) {
+                            try (RelationalResultSet rs = relationalStatement.getResultSet()) {
+                                resultSet = TypeConversion.toProtobuf(rs);
+                                return Response.query(resultSet);
+                            }
+                        } else {
+                            return Response.mutation(relationalStatement.getUpdateCount());
                         }
-                        return Response.query(resultSet);
                     }
                 }
             } else {

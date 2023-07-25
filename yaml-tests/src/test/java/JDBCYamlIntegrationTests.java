@@ -22,6 +22,7 @@ import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -73,6 +74,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
          * Loaded Relational JDBC Driver.
          */
         final Driver driver;
+        private final boolean usePreparedStatements;
         /**
          * Current, live connection.
          * We do one-at-a-time only.
@@ -87,10 +89,11 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
             }
         }
 
-        private JDBCCommandFactory() throws SQLException {
+        private JDBCCommandFactory(boolean usePreparedStatements) throws SQLException {
             // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
             // more specific about where we want to connect to.
             this.driver = DriverManager.getDriver("jdbc:relational:///");
+            this.usePreparedStatements = usePreparedStatements;
             try {
                 this.server = new InProcessRelationalServer().start();
             } catch (IOException e) {
@@ -217,9 +220,16 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
         @Override
         public CliCommand<Object> getQueryCommand(String command) {
             return () -> {
-                try (RelationalStatement s = this.connection.createStatement()) {
-                    boolean hasResults = s.execute(command);
-                    return hasResults ? s.getResultSet() : s.getUpdateCount();
+                if (usePreparedStatements) {
+                    try (RelationalPreparedStatement ps = this.connection.prepareStatement(command)) {
+                        boolean hasResults = ps.execute();
+                        return hasResults ? ps.getResultSet() : ps.getUpdateCount();
+                    }
+                } else {
+                    try (RelationalStatement s = this.connection.createStatement()) {
+                        boolean hasResults = s.execute(command);
+                        return hasResults ? s.getResultSet() : s.getUpdateCount();
+                    }
                 }
             };
         }
@@ -247,9 +257,9 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    CliCommandFactory createCliCommandFactory() throws RelationalException {
+    CliCommandFactory createCliCommandFactory(boolean usePreparedStatements) throws RelationalException {
         try {
-            return new JDBCCommandFactory();
+            return new JDBCCommandFactory(usePreparedStatements);
         } catch (SQLException e) {
             throw new RelationalException(e);
         }

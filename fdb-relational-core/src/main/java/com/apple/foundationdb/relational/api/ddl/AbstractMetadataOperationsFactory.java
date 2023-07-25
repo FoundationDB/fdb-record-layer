@@ -53,8 +53,8 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
 
     @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, options);
+    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, throwIfDoesNotExist, options);
     }
 
     @Nonnull
@@ -65,8 +65,8 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
 
     @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getDropSchemaTemplateConstantAction(templateId, options);
+    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropSchemaTemplateConstantAction(templateId, throwIfDoesNotExist, options);
     }
 
 }

@@ -34,7 +34,7 @@ public interface MetadataOperationsFactory {
     ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
 
     @Nonnull
-    ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, @Nonnull Options options);
+    ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options);
 
     @Nonnull
     ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions);
@@ -43,7 +43,7 @@ public interface MetadataOperationsFactory {
     ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions);
 
     @Nonnull
-    ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, @Nonnull Options options);
+    ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options);
 
     @Nonnull
     ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options);

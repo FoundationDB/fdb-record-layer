@@ -20,7 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template groupby_tests_template
+- query: drop schema template if exists groupby_tests_template
 ---
 - query: create schema template groupby_tests_template
     create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
@@ -32,7 +32,7 @@
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
 ---
-- query: drop database /FRL/GB_YAML
+- query: drop database if exists /FRL/GB_YAML
 ---
 - query: create database /FRL/GB_YAML
 ---

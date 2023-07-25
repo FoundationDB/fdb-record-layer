@@ -20,12 +20,12 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template limit_tests_schema_template
+- query: drop schema template if exists limit_tests_schema_template
 ---
 - query: create schema template limit_tests_schema_template
       create table ta(a bigint, b bigint, primary key(a))
 ---
-- query: drop database /FRL/LIMIT_YAML
+- query: drop database if exists /FRL/LIMIT_YAML
 ---
 - query: create database /FRL/LIMIT_YAML
 ---

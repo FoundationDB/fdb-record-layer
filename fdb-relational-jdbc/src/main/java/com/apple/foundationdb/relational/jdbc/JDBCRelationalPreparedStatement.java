@@ -72,6 +72,11 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
+    public boolean execute() throws SQLException {
+        return this.statement.execute(this.sql, this.parameters.values());
+    }
+
+    @Override
     public int executeUpdate() throws SQLException {
         return this.statement.executeUpdate(this.sql, this.parameters.values());
     }

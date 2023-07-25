@@ -22,6 +22,7 @@ import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -74,6 +75,8 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
          */
         private RelationalConnection connection;
 
+        private final boolean usePreparedStatements;
+
         // Load up our JDBC Driver. Run all registered ServiceLaoders.
         static {
             // Load ServiceLoader Services.
@@ -82,10 +85,11 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
             }
         }
 
-        private EmbeddedJDBCCommandFactory() throws SQLException {
+        private EmbeddedJDBCCommandFactory(boolean usePreparedStatements) throws SQLException {
             // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
             // more specific about where we want to connect to.
             this.driver = DriverManager.getDriver("jdbc:embed:/__SYS");
+            this.usePreparedStatements = usePreparedStatements;
         }
 
         @Override
@@ -196,9 +200,16 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
         @Override
         public CliCommand<Object> getQueryCommand(String command) {
             return () -> {
-                try (RelationalStatement s = this.connection.createStatement()) {
-                    boolean hasResults = s.execute(command);
-                    return hasResults ? s.getResultSet() : s.getUpdateCount();
+                if (usePreparedStatements) {
+                    try (RelationalPreparedStatement ps = this.connection.prepareStatement(command)) {
+                        boolean hasResults = ps.execute();
+                        return hasResults ? ps.getResultSet() : ps.getUpdateCount();
+                    }
+                } else {
+                    try (RelationalStatement s = this.connection.createStatement()) {
+                        boolean hasResults = s.execute(command);
+                        return hasResults ? s.getResultSet() : s.getUpdateCount();
+                    }
                 }
             };
         }
@@ -226,12 +237,18 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    CliCommandFactory createCliCommandFactory() throws RelationalException {
+    CliCommandFactory createCliCommandFactory(boolean usePreparedStatements) throws RelationalException {
         try {
-            return new EmbeddedJDBCCommandFactory();
+            return new EmbeddedJDBCCommandFactory(usePreparedStatements);
         } catch (SQLException e) {
             throw new RelationalException(e);
         }
+    }
+
+    // Override until TODO (Cannot insert into table after dropping and recreating schema template when using EmbeddedJDBCDriver) is fixed
+    @Override
+    protected void doRun(@Nonnull final String fileName) throws Exception {
+        doRun(fileName, false);
     }
 
     @Override

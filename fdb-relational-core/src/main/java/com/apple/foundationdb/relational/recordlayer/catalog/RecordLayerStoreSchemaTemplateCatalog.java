@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
@@ -206,7 +208,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void updateTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
@@ -218,7 +220,9 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             // Is this how serialization of the metadata is supposed to be done?
             RecordMetaData metaData = newTemplate.unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata();
             pmd.setField(SchemaTemplateSystemTable.METADATA, metaData.toProto().toByteString());
-            recordStore.saveRecord(pmd.build());
+            recordStore.saveRecord(pmd.build(), FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
+        } catch (RecordAlreadyExistsException e) {
+            throw new RelationalException("Schema template already exists: " + newTemplate.getName(), ErrorCode.DUPLICATE_SCHEMA_TEMPLATE, e);
         } catch (RecordCoreException | SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
@@ -260,7 +264,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName) {
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, boolean throwIfDoesNotExist) throws RelationalException {
         Tuple key = getSchemaTemplatePrimaryKey(templateName);
         try {
             var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
@@ -270,25 +274,34 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
                                     EndpointType.RANGE_INCLUSIVE),
                             ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
+                boolean deletedSomething = false;
                 do {
                     cursorResult = cursor.getNext();
                     if (cursorResult.getContinuation().isEnd()) {
                         break;
                     }
                     Tuple primaryKey = Objects.requireNonNull(cursorResult.get()).getPrimaryKey();
-                    recordStore.deleteRecord(primaryKey);
+                    if (!recordStore.deleteRecord(primaryKey)) {
+                        throw new RelationalException("Schema template record should exist but didn't when trying to delete it", ErrorCode.INTERNAL_ERROR);
+                    }
+                    deletedSomething = true;
                 } while (cursorResult.hasNext());
+                if (!deletedSomething && throwIfDoesNotExist) {
+                    throw new RelationalException("Could not delete unknown schema template " + templateName, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+                }
             }
-        } catch (RecordCoreStorageException | RelationalException e) {
-            throw new UncheckedRelationalException(ExceptionUtil.toRelationalException(e));
+        } catch (RecordCoreStorageException e) {
+            throw ExceptionUtil.toRelationalException(e);
         }
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version)
+    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version, boolean throwIfDoesNotExist)
             throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
-        recordStore.deleteRecord(getSchemaTemplatePrimaryKey(templateName, version));
+        if (!recordStore.deleteRecord(getSchemaTemplatePrimaryKey(templateName, version)) && throwIfDoesNotExist) {
+            throw new RelationalException("Could not delete unknown schema template " + templateName, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
     }
 }

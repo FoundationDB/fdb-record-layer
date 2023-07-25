@@ -20,9 +20,7 @@
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: DROP SCHEMA TEMPLATE messenger_template;
----
-- query: DROP SCHEMA TEMPLATE conversation_template;
+- query: DROP SCHEMA TEMPLATE if exists messenger_template;
 ---
 - query: CREATE SCHEMA TEMPLATE messenger_template 
     CREATE TABLE messages(
@@ -40,25 +38,7 @@
            primary key(id))
    ;
 ---
-- query: CREATE SCHEMA TEMPLATE conversation_template
-       CREATE TYPE AS STRUCT customer_detail(
-           name string,
-           phone_number string,
-           address string
-       )
-       CREATE TYPE AS STRUCT "MESSAGE"(
-           text string,
-           timestamp bigint,
-           sent boolean
-       )
-       CREATE TABLE conversations(
-           id bigint,
-           other_party CONTACT_DETAIL,
-           messages "MESSAGE" ARRAY,
-           primary key(id))
-   ;
----
-- query: drop database /FRL/JOIN_YAML
+- query: drop database if exists /FRL/JOIN_YAML
 ---
 - query: create database /FRL/JOIN_YAML
 ---
@@ -74,6 +54,4 @@
 - query: drop database /FRL/JOIN_YAML
 ---
 - query: DROP SCHEMA TEMPLATE messenger_template;
----
-- query: DROP SCHEMA TEMPLATE conversation_template;
 ...
