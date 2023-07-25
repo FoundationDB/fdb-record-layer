@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
@@ -88,6 +90,9 @@ public class IndexingThrottle {
         private int consecutiveSuccessCount = 0;
         private long forcedDelayTimestampMilliSeconds = 0;
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
+        private long consecutiveFailureCount = 0;
+        private StoreTimerSnapshot lastFailureSnapshot = null;
+
 
         Booker(@Nonnull IndexingCommon common) {
             this.common = common;
@@ -153,8 +158,9 @@ public class IndexingThrottle {
                            @Nullable List<Object> additionalLogMessageKeyValues) {
             // TODO: decrease the limit only for certain errors
             countFailedTransactions++;
+            consecutiveFailureCount++;
             long oldLimit = recordsLimit;
-            recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * 9) / 10)));
+            recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * oneToNineFactor(consecutiveFailureCount)) / 10)));
             if (LOGGER.isInfoEnabled()) {
                 final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
                                 LogMessageKeys.ERROR, fdbException.getMessage(),
@@ -165,8 +171,19 @@ public class IndexingThrottle {
                 if (additionalLogMessageKeyValues != null) {
                     message.addKeysAndValues(additionalLogMessageKeyValues);
                 }
+                addStoreTimerAtFailure(message);
                 LOGGER.info(message.toString(), fdbException);
             }
+        }
+
+        private static long oneToNineFactor(long count) {
+            if (count > 7) {
+                return 1; // panic mode after the 7th failure
+            }
+            if (count > 3) {
+                return 5; // 50% after the third failure
+            }
+            return 10 - Math.max(1, count);
         }
 
         void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
@@ -193,6 +210,7 @@ public class IndexingThrottle {
                 } else {
                     consecutiveSuccessCount++;
                 }
+                consecutiveFailureCount = 0;
             } else {
                 // Here: memorize the actual records count for the decrease limit function (if applicable) and reset the counter
                 countRunnerFailedTransactions++;
@@ -245,6 +263,15 @@ public class IndexingThrottle {
                                     .toString());
                 }
                 recordsLimit = maxLimit;
+            }
+        }
+
+        private void addStoreTimerAtFailure(KeyValueLogMessage message) {
+            final FDBStoreTimer timer = common.getRunner().getTimer();
+            if (timer != null) {
+                StoreTimer metricsDiff = lastFailureSnapshot == null ? timer : StoreTimer.getDifference(timer, lastFailureSnapshot);
+                lastFailureSnapshot = StoreTimerSnapshot.from(timer);
+                message.addKeysAndValues(metricsDiff.getKeysAndValues());
             }
         }
     }
@@ -331,6 +358,7 @@ public class IndexingThrottle {
                                     LogMessageKeys.DELAY, delay.getNextDelayMillis())
                             .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
                             .addKeysAndValues(logMessageKeyValues());
+                    booker.addStoreTimerAtFailure(message);
                     LOGGER.warn(message.toString(), e);
                 }
                 CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
@@ -385,7 +413,7 @@ public class IndexingThrottle {
         return (int) booker.getRecordsLimit();
     }
 
-    public long getTotalRecordsScannedScuccessfully() {
+    public long getTotalRecordsScannedSuccessfully() {
         return booker.totalRecordsScannedSuccess;
     }
 }
