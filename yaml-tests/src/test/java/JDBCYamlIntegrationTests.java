@@ -297,6 +297,12 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
+    @Disabled("The update-delete-returning.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
+    public void updateDeleteReturning() throws Exception {
+        doRun("update-delete-returning.yaml");
+    }
+
+    @Override
     @Disabled("TODO: Flakey")
     public void orderBy() throws Exception {
         super.orderBy();

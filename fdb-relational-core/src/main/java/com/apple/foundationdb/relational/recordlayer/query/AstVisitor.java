@@ -1615,13 +1615,16 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
-        Assert.notNullUnchecked(ctx.singleDeleteStatement());
-        return super.visitDeleteStatement(ctx);
-    }
-
-    @Override
-    public QueryPlan.LogicalQueryPlan visitSingleDeleteStatement(RelationalParser.SingleDeleteStatementContext ctx) {
         RelationalExpression expression = handleDeleteStatement(ctx.tableName(), ctx.expression());
+
+        if (ctx.RETURNING() != null) {
+            final var scope = scopes.push();
+            final var selectQun = Quantifier.forEach(GroupExpressionRef.of(expression));
+            scope.addQuantifier(selectQun);
+            visit(ctx.selectElements());
+            return QueryPlan.LogicalQueryPlan.of(scopes.pop().convertToRelationalExpression(), context, query);
+        }
+
         //// TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScope() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));

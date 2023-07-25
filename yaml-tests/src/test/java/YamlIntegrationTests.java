@@ -178,8 +178,8 @@ public class YamlIntegrationTests {
     }
 
     @Test
-    public void updateReturning() throws Exception {
-        doRun("update-returning.yaml");
+    public void updateDeleteReturning() throws Exception {
+        doRun("update-delete-returning.yaml");
     }
 
     @Test

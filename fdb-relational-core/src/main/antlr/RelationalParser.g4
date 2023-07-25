@@ -168,7 +168,11 @@ schemaTemplateId:
 //    Primary DML Statements
 
 deleteStatement
-    : singleDeleteStatement | multipleDeleteStatement
+    : DELETE
+      FROM tableName
+      (WHERE expression)?
+      orderByClause? (LIMIT limitClause)?
+      (RETURNING selectElements)?
     ;
 
 insertStatement
@@ -232,25 +236,6 @@ assignmentField
     ;
 
 //    Detailed DML Statements
-
-singleDeleteStatement
-    : DELETE 
-    FROM tableName
-      (WHERE expression)?
-      orderByClause? (LIMIT limitClause)?
-    ;
-
-multipleDeleteStatement
-    : DELETE 
-      (
-        tableName ('.' '*')? ( ',' tableName ('.' '*')? )*
-            FROM tableSources
-        | FROM
-            tableName ('.' '*')? ( ',' tableName ('.' '*')? )*
-            USING tableSources
-      )
-      (WHERE expression)?
-    ;
 
 updateStatement
     : UPDATE tableName (AS? uid)?

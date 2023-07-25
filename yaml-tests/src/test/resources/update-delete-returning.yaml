@@ -1,5 +1,5 @@
 #
-# update-returning.yaml
+# update-delete-returning.yaml
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -59,6 +59,38 @@
 - result: [ { A1: 1, A2: 42, A3: 44 },
             { A1: 2, A2: 42, A3: 44 },
             { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: delete from A where A1 <= 1 returning A2, A3;
+- result: [{ 42, 44 }]
+---
+- query: select * from A;
+- result: [ { A1: 2, A2: 42, A3: 44 },
+            { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: delete from A where A1 = 2 returning *;
+- result: [{ A1: 2, A2: 42, A3: 44 }]
+---
+- query: select * from A;
+- result: [ { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: delete from A where A1 = 3 returning A1 + A2 + A3;
+- result: [{ 45 }]
+---
+- query: select count(*) from A;
+- result: [ { 0 } ]
+---
+- query: insert into A values
+      (1, 10, 10),
+      (2, 11, 20),
+      (3, 12, 30);
+- count: 3
+---
+- query: delete from A where A1 <= 2 returning A1, A2, A3
+- result: [ { A1: 1, A2: 10, A3: 10 },
+            { A1: 2, A2: 11, A3: 20 } ]
+---
+- query: delete from A where A1 > 200 returning A1, A2, A3
+- result: []
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
