@@ -46,7 +46,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,7 +66,7 @@ public class VariadicFunctionValue extends AbstractValue {
     private final List<Value> children;
 
     @Nonnull
-    private static final Supplier<Map<Pair<ScalarFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+    private static final Supplier<Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
     /**
@@ -79,11 +78,6 @@ public class VariadicFunctionValue extends AbstractValue {
                                  @Nonnull List<Value> children) {
         this.operation = operation;
         this.children = children;
-    }
-
-    @Nonnull
-    public ScalarFunction getScalarFunction() {
-        return operation.getScalarFunction();
     }
 
     @Nullable
@@ -102,7 +96,11 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public Type getResultType() {
-        return Type.primitiveType(operation.getResultType());
+        if (operation.getResultType().isPrimitive()) {
+            return Type.primitiveType(operation.getResultType());
+        } else {
+            return children.get(0).getResultType();
+        }
     }
 
     @Nonnull
@@ -146,7 +144,7 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
-    private static Map<Pair<ScalarFunction, TypeCode>, PhysicalOperator> getOperatorMap() {
+    private static Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
@@ -158,7 +156,6 @@ public class VariadicFunctionValue extends AbstractValue {
         Type resultType = null;
         for (final var arg : arguments) {
             Type argType = arg.getResultType();
-            SemanticException.check(argType.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
             if (resultType == null || resultType.isUnresolved()) {
                 resultType = argType;
             } else if (!argType.isUnresolved()) {
@@ -167,35 +164,35 @@ public class VariadicFunctionValue extends AbstractValue {
             }
         }
 
-        final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of((((ScalarFn)builtInFunction).getScalarFunction()), resultType.getTypeCode()));
+        final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of((((ComparisonFn)builtInFunction).getComparisonFunction()), resultType.getTypeCode()));
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate scalar function due to type mismatch(es)");
 
-        List<Value> promotedArgs = new ArrayList<>();
+        final ImmutableList.Builder<Value> promotedArgs = ImmutableList.builder();
         for (final var arg: arguments) {
             promotedArgs.add(PromoteValue.inject((Value) arg, resultType));
         }
-        return new VariadicFunctionValue(physicalOperator, promotedArgs);
+        return new VariadicFunctionValue(physicalOperator, promotedArgs.build());
     }
 
-    private static Map<Pair<ScalarFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
-        final ImmutableMap.Builder<Pair<ScalarFunction, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
+        final ImmutableMap.Builder<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final PhysicalOperator operator : PhysicalOperator.values()) {
-            mapBuilder.put(Pair.of(operator.getScalarFunction(), operator.getResultType()), operator);
+            mapBuilder.put(Pair.of(operator.getComparisonFunction(), operator.getResultType()), operator);
         }
         return mapBuilder.build();
     }
 
-    private static class ScalarFn extends BuiltInFunction<Value> {
-        private final ScalarFunction scalarFunction;
+    private static class ComparisonFn extends BuiltInFunction<Value> {
+        private final ComparisonFunction comparisonFunction;
 
-        public ScalarFn(String name, ScalarFunction scalarFunction) {
+        public ComparisonFn(String name, ComparisonFunction comparisonFunction) {
             super(name, ImmutableList.of(), new Type.Any(), VariadicFunctionValue::encapsulate);
-            this.scalarFunction = scalarFunction;
+            this.comparisonFunction = comparisonFunction;
         }
 
-        public ScalarFunction getScalarFunction() {
-            return scalarFunction;
+        public ComparisonFunction getComparisonFunction() {
+            return comparisonFunction;
         }
     }
 
@@ -203,9 +200,9 @@ public class VariadicFunctionValue extends AbstractValue {
      * The {@code greatest} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class GreatestFn extends ScalarFn {
+    public static class GreatestFn extends ComparisonFn {
         public GreatestFn() {
-            super("greatest", ScalarFunction.GREATEST);
+            super("greatest", ComparisonFunction.GREATEST);
         }
     }
 
@@ -213,9 +210,9 @@ public class VariadicFunctionValue extends AbstractValue {
      * The {@code least} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class LeastFn extends ScalarFn {
+    public static class LeastFn extends ComparisonFn {
         public LeastFn() {
-            super("least", ScalarFunction.LEAST);
+            super("least", ComparisonFunction.LEAST);
         }
     }
 
@@ -223,16 +220,16 @@ public class VariadicFunctionValue extends AbstractValue {
      * The {@code coalesce} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class CoalesceFn extends ScalarFn {
+    public static class CoalesceFn extends ComparisonFn {
         public CoalesceFn() {
-            super("coalesce", ScalarFunction.COALESCE);
+            super("coalesce", ComparisonFunction.COALESCE);
         }
     }
 
     /**
      * Logical operator.
      */
-    public enum ScalarFunction {
+    public enum ComparisonFunction {
         GREATEST,
         LEAST,
         COALESCE;
@@ -244,7 +241,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @VisibleForTesting
     @SuppressWarnings({"PMD.ControlStatementBraces", "checkstyle:NeedBraces"})
     public enum PhysicalOperator {
-        GREATEST_INT(ScalarFunction.GREATEST, TypeCode.INT, args -> {
+        GREATEST_INT(ComparisonFunction.GREATEST, TypeCode.INT, args -> {
             int max = Integer.MIN_VALUE;
             for (Object i : args) {
                 if (i == null) return null;
@@ -252,7 +249,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return max;
         }),
-        GREATEST_LONG(ScalarFunction.GREATEST, TypeCode.LONG, args -> {
+        GREATEST_LONG(ComparisonFunction.GREATEST, TypeCode.LONG, args -> {
             long max = Long.MIN_VALUE;
             for (Object l : args) {
                 if (l == null) return null;
@@ -260,7 +257,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return max;
         }),
-        GREATEST_BOOLEAN(ScalarFunction.GREATEST, TypeCode.BOOLEAN, args -> {
+        GREATEST_BOOLEAN(ComparisonFunction.GREATEST, TypeCode.BOOLEAN, args -> {
             boolean max = false;
             for (Object b : args) {
                 if (b == null) return null;
@@ -268,7 +265,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return max;
         }),
-        GREATEST_STRING(ScalarFunction.GREATEST, TypeCode.STRING, args -> {
+        GREATEST_STRING(ComparisonFunction.GREATEST, TypeCode.STRING, args -> {
             String max = (String) args.get(0);
             for (Object s : args) {
                 if (s == null) return null;
@@ -276,7 +273,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return max;
         }),
-        GREATEST_FLOAT(ScalarFunction.GREATEST, TypeCode.FLOAT, args -> {
+        GREATEST_FLOAT(ComparisonFunction.GREATEST, TypeCode.FLOAT, args -> {
             float max = Float.MIN_VALUE;
             for (Object f : args) {
                 if (f == null) return null;
@@ -284,7 +281,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return max;
         }),
-        GREATEST_DOUBLE(ScalarFunction.GREATEST, TypeCode.DOUBLE, args -> {
+        GREATEST_DOUBLE(ComparisonFunction.GREATEST, TypeCode.DOUBLE, args -> {
             double max = Double.MIN_VALUE;
             for (Object d : args) {
                 if (d == null) return null;
@@ -293,7 +290,7 @@ public class VariadicFunctionValue extends AbstractValue {
             return max;
         }),
 
-        LEAST_INT(ScalarFunction.LEAST, TypeCode.INT, args -> {
+        LEAST_INT(ComparisonFunction.LEAST, TypeCode.INT, args -> {
             int min = Integer.MAX_VALUE;
             for (Object i : args) {
                 if (i == null) return null;
@@ -301,7 +298,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return min;
         }),
-        LEAST_LONG(ScalarFunction.LEAST, TypeCode.LONG, args -> {
+        LEAST_LONG(ComparisonFunction.LEAST, TypeCode.LONG, args -> {
             long min = Long.MAX_VALUE;
             for (Object l : args) {
                 if (l == null) return null;
@@ -309,7 +306,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return min;
         }),
-        LEAST_BOOLEAN(ScalarFunction.LEAST, TypeCode.BOOLEAN, args -> {
+        LEAST_BOOLEAN(ComparisonFunction.LEAST, TypeCode.BOOLEAN, args -> {
             boolean min = true;
             for (Object b : args) {
                 if (b == null) return null;
@@ -317,7 +314,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return min;
         }),
-        LEAST_STRING(ScalarFunction.LEAST, TypeCode.STRING, args -> {
+        LEAST_STRING(ComparisonFunction.LEAST, TypeCode.STRING, args -> {
             String min = (String) args.get(0);
             for (Object s : args) {
                 if (s == null) return null;
@@ -325,7 +322,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return min;
         }),
-        LEAST_FLOAT(ScalarFunction.LEAST, TypeCode.FLOAT, args -> {
+        LEAST_FLOAT(ComparisonFunction.LEAST, TypeCode.FLOAT, args -> {
             float min = Float.MAX_VALUE;
             for (Object f : args) {
                 if (f == null) return null;
@@ -333,7 +330,7 @@ public class VariadicFunctionValue extends AbstractValue {
             }
             return min;
         }),
-        LEAST_DOUBLE(ScalarFunction.LEAST, TypeCode.DOUBLE, args -> {
+        LEAST_DOUBLE(ComparisonFunction.LEAST, TypeCode.DOUBLE, args -> {
             double min = Double.MAX_VALUE;
             for (Object d : args) {
                 if (d == null) return null;
@@ -342,15 +339,17 @@ public class VariadicFunctionValue extends AbstractValue {
             return min;
         }),
 
-        COALESCE_INT(ScalarFunction.COALESCE, TypeCode.INT, args -> coalesce(args)),
-        COALESCE_LONG(ScalarFunction.COALESCE, TypeCode.LONG, args -> coalesce(args)),
-        COALESCE_BOOLEAN(ScalarFunction.COALESCE, TypeCode.BOOLEAN, args -> coalesce(args)),
-        COALESCE_STRING(ScalarFunction.COALESCE, TypeCode.STRING, args -> coalesce(args)),
-        COALESCE_FLOAT(ScalarFunction.COALESCE, TypeCode.FLOAT, args -> coalesce(args)),
-        COALESCE_DOUBLE(ScalarFunction.COALESCE, TypeCode.DOUBLE, args -> coalesce(args));
+        COALESCE_INT(ComparisonFunction.COALESCE, TypeCode.INT, PhysicalOperator::coalesce),
+        COALESCE_LONG(ComparisonFunction.COALESCE, TypeCode.LONG, PhysicalOperator::coalesce),
+        COALESCE_BOOLEAN(ComparisonFunction.COALESCE, TypeCode.BOOLEAN, PhysicalOperator::coalesce),
+        COALESCE_STRING(ComparisonFunction.COALESCE, TypeCode.STRING, PhysicalOperator::coalesce),
+        COALESCE_FLOAT(ComparisonFunction.COALESCE, TypeCode.FLOAT, PhysicalOperator::coalesce),
+        COALESCE_DOUBLE(ComparisonFunction.COALESCE, TypeCode.DOUBLE, PhysicalOperator::coalesce),
+        COALESCE_RECORD(ComparisonFunction.COALESCE, TypeCode.RECORD, PhysicalOperator::coalesce),
+        COALESCE_ARRAY(ComparisonFunction.COALESCE, TypeCode.ARRAY, PhysicalOperator::coalesce);
 
         @Nonnull
-        private final ScalarFunction scalarFunction;
+        private final ComparisonFunction comparisonFunction;
 
         @Nonnull
         private final TypeCode type;
@@ -358,17 +357,17 @@ public class VariadicFunctionValue extends AbstractValue {
         @Nonnull
         private final transient Function<List<Object>, Object> evaluateFunction;
 
-        PhysicalOperator(@Nonnull final ScalarFunction scalarFunction,
+        PhysicalOperator(@Nonnull final ComparisonFunction comparisonFunction,
                          @Nonnull final TypeCode type,
                          @Nonnull final Function<List<Object>, Object> evaluateFunction) {
-            this.scalarFunction = scalarFunction;
+            this.comparisonFunction = comparisonFunction;
             this.type = type;
             this.evaluateFunction = evaluateFunction;
         }
 
         @Nonnull
-        public ScalarFunction getScalarFunction() {
-            return scalarFunction;
+        public ComparisonFunction getComparisonFunction() {
+            return comparisonFunction;
         }
 
         @Nonnull
