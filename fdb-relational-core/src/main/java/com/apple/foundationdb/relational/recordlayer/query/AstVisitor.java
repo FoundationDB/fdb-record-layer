@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -1553,14 +1554,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         updateScope.addQuantifier(quantifier);
 
         context.pushDmlContext();
-
         Assert.thatUnchecked(!updatedElementCtxs.isEmpty());
         final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
-        for (final var updatedElementCtx : updatedElementCtxs) {
-            final var updatedElementsPair = visitUpdatedElement(updatedElementCtx);
-            transformMapBuilder.put(updatedElementsPair.getKey(), updatedElementsPair.getValue());
-        }
-
+        final var finalQun = quantifier;
+        scopes.withChildScope(s -> {
+            s.addQuantifier(finalQun);
+            for (final var updatedElementCtx : updatedElementCtxs) {
+                final var updatedElementsPair = visitUpdatedElement(updatedElementCtx);
+                transformMapBuilder.put(updatedElementsPair.getKey(), updatedElementsPair.getValue());
+            }
+            return s;
+        });
         context.pop();
 
         if (expressionCtx != null) {
@@ -1589,19 +1593,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final RelationalExpression filteredFromExpression =
                 expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
 
-        quantifier = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+        final var filterQun = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+        final var rebaseMap = AliasMap.of(quantifier.getAlias(), filterQun.getAlias());
 
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
         Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
         final var targetType = (Type.Record) maybeTargetType.get();
+        final var rebasedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
+        for (final var item : transformMapBuilder.build().entrySet()) {
+            rebasedTransformMapBuilder.put(item.getKey(), item.getValue().rebase(rebaseMap));
+        }
 
         scopes.pop();
 
-        return new UpdateExpression(quantifier,
+        return new UpdateExpression(filterQun,
                 targetTypeName,
                 targetType,
                 context.asDql().getRecordLayerSchemaTemplate().getDescriptor(targetTypeName),
-                transformMapBuilder.build());
+                rebasedTransformMapBuilder.build());
     }
 
     @Override

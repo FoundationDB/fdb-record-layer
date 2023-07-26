@@ -96,6 +96,25 @@
            { B1: 40, B2: 20, B3: !null },
            { B1: 50, B2: 20, B3: !null }]
 ---
+# TODO ([Wave 3] coalesce does not allow complex (struct) types as arguments)
+#- query: update B set b2 = b2 + 1, b3 = coalesce(b3, (b1, b2), (b3.s1 + b2, b3.s2 + b2));
+#- count: 5
+#---
+#- query: select * from B
+#- result: [{ B1: 10, B2: 21, B3: { 24, 60 } },
+#           { B1: 20, B2: 21, B3: { 25, 70 } },
+#           { B1: 30, B2: 21, B3: { 26, 80 } },
+#           { B1: 40, B2: 21, B3: { 40, 20 } },
+#           { B1: 50, B2: 21, B3: { 50, 20 } }]
+#---
+- query: update B set b2 = b2 + 1, b3 = (b3.s1 + 1, b3.s2 + 1) where b1 < 40
+- count: 3
+---
+- query: select * from B where b1 < 40;
+- result: [{ B1: 10, B2: 21, B3: { 5, 41 } },
+           { B1: 20, B2: 21, B3: { 6, 51 } },
+           { B1: 30, B2: 21, B3: { 7, 61 } } ]
+---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /FRL/INSERTS_UPDATES_DELETES_YAML
