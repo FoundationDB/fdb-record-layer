@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.function.Supplier;
 
 /**
@@ -59,8 +59,8 @@ public class FunctionCatalog {
     @SuppressWarnings({"unchecked", "rawtypes", "java:S3457"})
     private static Map<FunctionKey, BuiltInFunction<? extends Typed>> loadFunctions() {
         final ImmutableMap.Builder<FunctionKey, BuiltInFunction<? extends Typed>> catalogBuilder = ImmutableMap.builder();
-        final ServiceLoader<BuiltInFunction> loader
-                = ServiceLoader.load(BuiltInFunction.class);
+        final Iterable<BuiltInFunction> loader
+                = ServiceLoaderProvider.load(BuiltInFunction.class);
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(new FunctionKey(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(), builtInFunction.hasVariadicSuffix()), builtInFunction);

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +35,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ServiceLoader;
 
 /**
  * Default implementation of the {@link TextTokenizerRegistry}. It uses the class
@@ -58,7 +58,7 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
     @Nonnull
     private static Map<String, TextTokenizerFactory> initRegistry() {
         final Map<String, TextTokenizerFactory> registry = new HashMap<>();
-        for (TextTokenizerFactory factory : ServiceLoader.load(TextTokenizerFactory.class)) {
+        for (TextTokenizerFactory factory : ServiceLoaderProvider.load(TextTokenizerFactory.class)) {
             final String name = factory.getName();
             if (registry.containsKey(name)) {
                 if (LOGGER.isWarnEnabled()) {

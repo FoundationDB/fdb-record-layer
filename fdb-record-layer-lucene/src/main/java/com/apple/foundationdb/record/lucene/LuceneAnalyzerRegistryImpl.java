@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.exact.ExactTokenAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.ServiceLoader;
 import java.util.TreeMap;
 
 /**
@@ -56,7 +56,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     @Nonnull
     private static Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> initRegistry() {
         final Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> registry = new HashMap<>();
-        for (LuceneAnalyzerFactory factory : ServiceLoader.load(LuceneAnalyzerFactory.class)) {
+        for (LuceneAnalyzerFactory factory : ServiceLoaderProvider.load(LuceneAnalyzerFactory.class)) {
             final String name = factory.getName();
             final LuceneAnalyzerType type = factory.getType();
             if (registry.containsKey(type) && registry.get(type).containsKey(name)) {
