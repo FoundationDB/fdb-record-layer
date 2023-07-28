@@ -39,7 +39,7 @@ import java.util.List;
  */
 public class ConditionSelectorValue extends AbstractValue {
 
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Implication-Selector-Value");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Condition-Selector-Value");
 
     @Nonnull
     private final List<? extends Value> implications;
@@ -86,7 +86,7 @@ public class ConditionSelectorValue extends AbstractValue {
 
     @Override
     public String toString() {
-        return "ImplicationSelector";
+        return "ConditionSelector";
     }
 
     @Override
