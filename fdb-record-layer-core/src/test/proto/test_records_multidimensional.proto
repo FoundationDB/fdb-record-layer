@@ -30,9 +30,9 @@ option (schema).store_record_versions = true;
 
 message MyMultidimensionalRecord {
   optional int64 rec_no = 1 [(field).primary_key = true];
-  optional string str_value_indexed = 2 [(field).index = {}];
-  optional int64 num_value_x = 3;
-  optional int64 num_value_y = 4;
+  optional string calendar_name = 2 [(field).index = {}];
+  optional int64 start_epoch = 3;
+  optional int64 end_epoch = 4;
 }
 
 message RecordTypeUnion {

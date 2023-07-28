@@ -27,7 +27,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RTree;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -53,8 +52,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -100,7 +97,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
         final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
         final int prefixSize = dimensionsKeyExpression.getPrefixSize();
-        final int columnSize = dimensionsKeyExpression.getColumnSize();
 
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, scanProperties);
 
@@ -133,23 +129,21 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
                             new OnReadLimiter(cursorLimitManager, timer));
                     final ReadTransaction transaction = state.context.readTransaction(true);
-                    final var dimensionRanges = mDScanBounds.getDimensionRanges();
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                            rTree.scan(transaction, lastHilbertValue, lastKey, mbr -> rangesOverlapWithMbr(dimensionRanges, mbr)),
+                            rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
                             cursorLimitManager, timer);
                     return itemSlotCursor
                             .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                 itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) >= 0)
-                            .filter(itemSlot -> rangesContainPosition(dimensionRanges, itemSlot.getPosition()))
+                            .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
                             .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                             .map(itemSlot -> {
-                                final List<Object> keyItems = Lists.newArrayListWithExpectedSize(columnSize);
+                                final List<Object> keyItems = Lists.newArrayList();
                                 if (prefixKeyPart != null) {
                                     keyItems.addAll(prefixKeyPart.getItems());
                                 }
                                 keyItems.addAll(itemSlot.getPosition().getCoordinates().getItems());
                                 keyItems.addAll(itemSlot.getKey().getItems());
-                                Verify.verify(keyItems.size() == columnSize);
                                 return new IndexEntry(state.index, Tuple.fromList(keyItems), itemSlot.getValue());
                             });
                 },
@@ -198,7 +192,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             final Function<Void, CompletableFuture<Void>> futureSupplier =
                     vignore -> {
                         final RTree.Point point =
-                                new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, dimensionsSize)));
+                                new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize)));
                         final BigInteger hilbertValue = RTreeIndexHelper.hilbertValue(point);
 
                         final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
@@ -269,117 +263,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             tr.clear(key, ByteArrayUtil.strinc(key));
             return v;
         });
-    }
-    
-    private static boolean rangesOverlapWithMbr(@Nonnull final List<TupleRange> dimensionRanges, @Nonnull final RTree.Rectangle mbr) {
-        Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
-
-        for (int d = 0; d < mbr.getNumDimensions(); d++) {
-            final Tuple lowTuple = Tuple.from(mbr.getLow(d));
-            final Tuple highTuple = Tuple.from(mbr.getHigh(d));
-
-            final TupleRange dimensionRange = dimensionRanges.get(d);
-
-            switch (dimensionRange.getLowEndpoint()) {
-                case TREE_START:
-                    break;
-                case RANGE_INCLUSIVE:
-                case RANGE_EXCLUSIVE:
-                    final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
-                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                            TupleHelpers.compare(highTuple, dimensionLow) < 0) {
-                        return false;
-                    }
-                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                            TupleHelpers.compare(highTuple, dimensionLow) <= 0) {
-                        return false;
-                    }
-                    break;
-                case TREE_END:
-                case CONTINUATION:
-                case PREFIX_STRING:
-                default:
-                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
-            }
-
-            switch (dimensionRange.getHighEndpoint()) {
-                case TREE_END:
-                    break;
-                case RANGE_INCLUSIVE:
-                case RANGE_EXCLUSIVE:
-                    final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
-                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                            TupleHelpers.compare(lowTuple, dimensionHigh) > 0) {
-                        return false;
-                    }
-                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                            TupleHelpers.compare(highTuple, dimensionHigh) >= 0) {
-                        return false;
-                    }
-                    break;
-                case TREE_START:
-                case CONTINUATION:
-                case PREFIX_STRING:
-                default:
-                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
-            }
-        }
-        return true;
-    }
-
-    private static boolean rangesContainPosition(@Nonnull final List<TupleRange> dimensionRanges, @Nonnull final RTree.Point point) {
-        Preconditions.checkArgument(point.getNumDimensions() == dimensionRanges.size());
-
-        for (int d = 0; d < point.getNumDimensions(); d++) {
-            final Tuple coordinate = Tuple.from(point.getCoordinate(d));
-
-            final TupleRange dimensionRange = dimensionRanges.get(d);
-
-            switch (dimensionRange.getLowEndpoint()) {
-                case TREE_START:
-                    break;
-                case RANGE_INCLUSIVE:
-                case RANGE_EXCLUSIVE:
-                    final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
-                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                            TupleHelpers.compare(coordinate, dimensionLow) < 0) {
-                        return false;
-                    }
-                    if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                            TupleHelpers.compare(coordinate, dimensionLow) <= 0) {
-                        return false;
-                    }
-                    break;
-                case TREE_END:
-                case CONTINUATION:
-                case PREFIX_STRING:
-                default:
-                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
-            }
-
-            switch (dimensionRange.getHighEndpoint()) {
-                case TREE_END:
-                    break;
-                case RANGE_INCLUSIVE:
-                case RANGE_EXCLUSIVE:
-                    final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
-                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                            TupleHelpers.compare(coordinate, dimensionHigh) > 0) {
-                        return false;
-                    }
-                    if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                            TupleHelpers.compare(coordinate, dimensionHigh) >= 0) {
-                        return false;
-                    }
-                    break;
-                case TREE_START:
-                case CONTINUATION:
-                case PREFIX_STRING:
-                default:
-                    throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
-            }
-        }
-        return true;
     }
 
     static class OnReadLimiter implements RTree.OnReadListener {

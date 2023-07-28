@@ -283,12 +283,14 @@ public class RTreeScanTest extends FDBTestBase {
     @Test
     void name() {
         final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
-        System.out.println(hc.index( 0, 1));
-        System.out.println(index(63, 0, 1));
+        System.out.println(hc.index(0, 0xFFL));
+        System.out.println(hc.index(0, 0xFFL | (1L << 63L)));
+        System.out.println(hc.index(0, 255L));
+        System.out.println(hc.index(0, -9223372036854775553L));
 
         //System.out.println(hc.index( Long.MAX_VALUE, 0));
         System.out.println(index(64, Long.MAX_VALUE, 0));
-        System.out.println(index(64, Long.MAX_VALUE, 1));
+        System.out.println(index(64, -1L, 0));
 
         System.out.println(shiftCoordinate(-1));
         System.out.println(shiftCoordinate(0));
