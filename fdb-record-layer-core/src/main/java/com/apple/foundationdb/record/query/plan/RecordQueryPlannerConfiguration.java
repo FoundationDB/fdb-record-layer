@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -40,6 +42,8 @@ import java.util.stream.Stream;
  */
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
+    @Nonnull
+    private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
@@ -48,7 +52,9 @@ public class RecordQueryPlannerConfiguration {
     private final int complexityThreshold;
     private final boolean checkForDuplicateConditions;
     private final boolean deferFetchAfterUnionAndIntersection;
+    private final boolean deferFetchAfterInJoinAndInUnion;
     private final boolean optimizeForIndexFilters;
+    private final boolean optimizeForRequiredResults;
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
     private final boolean useFullKeyForValueIndex;
@@ -59,7 +65,6 @@ public class RecordQueryPlannerConfiguration {
     private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
     private final boolean deferCrossProducts;
     private final IndexFetchMethod indexFetchMethod;
-    private final int maxNumReplansForInToJoin;
 
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
@@ -67,6 +72,8 @@ public class RecordQueryPlannerConfiguration {
      */
     private final Set<String> valueIndexesOverScanNeeded;
     private final boolean planOtherAttemptWholeFilter;
+    private final int maxNumReplansForInToJoin;
+    private final int orToUnionMaxNumConjuncts;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -74,7 +81,9 @@ public class RecordQueryPlannerConfiguration {
                                             int complexityThreshold,
                                             boolean checkForDuplicateConditions,
                                             boolean deferFetchAfterUnionAndIntersection,
+                                            boolean deferFetchAfterInJoinAndInUnion,
                                             boolean optimizeForIndexFilters,
+                                            boolean optimizeForRequiredResults,
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
                                             boolean useFullKeyForValueIndex,
@@ -84,15 +93,18 @@ public class RecordQueryPlannerConfiguration {
                                             final boolean deferCrossProducts,
                                             @Nonnull final IndexFetchMethod indexFetchMethod,
                                             @Nonnull final Set<String> valueIndexesOverScanNeeded,
-                                            boolean planOtherAttemptWholeFilter,
-                                            int maxNumReplansForInToJoin) {
+                                            final boolean planOtherAttemptWholeFilter,
+                                            final int maxNumReplansForInToJoin,
+                                            final int orToUnionMaxNumConjuncts) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+        this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
         this.optimizeForIndexFilters = optimizeForIndexFilters;
+        this.optimizeForRequiredResults = optimizeForRequiredResults;
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
@@ -104,6 +116,7 @@ public class RecordQueryPlannerConfiguration {
         this.valueIndexesOverScanNeeded = valueIndexesOverScanNeeded;
         this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
         this.maxNumReplansForInToJoin = maxNumReplansForInToJoin;
+        this.orToUnionMaxNumConjuncts = orToUnionMaxNumConjuncts;
     }
 
     /**
@@ -183,12 +196,30 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
+     * Get whether the query planner should attempt to delay the fetch of the whole record until after in-join or in union operators.
+     * @return whether the planner should delay the fetch of the whole record until after in-join or in union operators.
+     */
+    public boolean shouldDeferFetchAfterInJoinAndInUnion() {
+        return deferFetchAfterInJoinAndInUnion;
+    }
+
+    /**
      * Get whether the query planner should attempt to consider the applicability of filters that could then be
      * evaluated on index entries into the planning process.
      * @return whether the planner should optimize for index filters
      */
     public boolean shouldOptimizeForIndexFilters() {
         return optimizeForIndexFilters;
+    }
+
+    /**
+     * Get whether the query planner should attempt to consider the set of required result fields while finding the
+     * best index for a record type access. If a query does not set the set of required results
+     * ({@link RecordQuery#getRequiredResults()}), enabling this switch is meaningless.
+     * @return whether the planner should optimize for the set of required results
+     */
+    public boolean shouldOptimizeForRequiredResults() {
+        return optimizeForRequiredResults;
     }
 
     /**
@@ -284,6 +315,15 @@ public class RecordQueryPlannerConfiguration {
         return maxNumReplansForInToJoin;
     }
 
+    /**
+     * Returns the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
+     * applied.
+     * @return the maximum number of conjuncts
+     */
+    public int getOrToUnionMaxNumConjuncts() {
+        return orToUnionMaxNumConjuncts;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -292,6 +332,11 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Nonnull
+    public static RecordQueryPlannerConfiguration defaultPlannerConfiguration() {
+        return DEFAULT_PLANNER_CONFIGURATION;
     }
 
     /**
@@ -305,7 +350,9 @@ public class RecordQueryPlannerConfiguration {
         private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
         private boolean checkForDuplicateConditions = false;
         private boolean deferFetchAfterUnionAndIntersection = false;
+        private boolean deferFetchAfterInJoinAndInUnion = false;
         private boolean optimizeForIndexFilters = false;
+        private boolean optimizeForRequiredResults = false;
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
         private boolean useFullKeyForValueIndex = true;
@@ -323,6 +370,8 @@ public class RecordQueryPlannerConfiguration {
         private boolean planOtherAttemptWholeFilter;
         private int maxNumReplansForInToJoin = 0;
 
+        private int orToUnionMaxNumConjuncts = PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
+
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
@@ -330,7 +379,9 @@ public class RecordQueryPlannerConfiguration {
             this.complexityThreshold = configuration.complexityThreshold;
             this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
             this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
+            this.deferFetchAfterInJoinAndInUnion = configuration.deferFetchAfterInJoinAndInUnion;
             this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
+            this.optimizeForRequiredResults = configuration.optimizeForRequiredResults;
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
@@ -339,6 +390,7 @@ public class RecordQueryPlannerConfiguration {
             this.disabledTransformationRules = configuration.disabledTransformationRules;
             this.indexFetchMethod = configuration.indexFetchMethod;
             this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
+            this.orToUnionMaxNumConjuncts = configuration.orToUnionMaxNumConjuncts;
         }
 
         public Builder() {
@@ -374,8 +426,25 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
+            this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
+            return this;
+        }
+
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
             this.optimizeForIndexFilters = optimizeForIndexFilters;
+            return this;
+        }
+
+        /**
+         * Set whether the query planner should attempt to consider the set of required result fields while finding the
+         * best index for a record type access. If a query does not set the set of required results
+         * ({@link RecordQuery#getRequiredResults()}), enabling this switch is meaningless.
+         * @param optimizeForRequiredResults set the optimizeForRequiredResults parameter
+         * @return this builder
+         */
+        public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
+            this.optimizeForRequiredResults = optimizeForRequiredResults;
             return this;
         }
 
@@ -546,6 +615,17 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the maximum number of conjuncts whose combinations are enumerated when {@link PredicateToLogicalUnionRule} is
+         * applied. This option only applies to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
+         * @param orToUnionMaxNumConjuncts the maximum number of conjuncts
+         * @return this builder
+         */
+        public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
+            this.orToUnionMaxNumConjuncts = orToUnionMaxNumConjuncts;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -553,7 +633,9 @@ public class RecordQueryPlannerConfiguration {
                     complexityThreshold,
                     checkForDuplicateConditions,
                     deferFetchAfterUnionAndIntersection,
+                    deferFetchAfterInJoinAndInUnion,
                     optimizeForIndexFilters,
+                    optimizeForRequiredResults,
                     maxTaskQueueSize,
                     maxTotalTaskCount,
                     useFullKeyForValueIndex,
@@ -564,7 +646,8 @@ public class RecordQueryPlannerConfiguration {
                     indexFetchMethod,
                     valueIndexesOverScanNeeded,
                     planOtherAttemptWholeFilter,
-                    maxNumReplansForInToJoin);
+                    maxNumReplansForInToJoin,
+                    orToUnionMaxNumConjuncts);
         }
     }
 }

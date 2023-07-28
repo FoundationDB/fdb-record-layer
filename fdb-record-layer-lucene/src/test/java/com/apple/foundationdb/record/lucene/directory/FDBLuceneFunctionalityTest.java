@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.test.Tags;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -68,6 +69,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenTermQueryWhenFetchedDocumentThenCorrect() throws Exception {
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         luceneIndex.indexDocument("activity", "running in track");
         luceneIndex.indexDocument("activity", "Cars are running on road");
         Term term = new Term("body", "running");
@@ -89,6 +91,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
     @Test
     public void givenBooleanQueryWhenFetchedDocumentThenCorrect() throws Exception {
         luceneIndex.indexDocument("Destination", "Las Vegas singapore car");
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         luceneIndex.indexDocument("Commutes in singapore", "Bus Car Bikes");
         Term term1 = new Term("body", "singapore");
         Term term2 = new Term("body", "car");
@@ -110,6 +113,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenFuzzyQueryWhenFetchedDocumentThenCorrect() throws Exception {
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         luceneIndex.indexDocument("article", "Halloween Festival");
         luceneIndex.indexDocument("decoration", "Decorations for Halloween");
         Term term = new Term("body", "hallowen");
@@ -132,6 +136,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
     public void givenSortFieldWhenSortedThenCorrect() throws Exception {
         luceneIndex.indexDocument("Ganges", "River in India");
         luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         luceneIndex.indexDocument("Amazon", "Rain forest river");
         luceneIndex.indexDocument("Rhine", "Belongs to Europe");
         luceneIndex.indexDocument("Nile", "Longest River");
@@ -149,6 +154,7 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void whenDocumentDeletedThenCorrect() throws IOException {
+        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
         luceneIndex.indexDocument("Ganges", "River in India");
         luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
         Term term = new Term("title", "ganges");

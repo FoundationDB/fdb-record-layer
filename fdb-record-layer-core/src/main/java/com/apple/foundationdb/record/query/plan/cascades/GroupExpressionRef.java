@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -174,20 +175,19 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      *         otherwise.
      */
     private boolean insert(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.BEGIN)));
-        final boolean containsInMemo;
+        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
-            containsInMemo = containsInMemo(newValue);
-        } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, Debugger.Location.END)));
-        }
-        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(newValue, containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
+            final boolean containsInMemo = containsInMemo(newValue);
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(containsInMemo ? Debugger.Location.REUSED : Debugger.Location.NEW)));
 
-        if (!containsInMemo) {
-            insertUnchecked(newValue, precomputedPropertiesMap);
-            return true;
+            if (!containsInMemo) {
+                insertUnchecked(newValue, precomputedPropertiesMap);
+                return true;
+            }
+            return false;
+        } finally {
+            Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.END)));
         }
-        return false;
     }
 
     /**
@@ -270,6 +270,236 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return false;
     }
 
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
+        for (final T member : getMembers()) {
+            builder.addAll(member.getCorrelatedTo());
+        }
+        return builder.build();
+    }
+
+    @SuppressWarnings("java:S1905")
+    @Nonnull
+    @Override
+    public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
+        final var expressionRef = translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
+        if (expressionRef instanceof GroupExpressionRef<?>) {
+            return (GroupExpressionRef<T>)expressionRef;
+        } else {
+            return GroupExpressionRef.from(expressionRef.getMembers());
+        }
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("unchecked")
+    public ExpressionRef<T> translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var translatedRefs = ExpressionRefs.translateCorrelations(ImmutableList.of(this), translationMap);
+        return (ExpressionRef<T>)Iterables.getOnlyElement(translatedRefs);
+    }
+
+    /**
+     * Method that resolves the result type by looking and unifying the result types from all the members.
+     * @return {@link Type} representing result type
+     */
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return getMembers()
+                .stream()
+                .map(RelationalExpression::getResultType)
+                .reduce((left, right) -> {
+                    Verify.verify(left.equals(right));
+                    return left;
+                })
+                .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
+    }
+
+    public void clear() {
+        propertiesMap.clear();
+        members.clear();
+    }
+
+    public void startExploration() {
+        constraintsMap.startExploration();
+    }
+
+    public void commitExploration() {
+        constraintsMap.commitExploration();
+    }
+
+    public boolean needsExploration() {
+        return !constraintsMap.isExploring() && !constraintsMap.isExplored();
+    }
+
+    public boolean isExploring() {
+        return constraintsMap.isExploring();
+    }
+
+    public boolean hasNeverBeenExplored() {
+        return constraintsMap.hasNeverBeenExplored();
+    }
+
+    public boolean isFullyExploring() {
+        return constraintsMap.isFullyExploring();
+    }
+
+    public boolean isExploredForAttributes(@Nonnull final Set<PlannerConstraint<?>> dependencies) {
+        return constraintsMap.isExploredForAttributes(dependencies);
+    }
+
+    @Nonnull
+    @Override
+    public LinkedIdentitySet<T> getMembers() {
+        return members;
+    }
+
+    /**
+     * Re-reference members of this group, i.e., use a subset of members to from a new {@link GroupExpressionRef}.
+     * Note that {@code this} group must not need exploration.
+     *
+     * @param expressions a collection of expressions that all have to be members of this group
+     * @return a new explored {@link GroupExpressionRef}
+     */
+    @SuppressWarnings({"SuspiciousMethodCalls", "unchecked"})
+    @Nonnull
+    @Override
+    public ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        Verify.verify(!needsExploration());
+        Verify.verify(getMembers().containsAll(expressions));
+
+        final var members = new LinkedIdentitySet<T>();
+        expressions.forEach(expression -> members.add((T)expression));
+        final var newRef = new GroupExpressionRef<>(members);
+        newRef.getConstraintsMap().setExplored();
+        return newRef;
+    }
+
+    @Nonnull
+    @Override
+    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
+        return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
+    }
+
+    @Nonnull
+    @Override
+    public List<PlanPartition> getPlanPartitions() {
+        return propertiesMap.getPlanPartitions();
+    }
+
+    @Nullable
+    @Override
+    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
+        if (property.shouldVisit(this)) {
+            final List<U> memberResults = new ArrayList<>(members.size());
+            for (T member : members) {
+                final U result = property.shouldVisit(member) ? property.visit(member) : null;
+                if (result == null) {
+                    return null;
+                }
+                memberResults.add(result);
+            }
+            return property.evaluateAtRef(this, memberResults);
+        }
+        return null;
+    }
+
+    @SuppressWarnings("checkstyle:Indentation")
+    @Override
+    public String toString() {
+        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+                                    getMembers().stream()
+                       .map(debugger::nameForObject)
+                       .collect(Collectors.joining(",")) + "]")
+                .orElse("ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final GroupExpressionRef<T> otherRef = (GroupExpressionRef<T>)other;
+
+        final Iterator<T> iterator = members.iterator();
+        final ImmutableMultimap.Builder<Integer, T> expressionsMapBuilder = ImmutableMultimap.builder();
+
+        while (iterator.hasNext()) {
+            final T next = iterator.next();
+            expressionsMapBuilder.put(next.semanticHashCode(), next);
+        }
+        final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
+
+        for (final T otherMember : otherRef.getMembers()) {
+            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, aliasMap))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int semanticHashCode() {
+        final Iterator<T> iterator = members.iterator();
+        final ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+
+        while (iterator.hasNext()) {
+            final T next = iterator.next();
+            builder.add(next.semanticHashCode());
+        }
+
+        return Objects.hash(builder.build());
+    }
+
+    @Nonnull
+    @Override
+    public Set<MatchCandidate> getMatchCandidates() {
+        return partialMatchMap.keySet();
+    }
+
+    @Nonnull
+    @Override
+    public Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression) {
+        return partialMatchMap.values()
+                .stream()
+                .filter(partialMatch ->
+                        // partial matches need to be compared by identity
+                        partialMatch.getQueryExpression() == expression)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
+    @Override
+    public Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate) {
+        return partialMatchMap.get(candidate);
+    }
+
+    @Override
+    public boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch) {
+        return partialMatchMap.put(candidate, partialMatch);
+    }
+
+    /**
+     * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
+     * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
+     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
+     * it represents rendered in your standard browser.
+     * @param renderSingleGroups whether to render group references with just one member
+     * @return the String "done"
+     */
+    @Nonnull
+    public String show(final boolean renderSingleGroups) {
+        return PlannerGraphProperty.show(renderSingleGroups, this);
+    }
+
     public static boolean containsInMember(@Nonnull final RelationalExpression expression,
                                            @Nonnull final RelationalExpression otherExpression) {
         final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
@@ -349,122 +579,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
-        for (final T member : getMembers()) {
-            builder.addAll(member.getCorrelatedTo());
-        }
-        return builder.build();
-    }
-
-    @SuppressWarnings("java:S1905")
-    @Nonnull
-    @Override
-    public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
-        final var expressionRef = translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
-        if (expressionRef instanceof GroupExpressionRef<?>) {
-            return (GroupExpressionRef<T>)expressionRef;
-        } else {
-            return GroupExpressionRef.from(expressionRef.getMembers());
-        }
-    }
-
-    @Nonnull
-    @Override
-    @SuppressWarnings("unchecked")
-    public ExpressionRef<T> translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final var translatedRefs = ExpressionRefs.translateCorrelations(ImmutableList.of(this), translationMap);
-        return (ExpressionRef<T>)Iterables.getOnlyElement(translatedRefs);
-    }
-
-    /**
-     * Method that resolves the result type by looking and unifying the result types from all the members.
-     * @return {@link Type} representing result type
-     */
-    @Nonnull
-    @Override
-    public Type getResultType() {
-        return getMembers()
-                .stream()
-                .map(RelationalExpression::getResultType)
-                .reduce((left, right) -> {
-                    Verify.verify(left.equals(right));
-                    return left;
-                })
-                .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
-    }
-
-    public void clear() {
-        propertiesMap.clear();
-        members.clear();
-    }
-
-    public void startExploration() {
-        constraintsMap.startExploration();
-    }
-
-    public void commitExploration() {
-        constraintsMap.commitExploration();
-    }
-
-    public boolean needsExploration() {
-        return !constraintsMap.isExploring() && !constraintsMap.isExplored();
-    }
-
-    public boolean isExploring() {
-        return constraintsMap.isExploring();
-    }
-
-    public boolean isFullyExploring() {
-        return constraintsMap.isFullyExploring();
-    }
-
-    public boolean isExploredForAttributes(@Nonnull final Set<PlannerConstraint<?>> dependencies) {
-        return constraintsMap.isExploredForAttributes(dependencies);
-    }
-
-    @Nonnull
-    @Override
-    public LinkedIdentitySet<T> getMembers() {
-        return members;
-    }
-
-    @Nonnull
-    @Override
-    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
-        return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
-    }
-
-    @Nonnull
-    @Override
-    public List<PlanPartition> getPlanPartitions() {
-        return propertiesMap.getPlanPartitions();
-    }
-
-    @Nullable
-    @Override
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
-        if (property.shouldVisit(this)) {
-            final List<U> memberResults = new ArrayList<>(members.size());
-            for (T member : members) {
-                final U result = property.shouldVisit(member) ? property.visit(member) : null;
-                if (result == null) {
-                    return null;
-                }
-                memberResults.add(result);
-            }
-            return property.evaluateAtRef(this, memberResults);
-        }
-        return null;
-    }
-
-    @Override
-    public String toString() {
-        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")";
-    }
-
     public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
         return new GroupExpressionRef<>();
     }
@@ -478,7 +592,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T... expressions) {
+    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull T... expressions) {
         return from(Arrays.asList(expressions));
     }
 
@@ -487,91 +601,5 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         expressions.forEach(Debugger::registerExpression);
         members.addAll(expressions);
         return new GroupExpressionRef<>(members);
-    }
-
-    @Override
-    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (this == other) {
-            return true;
-        }
-
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-
-        final GroupExpressionRef<T> otherRef = (GroupExpressionRef<T>)other;
-
-        final Iterator<T> iterator = members.iterator();
-        final ImmutableMultimap.Builder<Integer, T> expressionsMapBuilder = ImmutableMultimap.builder();
-
-        while (iterator.hasNext()) {
-            final T next = iterator.next();
-            expressionsMapBuilder.put(next.semanticHashCode(), next);
-        }
-
-        final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
-
-        for (final T otherMember : otherRef.getMembers()) {
-            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, aliasMap))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    @Override
-    public int semanticHashCode() {
-        final Iterator<T> iterator = members.iterator();
-        final ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-
-        while (iterator.hasNext()) {
-            final T next = iterator.next();
-            builder.add(next.semanticHashCode());
-        }
-
-        return Objects.hash(builder.build());
-    }
-
-    @Nonnull
-    @Override
-    public Set<MatchCandidate> getMatchCandidates() {
-        return partialMatchMap.keySet();
-    }
-
-    @Nonnull
-    @Override
-    public Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression) {
-        return partialMatchMap.values()
-                .stream()
-                .filter(partialMatch ->
-                        // partial matches need to be compared by identity
-                        partialMatch.getQueryExpression() == expression)
-                .collect(ImmutableSet.toImmutableSet());
-    }
-
-    @Nonnull
-    @Override
-    public Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate) {
-        return partialMatchMap.get(candidate);
-    }
-
-    @Override
-    public boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch) {
-        return partialMatchMap.put(candidate, partialMatch);
-    }
-
-    /**
-     * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
-     * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
-     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
-     * it represents rendered in your standard browser.
-     * @param renderSingleGroups whether to render group references with just one member
-     * @return the String "done"
-     */
-    @Nonnull
-    public String show(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.show(renderSingleGroups, this);
     }
 }

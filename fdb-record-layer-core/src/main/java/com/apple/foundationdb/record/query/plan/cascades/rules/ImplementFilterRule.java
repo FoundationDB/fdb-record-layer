@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -78,20 +77,18 @@ public class ImplementFilterRule extends CascadesRule<LogicalFilterExpression> {
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final var innerReference = call.get(innerReferenceMatcher);
         final var queryPredicates = bindings.getAll(predicateMatcher);
         final var innerQuantifier = bindings.get(quantifierMatcher);
 
-        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlanPartition.getPlans());
-
         if (queryPredicates.stream().allMatch(QueryPredicate::isTautology)) {
-            call.yield(referenceOverPlans);
+            call.yield(innerPlanPartition.getPlans());
         } else {
-            call.yield(GroupExpressionRef.of(
-                    new RecordQueryPredicatesFilterPlan(
-                            Quantifier.physicalBuilder()
-                                    .morphFrom(innerQuantifier)
-                                    .build(referenceOverPlans),
-                            queryPredicates.stream().map(QueryPredicate::toResidualPredicate).collect(ImmutableList.toImmutableList()))));
+            call.yield(new RecordQueryPredicatesFilterPlan(
+                    Quantifier.physicalBuilder()
+                            .morphFrom(innerQuantifier)
+                            .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans())),
+                    queryPredicates.stream().map(QueryPredicate::toResidualPredicate).collect(ImmutableList.toImmutableList())));
         }
     }
 }

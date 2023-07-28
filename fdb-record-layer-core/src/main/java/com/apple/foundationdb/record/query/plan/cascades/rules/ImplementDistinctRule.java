@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
@@ -81,14 +80,16 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final var innerReference = call.get(innerReferenceMatcher);
 
         if (innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
-            call.yield(GroupExpressionRef.from(innerPlanPartition.getPlans()));
+            call.yield(innerPlanPartition.getPlans());
         } else {
             // these create duplicates
-            call.yield(GroupExpressionRef.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                    Quantifier.physical(
-                            GroupExpressionRef.from(innerPlanPartition.getPlans())))));
+            call.yield(
+                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                            Quantifier.physical(
+                                    call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));
         }
     }
 }

@@ -52,7 +52,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -598,9 +597,7 @@ public abstract class IndexingBase {
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
     protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
-        int limit = getLimit();
-        int recordsPerSecond = common.config.getRecordsPerSecond();
-        int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
+        long toWait = throttle.waitTimeMilliseconds();
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
             FDBStoreTimer timer = getRunner().getTimer();
@@ -611,12 +608,11 @@ public abstract class IndexingBase {
             }
             LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
                     subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.DELAY, toWait,
-                    LogMessageKeys.RECORDS_PER_SECOND, recordsPerSecond)
+                    LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeysAndValues(throttle.logMessageKeyValues())
                     .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
                     .toString());
         }
@@ -630,7 +626,7 @@ public abstract class IndexingBase {
         return delay;
     }
 
-    private void validateTimeLimit(int toWait) {
+    private void validateTimeLimit(long toWait) {
         final long timeLimitMilliseconds = common.config.getTimeLimitMilliseconds();
         if (timeLimitMilliseconds == OnlineIndexer.Config.UNLIMITED_TIME) {
             return;
@@ -663,7 +659,16 @@ public abstract class IndexingBase {
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-        return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues);
+        return buildCommitRetryAsync(buildFunction, additionalLogMessageKeyValues, false);
+    }
+
+    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+                                                          @Nullable List<Object> additionalLogMessageKeyValues, final boolean duringRangesIteration) {
+        return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues, duringRangesIteration);
+    }
+
+    public long getTotalRecordsScannedScuccessfully() {
+        return throttle.getTotalRecordsScannedScuccessfully();
     }
 
     protected void timerIncrement(FDBStoreTimer.Counts event) {
@@ -913,9 +918,7 @@ public abstract class IndexingBase {
                                                        @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
-                    throttle.buildCommitRetryAsync(iterateRange,
-                            shouldReturnQuietly,
-                            additionalLogMessageKeyValues)
+                    throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
                                     if (Boolean.FALSE.equals(hasMore)) {
@@ -970,14 +973,6 @@ public abstract class IndexingBase {
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
-
-    // These throttle methods are externalized for testing usage only
-    @Nonnull
-    <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
-                                               @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final List<Object> additionalLogMessageKeyValues) {
-        return throttle.throttledRunAsync(function, handlePostTransaction, null, additionalLogMessageKeyValues);
-    }
 
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
         if (!isValid) {
@@ -1184,7 +1179,7 @@ public abstract class IndexingBase {
         return findException(ex, UnexpectedReadableException.class);
     }
 
-    private static <T> T findException(@Nullable Throwable ex, Class<T> classT) {
+    protected static <T> T findException(@Nullable Throwable ex, Class<T> classT) {
         Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = ex;
                 current != null && !seenSet.contains(current);

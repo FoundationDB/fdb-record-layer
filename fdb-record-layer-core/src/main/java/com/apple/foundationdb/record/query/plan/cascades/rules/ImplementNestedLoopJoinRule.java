@@ -24,11 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -66,13 +67,20 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final BindingMatcher<PlanPartition> outerPlanPartitionsMatcher = anyPlanPartition();
-    // TODO don't roll up
+
     @Nonnull
-    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(outerPlanPartitionsMatcher))));
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> outerReferenceMatcher =
+            planPartitions(rollUp(all(outerPlanPartitionsMatcher)));
+    @Nonnull
+    private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(outerReferenceMatcher);
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionsMatcher = anyPlanPartition();
+
     @Nonnull
-    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(planPartitions(rollUp(all(innerPlanPartitionsMatcher))));
+    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+            planPartitions(rollUp(all(innerPlanPartitionsMatcher)));
+    @Nonnull
+    private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(exactlyInAnyOrder(outerQuantifierMatcher, innerQuantifierMatcher)).where(canBeImplemented());
@@ -96,6 +104,9 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
         final var outerQuantifier = bindings.get(outerQuantifierMatcher);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
+
+        final var outerReference = bindings.get(outerReferenceMatcher);
+        final var innerReference = bindings.get(innerReferenceMatcher);
 
         final var outerPartition = bindings.get(outerPlanPartitionsMatcher);
         final var innerPartition = bindings.get(innerPlanPartitionsMatcher);
@@ -144,38 +155,38 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        var outerRef = GroupExpressionRef.from(outerPartition.getPlans());
+        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getPlans());
 
         if (outerQuantifier instanceof Quantifier.Existential) {
-            outerRef = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
-                    new NullValue(outerQuantifier.getFlowedObjectType())));
+            outerRef = call.memoizePlans(
+                    new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
+                            new NullValue(outerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerPredicates.isEmpty()) {
             // create a new quantifier using a new alias
             final var newOuterLowerQuantifier = Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
-            outerRef = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
+            outerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
         }
 
         final var newOuterQuantifier =
                 Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
 
         var innerRef =
-                GroupExpressionRef.from(innerPartition.getPlans());
+                call.memoizeMemberPlans(innerReference, innerPartition.getPlans());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
-            innerRef = GroupExpressionRef.of(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
+            innerRef = call.memoizePlans(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
                     new NullValue(innerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerInnerPredicates.isEmpty()) {
             final var newInnerLowerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
-            innerRef = GroupExpressionRef.of(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
+            innerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
         }
 
         final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
-        call.yield(GroupExpressionRef.of(
-                new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential)));
+        call.yield(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
     }
 }

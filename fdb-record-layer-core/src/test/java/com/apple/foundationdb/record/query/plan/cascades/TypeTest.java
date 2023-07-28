@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -40,8 +41,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,7 +56,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Tests for synthesizing a protobuf descriptor from a {@link Type} object.
+ * Tests for synthesizing a protobuf descriptor from a {@link Type} object and lifting a Java object type into an
+ * equivalent {@link Type}.
  */
 class TypeTest {
 
@@ -186,5 +192,77 @@ class TypeTest {
         final Descriptors.Descriptor messageDescriptor = fileDescriptor.findMessageTypeByName(typeName.get());
         final Message actual = DynamicMessage.parseFrom(messageDescriptor, message.toByteArray());
         areEqual(message, actual, messageDescriptor);
+    }
+
+    static class TypesProvider implements ArgumentsProvider {
+
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+            final var listOfNulls = new LinkedList<Integer>();
+            listOfNulls.add(null);
+            final var listOfNullsAndNonNulls = new LinkedList<Integer>();
+            listOfNullsAndNonNulls.add(null);
+            listOfNullsAndNonNulls.add(42);
+            listOfNullsAndNonNulls.add(43);
+            return Stream.of(
+
+                    // Typed objects
+                    Arguments.of(LiteralValue.ofScalar(false), LiteralValue.ofScalar(false).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(42), LiteralValue.ofScalar(42).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(42.1d), LiteralValue.ofScalar(42.1d).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(42.2f), LiteralValue.ofScalar(42.2f).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(43L), LiteralValue.ofScalar(43L).getResultType()),
+                    Arguments.of(LiteralValue.ofScalar("foo"), LiteralValue.ofScalar("foo").getResultType()),
+                    Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
+                            LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())).getResultType()),
+
+
+                    // Primitives
+                    Arguments.of(null, Type.nullType()),
+                    Arguments.of(false, Type.primitiveType(Type.TypeCode.BOOLEAN, false)),
+                    Arguments.of(42, Type.primitiveType(Type.TypeCode.INT, false)),
+                    Arguments.of(42.1d, Type.primitiveType(Type.TypeCode.DOUBLE, false)),
+                    Arguments.of(42.2f, Type.primitiveType(Type.TypeCode.FLOAT, false)),
+                    Arguments.of(43L, Type.primitiveType(Type.TypeCode.LONG, false)),
+                    Arguments.of("foo", Type.primitiveType(Type.TypeCode.STRING, false)),
+                    Arguments.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()), Type.primitiveType(Type.TypeCode.BYTES, false)),
+
+                    // Arrays
+                    Arguments.of(listOfNulls, new Type.Array(Type.any())),
+                    Arguments.of(listOfNullsAndNonNulls, new Type.Array(Type.primitiveType(Type.TypeCode.INT, true)), false),
+                    Arguments.of(List.of(false), new Type.Array(Type.primitiveType(Type.TypeCode.BOOLEAN, false))),
+                    Arguments.of(List.of(42), new Type.Array(Type.primitiveType(Type.TypeCode.INT, false))),
+                    Arguments.of(List.of(42.1d), new Type.Array(Type.primitiveType(Type.TypeCode.DOUBLE, false))),
+                    Arguments.of(List.of(42.2f), new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT, false))),
+                    Arguments.of(List.of(43L), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false))),
+                    Arguments.of(List.of("foo"), new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false))),
+                    Arguments.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))),
+
+
+                    // Arrays of arrays
+                    Arguments.of(List.of(listOfNulls), new Type.Array(new Type.Array(Type.any())), false),
+                    Arguments.of(List.of(listOfNullsAndNonNulls), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT, true)))),
+                    Arguments.of(List.of(List.of(false), List.of(false)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BOOLEAN, false)))),
+                    Arguments.of(List.of(List.of(42), List.of(42)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)))),
+                    Arguments.of(List.of(List.of(42.1d), List.of(42.1d)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.DOUBLE, false)))),
+                    Arguments.of(List.of(List.of(42.2f), List.of(42.2f)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.FLOAT, false)))),
+                    Arguments.of(List.of(List.of(43L), List.of(43L)), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)))),
+                    Arguments.of(List.of(List.of("foo"), List.of("foo")), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false)))),
+                    Arguments.of(List.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
+                            List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))), false),
+
+                    // Unsupported cases
+                    Arguments.of(new int[] {1, 2, 3}, Type.any()), // primitive Arrays are not supported
+                    Arguments.of(new Integer[] {1, 2, 3}, Type.any()), // object Arrays are not supported
+                    Arguments.of(TestRecords2Proto.MyLongRecord.newBuilder().setRecNo(42).setBytesValue(ByteString.copyFrom(RandomUtils.nextBytes(20))).build(), Type.any()), // messages are not supported
+                    Arguments.of(Type.TypeCode.ANY, Type.any()) // enums are not supported
+            );
+        }
+    }
+
+    @ParameterizedTest(name = "[{index} Java object {0}, Expected type {1}]")
+    @ArgumentsSource(TypesProvider.class)
+    void testTypeLifting(@Nullable final Object object, @Nonnull final Type expectedType) {
+        Assertions.assertEquals(expectedType, Type.fromObject(object));
     }
 }

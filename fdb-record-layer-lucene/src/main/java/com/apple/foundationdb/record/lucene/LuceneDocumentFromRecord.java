@@ -131,7 +131,12 @@ public class LuceneDocumentFromRecord {
         return fields.getFields();
     }
 
-    protected static class FDBRecordSource<M extends Message> implements LuceneIndexExpressions.RecordSource<FDBRecordSource<M>> {
+    /**
+     * A RecordSource based on an FDBRecord.
+     *
+     * @param <M> the message type contained in the source.
+     */
+    public static class FDBRecordSource<M extends Message> implements LuceneIndexExpressions.RecordSource<FDBRecordSource<M>> {
         @Nonnull
         private final FDBRecord<M> rec;
         @Nonnull

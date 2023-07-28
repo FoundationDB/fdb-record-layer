@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.function.Predicate;
@@ -51,7 +52,7 @@ public class TypedMatcherWithPredicate<T> extends TypedMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
         if (predicate.test(in)) {
             return Stream.of(PlannerBindings.from(this, in));
         } else {

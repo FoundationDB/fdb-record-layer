@@ -35,9 +35,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -62,7 +66,7 @@ import java.util.stream.StreamSupport;
  * A query plan that reconstructs records from the entries in an aggregate index.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate {
+public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithConstraint, RecordQueryPlanWithComparisons {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
     @Nonnull
@@ -78,6 +82,9 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     private final Value resultValue;
 
+    @Nonnull
+    private final QueryPlanConstraint constraint;
+
     /**
      * Creates an instance of {@link RecordQueryAggregateIndexPlan}.
      *
@@ -92,12 +99,31 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
                                          @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
                                          @Nonnull final Value resultValue) {
+        this(indexPlan, recordTypeName, indexEntryToPartialRecordConverter, partialRecordDescriptor, resultValue, QueryPlanConstraint.tautology());
+    }
 
+    /**
+     * Creates an instance of {@link RecordQueryAggregateIndexPlan}.
+     *
+     * @param indexPlan The underlying index.
+     * @param recordTypeName The name of the base record, used for debugging.
+     * @param indexEntryToPartialRecordConverter A converter from index entry to record.
+     * @param partialRecordDescriptor The descriptor of the resulting record.
+     * @param resultValue The result value.
+     * @param constraint The index filter.
+     */
+    public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
+                                         @Nonnull final String recordTypeName,
+                                         @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
+                                         @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
+                                         @Nonnull final Value resultValue,
+                                         @Nonnull final QueryPlanConstraint constraint) {
         this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
         this.partialRecordDescriptor = partialRecordDescriptor;
         this.resultValue = resultValue;
+        this.constraint = constraint;
     }
 
     @Nonnull
@@ -179,8 +205,8 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
-    public RecordQueryAggregateIndexPlan strictlySorted() {
-        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
+    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
     }
 
     @Nonnull
@@ -193,6 +219,11 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
+    }
+
+    @Nonnull
+    public IndexKeyValueToPartialRecord getToRecord() {
+        return toRecord;
     }
 
     @Override
@@ -209,7 +240,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public String toString() {
-        return "AggregateIndexScan(" + indexPlan + " -> " + toRecord + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull
@@ -294,5 +325,17 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                 NodeInfo.INDEX_SCAN_OPERATOR,
                 ImmutableList.of(),
                 ImmutableMap.of());
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlanConstraint getConstraint() {
+        return constraint;
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons getScanComparisons() {
+        return indexPlan.getScanComparisons();
     }
 }

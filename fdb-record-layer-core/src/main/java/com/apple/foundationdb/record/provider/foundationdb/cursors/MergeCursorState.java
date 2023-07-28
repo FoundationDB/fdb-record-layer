@@ -99,6 +99,10 @@ public class MergeCursorState<T> implements AutoCloseable {
         cursor.close();
     }
 
+    public boolean isClosed() {
+        return cursor.isClosed();
+    }
+
     @Nonnull
     public Executor getExecutor() {
         return cursor.getExecutor();

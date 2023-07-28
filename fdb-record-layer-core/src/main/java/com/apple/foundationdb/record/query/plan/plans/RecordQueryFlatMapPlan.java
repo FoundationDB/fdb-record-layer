@@ -29,8 +29,10 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -106,13 +108,15 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+
+        final var nestedExecuteProperties = executeProperties.clearSkipAndLimit();
         return RecordCursor.flatMapPipelined(
                 outerContinuation ->
-                        outerQuantifier.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),
+                        outerQuantifier.getRangesOverPlan().executePlan(store, context, outerContinuation, nestedExecuteProperties),
                 (outerResult, innerContinuation) -> {
                     final EvaluationContext fromOuterContext = context.withBinding(outerQuantifier.getAlias(), outerResult);
 
-                    return innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties)
+                    return innerQuantifier.getRangesOverPlan().executePlan(store, fromOuterContext, innerContinuation, nestedExecuteProperties)
                             .map(innerResult -> {
                                 final EvaluationContext nestedContext =
                                         fromOuterContext.withBinding(innerQuantifier.getAlias(), innerResult);
@@ -123,7 +127,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                             });
                 },
                 continuation,
-                5);
+                5).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -181,7 +185,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     }
 
     @Override
-    public RecordQueryFlatMapPlan strictlySorted() {
+    public RecordQueryFlatMapPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
 
@@ -194,7 +198,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     @Nonnull
     @Override
     public String toString() {
-        return "flatMap(" + outerQuantifier.getRangesOverPlan() + ", " + innerQuantifier.getRangesOverPlan() + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Override

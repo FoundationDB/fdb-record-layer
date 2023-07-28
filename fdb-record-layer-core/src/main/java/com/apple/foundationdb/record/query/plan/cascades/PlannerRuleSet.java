@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysical
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.InComparisonToExplodeRule;
@@ -48,9 +49,9 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.MatchLeafRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeFetchIntoCoveringIndexRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeProjectionAndFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicatesRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.OrToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushFilterThroughFetchRule;
@@ -59,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushMapThroughFet
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushReferencedFieldsThroughUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
@@ -68,6 +70,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUnionRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUniqueRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughUpdateRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
@@ -105,7 +108,6 @@ public class PlannerRuleSet {
     );
     private static final List<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
-            new OrToLogicalUnionRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule()
     );
@@ -117,6 +119,7 @@ public class PlannerRuleSet {
             new PushReferencedFieldsThroughDistinctRule(),
             new PushReferencedFieldsThroughFilterRule(),
             new PushReferencedFieldsThroughSelectRule(),
+            new PushReferencedFieldsThroughUniqueRule(),
             new PushRequestedOrderingThroughSortRule(),
             new PushRequestedOrderingThroughDistinctRule(),
             new PushRequestedOrderingThroughUnionRule(),
@@ -126,7 +129,8 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughGroupByRule(),
             new PushRequestedOrderingThroughDeleteRule(),
             new PushRequestedOrderingThroughInsertRule(),
-            new PushRequestedOrderingThroughUpdateRule()
+            new PushRequestedOrderingThroughUpdateRule(),
+            new PushRequestedOrderingThroughUniqueRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
@@ -138,6 +142,7 @@ public class PlannerRuleSet {
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
+            new ImplementUniqueRule(),
             new RemoveSortRule(),
             new PushDistinctBelowFilterRule(),
             new MergeFetchIntoCoveringIndexRule(),
@@ -176,7 +181,8 @@ public class PlannerRuleSet {
     );
     private static final List<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
             new DataAccessRule(),
-            new SelectDataAccessRule()
+            new SelectDataAccessRule(),
+            new PredicateToLogicalUnionRule()
     );
     private static final List<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableList.<CascadesRule<? extends RelationalExpression>>builder()

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -45,6 +46,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,7 +63,7 @@ import java.util.stream.StreamSupport;
  * {@link Type.Record} type.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordConstructorValue implements Value, AggregateValue, CreatesDynamicTypesValue {
+public class RecordConstructorValue extends AbstractValue implements AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
     private final Type.Record resultType;
@@ -119,7 +121,7 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
             var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
             if (childResult != null) {
                 final var fieldDescriptor = fieldDescriptors.get(i);
-                if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && fieldType.isNullable()) {
+                if (fieldType.isArray() && fieldType.isNullable()) {
                     final var wrappedDescriptor = fieldDescriptor.getMessageType();
                     final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
                     wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
@@ -165,15 +167,23 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         }
 
         if (fieldType.isPrimitive()) {
-            return field;
+            return protoObjectForPrimitive(fieldType, field);
         }
 
         if (fieldType instanceof Type.Array) {
+            final var objects = (List<?>)field;
             final var elementType = Verify.verifyNotNull(((Type.Array)fieldType).getElementType());
             if (elementType.isPrimitive()) {
-                return field;
+                if (elementType.getTypeCode() == Type.TypeCode.BYTES || elementType.getTypeCode() == Type.TypeCode.VERSION) {
+                    var resultBuilder = ImmutableList.builderWithExpectedSize(objects.size());
+                    for (Object object : objects) {
+                        resultBuilder.add(protoObjectForPrimitive(elementType, object));
+                    }
+                    return resultBuilder.build();
+                } else {
+                    return field;
+                }
             }
-            final var objects = (List<?>)field;
             final var resultBuilder = ImmutableList.builder();
             for (final var object : objects) {
                 resultBuilder.add(Verify.verifyNotNull(deepCopyIfNeeded(typeRepository, elementType, object)));
@@ -190,6 +200,18 @@ public class RecordConstructorValue implements Value, AggregateValue, CreatesDyn
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
         return MessageHelpers.deepCopyMessageIfNeeded(declaredDescriptor, message);
+    }
+
+    private static Object protoObjectForPrimitive(@Nonnull Type type, @Nonnull Object field) {
+        if (type.getTypeCode() == Type.TypeCode.BYTES) {
+            if (field instanceof byte[]) {
+                // todo: we're a little inconsistent about whether the field should be byte[] or ByteString for BYTES fields
+                return ZeroCopyByteString.wrap((byte[]) field);
+            }
+        } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
+            return ZeroCopyByteString.wrap(((FDBRecordVersion)field).toBytes(false));
+        }
+        return field;
     }
 
     @Override

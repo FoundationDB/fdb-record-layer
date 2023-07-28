@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -135,7 +134,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
             }
             newLeftQuantifier = Quantifier.forEachBuilder()
                     .withAlias(leftQuantifier.getAlias())
-                    .build(call.ref(leftSelectExpression));
+                    .build(call.memoizeExpression(leftSelectExpression));
         } else {
             newLeftQuantifier = leftQuantifier;
         }
@@ -156,7 +155,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
             }
             newRightQuantifier = Quantifier.forEachBuilder()
                     .withAlias(rightQuantifier.getAlias())
-                    .build(call.ref(rightSelectExpression));
+                    .build(call.memoizeExpression(rightSelectExpression));
         } else {
             newRightQuantifier = rightQuantifier;
         }
@@ -167,6 +166,6 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
 
         final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
 
-        call.yield(GroupExpressionRef.of(newSelectExpression));
+        call.yield(newSelectExpression);
     }
 }

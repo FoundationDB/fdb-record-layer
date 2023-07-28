@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -55,14 +56,14 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
         final ImmutableList.Builder<T> items = ImmutableList.builder();
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
         // The children need to be merged in the same order that they appear to satisfy the contract of
         // PlannerBindings.getAll().
         for (final T item : in) {
-            final List<PlannerBindings> individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
+            final List<PlannerBindings> individualBindings = downstream.bindMatches(plannerConfiguration, outerBindings, item).collect(Collectors.toList());
             if (individualBindings.isEmpty()) {
                 final Optional<Stream<PlannerBindings>> onEmptyStreamOptional =
                         onEmptyIndividualBindings(bindingStream);

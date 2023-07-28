@@ -59,6 +59,9 @@ public abstract class InSource implements PlanHashable {
 
     public abstract boolean isReverse();
 
+    @Nonnull
+    public abstract String valuesString();
+
     protected abstract int size(@Nonnull EvaluationContext context);
 
     @Nonnull

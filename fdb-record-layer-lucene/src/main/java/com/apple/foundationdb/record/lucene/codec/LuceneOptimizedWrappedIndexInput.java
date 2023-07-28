@@ -20,40 +20,22 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
+import com.google.common.base.Suppliers;
 import org.apache.lucene.store.IndexInput;
-
 import javax.annotation.Nonnull;
 import java.io.IOException;
-
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
+import java.util.function.Supplier;
 
 /**
  * An {@code IndexInput} optimized for FDB storage.
  */
 public class LuceneOptimizedWrappedIndexInput extends IndexInput {
-    private final FDBDirectory directory;
-    FDBLuceneFileReference reference;
-    byte[] value;
+    Supplier<byte[]> value;
     private int position;
 
-    public static String convertToDataFile(String name) {
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
-        } else {
-            return name;
-        }
-
-    }
-
-    public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull FDBDirectory directory, boolean isSegmentInfo) {
+    public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull Supplier<byte[]> supplier) {
         super(name);
-        this.directory = directory;
-        reference = this.directory.getFDBLuceneFileReference(convertToDataFile(name));
-        value = isSegmentInfo ? reference.getSegmentInfo() : reference.getEntries();
+        value = Suppliers.memoize( () -> supplier.get());
         position = 0;
     }
 
@@ -74,7 +56,7 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
 
     @Override
     public long length() {
-        return value.length;
+        return value.get().length;
     }
 
     @Override
@@ -84,12 +66,12 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
 
     @Override
     public byte readByte() throws IOException {
-        return value[position++];
+        return value.get()[position++];
     }
 
     @Override
     public void readBytes(final byte[] b, final int offset, final int len) throws IOException {
-        System.arraycopy(value, position, b, offset, len);
+        System.arraycopy(value.get(), position, b, offset, len);
         position = position + len;
     }
 }

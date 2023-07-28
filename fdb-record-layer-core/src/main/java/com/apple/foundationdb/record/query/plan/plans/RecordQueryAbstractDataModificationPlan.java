@@ -206,8 +206,10 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                     final var result = computationValue.eval(store, nestedContext);
                                     return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
                                 }),
-                        store.getPipelineSize(PipelineOperation.UPDATE));
+                        store.getPipelineSize(getPipelineOperation()));
     }
+
+    public abstract PipelineOperation getPipelineOperation();
 
     @Nullable
     @SuppressWarnings("unchecked")

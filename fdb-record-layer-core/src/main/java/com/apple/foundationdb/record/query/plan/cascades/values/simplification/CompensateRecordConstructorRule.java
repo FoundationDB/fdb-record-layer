@@ -63,8 +63,8 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
 
         for (int i = 0; i < recordConstructorValue.getColumns().size(); ++i) {
             final var column = recordConstructorValue.getColumns().get(i);
-            final var childResult = call.getResult(column.getValue());
-            if (childResult == null) {
+            final var childResultPair = call.getResult(column.getValue());
+            if (childResultPair == null) {
                 continue;
             }
 
@@ -72,7 +72,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
             // No we have a column and the result we computed for all columns that do have results associated with them,
             // i.e. the columns flowing results of values we care about.
             //
-            for (final var childValueEntry : childResult.getResult().entrySet()) {
+            for (final var childValueEntry : childResultPair.getRight().entrySet()) {
                 final var argumentValue = childValueEntry.getKey();
                 final var argumentValueCompensation = childValueEntry.getValue();
                 final var field = column.getField();

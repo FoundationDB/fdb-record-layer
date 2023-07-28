@@ -44,6 +44,7 @@ public class RangeCursor implements RecordCursor<Integer> {
     private final Executor executor;
     private final int exclusiveLimit;
     private int nextPosition; // position of the next value to return
+    private boolean closed = false;
 
     public RangeCursor(@Nonnull Executor executor, final int exclusiveLimit, byte[] continuation) {
         this(executor, exclusiveLimit, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
@@ -76,7 +77,12 @@ public class RangeCursor implements RecordCursor<Integer> {
 
     @Override
     public void close() {
-        // no resources to close
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Override

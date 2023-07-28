@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
@@ -757,6 +758,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, metaData -> {
                 metaData.addIndex("MySimpleRecord", "num_value_2");
                 metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+                metaData.removeIndex("MySimpleRecord$num_value_unique"); // new planner would otherwise (correctly) choose this one
                 metaData.addIndex("MySimpleRecord", new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
             });
         }
@@ -795,6 +797,43 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-114256600, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-875748838, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
+    }
+
+    /**
+     * Verify that very complex AND clauses are not implemented as combinations of range and index scans if we can prove
+     * a maximum cardinality of {@code 1} due to a uniqueness constraint in the schema.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void intersectionVersusRange2() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaData -> {
+                metaData.addIndex("MySimpleRecord", "num_value_2");
+                metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+                metaData.addIndex("MySimpleRecord", new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
+            });
+        }
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.field("num_value_unique").equalsValue(0),
+                        Query.field("num_value_2").equalsValue(1),
+                        Query.field("num_value_3_indexed").greaterThanOrEquals(2),
+                        Query.field("num_value_3_indexed").lessThanOrEquals(3)))
+                .build();
+
+        // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS even, num_value_unique EQUALS 0])
+        RecordQueryPlan plan = planner.plan(query);
+        assertFalse(plan.hasRecordScan(), "should not use record scan");
+        assertMatchesExactly(plan,
+                predicatesFilterPlan(
+                        indexPlan()
+                                .where(RecordQueryPlanMatchers.indexName("MySimpleRecord$num_value_unique"))
+                                .and(scanComparisons(range("[[0],[0]]")))));
+
+        assertEquals(-1976239759, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1750106583, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(30860975, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
@@ -966,7 +1005,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
                 primaryKey("MySimpleRecord"));
 
-        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
+        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         assertThat(modifiedPlan1, fetch(intersection(
                 coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
 
@@ -974,7 +1013,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false),
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")));
-        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
+        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique
         assertEquals(originalPlan2, modifiedPlan2);
     }

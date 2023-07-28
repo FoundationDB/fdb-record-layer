@@ -48,6 +48,7 @@ public class ListCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final List<T> list;
     private int nextPosition; // position of the next value to return
+    private boolean closed = false;
 
     public ListCursor(@Nonnull List<T> list, byte []continuation) {
         this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
@@ -80,6 +81,12 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Override
     public void close() {
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Override

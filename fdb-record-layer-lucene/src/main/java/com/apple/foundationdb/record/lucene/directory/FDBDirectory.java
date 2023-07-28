@@ -43,6 +43,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ChecksumIndexInput;
@@ -62,6 +63,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -69,6 +71,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -76,6 +79,7 @@ import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.FIELD_INFO_EXTENSION;
 import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
@@ -93,20 +97,23 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  */
 @API(API.Status.EXPERIMENTAL)
 @NotThreadSafe
-public class FDBDirectory extends Directory {
+public class FDBDirectory extends Directory  {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
-    public static final int DEFAULT_BLOCK_SIZE = 16_384;
+    public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
     public static final int DEFAULT_INITIAL_CAPACITY = 128;
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
+    private static final int SCHEMA_SUBSPACE = 3;
+    public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
+    private final Subspace schemaSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -143,6 +150,8 @@ public class FDBDirectory extends Directory {
     // True if sharedCacheManager is present until sharedCache has been set (or not).
     private boolean sharedCachePending;
 
+    private final Map<BitSet, byte[]> fieldInfosDataMap;
+
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
         this(subspace, context, null, null);
     }
@@ -172,6 +181,7 @@ public class FDBDirectory extends Directory {
         this.sequenceSubspaceKey = sequenceSubspace.pack();
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
+        this.schemaSubspace = subspace.subspace(Tuple.from(SCHEMA_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -181,6 +191,7 @@ public class FDBDirectory extends Directory {
                 .maximumSize(maximumSize)
                 .recordStats()
                 .build();
+        this.fieldInfosDataMap = new ConcurrentHashMap<>();
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
@@ -284,10 +295,16 @@ public class FDBDirectory extends Directory {
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
+    public static boolean isFieldInfoFile(String name) {
+        return name.endsWith(FIELD_INFO_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+    }
+
     public static String convertToDataFile(String name) {
         if (isSegmentInfo(name)) {
             return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (isEntriesFile(name)) {
+        } else if (isEntriesFile(name) || isFieldInfoFile(name)) {
             return name.substring(0, name.length() - 3) + DATA_EXTENSION;
         } else {
             return name;
@@ -314,11 +331,19 @@ public class FDBDirectory extends Directory {
                 storedRef.setSegmentInfo(reference.getSegmentInfo());
                 reference = storedRef;
             }
+        } else if (isFieldInfoFile(name)) {
+            name = convertToDataFile(name);
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
+            if (storedRef != null) {
+                storedRef.setBitSetWords(reference.getBitSetWords());
+                reference = storedRef;
+            }
         } else if (isCompoundFile(name)) {
             FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
             if (storedRef != null) {
                 reference.setSegmentInfo(storedRef.getSegmentInfo());
                 reference.setEntries(storedRef.getEntries());
+                reference.setBitSetWords(storedRef.getBitSetWords());
             }
         }
         final byte[] fileReferenceBytes = reference.getBytes();
@@ -362,6 +387,20 @@ public class FDBDirectory extends Directory {
         });
     }
 
+    public CompletableFuture<Integer> writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
+        return CompletableFuture.supplyAsync( () -> {
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("Write lucene data",
+                        LuceneLogMessageKeys.DATA_SIZE, value.length,
+                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+            }
+            context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
+            return value.length;
+        });
+    }
+
     /**
      * Reads known data from the directory.
      * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
@@ -374,14 +413,31 @@ public class FDBDirectory extends Directory {
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
-        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, reference, block));
+        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, resourceDescription, reference, block));
+    }
+
+    /**
+     * Reads known data from the directory.
+     * @param nestedResourceDescription Description should be non-null, opaque string describing this nestedResource; used for logging
+     * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
+     * @param referenceFuture the reference where the data supposedly lives
+     * @param block the block where the data is stored
+     * @return Completable future of the data returned
+     * @throws RecordCoreException if blockCache fails to get the data from the block
+     * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
+        return referenceFuture.thenCompose(reference -> readBlock(nestedResourceDescription, resourceDescription, reference, block));
     }
 
     @Nonnull
-    private CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
+    private CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("readBlock",
                     LuceneLogMessageKeys.FILE_NAME, resourceDescription,
+                    LuceneLogMessageKeys.FILE_REFERENCE, nestedResourceDescription,
                     LuceneLogMessageKeys.BLOCK_NUMBER, block));
         }
         if (reference == null) {
@@ -415,6 +471,26 @@ public class FDBDirectory extends Directory {
                         .thenApply(LuceneSerializer::decode));
     }
 
+    private CompletableFuture<byte[]> readSchemaAsync(List<Long> bitSetWords) {
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_SCHEMA,
+                context.ensureActive().get(schemaSubspace.pack(Tuple.from(bitSetWords))));
+    }
+
+    public byte[] readSchema(List<Long> bitSetWords) throws IOException {
+        BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
+        // In order to avoid a deadlock, and since the readSchema is idempotent, perform a non-blocking, non-atomic cache
+        // population. There may be a few threads that make calls to FDB, but they should all be returning the same result
+        byte[] value = fieldInfosDataMap.get(bitSet);
+        if (value == null) {
+            value = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords));
+            // don't populate if no values in DB
+            if (value != null) {
+                fieldInfosDataMap.put(bitSet, value);
+            }
+        }
+        return value;
+    }
+
     /**
      * Lists all file names in the subspace. Puts all references in the cache.
      * Logs the count of references, and the total size of the data.
@@ -444,17 +520,6 @@ public class FDBDirectory extends Directory {
         CompletableFuture<Void> future = AsyncUtil.forEach(rangeIterable, kv -> {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
-            // Only composite files are prefetched.
-            if (name.endsWith(".cfs") || name.startsWith("segments_")) {
-                try {
-                    readBlock(name, fileReference, 0);
-                } catch (RecordCoreException e) {
-                    if (LOGGER.isWarnEnabled()) {
-                        LOGGER.warn(getLogMessage("Exception thrown during prefetch",
-                                LuceneLogMessageKeys.FILE_NAME, name));
-                    }
-                }
-            }
             outMap.put(name, fileReference);
         }, context.getExecutor()).thenAccept(ignore -> {
             if (LOGGER.isDebugEnabled()) {
@@ -532,19 +597,23 @@ public class FDBDirectory extends Directory {
         if (isEntriesFile(name) || isSegmentInfo(name)) {
             return;
         }
-        boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
-            FDBLuceneFileReference value = cache.get(name);
-            if (value == null) {
-                return false;
-            }
-            context.ensureActive().clear(metaSubspace.pack(name));
-            context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-            cache.remove(name);
-            return true;
-        })));
+        try {
+            boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
+                FDBLuceneFileReference value = cache.get(name);
+                if (value == null) {
+                    return false;
+                }
+                context.ensureActive().clear(metaSubspace.pack(name));
+                context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                cache.remove(name);
+                return true;
+            })));
 
-        if (!deleted) {
-            throw new NoSuchFileException(name);
+            if (!deleted) {
+                throw new NoSuchFileException(name);
+            }
+        } finally {
+            context.increment(LuceneEvents.Counts.LUCENE_DELETE_FILE);
         }
     }
 
@@ -587,12 +656,18 @@ public class FDBDirectory extends Directory {
      */
     @Override
     @Nonnull
+    @SuppressWarnings("java:S2093")
     public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        return new FDBIndexOutput(name, name, this);
+        long startTime = System.nanoTime();
+        try {
+            return new FDBIndexOutput(name, name, this);
+        } finally {
+            context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
+        }
     }
 
     /**
@@ -648,26 +723,30 @@ public class FDBDirectory extends Directory {
                     LogMessageKeys.SOURCE_FILE, source,
                     LuceneLogMessageKeys.DEST_FILE, dest));
         }
-        final byte[] key = metaSubspace.pack(source);
-        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, getFileReferenceCacheAsync().thenApply(cache -> {
-            final FDBLuceneFileReference value = cache.get(source);
-            if (value == null) {
-                throw new RecordCoreArgumentException("Invalid source name in rename function for source")
-                        .addLogInfo(LogMessageKeys.SOURCE_FILE, source)
-                        .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
-                        .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
-                        .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                        .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
-            }
-            byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
-            context.ensureActive().set(metaSubspace.pack(dest), encodedBytes);
-            context.ensureActive().clear(key);
+        try {
+            final byte[] key = metaSubspace.pack(source);
+            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_RENAME, getFileReferenceCacheAsync().thenApply(cache -> {
+                final FDBLuceneFileReference value = cache.get(source);
+                if (value == null) {
+                    throw new RecordCoreArgumentException("Invalid source name in rename function for source")
+                            .addLogInfo(LogMessageKeys.SOURCE_FILE, source)
+                            .addLogInfo(LogMessageKeys.INDEX_TYPE, LuceneIndexTypes.LUCENE)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, subspace)
+                            .addLogInfo(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
+                            .addLogInfo(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
+                }
+                byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
+                context.ensureActive().set(metaSubspace.pack(dest), encodedBytes);
+                context.ensureActive().clear(key);
 
-            cache.remove(source);
-            cache.put(dest, value);
+                cache.remove(source);
+                cache.put(dest, value);
 
-            return null;
-        }));
+                return null;
+            }));
+        } finally {
+            context.increment(LuceneEvents.Counts.LUCENE_RENAME_FILE);
+        }
     }
 
     @Override
@@ -678,6 +757,14 @@ public class FDBDirectory extends Directory {
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
         return new FDBIndexInput(name, this);
+    }
+
+    public IndexInput openLazyInput(@Nonnull final String name, long initialOffset, long position) throws IOException {
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("openInput",
+                    LuceneLogMessageKeys.FILE_NAME, name));
+        }
+        return new FDBIndexInput(name, this, initialOffset, position);
     }
 
     @Override
@@ -753,5 +840,4 @@ public class FDBDirectory extends Directory {
     Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
         return blockCache;
     }
-
 }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -34,11 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -67,7 +64,6 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
             planPartitions(rollUpTo(any(innerPlanPartitionMatcher), ImmutableSet.of(ORDERING, DISTINCT_RECORDS, PRIMARY_KEY)));
 
-    //rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))))
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
@@ -84,7 +80,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final var sortValues = sortExpression.getSortValues();
         if (sortValues.isEmpty()) {
-            call.yield(GroupExpressionRef.from(innerPlanPartition.getPlans()));
+            call.yield(innerPlanPartition.getPlans());
             return;
         }
 
@@ -118,13 +114,13 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                 final var strictlySortedInnerPlans =
                         innerPlanPartition.getPlans()
                                 .stream()
-                                .map(QueryPlan::strictlySorted)
+                                .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yield(GroupExpressionRef.from(strictlySortedInnerPlans));
+                call.yield(strictlySortedInnerPlans);
             }
         }
 
-        final var resultExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
+        final var resultExpressions = new LinkedIdentitySet<RelationalExpression>();
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
@@ -132,17 +128,16 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                     strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
-                resultExpressionsBuilder.add(innerPlan.strictlySorted());
+                resultExpressions.add(innerPlan.strictlySorted(call));
             } else {
-                resultExpressionsBuilder.add(innerPlan);
+                resultExpressions.add(innerPlan);
             }
         }
 
-        final var resultExpressions = resultExpressionsBuilder.build();
-        call.yield(GroupExpressionRef.from(resultExpressions));
+        call.yield(resultExpressions);
     }
 
-    public static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {
+    private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {
         if (orderedPlan instanceof RecordQueryCoveringIndexPlan) {
             orderedPlan = ((RecordQueryCoveringIndexPlan)orderedPlan).getIndexPlan();
         }

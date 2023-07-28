@@ -45,7 +45,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
     private static final String FILE_NAME = "y";
     private static final String FILE_NAME_TWO = "z";
     private static final Random RANDOM = new Random();
-    private static final byte[] BLOCK_ARRAY_100 = new byte[100 * 16 * 1024];
+    private static final byte[] BLOCK_ARRAY_100 = new byte[100 * FDBDirectory.DEFAULT_BLOCK_SIZE];
 
     static {
         RANDOM.nextBytes(BLOCK_ARRAY_100);
@@ -90,7 +90,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
-        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 2 * 16 * 1024);
+        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 2 * FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals("[(1,0), (1,1)]", directoryCacheToString());
     }
 
@@ -106,10 +106,10 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
-        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * 16 * 1024);
+        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9)]",
                 directoryCacheToString());
-        byte[] fooey = new byte[16 * 1024];
+        byte[] fooey = new byte[FDBDirectory.DEFAULT_BLOCK_SIZE];
         blocks.readBytes(fooey, 0, fooey.length); // 1 block (refresh)
         assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10)]",
                 directoryCacheToString());
@@ -118,7 +118,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10), (1,11), " +
                      "(1,12)]",
                 directoryCacheToString());
-        fooey = new byte[10 * 16 * 1024];
+        fooey = new byte[10 * FDBDirectory.DEFAULT_BLOCK_SIZE];
         blocks.readBytes(fooey, 0, fooey.length); // another block, no fetch
         assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10), (1,11), " +
                      "(1,12), (1,13), (1,14), (1,15), (1,16), (1,17), (1,18), (1,19), (1,20), (1,21), (1,22)]",
@@ -133,9 +133,9 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
-        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * 16 * 1024);
+        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals(10, directory.getBlockCache().asMap().size());
-        blocks.seek(16L * 1024L);
+        blocks.seek(FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals(11, directory.getBlockCache().asMap().size());
     }
 
@@ -147,9 +147,9 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
-        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * 16 * 1024);
+        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals(10, directory.getBlockCache().asMap().size());
-        blocks.seek(16L * 1024L);
+        blocks.seek(FDBDirectory.DEFAULT_BLOCK_SIZE);
         assertEquals(11, directory.getBlockCache().asMap().size());
     }
 
@@ -175,8 +175,8 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME).getSize());
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
-        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, (100L * 16L * 1024L));
-        byte[] fooey = new byte[16 * 1024];
+        output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, (100L * FDBDirectory.DEFAULT_BLOCK_SIZE));
+        byte[] fooey = new byte[FDBDirectory.DEFAULT_BLOCK_SIZE];
         List<Pair<Integer, Integer>> state = new ArrayList<>();
         state.add(Pair.of(-1, directory.getBlockCache().asMap().size()));
         for (int i = 0; i < 100; i++) {

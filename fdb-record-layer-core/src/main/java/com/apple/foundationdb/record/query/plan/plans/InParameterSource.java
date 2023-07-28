@@ -68,6 +68,12 @@ public class InParameterSource extends InSource {
         return false;
     }
 
+    @Nonnull
+    @Override
+    public String valuesString() {
+        return "$" + parameterName;
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE), parameterName);

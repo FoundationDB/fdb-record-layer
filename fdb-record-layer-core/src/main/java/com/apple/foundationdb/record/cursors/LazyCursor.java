@@ -98,6 +98,11 @@ public class LazyCursor<T> implements RecordCursor<T> {
         }
     }
 
+    @Override
+    public boolean isClosed() {
+        return inner == null || inner.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

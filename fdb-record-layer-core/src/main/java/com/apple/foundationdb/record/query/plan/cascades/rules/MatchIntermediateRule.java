@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -36,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -135,7 +135,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </p>
  *
  * <p>
- * Discussion as to why they are matching: for further explanations see {@link SelectExpression#subsumedBy}. First note
+ * Discussion as to why they are matching: for further explanations see {@link RelationalExpression#subsumedBy}. First note
  * that the quantifier over {@code c2} is existential (of type {@link Existential}. That also means that this quantifier
  * does not ever positively contribute to the cardinality of the select expression. It only filters out the outer if
  * the inner does not produce any records. In some sense it is very similar to a predicate. In fact it is a predicate
@@ -194,7 +194,8 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
                 final Iterable<BoundMatch<MatchInfo>> boundMatchInfos =
                         matchWithCandidate(expression,
                                 matchCandidate,
-                                candidateExpression);
+                                candidateExpression,
+                                call.getEvaluationContext());
                 boundMatchInfos.forEach(boundMatchInfo ->
                         call.yieldPartialMatch(boundMatchInfo.getAliasMap(),
                                 matchCandidate,
@@ -216,7 +217,8 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
     @Nonnull
     private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(@Nonnull RelationalExpression expression,
                                                                @Nonnull MatchCandidate matchCandidate,
-                                                               @Nonnull RelationalExpression candidateExpression) {
+                                                               @Nonnull RelationalExpression candidateExpression,
+                                                               @Nonnull final EvaluationContext context) {
         Verify.verify(!expression.getQuantifiers().isEmpty());
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
 
@@ -226,7 +228,7 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
                 candidateExpression.getQuantifiers(),
                 quantifier -> constraintsForQuantifier(matchCandidate, quantifier),
                 (quantifier, otherQuantifier, aliasMap) -> matchQuantifiers(matchCandidate, quantifier, otherQuantifier, aliasMap),
-                ((boundCorrelatedToMap, boundMatches) -> combineMatches(expression, candidateExpression, boundCorrelatedToMap, boundMatches)));
+                ((boundCorrelatedToMap, boundMatches) -> combineMatches(expression, candidateExpression, boundCorrelatedToMap, boundMatches, context)));
 
     }
 
@@ -290,7 +292,8 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
     private Iterable<BoundMatch<MatchInfo>> combineMatches(@Nonnull RelationalExpression expression,
                                                            @Nonnull RelationalExpression candidateExpression,
                                                            @Nonnull final AliasMap boundCorrelatedToMap,
-                                                           @Nonnull final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches) {
+                                                           @Nonnull final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches,
+                                                           @Nonnull final EvaluationContext context) {
         return () ->
                 StreamSupport.stream(boundMatches.spliterator(), false)
                         .flatMap(boundMatch ->
@@ -298,7 +301,7 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
                                         .map(matchResultIterable ->
                                                 IterableHelpers.flatMap(matchResultIterable, matchResult -> {
                                                     final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
-                                                    return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap);
+                                                    return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap, context);
                                                 }))
                                         .map(matchesWithCompensation -> StreamSupport.stream(matchesWithCompensation.spliterator(), false))
                                         .orElseGet(Stream::empty))

@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IndexOutput;
 
 import javax.annotation.Nonnull;
@@ -33,31 +30,14 @@ import java.util.zip.CRC32;
 /**
  * {@code IndexOutput} optimized for FDB storage.
  */
-public class LuceneOptimizedWrappedIndexOutput extends IndexOutput {
-    private final String name;
-    private final FDBDirectory directory;
-    private final ByteArrayOutputStream outputStream;
+public abstract class LuceneOptimizedWrappedIndexOutput extends IndexOutput {
+    protected final ByteArrayOutputStream outputStream;
     private final CRC32 crc;
-    private final boolean isSegmentInfo;
 
-    public LuceneOptimizedWrappedIndexOutput(@Nonnull String name, @Nonnull FDBDirectory directory, boolean isSegmentInfo) {
+    public LuceneOptimizedWrappedIndexOutput(@Nonnull String name) {
         super(name, name);
-        this.name = name;
-        this.directory = (FDBDirectory) FilterDirectory.unwrap(directory);
         this.outputStream = new ByteArrayOutputStream();
         this.crc = new CRC32();
-        this.isSegmentInfo = isSegmentInfo;
-    }
-
-    @Override
-    public void close() throws IOException {
-        FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-        if (isSegmentInfo) {
-            reference.setSegmentInfo(outputStream.toByteArray());
-        } else {
-            reference.setEntries(outputStream.toByteArray());
-        }
-        directory.writeFDBLuceneFileReference(name, reference);
     }
 
     @Override

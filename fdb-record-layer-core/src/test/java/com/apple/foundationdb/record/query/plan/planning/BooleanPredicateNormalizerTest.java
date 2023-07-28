@@ -23,15 +23,18 @@ package com.apple.foundationdb.record.query.plan.planning;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -41,10 +44,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer.Mode.DNF;
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and;
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not;
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate.or;
+import static com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer.Mode.DNF;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -165,13 +168,13 @@ class BooleanPredicateNormalizerTest {
         final QueryPredicate original = and(P1, or(and(P2, P3), and(P4, P5), and(P6, P7)));
 
         final QueryPredicate expectedDnf = or(and(P1, P2, P3), and(P1, P4, P5), and(P1, P6, P7));
-        assertEquals(expectedDnf, forDnf.normalize(original).orElse(original));
+        assertEquals(expectedDnf, forDnf.normalizeAndSimplify(original, true).orElse(original));
 
         // original -> cnf -> dnf
-        assertEquals(expectedDnf, forDnf.normalize(forCnf.normalize(original).orElse(original)).orElse(original));
+        assertEquals(expectedDnf, forDnf.normalizeAndSimplify(forCnf.normalizeAndSimplify(original, true).orElse(original), true).orElse(original));
 
         // expected dnf -> cnf -> dnf
-        assertEquals(expectedDnf, forDnf.normalize(forCnf.normalize(expectedDnf).orElse(expectedDnf)).orElse(expectedDnf));
+        assertEquals(expectedDnf, forDnf.normalizeAndSimplify(forCnf.normalizeAndSimplify(expectedDnf, true).orElse(expectedDnf), true).orElse(expectedDnf));
     }
 
     @Test
@@ -195,12 +198,16 @@ class BooleanPredicateNormalizerTest {
         final QueryPredicate cnf = and(conjuncts);
 
         final BooleanPredicateNormalizer normalizer = BooleanPredicateNormalizer.getDefaultInstanceForDnf();
-        assertNotEquals(cnf, normalizer.normalize(cnf).orElse(cnf));
-        assertTrue(numberOfOrTerms(Objects.requireNonNull(normalizer.normalize(cnf).orElse(cnf))) <= normalizer.getNormalizedSize(cnf));
+        assertNotEquals(cnf, normalizer.normalizeAndSimplify(cnf, true).orElse(cnf));
+
+        final BooleanPredicateNormalizer.PredicateMetrics metrics = normalizer.getMetrics(cnf);
+        final var simplifiedDnf = Objects.requireNonNull(normalizer.normalizeAndSimplify(cnf, true).orElse(cnf));
+        assertTrue(numberOfOrTerms(simplifiedDnf) <= metrics.getNormalFormSize());
+        assertTrue(maxNumberOfAndTermsWithinOrTerms(simplifiedDnf) <= metrics.getNormalFormMaximumNumMinors());
 
         final BooleanPredicateNormalizer lowLimitNormalizer = BooleanPredicateNormalizer.withLimit(DNF, 2);
-        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> lowLimitNormalizer.normalize(cnf));
-        assertEquals(cnf, lowLimitNormalizer.normalizeIfPossible(cnf).orElse(cnf));
+        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> lowLimitNormalizer.normalizeAndSimplify(cnf, true));
+        assertEquals(cnf, lowLimitNormalizer.normalizeAndSimplify(cnf, false).orElse(cnf));
     }
 
     @Test
@@ -222,15 +229,15 @@ class BooleanPredicateNormalizerTest {
                                 .collect(Collectors.toList())))
                         .collect(Collectors.toList()));
         final BooleanPredicateNormalizer plannerNormalizer = BooleanPredicateNormalizer.forConfiguration(DNF, RecordQueryPlannerConfiguration.builder().build());
-        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> plannerNormalizer.normalize(cnf));
-        assertEquals(cnf, plannerNormalizer.normalizeIfPossible(cnf).orElse(cnf));
+        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> plannerNormalizer.normalizeAndSimplify(cnf, true));
+        assertEquals(cnf, plannerNormalizer.normalizeAndSimplify(cnf, false).orElse(cnf));
     }
 
     @Test
     void bigCnfThatWouldOverflow() {
         // A CNF who's DNF size doesn't fit in an int.
         final List<QueryPredicate> conjuncts = new ArrayList<>();
-        for (int i = 0; i < 32; i++) {
+        for (int i = 0; i < 62; i++) {
             final List<QueryPredicate> disjuncts = new ArrayList<>();
             for (int j = 0; j < 2; j++) {
                 disjuncts.add(new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, i * 100 + j)));
@@ -239,9 +246,9 @@ class BooleanPredicateNormalizerTest {
         }
         final QueryPredicate cnf = and(conjuncts);
         final BooleanPredicateNormalizer normalizer = BooleanPredicateNormalizer.getDefaultInstanceForDnf();
-        assertThrows(ArithmeticException.class, () -> normalizer.getNormalizedSize(cnf));
-        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> normalizer.normalize(cnf));
-        assertEquals(cnf, normalizer.normalizeIfPossible(cnf).orElse(cnf));
+        assertEquals(4611686018427387904L, normalizer.getNormalizedSize(cnf));
+        assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> normalizer.normalizeAndSimplify(cnf, true));
+        assertEquals(cnf, normalizer.normalizeAndSimplify(cnf, false).orElse(cnf));
     }
 
     protected static void assertExpectedCnf(@Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate given) {
@@ -254,9 +261,9 @@ class BooleanPredicateNormalizerTest {
 
     protected static void assertExpectedNormalization(@Nonnull final BooleanPredicateNormalizer normalizer,
                                                       @Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate given) {
-        final QueryPredicate normalized = normalizer.normalize(given).orElse(given);
+        final QueryPredicate normalized = normalizer.normalizeAndSimplify(given, true).orElse(given);
         assertFilterEquals(expected, Objects.requireNonNull(normalized));
-        assertEquals(normalized, normalizer.normalize(normalized).orElse(normalized), "Normalized form should be stable");
+        assertEquals(normalized, normalizer.normalizeAndSimplify(normalized, true).orElse(normalized), "Normalized form should be stable");
     }
 
     // Query components do not implement equals, but they have distinctive enough printed representations.
@@ -269,6 +276,25 @@ class BooleanPredicateNormalizerTest {
             return ((OrPredicate)predicate).getChildren().size();
         } else {
             return 1;
+        }
+    }
+
+    private static int maxNumberOfAndTermsWithinOrTerms(@Nonnull final QueryPredicate predicate) {
+        if (predicate instanceof OrPredicate) {
+            return ((OrPredicate)predicate).getChildren()
+                    .stream()
+                    .mapToInt(child -> {
+                        if (child instanceof AndPredicate) {
+                            return ((AndPredicate)child).getChildren().size();
+                        }
+                        return 1;
+                    })
+                    .max()
+                    .orElseThrow();
+        } else if (predicate instanceof AndPredicate) {
+            return ((AndPredicate)predicate).getChildren().size();
+        } else {
+            throw Assertions.<AssertionFailedError>fail();
         }
     }
 }

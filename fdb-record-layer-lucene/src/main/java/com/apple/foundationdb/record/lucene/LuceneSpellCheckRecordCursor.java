@@ -80,6 +80,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final Tuple groupingKey;
     private final List<String> fields;
+    private boolean closed;
 
 
     public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields, @Nonnull String wordToSpellCheck,
@@ -97,6 +98,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         this.groupingKey = groupingKey;
         this.spellchecker = new DirectSpellChecker();
         this.timer = state.context.getTimer();
+        this.closed = false;
     }
 
     @Nonnull
@@ -137,6 +139,12 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
         }
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull

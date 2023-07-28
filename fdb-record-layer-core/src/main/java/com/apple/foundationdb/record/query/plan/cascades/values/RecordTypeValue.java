@@ -36,12 +36,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * A value which is unique for each record type produced by its quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordTypeValue implements QuantifiedValue {
+public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
 
     @Nonnull
@@ -78,6 +79,12 @@ public class RecordTypeValue implements QuantifiedValue {
         return alias;
     }
 
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
@@ -102,8 +109,8 @@ public class RecordTypeValue implements QuantifiedValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedObjectValue) {
-            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        if (otherValue instanceof QuantifiedValue) {
+            return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
         }
         return false;
     }

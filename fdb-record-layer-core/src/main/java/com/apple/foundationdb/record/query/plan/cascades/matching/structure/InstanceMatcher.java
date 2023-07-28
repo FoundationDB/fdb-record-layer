@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -49,7 +50,7 @@ public class InstanceMatcher<T> implements BindingMatcher<T> {
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         Verify.verify(outerBindings.containsKey(otherMatcher));
 
         if (outerBindings.get(otherMatcher) == in) {

@@ -460,7 +460,7 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_END, end);
 
         return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
-                additionalLogMessageKeyValues);
+                additionalLogMessageKeyValues, true);
     }
 
     @VisibleForTesting
@@ -470,7 +470,7 @@ public class IndexingByRecords extends IndexingBase {
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
         return buildCommitRetryAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
-                additionalLogMessageKeyValues);
+                additionalLogMessageKeyValues, true);
     }
 
     // Builds the index for all of the keys within a given range. This does not update the range set

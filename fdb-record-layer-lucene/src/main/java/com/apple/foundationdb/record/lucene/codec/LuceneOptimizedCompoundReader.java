@@ -66,12 +66,15 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
      */
     // TODO: we should just pre-strip "entries" and append segment name up-front like simpletext?
     // this need not be a "general purpose" directory anymore (it only writes index files)
-    public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si, IOContext context) throws IOException {
+    public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
         String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        handle = directory.openInput(dataFileName, context); // async
+        if ( !(directory instanceof LuceneOptimizedWrappedDirectory) ) {
+            throw new IOException("Directory Must Be Wrapped");
+        }
+        handle = ((LuceneOptimizedWrappedDirectory) directory).openLazyInput(dataFileName, 0, 0L); // attempting not to read
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 
@@ -160,6 +163,13 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     @Override
     public void checkIntegrity() throws IOException {
-        CodecUtil.checksumEntireFile(handle);
+        if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
+            CodecUtil.checksumEntireFile(handle);
+        }
     }
+
+    public Directory getDirectory() {
+        return directory;
+    }
+
 }

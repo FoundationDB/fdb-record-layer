@@ -52,6 +52,7 @@ public class TestKeySpace {
                             .addSubdirectory(new DirectoryLayerDirectory("synchronizedsession", "synchronizedsession")
                                     .addSubdirectory(new KeySpaceDirectory("lock", KeySpaceDirectory.KeyType.LONG))
                             )
+                            .addSubdirectory(new DirectoryLayerDirectory("conflicts", "conflicts"))
                     )
                     .addSubdirectory(new DirectoryLayerDirectory("performance", "performance")
                             .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))

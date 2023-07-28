@@ -35,9 +35,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -157,8 +159,8 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public RecordQueryCoveringIndexPlan strictlySorted() {
-        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(), recordTypeName, availableFields, toRecord);
+    public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, availableFields, toRecord);
     }
 
     @Nonnull
@@ -171,6 +173,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Override
     public AvailableFields getAvailableFields() {
         return availableFields;
+    }
+
+    @Nonnull
+    public IndexKeyValueToPartialRecord getToRecord() {
+        return toRecord;
     }
 
     @Override
@@ -191,7 +198,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public String toString() {
-        return "Covering(" + indexPlan + " -> " + toRecord + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
@@ -47,16 +48,24 @@ import java.util.function.BiFunction;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PromoteValue implements ValueWithChild {
+public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
     // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
     // applied to our data model
     private static final Map<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>> PROMOTION_MAP =
-            ImmutableMap.of(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in),
-                    Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in));
+            ImmutableMap.<Pair<Type.TypeCode, Type.TypeCode>, BiFunction<Descriptors.Descriptor, Object, Object>>builder()
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.LONG), (descriptor, in) -> Long.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.INT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Integer)in))
+                    .put(Pair.of(Type.TypeCode.LONG, Type.TypeCode.FLOAT), (descriptor, in) -> Float.valueOf((Long)in))
+                    .put(Pair.of(Type.TypeCode.LONG, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Long)in))
+                    .put(Pair.of(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE), (descriptor, in) -> Double.valueOf((Float)in))
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.DOUBLE), (descriptor, in) -> (Double) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.FLOAT), (descriptor, in) -> (Float) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.LONG), (descriptor, in) -> (Long) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.INT), (descriptor, in) -> (Integer) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN), (descriptor, in) -> (Boolean) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.STRING), (descriptor, in) -> (String) null)
+                    .build();
     /**
      * The hash value of this expression.
      */
@@ -189,7 +198,7 @@ public class PromoteValue implements ValueWithChild {
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
-        if (currentType.getTypeCode() == Type.TypeCode.ARRAY) {
+        if (currentType.isArray()) {
             final var targetArrayType = (Type.Array)targetType;
             final var currentArrayType = (Type.Array)currentType;
             final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
@@ -202,7 +211,7 @@ public class PromoteValue implements ValueWithChild {
                     elementsTrie == null ? null : ImmutableMap.of(-1, elementsTrie));
         }
 
-        Verify.verify(currentType.getTypeCode() == Type.TypeCode.RECORD);
+        Verify.verify(currentType.isRecord());
         final var targetRecordType = (Type.Record)targetType;
         final var currentRecordType = (Type.Record)currentType;
         SemanticException.check(targetRecordType.getFields().size() == currentRecordType.getFields().size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);

@@ -93,6 +93,11 @@ public class FirableCursor<T> implements RecordCursor<T> {
         underlying.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return underlying.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

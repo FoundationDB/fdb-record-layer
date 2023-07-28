@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -151,7 +152,10 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          @Nonnull final EvaluationContext evaluationContext) {
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }

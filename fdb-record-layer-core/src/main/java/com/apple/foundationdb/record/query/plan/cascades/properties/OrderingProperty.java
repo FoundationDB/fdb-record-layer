@@ -82,6 +82,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -140,25 +141,31 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                 }
 
                                 if (!(valuePredicate.getValue() instanceof FieldValue)) {
-                                    return Stream.of();
+                                    return Stream.empty();
                                 }
 
                                 final var fieldValue = (FieldValue)valuePredicate.getValue();
                                 if (fieldValue.getFieldPathNamesMaybe()
                                         .stream()
                                         .anyMatch(Optional::isEmpty)) {
-                                    return Stream.of();
+                                    return Stream.empty();
                                 }
 
-                                return Stream.of(Pair.of(fieldValue, valuePredicate.getComparison()));
-                            })
-                            // filter out predicates that are not really equality binding like x = f(x)
-                            .filter(fieldValueComparisonPair ->
-                                    !fieldValueComparisonPair.getRight().getCorrelatedTo().contains(predicatesFilterPlan.getInner().getAlias()))
-                            .map(valueComparisonPair -> {
-                                final var fieldValue = valueComparisonPair.getLeft();
-                                final var translationMap = AliasMap.of(predicatesFilterPlan.getInner().getAlias(), Quantifier.current());
-                                return Pair.of(fieldValue.rebase(translationMap), valueComparisonPair.getRight());
+                                // filter out field values that are correlated to some other alias as well
+                                final var fieldValueCorrelatedTo = fieldValue.getCorrelatedTo();
+                                final var innerAlias = predicatesFilterPlan.getInner().getAlias();
+                                if (fieldValueCorrelatedTo.size() != 1 ||
+                                        !Iterables.getOnlyElement(fieldValueCorrelatedTo).equals(innerAlias)) {
+                                    return Stream.empty();
+                                }
+
+                                // filter out comparisons that are not really equality binding like x = f(x)
+                                if (valuePredicate.getComparison().getCorrelatedTo().contains(innerAlias)) {
+                                    return Stream.empty();
+                                }
+
+                                final var translationMap = AliasMap.of(innerAlias, Quantifier.current());
+                                return Stream.of(Pair.of(fieldValue.rebase(translationMap), valuePredicate.getComparison()));
                             })
                             .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
 
@@ -168,7 +175,16 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                             .putAll(equalityBoundValues)
                             .build();
 
-            return Ordering.ofUnnormalized(resultEqualityBoundValueMap, childOrdering.getOrderingSet(), childOrdering.isDistinct());
+            // We can create a new ordering set by adding the equality-bound values to the ordering set domain no matter what.
+            final var childOrderingSet = childOrdering.getOrderingSet();
+            final var orderingSetDomain =
+                    Sets.union(childOrderingSet.getSet(),
+                            equalityBoundValues.keySet()
+                                    .stream()
+                                    .map(OrderingPart::of)
+                                    .collect(ImmutableSet.toImmutableSet()));
+            final var orderingSet = PartiallyOrderedSet.of(orderingSetDomain, childOrderingSet.getDependencyMap());
+            return Ordering.ofUnnormalized(resultEqualityBoundValueMap, orderingSet, childOrdering.isDistinct());
         }
 
         @Nonnull

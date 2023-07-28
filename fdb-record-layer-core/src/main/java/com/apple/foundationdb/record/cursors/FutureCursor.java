@@ -74,6 +74,11 @@ public class FutureCursor<T> implements RecordCursor<T> {
         done = true;
     }
 
+    @Override
+    public boolean isClosed() {
+        return done;
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

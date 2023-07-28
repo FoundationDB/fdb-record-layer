@@ -54,9 +54,6 @@ public class IndexPredicateExpansion {
 
         // simple case: x > 3 is DNF
         if (!(predicate instanceof OrPredicate)) {
-            if (!(predicate instanceof ValuePredicate)) {
-                return Optional.empty();
-            }
             if (!conjunctionToRange(predicate, result, predicate)) {
                 return Optional.empty();
             }

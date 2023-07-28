@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -74,7 +73,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch
-            call.yield(GroupExpressionRef.of(fetchPlan.getChild()));
+            call.yield(fetchPlan.getChild());
         }
     }
 }

@@ -286,7 +286,8 @@ class TransactionalRunnerTest extends FDBTestBase {
 
     @Test
     void closesContextsSynchronous() {
-        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        //needs to be synchronized, since CompletableFuture.runAsync() will push items into the futures() list in another thread
+        final List<CompletableFuture<Void>> futures = Collections.synchronizedList(new ArrayList<>());
         try {
             final ForkJoinPool forkJoinPool = new ForkJoinPool(10);
             closesContext((runner, contextFuture, completed) ->

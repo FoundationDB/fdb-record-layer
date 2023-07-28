@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -101,10 +103,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder(getInnerPlan().toString());
-        str.append(" WHERE ").append(inSource.getBindingName())
-                .append(" IN ").append(getInListValues());
-        return str.toString();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull
@@ -117,8 +116,8 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryInValuesJoinPlan(Quantifier.physical(GroupExpressionRef.of(child)), inValuesSource(), internal);
+    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef), inValuesSource(), internal);
     }
 
     @Override

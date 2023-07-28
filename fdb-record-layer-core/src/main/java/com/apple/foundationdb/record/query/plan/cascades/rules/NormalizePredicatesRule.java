@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -43,11 +43,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 
 /**
- * Rule to create both the conjunctive as well as the disjunctive normal form of an encountered predicate
- * in a {@link SelectExpression}. Not that special care has to be exerted as the CNF resp DNF have to be minimal
- * when injected back into the dataflow graph. If they are not, it is a distinct possibility that recurring
- * applications of this rule could cause a given predicate to increase in size exponentially (up to the
- * upper boundary of the {@link BooleanPredicateNormalizer}.
+ * Rule to create the conjunctive normal form of the predicates in a {@link SelectExpression}.
+ * Note that this rule creates the precursor to all explorations done in {@link PredicateToLogicalUnionRule}.
+ * It is possible that the CNF is deemed too complex to be created (see also
+ * {@link RecordQueryPlannerConfiguration#getComplexityThreshold()}) which will then cause this rule to be
+ * unproductive which in turn causes only incomplete exploration of the possible predicates space in
+ * {@link PredicateToLogicalUnionRule}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
@@ -69,26 +70,16 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
         final Collection<? extends Quantifier> quantifiers = bindings.get(innerQuantifiersMatcher);
 
         // create one big conjuncted predicate
-        final QueryPredicate conjunctedPredicate = AndPredicate.and(predicates);
+        final QueryPredicate conjunctedPredicate = AndPredicate.andOrTrue(predicates);
 
         final BooleanPredicateNormalizer cnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
                 BooleanPredicateNormalizer.Mode.CNF,
                 call.getContext().getPlannerConfiguration());
 
-        cnfNormalizer.normalize(conjunctedPredicate, false)
+        cnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
+                        call.yield(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
-                                AndPredicate.conjuncts(cnfPredicate)))));
-
-        final BooleanPredicateNormalizer dnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
-                BooleanPredicateNormalizer.Mode.DNF,
-                call.getContext().getPlannerConfiguration());
-
-        dnfNormalizer.normalize(conjunctedPredicate, false)
-                .ifPresent(dnfPredicate ->
-                        call.yield(GroupExpressionRef.of(new SelectExpression(selectExpression.getResultValue(),
-                                quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
-                                ImmutableList.of(dnfPredicate)))));
+                                AndPredicate.conjuncts(cnfPredicate))));
     }
 }

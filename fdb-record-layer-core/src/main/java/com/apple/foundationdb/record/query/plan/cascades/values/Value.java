@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
@@ -67,7 +67,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -174,11 +173,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
-     * Method to create a {@link ValueWithRanges} placeholder that is based on this value. A placeholder is also a {@link QueryPredicate}
+     * Method to create a {@link PredicateWithValueAndRanges} placeholder that is based on this value. A placeholder is also a {@link QueryPredicate}
      * that is used solely for matching query predicates against.
      * @param parameterAlias alias to uniquely identify the parameter in the
      *        {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} this placeholder will be a part of.
-     * @return a new {@link ValueWithRanges} that has {@code parameterAlias} alias.
+     * @return a new {@link PredicateWithValueAndRanges} that has {@code parameterAlias} alias.
      */
     @Nonnull
     default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
@@ -253,21 +252,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedTo() {
-        return fold(Value::getCorrelatedToWithoutChildren,
-                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
-                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
-                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
-                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
-                    return correlatedToBuilder.build();
-                });
-    }
-
-    @Nonnull
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
+    Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Nonnull
     @Override
@@ -309,17 +294,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      *         incorporate the children of this value
      */
     int hashCodeWithoutChildren();
-
-    /**
-     * Overridden method to compute the semantic hash code of this tree of values. This method uses
-     * {@link #hashCodeWithoutChildren()} to fold over the tree.
-     * @return the semantic hash code
-     */
-    @Override
-    default int semanticHashCode() {
-        return fold(Value::hashCodeWithoutChildren,
-                (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
-    }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -411,6 +385,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     /**
+     * A marker interface for {@link Value}s that can be used in the context of range construction, it must be evaluable
+     * without being bound to an {@link FDBRecordStoreBase}.
+     * See {@link com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints}.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface RangeMatchableValue extends Value {
+    }
+
+    /**
      * A scalar value type that can only fetched from an index, that is the value cannot be fetched from the base record
      * nor can it be computed "on-the-fly".
      */
@@ -491,13 +474,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .identitiesFor(correlatedToIntersection)
                 .build();
 
-        final var valueWitResult =
+        final var resultPair =
                 Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
-        if (valueWitResult == null) {
+        if (resultPair == null) {
             return ImmutableMap.of();
         }
 
-        final var matchedValuesMap = valueWitResult.getResult();
+        final var matchedValuesMap = resultPair.getRight();
         final var resultsMap = new LinkedIdentityMap<Value, Value>();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);

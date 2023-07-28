@@ -52,7 +52,7 @@ import java.util.stream.StreamSupport;
  * {@link Type.Array} typed {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AbstractArrayConstructorValue implements Value, CreatesDynamicTypesValue {
+public abstract class AbstractArrayConstructorValue extends AbstractValue implements CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Constructor-Value");
 
     @Nonnull

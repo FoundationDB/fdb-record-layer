@@ -22,32 +22,92 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
- * A value representing a version stamp.
+ * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue implements LeafValue, Value.CompileTimeValue {
+public class VersionValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
-    public VersionValue() {
-        // explicit default constructor
+    @Nonnull
+    private final CorrelationIdentifier baseAlias;
+
+    public VersionValue(@Nonnull CorrelationIdentifier baseAlias) {
+        this.baseAlias = baseAlias;
+    }
+
+    @Override
+    public CorrelationIdentifier getAlias() {
+        return baseAlias;
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        QueryResult binding = (QueryResult) context.getBinding(baseAlias);
+        return binding.getQueriedRecordMaybe()
+                .map(FDBRecord::getVersion)
+                .orElse(null);
     }
 
     @Nonnull
     @Override
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+    public Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.VERSION);
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return toString();
+    }
+
+    @Nonnull
+    @Override
+    public String toString() {
+        return "version(" + baseAlias + ")";
+    }
+
+    @Nonnull
+    @Override
+    public VersionValue rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+        return new VersionValue(targetAlias);
+    }
+
+    @Nonnull
+    @Override
+    public VersionValue replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         return this;
     }
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        return true;
+        if (otherValue instanceof QuantifiedValue) {
+            return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
+        }
+        return false;
     }
 
     @Override

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -95,15 +94,15 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
 
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(GroupExpressionRef.of(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan pushedDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(newInnerQuantifier);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(pushedDistinctPlan, fetchPlan.getPushValueFunction(), Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
-
-        // case 2
-        call.yield(GroupExpressionRef.of(newFetchPlan));
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedDistinctPlan)),
+                        fetchPlan.getPushValueFunction(),
+                        Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
+        call.yield(newFetchPlan);
     }
 }

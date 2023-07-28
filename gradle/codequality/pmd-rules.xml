@@ -38,6 +38,7 @@
         <exclude name="ShortVariable" />
         <exclude name="UnnecessaryConstructor" />
         <exclude name="UselessParentheses" />
+        <exclude name="GenericsNaming" />
     </rule>
     <rule ref="category/java/codestyle.xml/ClassNamingConventions">
         <properties>

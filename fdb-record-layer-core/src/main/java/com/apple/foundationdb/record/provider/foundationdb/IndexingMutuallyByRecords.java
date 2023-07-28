@@ -97,7 +97,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private int fragmentFirst;
     private int fragmentCurrent;
     private FragmentIterationType fragmentIterationType;
-    private int loopProtectionCounter;
+    private int loopProtectionCounter = 0;
     private String loopProtectionToken = "";
 
     private FDBException anyJumperEx = null;
@@ -376,7 +376,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                  fullyUnBuiltRange(missingRanges, fragmentRange) :
                                  partlyUnBuiltRange(missingRanges, fragmentRange);
 
-            if (rangeToBuild != null && !anyJumperSaysJump(rangeToBuild)) {
+            if (anyJumperSaysBuild(rangeToBuild)) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.build("fragment/range to build",
                                     LogMessageKeys.SCAN_TYPE, fragmentIterationType,
@@ -525,28 +525,35 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private void infiniteLoopProtection(final Range range, final List<Range> missingRanges) {
         String token = range.toString();
         if (token.equals(loopProtectionToken)) {
-            loopProtectionCounter --;
-            if (0 < loopProtectionCounter) {
+            loopProtectionCounter ++;
+            if (loopProtectionCounter > 1000) {
                 throw new ValidationException("Potential infinite loop",
                         LogMessageKeys.RANGE, token,
                         LogMessageKeys.MISSING_RANGES, missingRanges);
             }
         } else {
-            loopProtectionCounter = 1000;
+            loopProtectionCounter = 0;
             loopProtectionToken = token;
         }
     }
 
     /**
      * anyJumper algo:
-     *  During the ANY iteration, we wish to avoid cases of two indexers competing on the same fragment.
+     *  During ANY or FULL iterations, we wish to avoid cases of two indexers competing on the same fragment.
      *  It is done by recording the exception and the fragment info, then - during the next iteration:
      *      If at the same fragment, same range: re-throw
-     *      If at the same fragment, different range: jump to the next fragment
+     *      If at the same fragment, different range: do not compete, jump to the next fragment
      */
-    boolean anyJumperSaysJump(Range rangeToBuild) {
-        if (anyJumperEx == null || fragmentIterationType != FragmentIterationType.ANY) {
+    boolean anyJumperSaysBuild(@Nullable Range rangeToBuild) {
+        // Note: if this function doesn't throw, it must clear anyJumperEx
+        if (rangeToBuild == null) {
+            // Here: nothing to build in this fragment, the old exception (if present) is obsolete
+            anyJumperEx = null;
             return false;
+        }
+        if (anyJumperEx == null) {
+            // Here: no old exception, build this range
+            return true;
         }
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.build("anyJumper: check if should jump",
@@ -558,28 +565,24 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     .toString());
         }
         if (anyJumperCurrent != fragmentCurrent) {
-            // Here: this way or another, the conflicting fragment is fully built now. Irrelevant.
+            // Here: new fragment, the old exception is obsolete
             anyJumperEx = null;
-            return false;
+            return true;
         }
         if (anyJumperRange.equals(rangeToBuild)) {
             // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
             throw anyJumperEx;
         }
-        // Here: Another indexer is processing this fragment, jump to the next one.
+        // Here: Another indexer is processing this fragment, clear the exception and jump to the next one.
         timerIncrement(FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_JUMP);
         anyJumperEx = null;
-        return true;
+        return false;
     }
 
-    @Nullable
-    private Function<FDBException, Optional<Boolean>> anyJumperCallback(Range rangeToBuild) {
-        if (fragmentIterationType != FragmentIterationType.ANY) {
-            return null;
-        }
+    private Function<FDBException, Optional<Boolean>> anyJumperCallback(final Range rangeToBuild) {
         return ex -> {
-            if (anyJumperEx != null) {
-                // Here: anyJumperSaysJump is re-throwing. Do not interrupt.
+            if (ex == null || anyJumperEx != null) {
+                // Here: Either not an fdb error or anyJumperSaysBuild is re-throwing. Do not interrupt.
                 anyJumperEx = null;
                 return Optional.empty();
             }
@@ -605,5 +608,4 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         throw new ValidationException("Mutual inline rebuild doesn't make any sense");
     }
-
 }

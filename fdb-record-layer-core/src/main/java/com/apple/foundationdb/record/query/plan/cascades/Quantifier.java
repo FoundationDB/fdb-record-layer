@@ -77,6 +77,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     private static final UUID CURRENT = UUID.randomUUID();
 
     /**
+     * Constant quantifier representing a reference to a constant box of literals.
+     */
+    @Nonnull
+    private static final String CONSTANT = "CONSTANT";
+
+    /**
      * The alias (some identification) for this quantifier.
      */
     @Nonnull
@@ -631,11 +637,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                : overNewReference(translatedReference);
     }
 
+    @Nonnull
     public static CorrelationIdentifier uniqueID() {
         return CorrelationIdentifier.uniqueID(Quantifier.class);
     }
 
+    @Nonnull
     public static CorrelationIdentifier current() {
         return CorrelationIdentifier.uniqueSingletonID(CURRENT, "𝓆");
+    }
+
+    @Nonnull
+    public static CorrelationIdentifier constant() {
+        return CorrelationIdentifier.of(CONSTANT);
     }
 }

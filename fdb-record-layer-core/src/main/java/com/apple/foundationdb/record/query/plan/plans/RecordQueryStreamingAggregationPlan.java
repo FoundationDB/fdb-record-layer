@@ -31,9 +31,10 @@ import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -133,7 +134,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         (FDBRecordStoreBase<Message>)store,
                         context,
                         inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping);
+        return new AggregateCursor<>(innerCursor, streamGrouping).skipThenLimit(executeProperties.getSkip(),
+                executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -164,7 +166,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | AGGREGATE BY " + aggregateValue + ", GROUP BY " + groupingKeyValue;
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull
@@ -192,8 +194,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public RecordQueryStreamingAggregationPlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryStreamingAggregationPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()),
+    public RecordQueryStreamingAggregationPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryStreamingAggregationPlan(Quantifier.physical(childRef, inner.getAlias()),
                 groupingKeyValue,
                 aggregateValue,
                 groupingKeyAlias,
@@ -381,7 +383,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var valuesBuilder = ImmutableList.<Value>builder();
         if (groupingKeyValue != null) {
             final var groupingResultType = groupingKeyValue.getResultType();
-            if (groupingResultType.getTypeCode() == Type.TypeCode.RECORD) {
+            if (groupingResultType.isRecord()) {
                 Verify.verify(groupingResultType instanceof Type.Record);
                 final var groupingResultRecordType = (Type.Record)groupingResultType;
                 List<Type.Record.Field> fields = groupingResultRecordType.getFields();
@@ -394,7 +396,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
 
         final var aggregateResultType = aggregateValue.getResultType();
-        if (aggregateResultType.getTypeCode() == Type.TypeCode.RECORD) {
+        if (aggregateResultType.isRecord()) {
             Verify.verify(aggregateResultType instanceof Type.Record);
             final var aggregateResultRecordType = (Type.Record)aggregateResultType;
             List<Type.Record.Field> fields = aggregateResultRecordType.getFields();

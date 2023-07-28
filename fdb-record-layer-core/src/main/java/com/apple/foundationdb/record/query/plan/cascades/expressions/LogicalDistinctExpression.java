@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
@@ -41,7 +40,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A relational planner expression representing a stream of unique records. This expression has a single child which
+ * A relational planner expression representing a stream of distinct records. This expression has a single child which
  * is also a {@link RelationalExpression}. This expression represents this underlying expression with its result
  * set de-duplicated.
  *
@@ -51,10 +50,6 @@ import java.util.Set;
 public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
-
-    public LogicalDistinctExpression(@Nonnull RelationalExpression inner) {
-        this(GroupExpressionRef.of(inner));
-    }
 
     public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
         this(Quantifier.forEach(innerRef));

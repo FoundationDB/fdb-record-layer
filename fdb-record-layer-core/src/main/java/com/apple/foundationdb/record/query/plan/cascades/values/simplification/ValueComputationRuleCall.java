@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,68 +34,42 @@ import java.util.function.Function;
 
 /**
  * A rule call implementation for the computation of a result while traversing {@link Value} trees.
- * @param <A> the type of the arguments to this rule call
- * @param <R> the type of result this rule call produces
+ * @param <ARGUMENT> the type of the arguments to this rule call
+ * @param <RESULT> the type of result this rule call produces
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValueComputationRuleCall<A, R> extends AbstractValueRuleCall<ValueComputationRuleCall.ValueWithResult<R>, ValueComputationRuleCall<A, R>> {
+public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRuleCall<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>> {
 
     @Nullable
-    private final A argument;
+    private final ARGUMENT argument;
 
     @Nonnull
-    private final Function<Value, ValueWithResult<R>> retrieveResultFunction;
+    private final Function<Value, Pair<Value, RESULT>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final AbstractValueRule<ValueWithResult<R>, ValueComputationRuleCall<A, R>, ? extends Value> rule,
+    public ValueComputationRuleCall(@Nonnull final AbstractRule<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>, Value, ? extends Value> rule,
                                     @Nonnull final Value root,
                                     @Nonnull final Value current,
-                                    @Nullable final A argument,
+                                    @Nullable final ARGUMENT argument,
                                     @Nonnull final PlannerBindings bindings,
                                     @Nonnull final AliasMap aliasMap,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                    @Nonnull final Function<Value, ValueWithResult<R>> retrieveResultFunction) {
+                                    @Nonnull final Function<Value, Pair<Value, RESULT>> retrieveResultFunction) {
         super(rule, root, current, bindings, aliasMap, constantAliases);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }
 
     @Nullable
-    public A getArgument() {
+    public ARGUMENT getArgument() {
         return argument;
     }
 
     @Nullable
-    public ValueWithResult<R> getResult(@Nonnull final Value value) {
+    public Pair<Value, RESULT> getResult(@Nonnull final Value value) {
         return retrieveResultFunction.apply(value);
     }
 
-    public void yield(@Nonnull final Value value, @Nonnull final R result) {
-        super.yield(new ValueWithResult<>(value, result));
-    }
-
-    /**
-     * Holder for a simplified value together with whatever result the simplification produced.
-     * @param <R> the type of the result
-     */
-    public static class ValueWithResult<R> {
-        @Nonnull
-        private final Value value;
-        @Nonnull
-        private final R result;
-
-        public ValueWithResult(@Nonnull final Value value, @Nonnull final R result) {
-            this.value = value;
-            this.result = result;
-        }
-
-        @Nonnull
-        public Value getValue() {
-            return value;
-        }
-
-        @Nonnull
-        public R getResult() {
-            return result;
-        }
+    public void yield(@Nonnull final Value value, @Nonnull final RESULT result) {
+        super.yield(Pair.of(value, result));
     }
 }

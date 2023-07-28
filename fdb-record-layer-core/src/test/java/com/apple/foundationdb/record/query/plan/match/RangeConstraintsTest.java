@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Proposition;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.google.common.collect.Range;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -66,11 +68,17 @@ public class RangeConstraintsTest {
 
     @Test
     public void testRangeImplications3() {
-        final var largerRange = RangeConstraints.emptyRange();
+        final var emptyRange = RangeConstraints.emptyRange();
         final var smallerRange = range(of(EQUALS, "aaa"));
-        shouldNotImply(largerRange, smallerRange);
-        shouldImply(largerRange, largerRange);
-        shouldNotImply(smallerRange, largerRange);
+        shouldNotImply(emptyRange, smallerRange);
+        shouldImply(emptyRange, emptyRange);
+        shouldNotImply(smallerRange, emptyRange);
+    }
+
+    @Test
+    public void testClosedOpen() {
+        final var range = Range.closedOpen(0, 0);
+        System.out.println(range);
     }
 
     @Test
@@ -85,7 +93,7 @@ public class RangeConstraintsTest {
     @Test
     public void testRangeEmptyUnknownIfNonCompileTime() {
         final var range = range(of(STARTS_WITH, "bbb")); // not compile-time
-        Assertions.assertEquals(Proposition.UNKNOWN, range.isEmpty());
+        Assertions.assertEquals(Proposition.UNKNOWN, range.isEmpty(EvaluationContext.empty()));
     }
 
     @Test
@@ -96,8 +104,8 @@ public class RangeConstraintsTest {
         final var isNotNullRangeBuilder = RangeConstraints.newBuilder();
         isNotNullRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(NOT_NULL));
         final var isNotNullRange = isNotNullRangeBuilder.build().orElseThrow();
-        Assertions.assertEquals(Proposition.FALSE, isNullRange.encloses(isNotNullRange));
-        Assertions.assertEquals(Proposition.FALSE, isNotNullRange.encloses(isNullRange));
+        Assertions.assertEquals(Proposition.FALSE, isNullRange.encloses(isNotNullRange, EvaluationContext.empty()));
+        Assertions.assertEquals(Proposition.FALSE, isNotNullRange.encloses(isNullRange, EvaluationContext.empty()));
     }
 
     @Test
@@ -105,13 +113,13 @@ public class RangeConstraintsTest {
         final var invalidRange = RangeConstraints.newBuilder();
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 30));
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 20));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(EvaluationContext.empty()), Proposition.TRUE);
 
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 10));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(EvaluationContext.empty()), Proposition.TRUE);
 
         invalidRange.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 10));
-        Assertions.assertEquals(invalidRange.build().get().isEmpty(), Proposition.TRUE);
+        Assertions.assertEquals(invalidRange.build().get().isEmpty(EvaluationContext.empty()), Proposition.TRUE);
     }
 
     @Nonnull
@@ -124,14 +132,14 @@ public class RangeConstraintsTest {
     }
 
     private static void shouldImply(@Nonnull RangeConstraints left, @Nonnull RangeConstraints right) {
-        Assertions.assertEquals(Proposition.TRUE, left.encloses(right));
+        Assertions.assertEquals(Proposition.TRUE, left.encloses(right, EvaluationContext.empty()));
     }
 
     private static void shouldNotImply(@Nonnull RangeConstraints left, @Nonnull RangeConstraints right) {
-        Assertions.assertEquals(Proposition.FALSE, left.encloses(right));
+        Assertions.assertEquals(Proposition.FALSE, left.encloses(right, EvaluationContext.empty()));
     }
 
     private static void implicationUnknown(@Nonnull RangeConstraints left, @Nonnull RangeConstraints right) {
-        Assertions.assertEquals(Proposition.UNKNOWN, left.encloses(right));
+        Assertions.assertEquals(Proposition.UNKNOWN, left.encloses(right, EvaluationContext.empty()));
     }
 }

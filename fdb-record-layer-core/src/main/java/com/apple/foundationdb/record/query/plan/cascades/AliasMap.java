@@ -163,16 +163,20 @@ import java.util.function.Function;
  */
 public class AliasMap {
     @Nonnull
-    private static final AliasMap EMPTY = new AliasMap(ImmutableBiMap.of());
+    private static final AliasMap EMPTY = new AliasMap(ImmutableBiMap.of(), true);
 
     @Nonnull
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
+
+    private final boolean definesOnlyIdentities;
 
     /**
      * Private constructor. Use static factory methods/builders to instantiate alias maps.
      * @param map the backing bi-map
      */
-    private AliasMap(final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
+    private AliasMap(@Nonnull final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map,
+                     final boolean definesOnlyIdentities) {
+        this.definesOnlyIdentities = definesOnlyIdentities;
         this.map = map;
     }
 
@@ -293,7 +297,7 @@ public class AliasMap {
      */
     @Nonnull
     public AliasMap inverse() {
-        return new AliasMap(map.inverse());
+        return new AliasMap(map.inverse(), definesOnlyIdentities);
     }
 
     /**
@@ -486,6 +490,14 @@ public class AliasMap {
     }
 
     /**
+     * Return if this alias map exclusively contains mappings of the shape {@code x -> x}.
+     * @return {@code true} if this alias map only contains mapped identities.
+     */
+    public boolean definesOnlyIdentities() {
+        return definesOnlyIdentities;
+    }
+
+    /**
      * Find complete matches between two sets of aliases, given their depends-on sets and a
      * {@link MatchPredicate}.
      * This method creates an underlying {@link PredicatedMatcher} to do the work.
@@ -587,7 +599,7 @@ public class AliasMap {
      */
     @Nonnull
     public static AliasMap of(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
-        return new AliasMap(ImmutableBiMap.of(source, target));
+        return new AliasMap(ImmutableBiMap.of(source, target), source.equals(target));
     }
 
     /**
@@ -598,7 +610,11 @@ public class AliasMap {
      */
     @Nonnull
     public static AliasMap copyOf(@Nonnull final BiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
-        return new AliasMap(ImmutableBiMap.copyOf(map));
+        final var definesOnlyIdentities =
+                map.entrySet()
+                        .stream()
+                        .allMatch(entry -> entry.getKey().equals(entry.getValue()));
+        return new AliasMap(ImmutableBiMap.copyOf(map), definesOnlyIdentities);
     }
 
     /**
@@ -721,7 +737,7 @@ public class AliasMap {
          */
         @Nonnull
         public AliasMap build() {
-            return new AliasMap(ImmutableBiMap.copyOf(map));
+            return AliasMap.copyOf(map);
         }
     }
 }

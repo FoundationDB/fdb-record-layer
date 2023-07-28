@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
@@ -57,7 +59,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  *
  * The logic that this rules delegates to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext)}
+ * {@link MatchCandidate#toEquivalentPlan(PartialMatch, PlanContext, Memoizer)}
  *
  */
 @API(API.Status.EXPERIMENTAL)
@@ -107,12 +109,8 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        final var result = dataAccessForMatchPartition(call.getContext(),
+        call.yield(dataAccessForMatchPartition(call,
                 requestedOrderings,
-                matchPartition);
-
-        if (!result.getMembers().isEmpty()) {
-            call.yield(result);
-        }
+                matchPartition));
     }
 }

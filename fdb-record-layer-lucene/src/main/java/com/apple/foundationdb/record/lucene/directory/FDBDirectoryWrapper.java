@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -51,6 +53,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
+
+    // Lucene Optimized Codec Singleton
+    private static final Codec CODEC = new LuceneOptimizedCodec();
 
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
@@ -102,6 +107,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+            long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
                     if (LOGGER.isTraceEnabled()) {
@@ -127,6 +133,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                 }
                 super.merge(mergeSource, trigger);
             }
+            state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
     }
 
@@ -143,7 +150,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
-                            .setCodec(new LuceneOptimizedCodec())
+                            .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
                     IndexWriter oldWriter = writer;

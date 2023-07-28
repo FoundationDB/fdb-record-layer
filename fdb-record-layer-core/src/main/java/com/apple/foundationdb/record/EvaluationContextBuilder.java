@@ -99,6 +99,10 @@ public class EvaluationContextBuilder {
         return setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value);
     }
 
+    public EvaluationContextBuilder setConstant(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return setBinding(Bindings.Internal.CONSTANT.bindingName(alias.getId()), value);
+    }
+
     /**
      * Construct an {@link EvaluationContext} with updated bindings.
      * This should include all bindings specified though the original

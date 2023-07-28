@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
@@ -91,7 +93,7 @@ import java.util.function.Function;
  *
  */
 @API(API.Status.EXPERIMENTAL)
-class LuceneRecordCursor implements BaseCursor<IndexEntry> {
+public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
     private final int pageSize;
@@ -129,6 +131,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final Tuple groupingKey;
     @Nullable
     private final List<String> storedFields;
+    @Nonnull
+    private final Set<String> storedFieldsToReturn;
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
@@ -138,6 +142,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
+    private boolean closed;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -161,6 +166,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.pageSize = pageSize;
         this.executorService = executorService;
         this.storedFields = storedFields;
+        this.storedFieldsToReturn = Sets.newHashSet(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+        if (this.storedFields != null) { // Only return StoredValues required for primary key and to support query.
+            storedFieldsToReturn.addAll(storedFields);
+        }
         this.storedFieldTypes = storedFieldTypes;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
@@ -182,6 +191,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.analyzerSelector = analyzerSelector;
         this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
+        closed = false;
     }
 
     @Nonnull
@@ -238,6 +248,12 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
         }
+        closed = true;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 
     @Nonnull
@@ -322,7 +338,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Document document = searcher.doc(scoreDoc.doc);
+                Document document = searcher.doc(scoreDoc.doc, storedFieldsToReturn);
                 IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
                 BytesRef pk = primaryKey.binaryValue();
                 if (LOGGER.isTraceEnabled()) {
@@ -446,12 +462,19 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             Term term = termQuery.getPrefix();
             map.putIfAbsent(term.field(), new HashSet<>());
             map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT) + "*");
+        } else if (query instanceof BitSetQuery) {
+            BitSetQuery bitsetQuery = (BitSetQuery)query;
+            String field = bitsetQuery.getField();
+            map.computeIfAbsent(field, key -> new HashSet<>()).add(field.toLowerCase(Locale.ROOT));
         } else {
             throw new RecordCoreException("This lucene query is not supported for highlighting");
         }
     }
 
-    protected static final class ScoreDocIndexEntry extends IndexEntry {
+    /**
+     * An IndexEntry based off a Lucene ScoreDoc.
+     */
+    public static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
 
         private final Map<String, Set<String>> termMap;

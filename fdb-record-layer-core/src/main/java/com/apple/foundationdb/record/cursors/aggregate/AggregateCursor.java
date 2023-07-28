@@ -107,6 +107,11 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         inner.close();
     }
 
+    @Override
+    public boolean isClosed() {
+        return inner.isClosed();
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

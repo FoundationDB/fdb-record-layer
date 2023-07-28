@@ -29,11 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -50,13 +49,14 @@ import java.util.Optional;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotPredicate implements QueryPredicateWithChild {
+public class NotPredicate extends AbstractQueryPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
     @Nonnull
     public final QueryPredicate child;
 
-    public NotPredicate(@Nonnull QueryPredicate child) {
+    private NotPredicate(@Nonnull final QueryPredicate child, final boolean isAtomic) {
+        super(isAtomic);
         this.child = child;
     }
 
@@ -99,8 +99,13 @@ public class NotPredicate implements QueryPredicateWithChild {
     }
 
     @Override
-    public int semanticHashCode() {
-        return Objects.hash(getChild());
+    public int computeSemanticHashCode() {
+        return Objects.hash(hashCodeWithoutChildren(), getChild());
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
     }
 
     @Override
@@ -119,7 +124,7 @@ public class NotPredicate implements QueryPredicateWithChild {
     @Nonnull
     @Override
     public NotPredicate withChild(@Nonnull final QueryPredicate newChild) {
-        return new NotPredicate(newChild);
+        return new NotPredicate(newChild, isAtomic());
     }
 
     @Nonnull
@@ -135,17 +140,24 @@ public class NotPredicate implements QueryPredicateWithChild {
         final var childInjectCompensationFunction = childInjectCompensationFunctionOptional.get();
 
         return Optional.of(translationMap -> {
-            final var childGraphExpansion = childInjectCompensationFunction.applyCompensation(translationMap);
-            Verify.verify(childGraphExpansion.getResultColumns().isEmpty());
-            return GraphExpansion.of(ImmutableList.of(),
-                    ImmutableList.of(not(childGraphExpansion.asAndPredicate())),
-                    childGraphExpansion.getQuantifiers(),
-                    ImmutableList.of());
+            final var childPredicates = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
+            return LinkedIdentitySet.of(not(AndPredicate.andOrTrue(childPredicates)));
         });
     }
 
     @Nonnull
+    @Override
+    public NotPredicate withAtomicity(final boolean isAtomic) {
+        return new NotPredicate(getChild(), isAtomic);
+    }
+
+    @Nonnull
     public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
-        return new NotPredicate(predicate);
+        return of(predicate, false);
+    }
+
+    @Nonnull
+    public static NotPredicate of(@Nonnull final QueryPredicate predicate, final boolean isAtomic) {
+        return new NotPredicate(predicate, isAtomic);
     }
 }

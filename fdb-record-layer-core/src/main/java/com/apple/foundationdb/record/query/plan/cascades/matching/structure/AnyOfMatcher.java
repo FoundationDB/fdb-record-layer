@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
@@ -66,10 +67,10 @@ public class AnyOfMatcher<T> implements BindingMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
         return downstreams
                 .stream()
-                .flatMap(extractingMatcher -> extractingMatcher.bindMatches(outerBindings, in));
+                .flatMap(extractingMatcher -> extractingMatcher.bindMatches(plannerConfiguration, outerBindings, in));
     }
 
     @SuppressWarnings("UnstableApiUsage")

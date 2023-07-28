@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -97,7 +97,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
             plan = cascadesPlanner.planGraph(
@@ -136,7 +136,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
                     deletePlan(
@@ -160,7 +160,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -200,7 +200,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
 
@@ -226,7 +226,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -321,7 +321,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 false,
-                ParameterRelationshipGraph.empty());
+                EvaluationContext.empty()).getPlan();
 
         Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(plan, this::openNestedRecordStore, Function.identity()));
     }
@@ -387,7 +387,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
             plan = cascadesPlanner.planGraph(
@@ -430,7 +430,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
                     updatePlan(
@@ -464,7 +464,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -531,7 +531,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
             plan = cascadesPlanner.planGraph(
@@ -591,7 +591,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         graphExpansionBuilder = GraphExpansion.builder();
                         graphExpansionBuilder.addQuantifier(outerQun);
                         graphExpansionBuilder.addQuantifier(innerQun);
-                        graphExpansionBuilder.addPredicate(new NotPredicate(new ExistsPredicate(innerQun.getAlias())));
+                        graphExpansionBuilder.addPredicate(NotPredicate.not(new ExistsPredicate(innerQun.getAlias())));
                         qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(outerQun.getFlowedObjectValue())));
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
@@ -604,7 +604,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
                     insertPlan(
@@ -630,7 +630,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
-                    ParameterRelationshipGraph.empty());
+                    EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");

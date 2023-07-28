@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -241,6 +242,18 @@ public class Comparisons {
         } else {
             throw new RecordCoreException("Illegal comparand value type: " + comparand);
         }
+    }
+
+    @Nullable
+    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
+    private static Boolean compareLike(@Nullable Object value, @Nullable Object pattern) {
+        if (!(value instanceof String)) {
+            throw new RecordCoreException("Illegal comparand value type: " + value);
+        }
+        if (!(pattern instanceof String)) {
+            throw new RecordCoreException("Illegal pattern value type: " + pattern);
+        }
+        return LikeOperatorValue.likeOperation((String)value, (String)pattern);
     }
 
     private static Boolean compareListStartsWith(@Nullable Object value, @Nullable List<?> comparand) {
@@ -563,7 +576,9 @@ public class Comparisons {
         TEXT_CONTAINS_ALL_PREFIXES,
         TEXT_CONTAINS_ANY_PREFIX,
         @API(API.Status.EXPERIMENTAL)
-        SORT(false);
+        SORT(false),
+        @API(API.Status.EXPERIMENTAL)
+        LIKE;
 
         private final boolean isEquality;
         private final boolean isUnary;
@@ -587,6 +602,27 @@ public class Comparisons {
 
         public boolean isUnary() {
             return isUnary;
+        }
+    }
+
+    @Nullable
+    public static Type invertComparisonType(@Nonnull final Comparisons.Type type) {
+        if (type.isUnary()) {
+            return null;
+        }
+        switch (type) {
+            case EQUALS:
+                return Type.NOT_EQUALS;
+            case LESS_THAN:
+                return Type.GREATER_THAN_OR_EQUALS;
+            case LESS_THAN_OR_EQUALS:
+                return Type.GREATER_THAN;
+            case GREATER_THAN:
+                return Type.LESS_THAN_OR_EQUALS;
+            case GREATER_THAN_OR_EQUALS:
+                return Type.LESS_THAN;
+            default:
+                return null;
         }
     }
 
@@ -616,6 +652,8 @@ public class Comparisons {
                 return compare(value, comparand) > 0;
             case GREATER_THAN_OR_EQUALS:
                 return compare(value, comparand) >= 0;
+            case LIKE:
+                return compareLike(value, comparand);
             default:
                 throw new RecordCoreException("Unsupported comparison type: " + type);
         }
@@ -670,6 +708,9 @@ public class Comparisons {
          */
         @Nonnull
         Type getType();
+
+        @Nonnull
+        Comparison withType(@Nonnull Type newType);
 
         /**
          * Get the comparison value without any bindings.
@@ -823,6 +864,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new SimpleComparison(newType, comparand);
+        }
+
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -971,6 +1021,15 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ParameterComparison(newType, parameter, internal, parameterRelationshipGraph);
         }
 
         public boolean isCorrelation() {
@@ -1206,6 +1265,15 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ValueComparison(newType, comparandValue, parameterRelationshipGraph);
+        }
+
+        @Nonnull
         public Value getComparandValue() {
             return comparandValue;
         }
@@ -1426,6 +1494,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ListComparison(newType, comparand);
+        }
+
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -1526,6 +1603,15 @@ public class Comparisons {
             return type;
         }
 
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new NullComparison(newType);
+        }
+
         @Nullable
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
@@ -1605,6 +1691,12 @@ public class Comparisons {
         @Override
         public Type getType() {
             return Type.EQUALS;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            return this;
         }
 
         @Nullable
@@ -1764,6 +1856,19 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            if (tokenList == null) {
+                return new TextComparison(newType, Objects.requireNonNull(tokenStr), tokenizerName, fallbackTokenizerName);
+            } else {
+                return new TextComparison(newType, tokenList, tokenizerName, fallbackTokenizerName);
+            }
         }
 
         @Nullable
@@ -2084,6 +2189,17 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Comparison withType(@Nonnull final Type newType) {
+            final var newInner = inner.withType(newType);
+            if (newInner == inner) {
+                return this;
+            }
+            return new MultiColumnComparison(newInner);
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             final var translatedInner = inner.translateCorrelations(translationMap);
             if (inner == translatedInner) {
@@ -2245,6 +2361,12 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            return from(function, originalComparison.withType(newType));
         }
 
         @Nullable

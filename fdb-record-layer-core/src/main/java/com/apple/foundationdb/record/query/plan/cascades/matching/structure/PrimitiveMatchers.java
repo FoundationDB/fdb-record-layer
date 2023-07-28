@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -58,7 +59,7 @@ public class PrimitiveMatchers {
 
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
                 // The normal contract for all binding matchers is that only bindMatches() or an override of this method
                 // should ever invoke this method. As we also override bindMatches(), this place is not reachable without
                 // breaking that mentioned contract.
@@ -67,7 +68,7 @@ public class PrimitiveMatchers {
 
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatches(@Nonnull final PlannerBindings outerBindings, @Nonnull final Object in) {
+            public Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Object in) {
                 return
                         Stream.of(PlannerBindings.from(this, object))
                                 .flatMap(bindings -> {
@@ -81,18 +82,17 @@ public class PrimitiveMatchers {
 
             @Override
             public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-                return "match " + boundId + " { case " + object.toString() + " => success }";
+                return "match " + boundId + " { case " + object + " => success }";
             }
         };
     }
 
     @Nonnull
     public static <T> CollectionMatcher<T> containsAll(@Nonnull final Set<? extends T> elements) {
-        return new CollectionMatcher<T>() {
-            @SuppressWarnings("SuspiciousMethodCalls")
+        return new CollectionMatcher<>() {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
                 return Stream.of(PlannerBindings.from(this, in))
                         .flatMap(bindings -> {
                             if (in.containsAll(elements)) {
@@ -125,14 +125,14 @@ public class PrimitiveMatchers {
             @Nonnull
             @Override
             @SuppressWarnings("unchecked")
-            public Stream<PlannerBindings> bindMatches(@Nonnull final PlannerBindings outerBindings, @Nonnull final Object object) {
+            public Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Object object) {
                 final T in = (T)object;
-                return bindMatchesSafely(outerBindings, in);
+                return bindMatchesSafely(plannerConfiguration, outerBindings, in);
             }
 
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
                 return Stream.of(PlannerBindings.from(this, in))
                         .flatMap(bindings -> {
                             if (predicate.test(in)) {

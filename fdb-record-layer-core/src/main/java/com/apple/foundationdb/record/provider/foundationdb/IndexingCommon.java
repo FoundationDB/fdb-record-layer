@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -57,7 +58,6 @@ public class IndexingCommon {
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
     @Nonnull private final AtomicLong totalRecordsScanned;
-
     private final boolean useSynchronizedSession;
     private final boolean trackProgress;
     private final long leaseLengthMillis;
@@ -95,7 +95,7 @@ public class IndexingCommon {
                    @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                    @Nonnull List<Index> targetIndexes,
                    @Nullable Collection<RecordType> allRecordTypes,
-                   @Nullable Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
+                   @Nullable UnaryOperator<OnlineIndexer.Config> configLoader,
                    @Nonnull OnlineIndexer.Config config,
                    boolean trackProgress,
                    boolean useSynchronizedSession,

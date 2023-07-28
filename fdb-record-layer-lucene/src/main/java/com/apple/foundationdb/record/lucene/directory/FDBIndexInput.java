@@ -45,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 public class FDBIndexInput extends IndexInput {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBIndexInput.class);
     private final String resourceDescription;
+    private final String nestedResourceDescription;
     private final FDBDirectory fdbDirectory;
     private final CompletableFuture<FDBLuceneFileReference> reference;
     /*
@@ -69,24 +70,55 @@ public class FDBIndexInput extends IndexInput {
      * @throws IOException exception
      */
     public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory) throws IOException {
-        this(resourceDescription, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription), 0L,
+        this(resourceDescription, resourceDescription, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription), 0L,
                 0L, 0, null);
+    }
+
+    /**
+     * Constructor to create and FDBIndexInput from a file referenced in the metadata keyspace.
+     *
+     * This constructor will <b>not</b> perform an asynchronous (lookahead) to the first block and will
+     * need to be <i>sliced</i> to provide correct results.
+     *
+     * This is currently used by the LuceneOptimizedCompoundReader to not have to read its first block unless needed.
+     *
+     * @param resourceDescription opaque description of file; used for logging
+     * @param fdbDirectory FDB directory mapping
+     * @param initialOffset initialOffset
+     * @param position currentBlockPosition
+     * @throws IOException exception
+     */
+    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory, long initialOffset, long position) throws IOException {
+        super(resourceDescription);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.of("initWithoutInitialRead()",
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
+        }
+        this.resourceDescription = resourceDescription;
+        this.nestedResourceDescription = resourceDescription; // Not Nested
+        this.fdbDirectory = fdbDirectory;
+        this.reference = fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription);
+        this.position = position;
+        this.initialOffset = initialOffset;
+        this.currentBlock = -1;
+        this.currentData = CompletableFuture.completedFuture(new byte[0]);
     }
 
     /**
      * Constructor that is utilized by splice calls to take into account initial offsets and modifications to length.
      *
+     * @param nestedResourceDescription opaque description of file; used for logging
      * @param resourceDescription opaque description of file; used for logging
      * @param fdbDirectory FDB directory mapping
      * @param reference future Reference
-     * @param initalOffset initialOffset
+     * @param initialOffset initialOffset
      * @param position currentBlockPosition
      * @param currentBlock block
      * @param currentData future with CurrentData Fetch
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory,
-                         @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initalOffset, long position,
+    public FDBIndexInput(@Nonnull final String nestedResourceDescription, @Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory,
+                         @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
                          int currentBlock, @Nullable CompletableFuture<byte[]> currentData) throws IOException {
         super(resourceDescription);
         if (LOGGER.isTraceEnabled()) {
@@ -94,12 +126,13 @@ public class FDBIndexInput extends IndexInput {
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         this.resourceDescription = resourceDescription;
+        this.nestedResourceDescription = nestedResourceDescription;
         this.fdbDirectory = fdbDirectory;
         this.reference = reference;
         this.position = position;
         this.currentBlock = currentBlock;
         this.currentData = currentData;
-        this.initialOffset = initalOffset;
+        this.initialOffset = initialOffset;
         if (currentData == null) {
             numberOfSeeks++;
             readBlock();
@@ -127,7 +160,7 @@ public class FDBIndexInput extends IndexInput {
      *
      */
     private void readBlock() {
-        this.currentData = fdbDirectory.readBlock(resourceDescription, reference, currentBlock);
+        this.currentData = fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, currentBlock);
         this.actualCurrentData = null;
     }
 
@@ -209,8 +242,10 @@ public class FDBIndexInput extends IndexInput {
                     LuceneLogMessageKeys.OFFSET, offset,
                     LuceneLogMessageKeys.LENGTH, length));
         }
+        // Good Place to perform stack dumps if you want to know who is performing a read...
+        //Thread.dumpStack();
         final FDBLuceneFileReference fileReference = getFileReference();
-        return new FDBIndexInput(resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
+        return new FDBIndexInput(sliceDescription, resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
                 new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
                 offset + initialOffset, 0L, currentBlock, currentData
                 );
@@ -317,7 +352,7 @@ public class FDBIndexInput extends IndexInput {
      */
     public int prefetch(int beginBlock, int length) {
         for (int i = 0; i < length; i++) {
-            fdbDirectory.readBlock(resourceDescription, reference, beginBlock + i);
+            fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, beginBlock + i);
         }
         return length;
     }

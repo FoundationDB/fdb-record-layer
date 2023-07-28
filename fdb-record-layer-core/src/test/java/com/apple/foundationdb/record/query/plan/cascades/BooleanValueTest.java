@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
@@ -69,7 +70,6 @@ import java.util.stream.Stream;
  */
 class BooleanValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
-    private static final LiteralValue<?> UNKNOWN = new LiteralValue<>(Type.primitiveType(Type.TypeCode.UNKNOWN));
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<Boolean> BOOL_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
@@ -99,7 +99,7 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
 
     @SuppressWarnings("ConstantConditions")
-    static class ThrowsValue implements BooleanValue {
+    static class ThrowsValue extends AbstractValue implements BooleanValue {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
@@ -139,153 +139,6 @@ class BooleanValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(BOOL_TRUE, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(BOOL_FALSE, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(BOOL_TRUE, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(BOOL_FALSE, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_1, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(INT_2, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_1, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(LONG_2, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_1, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(FLOAT_2, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_1, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(DOUBLE_2, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_1, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(STRING_2, UNKNOWN), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, INT_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, LONG_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, FLOAT_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, DOUBLE_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.LtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.GtFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.LteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(UNKNOWN, STRING_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
-                    
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
@@ -613,7 +466,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), new AndPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), AndPredicate.and(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
@@ -633,7 +486,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), new OrPredicate(List.of(new ValuePredicate(F,
+                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), OrPredicate.or(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.FALSE))),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2)),
                             new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),

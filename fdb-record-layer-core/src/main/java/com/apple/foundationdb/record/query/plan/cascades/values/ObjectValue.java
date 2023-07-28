@@ -44,7 +44,7 @@ import java.util.Set;
  * For example, this is used to represent non-quantifiable data (e.g. within an expression).
  */
 @API(API.Status.EXPERIMENTAL)
-public class ObjectValue implements LeafValue {
+public class ObjectValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Object-Value");
 
     @Nonnull

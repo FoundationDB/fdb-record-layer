@@ -27,10 +27,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
@@ -48,7 +50,7 @@ import java.util.Optional;
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue implements BooleanValue {
+public class NotValue extends AbstractValue implements BooleanValue {
     /**
      * The hash value of this expression.
      */
@@ -84,7 +86,7 @@ public class NotValue implements BooleanValue {
             if (queryPredicate.equals(ConstantPredicate.NULL)) {
                 return Optional.of(ConstantPredicate.NULL);
             }
-            return predicateOptional;
+            return Optional.of(NotPredicate.not(queryPredicate));
         }
         return Optional.empty();
     }

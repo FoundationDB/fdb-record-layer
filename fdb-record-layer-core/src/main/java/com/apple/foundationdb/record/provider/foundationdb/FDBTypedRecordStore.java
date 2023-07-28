@@ -320,7 +320,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     public static class Builder<M extends Message> implements BaseBuilder<M, FDBTypedRecordStore<M>> {
 
         @Nonnull
-        private FDBRecordStore.Builder untypedStoreBuilder;
+        private final FDBRecordStore.Builder untypedStoreBuilder;
         @Nullable
         private RecordSerializer<M> typedSerializer;
 
@@ -511,6 +511,19 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         @Override
         public Builder<M> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache) {
             untypedStoreBuilder.setStoreStateCache(storeStateCache);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        public FDBRecordStore.StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
+            return untypedStoreBuilder.getStateCacheabilityOnOpen();
+        }
+
+        @Override
+        @Nonnull
+        public BaseBuilder<M, FDBTypedRecordStore<M>> setStateCacheabilityOnOpen(@Nonnull final FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen) {
+            untypedStoreBuilder.setStateCacheabilityOnOpen(stateCacheabilityOnOpen);
             return this;
         }
 

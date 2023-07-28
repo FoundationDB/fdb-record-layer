@@ -372,13 +372,13 @@ public class MessageHelpers {
         // This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
         // vice versa, we need to change the wrapping in protobuf.
         //
-        if (targetType.getTypeCode() == Type.TypeCode.ARRAY) {
-            Verify.verify(currentType.getTypeCode() == Type.TypeCode.ARRAY);
+        if (targetType.isArray()) {
+            Verify.verify(currentType.isArray());
             final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
             return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
-        if (targetType.getTypeCode() == Type.TypeCode.RECORD) {
+        if (targetType.isRecord()) {
             return coerceMessage(coercionsTrie, targetType, Verify.verifyNotNull(targetDescriptor), currentType, (Message)current);
         }
 

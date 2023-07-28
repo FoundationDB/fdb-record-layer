@@ -27,9 +27,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -71,13 +72,18 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
-        this.conjunctedPredicate = AndPredicate.and(this.predicates);
+        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
     }
 
     @Nonnull
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
+    }
+
+    @Nonnull
+    public QueryPredicate getConjunctedPredicate() {
+        return conjunctedPredicate;
     }
 
     @Override
@@ -144,8 +150,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryPredicatesFilterPlan(Quantifier.physical(GroupExpressionRef.of(child)), getPredicates());
+    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryPredicatesFilterPlan(Quantifier.physical(childRef), getPredicates());
     }
 
     @Nonnull
@@ -178,7 +184,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | " + conjunctedPredicate;
+        return PlanStringRepresentation.toString(this);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

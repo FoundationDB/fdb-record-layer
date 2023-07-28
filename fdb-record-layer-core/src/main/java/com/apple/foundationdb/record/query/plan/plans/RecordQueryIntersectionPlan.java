@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -71,7 +72,6 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
 
-    private static final String INTERSECT = "∩"; // U+2229
     /* The current implementations of equals() and hashCode() treat RecordQueryIntersectionPlan as if it were isomorphic under
      * a reordering of its children. In particular, all of the tests assume that a RecordQueryIntersectionPlan with its children
      * reordered is identical. This is accurate in the current implementation (except that the continuation might no longer
@@ -149,7 +149,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
     @Nonnull
     @Override
     public String toString() {
-        return getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(" " + INTERSECT + " "));
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -122,7 +122,7 @@ public class GraphExpansion {
 
     @Nonnull
     public QueryPredicate asAndPredicate() {
-        return AndPredicate.and(getPredicates());
+        return AndPredicate.andOrTrue(getPredicates());
     }
 
     @Nonnull
@@ -198,7 +198,7 @@ public class GraphExpansion {
 
             // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
             // order of parameters determines their sargability.
-            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(ValueWithRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
+            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(PredicateWithValueAndRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.
@@ -208,8 +208,7 @@ public class GraphExpansion {
                     IntStream.range(0, deDupPlaceholders.size())
                             .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
                             .filter(placeholderWithIndex -> localPredicates.stream()
-                                    .filter(localPredicate -> localPredicate instanceof ValueWithRanges)
-                                    .map(localPredicate -> (ValueWithRanges)localPredicate)
+                                    .flatMap(predicate -> predicate.narrowMaybe(PredicateWithValueAndRanges.class).stream())
                                     .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
                             .collect(Collectors.toList());
 
@@ -342,6 +341,7 @@ public class GraphExpansion {
      * A sealed version of {@link GraphExpansion} that has already reconciled duplicate placeholders.
      */
     public class Sealed {
+
         @Nonnull
         public SelectExpression buildSelect() {
             return new SelectExpression(RecordConstructorValue.ofColumns(resultColumns), quantifiers, getPredicates());

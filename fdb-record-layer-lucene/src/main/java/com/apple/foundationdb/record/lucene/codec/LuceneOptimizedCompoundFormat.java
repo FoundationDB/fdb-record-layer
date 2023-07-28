@@ -44,6 +44,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file entries. */
     public static final String ENTRIES_EXTENSION = "cfe";
 
+    public static final String FIELD_INFO_EXTENSION = "fnm";
     public static final String DATA_CODEC = "Lucene50CompoundData";
     public static final String ENTRY_CODEC = "Lucene50CompoundEntries";
     public static final int VERSION_START = 0;
@@ -58,7 +59,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
-        return new LuceneOptimizedCompoundReader(dir, si, context);
+        return new LuceneOptimizedCompoundReader(dir, si);
     }
 
     @Override

@@ -18,7 +18,6 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Add support for `int32` in record metadata `Value` [(Issue #2091)](https://github.com/FoundationDB/fdb-record-layer/issues/2091)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +38,148 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.400.0
+
+* **Bug fix** Resolve Lucene readSchema deadlock [(Issue #2234)](https://github.com/FoundationDB/fdb-record-layer/issues/2234)
+
+### 3.3.399.0
+
+
+### 3.3.398.0
+
+* **Bug fix** Splitting disjunction into union produces duplicates [(Issue #2230)](https://github.com/FoundationDB/fdb-record-layer/issues/2230)
+
+### 3.3.397.0
+
+* **Performance** Lucene: allow skipping checkIntegrity for all PostingsFormat inheritors [(Issue #2224)](https://github.com/FoundationDB/fdb-record-layer/issues/2224)
+
+### 3.3.396.0
+
+* **Feature** OnlineIndexer: IndexingThrottle: re-write limit handling  [(Issue #2106)](https://github.com/FoundationDB/fdb-record-layer/issues/2106)
+
+### 3.3.395.0
+
+* **Bug fix** Lucene: allow fieldsProducer close (and commit) only if it was initialized [(Issue #2222)](https://github.com/FoundationDB/fdb-record-layer/issues/2222)
+* **Performance** a wider index should be preferred over a narrower index if choosing an index scan over the wider index avoids a fetch [(Issue #2218)](https://github.com/FoundationDB/fdb-record-layer/issues/2218)
+* **Feature** Stores can now be configured to update their state cacheability during store opening or creation [(Issue #2203)](https://github.com/FoundationDB/fdb-record-layer/issues/2203)
+
+### 3.3.394.0
+
+
+### 3.3.393.0
+
+* **Feature** Add more metrics to Lucene operations [(Issue #2210)](https://github.com/FoundationDB/fdb-record-layer/issues/2210)
+
+### 3.3.392.0
+
+* **Feature** Support Greatest and Least scalar functions [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2206)
+* **Feature** Support coalesce scalar function [(Issue #2206)](https://github.com/FoundationDB/fdb-record-layer/issues/2207)
+
+
+### 3.3.391.0
+
+
+### 3.3.390.0
+
+* **Feature** Lucene: add context property to skip data integrity check [(Issue #2198)](https://github.com/FoundationDB/fdb-record-layer/issues/2198)
+
+### 3.3.389.0
+
+* **Feature** Add a way to relax stop qord queries [(Issue #2196)](https://github.com/FoundationDB/fdb-record-layer/issues/2196)
+
+### 3.3.388.0
+
+* **Bug fix** Parameterized dual-planner test results do not show test name [(Issue #2201)](https://github.com/FoundationDB/fdb-record-layer/issues/2201)
+* **Feature** Lucene: add context property to skip data integrity check [(Issue #2198)](https://github.com/FoundationDB/fdb-record-layer/issues/2198)
+
+### 3.3.387.0
+
+
+### 3.3.386.0
+
+
+### 3.3.386.0
+
+* **Bug fix** Lifting Java type to Cascades type is inconsistent [(Issue #2176)](https://github.com/FoundationDB/fdb-record-layer/issues/2176)
+
+### 3.3.385.0
+
+
+### 3.3.384.0
+
+
+### 3.3.382.0
+
+* **Bug fix** Fix grouping requested order if it is empty [(Issue #2150)](https://github.com/FoundationDB/fdb-record-layer/issues/2150)
+
+### 3.3.381.0
+
+* **Performance** only break ORs into UNIONs if beneficial for index matching [(Issue #2147)](https://github.com/FoundationDB/fdb-record-layer/issues/2147)
+
+### 3.3.380.0
+
+* **Bug fix** flatmap should honor skips and limits [(Issue #2140)](https://github.com/FoundationDB/fdb-record-layer/issues/2140)
+
+### 3.3.379.0
+
+* **Feature** cascades planner needs to enumerate OR factorizations properly [(Issue #2131)](https://github.com/FoundationDB/fdb-record-layer/issues/2131)
+
+### 3.3.378.0
+
+* **Bug fix** Removed infinite recursion from `LuceneIndexQueryPlan`'s `toString` implementation [(Issue #2136)](https://github.com/FoundationDB/fdb-record-layer/issues/2136)
+* **Feature** Record versions are now queryable by the Cascades planner, including mathcing on version indexes [(Issue #2089)](https://github.com/FoundationDB/fdb-record-layer/issues/2089)
+
+### 3.3.377.0
+
+* **Feature** Allow placeholders in aggregate index match candidate's underlying `SelectExpression` [(Issue #2135)](https://github.com/FoundationDB/fdb-record-layer/issues/2135)
+
+### 3.3.376.0
+
+* **Bug fix** The plan string for `RecordQueryMapPlan` is reverted back to its value before [3.3.375.0](#333750) [(Issue #2132)](https://github.com/FoundationDB/fdb-record-layer/issues/2132)
+
+### 3.3.375.0
+
+* **Bug fix** Filtered match candidate is incorrectly considered for unfiltered scan [(Issue #2118)](https://github.com/FoundationDB/fdb-record-layer/issues/2118)
+* **Feature** The `PlanStringRepresentation` class separates out plan explain printing from `RecordQueryPlan::toString` including adding logic to create length-limited strings [(Issue #2112)](https://github.com/FoundationDB/fdb-record-layer/issues/2112)
+
+### 3.3.374.0
+
+* **Feature** Add throttling tags to context config [(Issue #2115)](https://github.com/FoundationDB/fdb-record-layer/issues/2115)
+* **Feature** Add optional conflict tracking to context config [(Issue #2116)](https://github.com/FoundationDB/fdb-record-layer/issues/2116)
+
+### 3.3.373.0
+
+* **Feature** Refactor KeySpaceTreeResolver out of KeySpaceCountTree [(Issue #2121)](https://github.com/FoundationDB/fdb-record-layer/issues/2121)
+
+### 3.3.372.0
+
+* **Bug fix** FDBRecordStore: keep userVersionChecker during copyFrom store [(Issue #2109)](https://github.com/FoundationDB/fdb-record-layer/issues/2109)
+
+### 3.3.371.0
+
+* **Feature** Use Index.predicate as an index maintenance filter when appropriate [(Issue #2069)](https://github.com/FoundationDB/fdb-record-layer/issues/2069)
+
+### 3.3.370.0
+
+* **Bug fix** Captured constraints of filtered indexes are too restrictive [(Issue #2104)](https://github.com/FoundationDB/fdb-record-layer/issues/2104)
+
+### 3.3.369.0
+
+* **Bug fix** Restore a removed method from `CascadesPlanner` and mark it for deprecation [(Issue #2102)](https://github.com/FoundationDB/fdb-record-layer/issues/2102)
+
+### 3.3.368.0
+
+* **Bug fix** A bug in mutual indexing may cause low performance [(Issue #2100)](https://github.com/FoundationDB/fdb-record-layer/issues/2100)
+
+### 3.3.367.0
+
+* **Feature** Literal extraction and plan constraints in Cascades [(Issue #2094)](https://github.com/FoundationDB/fdb-record-layer/issues/2094)
+
+### 3.3.366.0
+
+* **Bug fix** Don't write to disabled Synthetic Indexes [(Issue #2099)](https://github.com/FoundationDB/fdb-record-layer/issues/2099)
+* **Bug fix** Add support for `int32` in record metadata `Value` [(Issue #2091)](https://github.com/FoundationDB/fdb-record-layer/issues/2091)
 
 ### 3.3.365.0
 

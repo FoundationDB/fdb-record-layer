@@ -168,7 +168,17 @@ public class Index {
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
-        this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(orig.options), orig.predicate);
+        this(orig, orig.predicate);
+    }
+
+    /**
+     * Copy constructor. This will create an index that is identical to the current <code>Index</code> with a given
+     * <code>IndexPredicate</code>
+     * @param orig original index to copy
+     * @param predicate the index predicate
+     */
+    public Index(@Nonnull Index orig, @Nullable final IndexPredicate predicate) {
+        this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(orig.options), predicate);
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
         } else {

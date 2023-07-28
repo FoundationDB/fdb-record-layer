@@ -144,6 +144,7 @@ public class FallbackCursorTest extends FDBTestBase {
         @Nonnull
         private final List<Integer> list;
         private int nextPosition = 0; // position of the next value to return
+        private boolean closed = false;
 
         public FailingCursor(int numOfElementsBeforeFailure) {
             executor = ForkJoinPool.commonPool();
@@ -175,6 +176,12 @@ public class FallbackCursorTest extends FDBTestBase {
 
         @Override
         public void close() {
+            closed = true;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
 
         @Override

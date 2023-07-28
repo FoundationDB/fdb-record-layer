@@ -29,9 +29,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -103,7 +104,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                         RecordCursor.fromFuture(store.deleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
                                 .filter(isDeleted -> isDeleted)
                                 .map(ignored -> outerQueryResult),
-                continuation, store.getPipelineSize(PipelineOperation.UPDATE));
+                continuation, store.getPipelineSize(PipelineOperation.DELETE));
     }
 
     @Override
@@ -140,8 +141,8 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
 
     @Nonnull
     @Override
-    public RecordQueryDeletePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryDeletePlan(Quantifier.physical(GroupExpressionRef.of(child)),
+    public RecordQueryDeletePlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+        return new RecordQueryDeletePlan(Quantifier.physical(childRef),
                 getTargetRecordType());
     }
 
@@ -192,8 +193,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     @Override
     public String toString() {
-        // TODO provide proper explain
-        return getInnerPlan() + " | " + "UPDATE " + getTargetRecordType();
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

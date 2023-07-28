@@ -40,6 +40,8 @@ public class LuceneEvents {
     public enum Events implements StoreTimer.Event {
         /** Time to read a block from Lucene's FDBDirectory. */
         LUCENE_READ_BLOCK("lucene block reads"),
+        /** Time to read a schema from Lucene's FDBDirectory. */
+        LUCENE_READ_SCHEMA("lucene schema read"),
         /** Time to read a lucene block from FBB loader. */
         LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
         /** Time to list all files from Lucene's FDBDirectory. */
@@ -54,6 +56,8 @@ public class LuceneEvents {
         LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
         /** Number of documents returned from a single Lucene spellcheck scan. */
         LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
+        /** Number of merge calls to the FDBDirectory. */
+        LUCENE_MERGE("Lucene merge")
         ;
 
         private final String title;
@@ -128,10 +132,14 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
         /** Wait to read a file reference. */
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
+        /** Wait to read schema. */
+        WAIT_LUCENE_GET_SCHEMA("lucene get schema"),
         /** Wait to read a data block. */
         WAIT_LUCENE_GET_DATA_BLOCK("lucene get data block"),
         /** Wait for lucene to load the file cache. */
         WAIT_LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
+        /** Create a file from FDBDirectory. */
+        WAIT_LUCENE_CREATE_OUTPUT("lucene create output")
         ;
 
         private final String title;
@@ -188,6 +196,10 @@ public class LuceneEvents {
         LUCENE_SHARED_CACHE_MISSES("lucene shared cache misses", false),
         /** Plan contains highlight operator. **/
         PLAN_HIGHLIGHT_TERMS("lucene highlight plans", false),
+        /** Number of file delete operations on the FDBDirectory. */
+        LUCENE_DELETE_FILE("lucene delete file", false),
+        /** Number of file delete operations on the FDBDirectory. */
+        LUCENE_RENAME_FILE("lucene rename file", false),
         ;
 
         private final String title;

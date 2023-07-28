@@ -26,9 +26,12 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.FindExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
@@ -56,14 +59,15 @@ import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CascadesCostModel implements Comparator<RelationalExpression> {
-    private static Set<Class<? extends RelationalExpression>> interestingPlanClasses =
+    @Nonnull
+    private static final Set<Class<? extends RelationalExpression>> interestingPlanClasses =
             ImmutableSet.of(
                     RecordQueryScanPlan.class,
                     RecordQueryPlanWithIndex.class,
                     RecordQueryCoveringIndexPlan.class,
                     RecordQueryFetchFromPartialRecordPlan.class,
                     RecordQueryInJoinPlan.class);
-    
+
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
 
@@ -80,25 +84,58 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return 1;
         }
 
-        int unsatisfiedFilterCompare = Integer.compare(PredicateCountProperty.evaluate(a),
-                PredicateCountProperty.evaluate(b));
+        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA =
+                FindExpressionProperty.evaluate(interestingPlanClasses, a);
+
+        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB =
+                FindExpressionProperty.evaluate(interestingPlanClasses, b);
+
+        final Cardinalities cardinalitiesA = CardinalitiesProperty.evaluate(a);
+        final Cardinalities cardinalitiesB = CardinalitiesProperty.evaluate(b);
+
+        //
+        // Technically, both cardinalities at runtime must be the same. The question is if we can actually
+        // statically prove that there is a max cardinality other than the unknown cardinality.
+        //
+        if (!cardinalitiesA.getMaxCardinality().isUnknown() || !cardinalitiesB.getMaxCardinality().isUnknown()) {
+            final Cardinality maxOfMaxCardinalityOfAllDataAccessesA = maxOfMaxCardinalitiesOfAllDataAccesses(planOpsMapA);
+            final Cardinality maxOfMaxCardinalityOfAllDataAccessesB = maxOfMaxCardinalitiesOfAllDataAccesses(planOpsMapB);
+
+            if (!maxOfMaxCardinalityOfAllDataAccessesA.isUnknown() || !maxOfMaxCardinalityOfAllDataAccessesB.isUnknown()) {
+                // at least one of them is not just unknown
+                if (maxOfMaxCardinalityOfAllDataAccessesA.isUnknown()) {
+                    return 1;
+                }
+                if (maxOfMaxCardinalityOfAllDataAccessesB.isUnknown()) {
+                    return -1;
+                }
+                int maxOfMaxCardinalityCompare =
+                        Long.compare(maxOfMaxCardinalityOfAllDataAccessesA.getCardinality(),
+                                maxOfMaxCardinalityOfAllDataAccessesB.getCardinality());
+                if (maxOfMaxCardinalityCompare != 0) {
+                    return maxOfMaxCardinalityCompare;
+                }
+            }
+        }
+
+        int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
+                NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
         if (unsatisfiedFilterCompare != 0) {
             return unsatisfiedFilterCompare;
         }
 
-        final Map<Class<? extends RelationalExpression>, Integer> planCountMapA =
-                ExpressionCountProperty.evaluate(interestingPlanClasses, a);
+        final int numDataAccessA =
+                count(planOpsMapA,
+                        RecordQueryScanPlan.class,
+                        RecordQueryPlanWithIndex.class,
+                        RecordQueryCoveringIndexPlan.class);
 
-        final Map<Class<? extends RelationalExpression>, Integer> planCountMapB =
-                ExpressionCountProperty.evaluate(interestingPlanClasses, b);
 
-        final int numDataAccessA = planCountMapA.getOrDefault(RecordQueryScanPlan.class, 0) +
-                                   planCountMapA.getOrDefault(RecordQueryPlanWithIndex.class, 0) +
-                                   planCountMapA.getOrDefault(RecordQueryCoveringIndexPlan.class, 0);
-
-        final int numDataAccessB = planCountMapB.getOrDefault(RecordQueryScanPlan.class, 0) +
-                                   planCountMapB.getOrDefault(RecordQueryPlanWithIndex.class, 0) +
-                                   planCountMapB.getOrDefault(RecordQueryCoveringIndexPlan.class, 0);
+        final int numDataAccessB =
+                count(planOpsMapB,
+                        RecordQueryScanPlan.class,
+                        RecordQueryPlanWithIndex.class,
+                        RecordQueryCoveringIndexPlan.class);
 
         int countDataAccessesCompare =
                 Integer.compare(numDataAccessA, numDataAccessB);
@@ -122,8 +159,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         // unsatisfied filters (i.e. both plans use the same number of filters as search arguments), we break the tie
         // by using a planning flag
         final OptionalInt primaryScanVsIndexScanCompareOptional =
-                flipFlop(() -> comparePrimaryScanToIndexScan(a, b, planCountMapA, planCountMapB, typeFilterCountA, typeFilterCountB),
-                        () -> comparePrimaryScanToIndexScan(b, a, planCountMapB, planCountMapA, typeFilterCountB, typeFilterCountA));
+                flipFlop(() -> comparePrimaryScanToIndexScan(a, b, planOpsMapA, planOpsMapB, typeFilterCountA, typeFilterCountB),
+                        () -> comparePrimaryScanToIndexScan(b, a, planOpsMapB, planOpsMapA, typeFilterCountB, typeFilterCountA));
         if (primaryScanVsIndexScanCompareOptional.isPresent() && primaryScanVsIndexScanCompareOptional.getAsInt() != 0) {
             return primaryScanVsIndexScanCompareOptional.getAsInt();
         }
@@ -139,13 +176,13 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return typeFilterPositionCompare;
         }
 
-        if (planCountMapA.getOrDefault(RecordQueryPlanWithIndex.class, 0) + planCountMapA.getOrDefault(RecordQueryCoveringIndexPlan.class, 0) > 0 &&
-                planCountMapB.getOrDefault(RecordQueryPlanWithIndex.class, 0) + planCountMapB.getOrDefault(RecordQueryCoveringIndexPlan.class, 0) > 0) {
+        if (count(planOpsMapA, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0 &&
+                count(planOpsMapB, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0) {
             // both plans are index scans
 
             // how many fetches are there, regular index scans fetch when they scan
-            int numFetchesA = planCountMapA.getOrDefault(RecordQueryPlanWithIndex.class, 0) + planCountMapA.getOrDefault(RecordQueryFetchFromPartialRecordPlan.class, 0);
-            int numFetchesB = planCountMapB.getOrDefault(RecordQueryPlanWithIndex.class, 0) + planCountMapB.getOrDefault(RecordQueryFetchFromPartialRecordPlan.class, 0);
+            int numFetchesA = count(planOpsMapA, RecordQueryPlanWithIndex.class, RecordQueryFetchFromPartialRecordPlan.class);
+            int numFetchesB = count(planOpsMapB, RecordQueryPlanWithIndex.class, RecordQueryFetchFromPartialRecordPlan.class);
 
             final int numFetchesCompare = Integer.compare(numFetchesA, numFetchesB);
             if (numFetchesCompare != 0) {
@@ -163,8 +200,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             // FETCH(COVERING(INDEX_SCAN())) vs INDEX_SCAN() that count identically up to here. Let the plan win that
             // has fewer actual FETCH() operators.
             int numFetchOperatorsCompare =
-                    Integer.compare(planCountMapA.getOrDefault(RecordQueryFetchFromPartialRecordPlan.class, 0),
-                            planCountMapB.getOrDefault(RecordQueryFetchFromPartialRecordPlan.class, 0));
+                    Integer.compare(count(planOpsMapA, RecordQueryFetchFromPartialRecordPlan.class),
+                            count(planOpsMapB, RecordQueryFetchFromPartialRecordPlan.class));
             if (numFetchOperatorsCompare != 0) {
                 return numFetchOperatorsCompare;
             }
@@ -185,8 +222,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         //
         //  If a plan has more in-join sources it is preferable.
         //
-        final int numSourcesInJoinA = planCountMapA.getOrDefault(RecordQueryInJoinPlan.class, 0);
-        final int numSourcesInJoinB = planCountMapB.getOrDefault(RecordQueryInJoinPlan.class, 0);
+        final int numSourcesInJoinA = count(planOpsMapA, RecordQueryInJoinPlan.class);
+        final int numSourcesInJoinB = count(planOpsMapB, RecordQueryInJoinPlan.class);
 
         int countSourcesInJoinCompare =
                 Integer.compare(numSourcesInJoinB, numSourcesInJoinA);
@@ -208,9 +245,26 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         return 0;
     }
 
+    @Nonnull
+    private Cardinality maxOfMaxCardinalitiesOfAllDataAccesses(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+        return FindExpressionProperty.slice(planOpsMap, RecordQueryScanPlan.class, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class)
+                .stream()
+                .map(plan -> CardinalitiesProperty.evaluate(plan).getMaxCardinality())
+                .reduce(Cardinality.ofCardinality(0),
+                        (l, r) -> {
+                            if (l.isUnknown()) {
+                                return l;
+                            }
+                            if (r.isUnknown()) {
+                                return r;
+                            }
+                            return l.getCardinality() > r.getCardinality() ? l : r;
+                        });
+    }
+
     /**
      * Method to break a tie between a plan using singular index scan and one using a singular primary scan.
-     *
+     * <br>
      * The problematic case this method tries to resolve is that:
      *
      * <ul>
@@ -223,22 +277,22 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
      * {@code OptionalInt.empty()} if it does not hold true. This method is meant to be called using
      * {@link #flipFlop(Supplier, Supplier)} meaning that we will discover if the opposite holds true.
      *
-     * @param planCountMapPrimaryScan map to hold counts for the primary scan plan
-     * @param planCountMapIndexScan map to hold counts for the index scan plan
+     * @param planOpsMapPrimaryScan map to hold counts for the primary scan plan
+     * @param planOpsMapIndexScan map to hold counts for the index scan plan
      * @param typeFilterCountPrimaryScan number of type filters on the primary scan plan
      * @return an {@link OptionalInt} that is the result of the comparison between a primary scan plan and an index
      *         scan plan, or {@code OptionalInt.empty()}.
      */
     private OptionalInt comparePrimaryScanToIndexScan(@Nonnull RelationalExpression primaryScan,
                                                       @Nonnull RelationalExpression indexScan,
-                                                      @Nonnull Map<Class<? extends RelationalExpression>, Integer> planCountMapPrimaryScan,
-                                                      @Nonnull Map<Class<? extends RelationalExpression>, Integer> planCountMapIndexScan,
+                                                      @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapPrimaryScan,
+                                                      @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan,
                                                       final int typeFilterCountPrimaryScan,
                                                       final int typeFilterCountIndexScan) {
-        if (planCountMapPrimaryScan.getOrDefault(RecordQueryScanPlan.class, 0) == 1 &&
-                planCountMapPrimaryScan.getOrDefault(RecordQueryPlanWithIndex.class, 0) == 0 &&
-                planCountMapIndexScan.getOrDefault(RecordQueryScanPlan.class, 0) == 0 &&
-                isSingularIndexScanWithFetch(planCountMapIndexScan)) {
+        if (count(planOpsMapPrimaryScan, RecordQueryScanPlan.class) == 1 &&
+                count(planOpsMapPrimaryScan, RecordQueryPlanWithIndex.class) == 0 &&
+                count(planOpsMapIndexScan, RecordQueryScanPlan.class) == 0 &&
+                isSingularIndexScanWithFetch(planOpsMapIndexScan)) {
 
             if (typeFilterCountPrimaryScan > 0 && typeFilterCountIndexScan == 0) {
                 final var primaryScanComparisons = ComparisonsProperty.evaluate(primaryScan);
@@ -333,10 +387,10 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         return expression instanceof RecordQueryInJoinPlan || expression instanceof RecordQueryInUnionPlan;
     }
 
-    private static boolean isSingularIndexScanWithFetch(@Nonnull Map<Class<? extends RelationalExpression>, Integer> countDataAccessMapIndexScan) {
-        return countDataAccessMapIndexScan.getOrDefault(RecordQueryPlanWithIndex.class, 0) == 1 ||
-               (countDataAccessMapIndexScan.getOrDefault(RecordQueryCoveringIndexPlan.class, 0) == 1 &&
-                countDataAccessMapIndexScan.getOrDefault(RecordQueryFetchFromPartialRecordPlan.class, 0) == 1);
+    private static boolean isSingularIndexScanWithFetch(@Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan) {
+        return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 1 ||
+               (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
+                count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
     }
 
     private static OptionalInt flipFlop(final Supplier<OptionalInt> variantA,
@@ -352,5 +406,10 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         }
 
         return OptionalInt.empty();
+    }
+
+    @SafeVarargs
+    private static int count(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionsMap, @Nonnull final Class<? extends RelationalExpression>... interestingClasses) {
+        return FindExpressionProperty.slice(expressionsMap, interestingClasses).size();
     }
 }

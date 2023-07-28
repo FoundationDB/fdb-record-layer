@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
@@ -116,6 +117,13 @@ public class QueryPredicateMatchers {
     public static <P extends QueryPredicate> BindingMatcher<OrPredicate> orPredicate(@Nonnull final CollectionMatcher<P> downstream) {
         return typedWithDownstream(OrPredicate.class,
                 Extractor.of(OrPredicate::getChildren, name -> "children(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static <P extends QueryPredicate> BindingMatcher<NotPredicate> notPredicate(@Nonnull final CollectionMatcher<P> downstream) {
+        return typedWithDownstream(NotPredicate.class,
+                Extractor.of(NotPredicate::getChildren, name -> "children(" + name + ")"),
                 downstream);
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -56,7 +57,7 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
     @Override
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
         if (in.size() != downstreams.size()) {
             return Stream.empty();
         }
@@ -73,19 +74,19 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
 
         final var permutations = TopologicalSort.permutations(inAsWrappedSet);
         return StreamSupport.stream(permutations.spliterator(), false)
-                .flatMap(permutation -> bindMatchesForPermutation(outerBindings, permutation));
+                .flatMap(permutation -> bindMatchesForPermutation(plannerConfiguration, outerBindings, permutation));
     }
 
     @Nonnull
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     @SuppressWarnings({"java:S3958", "UnstableApiUsage"})
-    public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull PlannerBindings outerBindings, @Nonnull List<Equivalence.Wrapper<T>> permutation) {
+    public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final List<Equivalence.Wrapper<T>> permutation) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
         final var downstreamIterator = downstreams.iterator();
         for (final var wrappedItem : permutation) {
             final var item = Objects.requireNonNull(wrappedItem.get());
             final var downstream = downstreamIterator.next();
-            final var individualBindingsIterator = downstream.bindMatches(outerBindings, item).iterator();
+            final var individualBindingsIterator = downstream.bindMatches(plannerConfiguration, outerBindings, item).iterator();
             if (!individualBindingsIterator.hasNext()) {
                 return Stream.empty();
             } else {

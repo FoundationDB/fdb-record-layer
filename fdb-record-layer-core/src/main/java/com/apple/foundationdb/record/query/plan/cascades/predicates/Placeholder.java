@@ -33,9 +33,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * A Placeholder is basically a {@link ValueWithRanges} with an alias that is used solely used for index matching.
+ * A Placeholder is basically a {@link PredicateWithValueAndRanges} with an alias that is used solely used for index matching.
  */
-public class Placeholder extends ValueWithRanges implements WithAlias {
+public class Placeholder extends PredicateWithValueAndRanges implements WithAlias {
 
     @Nonnull
     private final CorrelationIdentifier parameterAlias;
@@ -47,9 +47,26 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
         this.parameterAlias = alias;
     }
 
+    @Nonnull
+    @Override
+    public PredicateWithValueAndRanges withValue(@Nonnull final Value value) {
+        return new Placeholder(value, getRanges(), parameterAlias);
+    }
+
+    @Nonnull
+    @Override
+    public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+        return new Placeholder(getValue(), ranges, parameterAlias);
+    }
+
     @Override
     public boolean isSargable() {
         return false;
+    }
+
+    @Override
+    public boolean isTautology() {
+        return !isConstraining();
     }
 
     @Nonnull
@@ -58,7 +75,7 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
     }
 
     public boolean isConstraining() {
-        return !getRanges().isEmpty();
+        return getRanges().stream().anyMatch(RangeConstraints::isConstraining);
     }
 
     @Nonnull
@@ -80,8 +97,8 @@ public class Placeholder extends ValueWithRanges implements WithAlias {
 
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
+        if (!super.equalsWithoutChildren(other, aliasMap)) {
             return false;
         }
         return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);

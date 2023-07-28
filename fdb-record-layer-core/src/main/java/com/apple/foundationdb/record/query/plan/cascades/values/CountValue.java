@@ -51,7 +51,7 @@ import java.util.function.UnaryOperator;
  * A counting aggregate value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CountValue implements Value, AggregateValue, StreamableAggregateValue, IndexableAggregateValue {
+public class CountValue extends AbstractValue implements AggregateValue, StreamableAggregateValue, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
     @Nonnull

@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValueWithRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +58,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     private final List<RecordType> queriedRecordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
-        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
+        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.VERSION.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
@@ -69,7 +69,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(ValueWithRanges.class, old -> 0);
+        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -127,7 +127,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                             .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
-                        predicateExpansionBuilder.addPredicate(ValueWithRanges.constraint(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
                     } else {
                         predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
                     }

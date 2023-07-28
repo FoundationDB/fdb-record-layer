@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 
 import javax.annotation.Nonnull;
@@ -34,8 +35,18 @@ public class PartialMatchMatchers {
     }
 
     /**
-     * Matches any {@link PartialMatch} that is complete.
+     * Matches any {@link PartialMatch}.
      * @return a matcher matching any partial match
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static BindingMatcher<PartialMatch> anyPartialMatch() {
+        return new TypedMatcher<>(PartialMatch.class);
+    }
+
+    /**
+     * Matches any {@link PartialMatch} that is complete.
+     * @return a matcher matching any partial match that is complete
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -43,8 +54,8 @@ public class PartialMatchMatchers {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
-                return super.bindMatchesSafely(outerBindings, in)
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.getMatchCandidate().getTraversal().getRootReference() != in.getCandidateRef()) {
                                 return Stream.empty();
@@ -58,7 +69,7 @@ public class PartialMatchMatchers {
 
     /**
      * Matches any {@link PartialMatch} that is not yet complete.
-     * @return a matcher matching any partial match
+     * @return a matcher matching any partial match that is incomplete
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -66,8 +77,8 @@ public class PartialMatchMatchers {
         return new TypedMatcher<>(PartialMatch.class) {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
-                return super.bindMatchesSafely(outerBindings, in)
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.getMatchCandidate().getTraversal().getRootReference() == in.getCandidateRef()) {
                                 return Stream.empty();

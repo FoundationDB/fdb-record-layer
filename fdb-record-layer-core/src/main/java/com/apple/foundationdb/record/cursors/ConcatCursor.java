@@ -168,6 +168,11 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         }
     }
 
+    @Override
+    public boolean isClosed() {
+        return (secondCursor == null || secondCursor.isClosed()) && (firstCursor == null || firstCursor.isClosed());
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {

@@ -107,9 +107,11 @@ public class RecordCursorTest {
     protected class AsyncCountdown implements RecordCursor<Integer> {
         int count;
         int onNextCalled;
+        boolean closed;
 
         public AsyncCountdown(int count) {
             this.count = count;
+            closed = false;
         }
 
         @Nonnull
@@ -128,6 +130,12 @@ public class RecordCursorTest {
 
         @Override
         public void close() {
+            closed = true;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
 
         @Nonnull
@@ -1185,6 +1193,8 @@ public class RecordCursorTest {
     }
 
     static class BrokenCursor implements RecordCursor<String> {
+        private boolean closed = false;
+
         @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<String>> onNext() {
@@ -1195,6 +1205,12 @@ public class RecordCursorTest {
 
         @Override
         public void close() {
+            closed = true;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
 
         @Nonnull

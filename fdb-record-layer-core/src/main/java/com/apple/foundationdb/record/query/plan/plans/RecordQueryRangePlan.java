@@ -31,8 +31,10 @@ import com.apple.foundationdb.record.cursors.RangeCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -127,7 +129,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public RecordQueryRangePlan strictlySorted() {
+    public RecordQueryRangePlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return this;
     }
 
@@ -145,7 +147,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public String toString() {
-        return "Range(" + exclusiveLimitValue.toString() + ")";
+        return PlanStringRepresentation.toString(this);
     }
 
     @Nonnull

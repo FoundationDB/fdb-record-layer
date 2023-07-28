@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A configuration struct that can be used to set various options on an {@link FDBRecordContext}. Instances
@@ -54,6 +56,9 @@ public class FDBRecordContextConfig {
     private final TransactionListener listener;
     @Nonnull
     private final RecordLayerPropertyStorage propertyStorage;
+    @Nonnull
+    private final Set<String> tags;
+    private final boolean reportConflictingKeys;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -69,6 +74,8 @@ public class FDBRecordContextConfig {
         this.saveOpenStackTrace = builder.saveOpenStackTrace;
         this.listener = builder.listener;
         this.propertyStorage = builder.recordContextProperties;
+        this.tags = builder.tags;
+        this.reportConflictingKeys = builder.reportConflictingKeys;
     }
 
     /**
@@ -210,6 +217,23 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get tags used for throttling.
+     * @return throttling tags
+     */
+    @Nonnull
+    public Set<String> getTags() {
+        return tags;
+    }
+
+    /**
+     * Get whether to report conflicting key ranges on commit conflict.
+     * @return {@code true} to report conflicting keys
+     */
+    public boolean isReportConflictingKeys() {
+        return reportConflictingKeys;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -242,6 +266,9 @@ public class FDBRecordContextConfig {
         private boolean saveOpenStackTrace = false;
         private TransactionListener listener = null;
         private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
+        @Nonnull
+        private Set<String> tags = Collections.emptySet();
+        private boolean reportConflictingKeys = false;
 
         private Builder() {
         }
@@ -260,6 +287,8 @@ public class FDBRecordContextConfig {
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
             this.recordContextProperties = config.propertyStorage;
+            this.tags = config.tags;
+            this.reportConflictingKeys = config.reportConflictingKeys;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -276,6 +305,8 @@ public class FDBRecordContextConfig {
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
             this.recordContextProperties = config.recordContextProperties;
+            this.tags = config.tags;
+            this.reportConflictingKeys = config.reportConflictingKeys;
         }
 
         /**
@@ -594,6 +625,51 @@ public class FDBRecordContextConfig {
          */
         public Builder setRecordContextProperties(@Nonnull final RecordLayerPropertyStorage recordContextProperties) {
             this.recordContextProperties = recordContextProperties;
+            return this;
+        }
+
+        /**
+         * Get tags used for throttling.
+         * @return throttling tags
+         */
+        @Nonnull
+        public Set<String> getTags() {
+            return tags;
+        }
+
+        /**
+         * Set tags used for throttling.
+         * @param tags new set of tags
+         * @return this builder
+         */
+        public Builder setTags(@Nonnull final Set<String> tags) {
+            if (tags.size() > 5) {
+                throw new IllegalArgumentException("At most 5 tags allowed");
+            }
+            for (String tag : tags) {
+                if (tag.length() > 16) {
+                    throw new IllegalArgumentException("Tag must be 16 characters or shorter");
+                }
+            }
+            this.tags = tags;
+            return this;
+        }
+
+        /**
+         * Get whether to report conflicting key ranges on commit conflict.
+         * @return {@code true} to report conflicting keys
+         */
+        public boolean isReportConflictingKeys() {
+            return reportConflictingKeys;
+        }
+
+        /**
+         * Set whether to report conflicting key rangs on commit conflict.
+         * @param reportConflictingKeys {@code true} to report conflicting keys
+         * @return this builder
+         */
+        public Builder setReportConflictingKeys(final boolean reportConflictingKeys) {
+            this.reportConflictingKeys = reportConflictingKeys;
             return this;
         }
 

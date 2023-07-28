@@ -25,10 +25,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.stream.StreamSupport;
 
 /**
  * This is a simple PoJo hierarchy representing SerDe operations on a predicate comparison of a sparse {@link Index}.
@@ -82,7 +84,15 @@ public abstract class IndexComparison {
      * @return {@code true} if the comparison is supported, otherwise {@code false}.
      */
     public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
-        return comparison instanceof Comparisons.SimpleComparison || comparison instanceof Comparisons.NullComparison;
+        return comparison instanceof Comparisons.SimpleComparison ||
+               comparison instanceof Comparisons.NullComparison ||
+               (comparison instanceof Comparisons.ValueComparison &&
+                StreamSupport.stream(((Comparisons.ValueComparison)comparison)
+                        .getComparandValue()
+                        .filter(value -> !(value instanceof Value.RangeMatchableValue))
+                        .spliterator(), false)
+                        .findAny()
+                        .isEmpty());
     }
 
     /**

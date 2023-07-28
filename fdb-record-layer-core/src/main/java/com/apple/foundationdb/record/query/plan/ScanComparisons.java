@@ -470,8 +470,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return new TypedMatcher<>(ScanComparisons.class) {
             @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final ScanComparisons in) {
-                return super.bindMatchesSafely(outerBindings, in)
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final ScanComparisons in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.isEmpty()) {
                                 return Stream.of(bindings);

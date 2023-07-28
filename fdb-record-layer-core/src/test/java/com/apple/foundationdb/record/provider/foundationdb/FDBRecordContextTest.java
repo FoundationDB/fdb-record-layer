@@ -22,11 +22,14 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -507,6 +510,32 @@ public class FDBRecordContextTest extends FDBTestBase {
             context.getReadVersion();
             context.ensureActive().get(ByteArrayUtil2.unprint("some_key_2")).join();
             context.commit();
+        }
+    }
+
+    @Test
+    public void reportConflictingKeys() {
+        final Subspace subspace = fdb.run(context -> {
+            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "conflicts");
+            return path.toSubspace(context);
+        });
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setReportConflictingKeys(true)
+                .build();
+        try (FDBRecordContext context1 = fdb.openContext(config)) {
+            context1.ensureActive().get(subspace.pack(222)).join();
+            context1.ensureActive().set(subspace.pack(111), Tuple.from(1).pack());
+
+            try (FDBRecordContext context2 = fdb.openContext(config)) {
+                context2.ensureActive().set(subspace.pack(222), Tuple.from(2).pack());
+                context2.commit();
+            }
+
+            final byte[] conflictBegin = subspace.pack(222);
+            // Single key range.
+            final List<Range> expected = List.of(new Range(conflictBegin, ByteArrayUtil.join(conflictBegin, new byte[] { 0x00 })));
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context1::commit);
+            assertEquals(expected, context1.getNotCommittedConflictingKeys());
         }
     }
 

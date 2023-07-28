@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +41,9 @@ import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -313,5 +317,40 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(50, i);
             TestHelpers.assertDiscardedNone(context);
         }
+    }
+
+    /**
+     * Verify that a query with required results is planned using a wider index as long as a fetch can be avoided.
+     */
+    @DualPlannerTest
+    void testWiderCoveringIndex() throws Exception {
+        final RecordMetaDataHook recordMetaDataHook = metaData -> {
+            metaData.addIndex("MySimpleRecord", "narrower", concat(field("str_value_indexed"), field("num_value_2")));
+            metaData.addIndex("MySimpleRecord", "wider", concat(field("str_value_indexed"), field("num_value_2"), field("num_value_3_indexed")));
+        };
+        complexQuerySetup(recordMetaDataHook);
+
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setOptimizeForIndexFilters(true)
+                .setOptimizeForRequiredResults(true)
+                .build());
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.field("num_value_2").greaterThanOrEquals(10)))
+                .setRequiredResults(ImmutableList.of(field("str_value_indexed"), field("num_value_2"), field("num_value_3_indexed")))
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertMatchesExactly(plan,
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan()
+                                .where(RecordQueryPlanMatchers.indexName("wider")))));
+
+        assertEquals(1569345355, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 }
