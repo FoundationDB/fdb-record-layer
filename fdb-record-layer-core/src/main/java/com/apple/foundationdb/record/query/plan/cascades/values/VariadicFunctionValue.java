@@ -96,11 +96,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public Type getResultType() {
-        if (operation.getResultType().isPrimitive()) {
-            return Type.primitiveType(operation.getResultType());
-        } else {
-            return children.get(0).getResultType();
-        }
+        return children.get(0).getResultType();
     }
 
     @Nonnull

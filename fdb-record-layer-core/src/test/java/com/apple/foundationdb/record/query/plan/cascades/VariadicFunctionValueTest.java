@@ -90,7 +90,7 @@ class VariadicFunctionValueTest {
             Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.FLOAT), Optional.of("f3")), LiteralValue.ofScalar(100.0f))
     ));
 
-    private static final Type.Record recordType = Type.Record.fromFields(false, ImmutableList.of(
+    private static final Type.Record recordTypeUnnamed = Type.Record.fromFields(false, ImmutableList.of(
             Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.STRING)),
             Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.INT)),
             Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.FLOAT))));
@@ -100,13 +100,13 @@ class VariadicFunctionValueTest {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f2")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.FLOAT), Optional.of("f3"))));
 
-    private static final Typed RECORD_NULL = new LiteralValue<>(recordType, null);
+    private static final Typed RECORD_NULL = new LiteralValue<>(recordTypeUnnamed, null);
 
     private static TypeRepository typeRepository;
 
     static {
         final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
-        recordType.defineProtoType(typeRepositoryBuilder);
+        recordTypeUnnamed.defineProtoType(typeRepositoryBuilder);
         recordTypeNamed.defineProtoType(typeRepositoryBuilder);
         typeRepository = typeRepositoryBuilder.build();
     }
@@ -117,9 +117,10 @@ class VariadicFunctionValueTest {
                     QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build())).build(),
             typeRepository);
 
-    private static DynamicMessage buildMessageForRecordType(List<Object> values) {
-        final var messageBuilder = typeRepository.newMessageBuilder(recordType);
-        for (int i = 0; i  < recordType.getFields().size(); i++) {
+    private static DynamicMessage getMessageForRecordTypeUnnamed() {
+        final var values = ImmutableList.of("a", 1, 1.0f);
+        final var messageBuilder = typeRepository.newMessageBuilder(recordTypeUnnamed);
+        for (int i = 0; i < recordTypeUnnamed.getFields().size(); i++) {
             messageBuilder.setField(messageBuilder.getDescriptorForType().getFields().get(i), values.get(i));
         }
         return messageBuilder.build();
@@ -281,7 +282,7 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(STRING_3, STRING_3), new VariadicFunctionValue.CoalesceFn(), "c", false),
                     Arguments.of(List.of(BOOLEAN_2, BOOLEAN_2), new VariadicFunctionValue.CoalesceFn(), true, false),
                     Arguments.of(List.of(LIST_INT_1, LIST_INT_1), new VariadicFunctionValue.CoalesceFn(), List.of(1, 2, 3), false),
-                    Arguments.of(List.of(RECORD_1, RECORD_1), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_1), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(INT_3, INT_2), new VariadicFunctionValue.CoalesceFn(), 3, false),
                     Arguments.of(List.of(LONG_3, LONG_2), new VariadicFunctionValue.CoalesceFn(), 3L, false),
@@ -290,7 +291,7 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(STRING_3, STRING_2), new VariadicFunctionValue.CoalesceFn(), "c", false),
                     Arguments.of(List.of(BOOLEAN_2, BOOLEAN_1), new VariadicFunctionValue.CoalesceFn(), true, false),
                     Arguments.of(List.of(LIST_INT_1, LIST_INT_2), new VariadicFunctionValue.CoalesceFn(), List.of(1, 2, 3), false),
-                    Arguments.of(List.of(RECORD_1, RECORD_2), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_2), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(INT_1, INT_2, INT_3), new VariadicFunctionValue.CoalesceFn(), 1, false),
                     Arguments.of(List.of(LONG_1, LONG_2, LONG_3), new VariadicFunctionValue.CoalesceFn(), 1L, false),
@@ -299,7 +300,7 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(STRING_1, STRING_2, STRING_3), new VariadicFunctionValue.CoalesceFn(), "a", false),
                     Arguments.of(List.of(BOOLEAN_1, BOOLEAN_2, BOOLEAN_1), new VariadicFunctionValue.CoalesceFn(), false, false),
                     Arguments.of(List.of(LIST_INT_1, LIST_INT_2, LIST_INT_3), new VariadicFunctionValue.CoalesceFn(), List.of(1, 2, 3), false),
-                    Arguments.of(List.of(RECORD_1, RECORD_2, RECORD_3), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_2, RECORD_3), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(INT_1, INT_2, INT_3, INT_NULL), new VariadicFunctionValue.CoalesceFn(), 1, false),
                     Arguments.of(List.of(LONG_1, LONG_2, LONG_3, LONG_NULL), new VariadicFunctionValue.CoalesceFn(), 1L, false),
@@ -308,7 +309,7 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(STRING_1, STRING_2, STRING_3, STRING_NULL), new VariadicFunctionValue.CoalesceFn(), "a", false),
                     Arguments.of(List.of(BOOLEAN_1, BOOLEAN_2, BOOLEAN_1, BOOLEAN_NULL), new VariadicFunctionValue.CoalesceFn(), false, false),
                     Arguments.of(List.of(LIST_INT_1, LIST_INT_2, LIST_INT_3, LIST_INT_NULL), new VariadicFunctionValue.CoalesceFn(), List.of(1, 2, 3), false),
-                    Arguments.of(List.of(RECORD_1, RECORD_2, RECORD_3, RECORD_NULL), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_2, RECORD_3, RECORD_NULL), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(INT_NULL, INT_1, INT_2, INT_3, INT_NULL), new VariadicFunctionValue.CoalesceFn(), 1, false),
                     Arguments.of(List.of(LONG_NULL, LONG_1, LONG_2, LONG_3, LONG_NULL), new VariadicFunctionValue.CoalesceFn(), 1L, false),
@@ -317,7 +318,7 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(STRING_NULL, STRING_1, STRING_2, STRING_3, STRING_NULL), new VariadicFunctionValue.CoalesceFn(), "a", false),
                     Arguments.of(List.of(BOOLEAN_NULL, BOOLEAN_1, BOOLEAN_2, BOOLEAN_1, BOOLEAN_NULL), new VariadicFunctionValue.CoalesceFn(), false, false),
                     Arguments.of(List.of(LIST_INT_NULL, LIST_INT_1, LIST_INT_2, LIST_INT_3, LIST_INT_NULL), new VariadicFunctionValue.CoalesceFn(), List.of(1, 2, 3), false),
-                    Arguments.of(List.of(RECORD_NULL, RECORD_1, RECORD_2, RECORD_3, RECORD_NULL), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_NULL, RECORD_1, RECORD_2, RECORD_3, RECORD_NULL), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(INT_NULL, INT_NULL), new VariadicFunctionValue.CoalesceFn(), null, false),
                     Arguments.of(List.of(LONG_NULL, LONG_NULL), new VariadicFunctionValue.CoalesceFn(), null, false),
@@ -352,8 +353,8 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(LIST_INT_2, LIST_FLOAT_1), new VariadicFunctionValue.CoalesceFn(), List.of(3.0f, 2.0f, 1.0f), false),
                     Arguments.of(List.of(LIST_FLOAT_1, LIST_INT_2), new VariadicFunctionValue.CoalesceFn(), List.of(1.0f, 2.0f, 3.0f), false),
 
-                    Arguments.of(List.of(RECORD_1, RECORD_2), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
-                    Arguments.of(List.of(RECORD_1, RECORD_NAMED), new VariadicFunctionValue.CoalesceFn(), buildMessageForRecordType(List.of("a", 1, 1.0f)), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_2), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
+                    Arguments.of(List.of(RECORD_1, RECORD_NAMED), new VariadicFunctionValue.CoalesceFn(), getMessageForRecordTypeUnnamed(), false),
 
                     Arguments.of(List.of(F, INT_1), new VariadicFunctionValue.CoalesceFn(), 4L, false),
                     Arguments.of(List.of(INT_1, F), new VariadicFunctionValue.CoalesceFn(), 1L, false),
