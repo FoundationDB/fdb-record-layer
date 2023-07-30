@@ -90,7 +90,8 @@ public class RTreeModificationTest extends FDBTestBase {
     public void testAllDeleted(final int numSamples) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
 
@@ -121,7 +122,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
         // Check that there are no slots left that may have gotten orphaned
         final List<KeyValue> keyValues =
-                db.run(tr -> tr.getRange(Range.startsWith(rt.getSubspacePrefix())).asList().join());
+                db.run(tr -> tr.getRange(Range.startsWith(rt.getStorageAdapter().getSubspacePrefix())).asList().join());
         Assertions.assertTrue(keyValues.isEmpty());
 
         validateRTree(db, rt);
@@ -133,7 +134,8 @@ public class RTreeModificationTest extends FDBTestBase {
     public void testRandomDeletes(final int numSamples, final int numDeletes) {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
 

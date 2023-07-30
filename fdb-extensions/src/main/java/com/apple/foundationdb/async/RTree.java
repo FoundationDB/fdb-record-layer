@@ -138,8 +138,6 @@ public class RTree {
     public static final int NODE_ID_LENGTH = 16;
     public static final int MAX_CONCURRENT_READS = 16;
 
-    public static final Config DEFAULT_CONFIG = new Config();
-
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     /**
@@ -178,7 +176,13 @@ public class RTree {
     public static final int DEFAULT_S = 2;
 
     @Nonnull
-    protected final byte[] subspacePrefix;
+    public static final Storage DEFAULT_STORAGE = Storage.BY_SLOT;
+
+    @Nonnull
+    public static final Config DEFAULT_CONFIG = new Config();
+
+    @Nonnull
+    protected final StorageAdapter storageAdapter;
     @Nonnull
     protected final Executor executor;
     @Nonnull
@@ -186,13 +190,47 @@ public class RTree {
     @Nonnull
     protected final Supplier<byte[]> nodeIdSupplier;
 
-    @Nonnull
-    protected final OnReadListener onReadListener;
-
     /**
      * Only used for debugging to keep node ids readable.
      */
     private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
+
+    /**
+     * Different kinds of storage layouts.
+     */
+    public enum Storage {
+        /**
+         * Every node slot is serialized as a key/value pair in FDB.
+         */
+        BY_SLOT((subspacePrefix, onWriteListener, onReadListener) -> new BySlotStorageAdapter(subspacePrefix, onWriteListener, onReadListener));
+        /**
+         * Every node with all its slots is represented as one key/value pair.
+         */
+        // BY_NODE;
+
+        @Nonnull
+        private final StorageAdapterCreator storageAdapterCreator;
+
+        Storage(@Nonnull final StorageAdapterCreator storageAdapterCreator) {
+            this.storageAdapterCreator = storageAdapterCreator;
+        }
+
+        @Nonnull
+        public StorageAdapter newStorageAdapter(@Nonnull final byte[] subspacePrefix,
+                                                @Nonnull final OnWriteListener onWriteListener,
+                                                @Nonnull final OnReadListener onReadListener) {
+            return storageAdapterCreator.create(subspacePrefix, onWriteListener, onReadListener);
+        }
+    }
+
+    /**
+     * Functional interface to create a {@link StorageAdapter}.
+     */
+    public interface StorageAdapterCreator {
+        StorageAdapter create(@Nonnull byte[] subspacePrefix,
+                              @Nonnull OnWriteListener onWriteListener,
+                              @Nonnull OnReadListener onReadListener);
+    }
 
     /**
      * Configuration settings for a {@link RTree}.
@@ -201,17 +239,21 @@ public class RTree {
         private final int minM;
         private final int maxM;
         private final int splitS;
+        @Nonnull
+        private final Storage storage;
 
         protected Config() {
             this.minM = DEFAULT_MIN_M;
             this.maxM = DEFAULT_MAX_M;
             this.splitS = DEFAULT_S;
+            this.storage = DEFAULT_STORAGE;
         }
 
-        protected Config(final int minM, final int maxM, final int splitS) {
+        protected Config(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage) {
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
+            this.storage = storage;
         }
 
         public int getMinM() {
@@ -226,8 +268,13 @@ public class RTree {
             return splitS;
         }
 
+        @Nonnull
+        public Storage getStorage() {
+            return storage;
+        }
+
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(minM, maxM, splitS);
+            return new ConfigBuilder(minM, maxM, splitS, storage);
         }
     }
 
@@ -240,14 +287,17 @@ public class RTree {
         private int minM = DEFAULT_MIN_M;
         private int maxM = DEFAULT_MAX_M;
         private int splitS = DEFAULT_S;
+        @Nonnull
+        private Storage storage = DEFAULT_STORAGE;
 
         protected ConfigBuilder() {
         }
 
-        protected ConfigBuilder(final int minM, final int maxM, final int splitS) {
+        protected ConfigBuilder(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage) {
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
+            this.storage = storage;
         }
 
         public int getMinM() {
@@ -274,8 +324,17 @@ public class RTree {
             this.splitS = splitS;
         }
 
+        @Nonnull
+        public Storage getStorage() {
+            return storage;
+        }
+
+        public void setStorage(@Nonnull final Storage storage) {
+            this.storage = storage;
+        }
+
         public Config build() {
-            return new Config(getMinM(), getMaxM(), getSplitS());
+            return new Config(getMinM(), getMaxM(), getSplitS(), getStorage());
         }
     }
 
@@ -289,43 +348,40 @@ public class RTree {
     }
 
     /**
-     * Initialize a new R-tree.
-     * @param subspace the subspace where the r-tree is stored
-     * @param executor an executor to use when running asynchronous tasks
-     * @param config configuration to use
-     * @param nodeIdSupplier supplier to be invoked when new nodes are created
-     */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config,
-                 @Nonnull final Supplier<byte[]> nodeIdSupplier, @Nonnull OnReadListener onReadListener) {
-        this.subspacePrefix = subspace.getKey();
-        this.executor = executor;
-        this.config = config;
-        this.nodeIdSupplier = nodeIdSupplier;
-        this.onReadListener = onReadListener;
-    }
-
-    /**
      * Initialize a new R-tree with the default configuration.
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      */
     public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
-        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId, OnReadListener.NOOP);
+        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId, OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
     /**
-     * Get the subspace prefix used to store this r-tree.
+     * Initialize a new R-tree.
+     * @param subspace the subspace where the r-tree is stored
+     * @param executor an executor to use when running asynchronous tasks
+     * @param config configuration to use
+     * @param nodeIdSupplier supplier to be invoked when new nodes are created
+     * @param onWriteListener an on-write listener to be called after writes take place
+     * @param onReadListener an on-read listener to be called after reads take place
+     */
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config,
+                 @Nonnull final Supplier<byte[]> nodeIdSupplier, @Nonnull final OnWriteListener onWriteListener,
+                 @Nonnull final OnReadListener onReadListener) {
+        this.storageAdapter = config.getStorage()
+                .newStorageAdapter(Objects.requireNonNull(subspace.getKey()), onWriteListener, onReadListener);
+        this.executor = executor;
+        this.config = config;
+        this.nodeIdSupplier = nodeIdSupplier;
+    }
+
+    /**
+     * Get the {@link StorageAdapter} used to manage this r-tree.
      * @return r-tree subspace
      */
     @Nonnull
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public byte[] getSubspacePrefix() {
-        return subspacePrefix;
-    }
-
-    @Nonnull
-    private byte[] packWithPrefix(final byte[] key) {
-        return Bytes.concat(getSubspacePrefix(), key);
+    public StorageAdapter getStorageAdapter() {
+        return storageAdapter;
     }
 
     /**
@@ -592,7 +648,7 @@ public class RTree {
         final AtomicInteger insertSlotIndex = new AtomicInteger(findInsertUpdateItemSlotIndex(targetNode, hilbertValue, key));
         if (insertSlotIndex.get() < 0) {
             // just update the slot with the potentially new value
-            writeNodeSlot(transaction, targetNode.getId(), newSlot);
+            storageAdapter.writeNodeSlot(transaction, targetNode, newSlot);
             return AsyncUtil.DONE;
         }
 
@@ -670,11 +726,11 @@ public class RTree {
                 // participating siblings of that split have potentially changed. We resort to re-persisting all slots
                 // of the target node. TODO This can be optimized in the future.
                 //
-                updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+                storageAdapter.updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
             } else {
                 // if this is an insert for a leaf node we can just write the slot
                 Verify.verify(targetNode.getKind() == Kind.LEAF);
-                writeNodeSlot(transaction, targetNode.getId(), newSlot);
+                storageAdapter.writeNodeSlot(transaction, targetNode, newSlot);
             }
 
             // node has left some space -- indicate that we are done splitting at the current node
@@ -725,7 +781,7 @@ public class RTree {
                                 bytesToHex(targetNode.getId()),
                                 siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
                     }
-                    splitNode = targetNode.newOfSameKind();
+                    splitNode = targetNode.newOfSameKind(nodeIdSupplier.get());
                     // link this split node to become the last node of the siblings
                     splitNode.linkToParent(Objects.requireNonNull(targetNode.getParentNode()),
                             siblingNodes.get(siblingNodes.size() - 1).getSlotIndexInParent() + 1);
@@ -793,7 +849,7 @@ public class RTree {
                 }
 
                 // update nodes
-                updateNodeSlotsForNodes(transaction, newSiblingNodes);
+                storageAdapter.updateNodeSlotsForNodes(transaction, newSiblingNodes);
 
                 //
                 // Adjust the parent's slot information in memory only; we'll write it in the next iteration when
@@ -830,8 +886,8 @@ public class RTree {
      */
     private void splitRootNode(@Nonnull final Transaction transaction,
                                @Nonnull final Node oldRootNode) {
-        final Node leftNode = oldRootNode.newOfSameKind();
-        final Node rightNode = oldRootNode.newOfSameKind();
+        final Node leftNode = oldRootNode.newOfSameKind(nodeIdSupplier.get());
+        final Node rightNode = oldRootNode.newOfSameKind(nodeIdSupplier.get());
         final int leftSize = oldRootNode.size() / 2;
         final ArrayList<? extends NodeSlot> leftSlots = Lists.newArrayList(oldRootNode.getSlots().subList(0, leftSize));
         leftNode.setSlots(leftSlots);
@@ -850,7 +906,7 @@ public class RTree {
                                 computeMbr(rightNode.getSlots())));
         final IntermediateNode newRootNode = new IntermediateNode(rootId, rootNodeSlots);
 
-        updateNodeSlotsForNodes(transaction, Lists.newArrayList(leftNode, rightNode, newRootNode));
+        storageAdapter.updateNodeSlotsForNodes(transaction, Lists.newArrayList(leftNode, rightNode, newRootNode));
     }
 
     // Delete Path
@@ -984,10 +1040,10 @@ public class RTree {
                 // potentially changed. We resort to re-persisting all slots of the target node.
                 // TODO This can be optimized in the future.
                 //
-                updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+                storageAdapter.updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
             } else {
                 Verify.verify(targetNode.getKind() == Kind.LEAF);
-                clearNodeSlot(transaction, targetNode.getId(), deleteSlot);
+                storageAdapter.clearNodeSlot(transaction, targetNode, deleteSlot);
             }
 
             // node is not under-flowing -- indicate that we are done fusing at the current node
@@ -1076,7 +1132,7 @@ public class RTree {
                 if (tombstoneNode != null) {
                     // remove the slots for the tombstone node and update
                     tombstoneNode.setSlots(Lists.newArrayList());
-                    updateNodeSlotsForNodes(transaction, Collections.singletonList(tombstoneNode));
+                    storageAdapter.updateNodeSlotsForNodes(transaction, Collections.singletonList(tombstoneNode));
                 }
 
                 final Iterator<Node> newSiblingNodesIterator = newSiblingNodes.iterator();
@@ -1100,7 +1156,7 @@ public class RTree {
                     return NodeOrAdjust.NONE;
                 }
 
-                updateNodeSlotsForNodes(transaction, newSiblingNodes);
+                storageAdapter.updateNodeSlotsForNodes(transaction, newSiblingNodes);
 
                 for (final Node newSiblingNode : newSiblingNodes) {
                     adjustSlotInParent(newSiblingNode);
@@ -1138,7 +1194,7 @@ public class RTree {
         newRootNode.setSlots(newRootSlots);
         // We need to update the node and the new root node in order to clear out the existing slots of the pre-promoted
         // node.
-        updateNodeSlotsForNodes(transaction, ImmutableList.of(newRootNode, node));
+        storageAdapter.updateNodeSlotsForNodes(transaction, ImmutableList.of(newRootNode, node));
     }
 
     //
@@ -1157,7 +1213,7 @@ public class RTree {
     @Nonnull
     private NodeOrAdjust updateSlotsAndAdjustNode(@Nonnull final Transaction transaction,
                                                   @Nonnull final Node targetNode) {
-        updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
+        storageAdapter.updateNodeSlotsForNodes(transaction, Collections.singletonList(targetNode));
         if (targetNode.isRoot()) {
             return NodeOrAdjust.NONE;
         }
@@ -1415,133 +1471,9 @@ public class RTree {
         }, executor).thenApply(vignore -> null);
     }
 
-    /**
-     * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
-     * slots. Each slot is represented by a key/value pair in FDB. Each key (common for both leaf and intermediate
-     * nodes) starts with an 8-byte node id (which is usually a serialized {@link UUID}) followed by one byte which
-     * indicates the {@link RTree.Kind} of node the slot belongs to.
-     * @param transaction the transaction to use
-     * @param nodeId the node id we should use
-     * @return A completable future containing the {@link Node} that was fetched from the database once completed.
-     *         The node may be an object of {@link LeafNode} or of {@link IntermediateNode}.
-     */
     @Nonnull
-    private CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, byte[] nodeId) {
-        return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithPrefix(nodeId)),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
-                .thenApply(keyValues -> nodeFromKeyValues(nodeId, keyValues));
-    }
-
-    /**
-     * Interpret the returned key/value pairs from a fetch of slots from the database and reconstruct an in-memory
-     * {@link Node}.
-     * @param nodeId node id
-     * @param keyValues a list of key values as returned by the call to {@link Transaction#getRange(Range)}.
-     * @return an instance of a subclass of {@link Node} specific to the node kind as read from the database.
-     */
-    @SuppressWarnings("ConstantValue")
-    @Nonnull
-    protected Node nodeFromKeyValues(final byte[] nodeId, final List<KeyValue> keyValues) {
-        List<ChildSlot> childSlots = null;
-        List<ItemSlot> itemSlots = null;
-        Kind nodeKind = null;
-
-        // one key/value pair corresponds to one slot
-        for (final KeyValue keyValue : keyValues) {
-            final byte[] rawKey = keyValue.getKey();
-            final int tupleOffset = getSubspacePrefix().length + NODE_ID_LENGTH;
-            final Tuple keyTuple = Tuple.fromBytes(rawKey, tupleOffset, rawKey.length - tupleOffset);
-            Verify.verify(keyTuple.size() == 3);
-            final Kind currentNodeKind;
-            switch ((byte)(long)keyTuple.get(0)) {
-                case 0x00:
-                    currentNodeKind = Kind.LEAF;
-                    break;
-                case 0x01:
-                    currentNodeKind = Kind.INTERMEDIATE;
-                    break;
-                default:
-                    throw new IllegalArgumentException("unknown node kind");
-            }
-            if (nodeKind == null) {
-                nodeKind = currentNodeKind;
-            } else if (nodeKind != currentNodeKind) {
-                throw new IllegalArgumentException("same node id uses different node kinds");
-            }
-
-            final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
-
-            if (nodeKind == Kind.LEAF) {
-                if (itemSlots == null) {
-                    itemSlots = Lists.newArrayList();
-                }
-                itemSlots.add(new ItemSlot(keyTuple.getBigInteger(1), keyTuple.getNestedTuple(2),
-                        valueTuple.getNestedTuple(0), new Point(valueTuple.getNestedTuple(1))));
-            } else {
-                Verify.verify(nodeKind == Kind.INTERMEDIATE);
-                if (childSlots == null) {
-                    childSlots = Lists.newArrayList();
-                }
-                childSlots.add(new ChildSlot(keyTuple.getBigInteger(1),
-                        keyTuple.getNestedTuple(2), valueTuple.getBytes(0),
-                        new Rectangle(valueTuple.getNestedTuple(1))));
-            }
-        }
-
-        if (nodeKind == null && Arrays.equals(rootId, nodeId)) {
-            // root node but nothing read -- root node is the only node that can be empty --
-            // this only happens when the R-Tree is completely empty.
-            nodeKind = Kind.LEAF;
-            itemSlots = Lists.newArrayList();
-        }
-
-        Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
-                      (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
-
-        onReadListener.onRead(nodeId, nodeKind, keyValues);
-
-        return checkNode(nodeKind == Kind.LEAF
-                         ? new LeafNode(nodeId, itemSlots)
-                         : new IntermediateNode(nodeId, childSlots));
-    }
-
-    /**
-     * Method to (re-)persist all slots for a list of nodes passed in. The method will first clear the range starting with
-     * the node ids of the nodes passed in and then persist all the nodes slots.
-     * @param transaction the transaction to use
-     * @param nodes a list of nodes to be (re-persisted)
-     */
-    private void updateNodeSlotsForNodes(@Nonnull final Transaction transaction, @Nonnull List<? extends Node> nodes) {
-        // TODO For performance reasons we should attempt to not clear and rewrite slots that remained identical.
-        for (final Node node : nodes) {
-            transaction.clear(Range.startsWith(packWithPrefix(node.getId())));
-            for (final NodeSlot nodeSlot : node.getSlots()) {
-                writeNodeSlot(transaction, node.getId(), nodeSlot);
-            }
-        }
-    }
-
-    /**
-     * Persist a node slot.
-     * @param transaction the transaction to use
-     * @param nodeId node id
-     * @param nodeSlot the node slot to persist
-     */
-    private void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
-        final byte[] packedKey = nodeSlot.getSlotKey().pack(packWithPrefix(nodeId));
-        final byte[] packedValue = nodeSlot.getSlotValue().pack();
-        transaction.set(packedKey, packedValue);
-    }
-
-    /**
-     * Clear out a node slot.
-     * @param transaction the transaction to use
-     * @param nodeId node id
-     * @param nodeSlot the node slot to clear out
-     */
-    private void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final byte[] nodeId, @Nonnull NodeSlot nodeSlot) {
-        final byte[] packedKey = nodeSlot.getSlotKey().pack(packWithPrefix(nodeId));
-        transaction.clear(packedKey);
+    public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, @Nonnull final byte[] nodeId) {
+        return storageAdapter.fetchNode(transaction, nodeId).thenApply(this::checkNode);
     }
 
     /**
@@ -1786,7 +1718,7 @@ public class RTree {
      * have a node id and slots and can be linked up to a parent. Note that while the root node mostly is an
      * intermediate node it can also be a leaf node if the tree is nearly empty.
      */
-    abstract class Node {
+    public abstract static class Node {
         @Nonnull
         private final byte[] id;
 
@@ -1845,10 +1777,6 @@ public class RTree {
             this.slotIndexInParent = slotInParent;
         }
 
-        public Node newOfSameKind() {
-            return newOfSameKind(nodeIdSupplier.get());
-        }
-
         @Nonnull
         public abstract Node newOfSameKind(@Nonnull byte[] nodeId);
     }
@@ -1856,7 +1784,7 @@ public class RTree {
     /**
      * A leaf node of the tree. A leaf node holds the actual data in {@link ItemSlot}s.
      */
-    class LeafNode extends Node {
+    static class LeafNode extends Node {
         @Nonnull
         private List<ItemSlot> items;
 
@@ -1911,7 +1839,7 @@ public class RTree {
      * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
      * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
      */
-    class IntermediateNode extends Node {
+    static class IntermediateNode extends Node {
         @Nonnull
         private List<ChildSlot> children;
 
@@ -2139,6 +2067,219 @@ public class RTree {
         public String toString() {
             //return "[" + getMbr() + ";" + getLargestHilbertValue() + "]";
             return getMbr().toString();
+        }
+    }
+
+    /**
+     * Storage adapter used for serialization and deserialization.
+     */
+    public interface StorageAdapter {
+
+        /**
+         * Get the subspace prefix used to store this r-tree.
+         * @return r-tree subspace
+         */
+        @Nonnull
+        byte[] getSubspacePrefix();
+
+        /**
+         * Get the on-write listener.
+         * @return the on-write listener.
+         */
+        @Nonnull
+        OnWriteListener getOnWriteListener();
+
+        /**
+         * Get the on-read listener.
+         * @return the on-read listener.
+         */
+        @Nonnull
+        OnReadListener getOnReadListener();
+
+        /**
+         * Persist a node slot.
+         * @param transaction the transaction to use
+         * @param node node whose slot to persist
+         * @param nodeSlot the node slot to persist
+         */
+        void writeNodeSlot(@Nonnull Transaction transaction, @Nonnull Node node, @Nonnull NodeSlot nodeSlot);
+
+        /**
+         * Clear out a node slot.
+         * @param transaction the transaction to use
+         * @param node node whose slot is cleared out
+         * @param nodeSlot the node slot to clear out
+         */
+        void clearNodeSlot(@Nonnull Transaction transaction, @Nonnull Node node, @Nonnull NodeSlot nodeSlot);
+
+        /**
+         * Method to (re-)persist all slots for a list of nodes passed in. The method will first clear the range starting with
+         * the node ids of the nodes passed in and then persist all the nodes slots.
+         * @param transaction the transaction to use
+         * @param nodes a list of nodes to be (re-persisted)
+         */
+        void updateNodeSlotsForNodes(@Nonnull Transaction transaction, @Nonnull List<? extends Node> nodes);
+
+        /**
+         * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
+         * slots. Each slot is represented by a key/value pair in FDB. Each key (common for both leaf and intermediate
+         * nodes) starts with an 8-byte node id (which is usually a serialized {@link UUID}) followed by one byte which
+         * indicates the {@link RTree.Kind} of node the slot belongs to.
+         * @param transaction the transaction to use
+         * @param nodeId the node id we should use
+         * @return A completable future containing the {@link Node} that was fetched from the database once completed.
+         *         The node may be an object of {@link LeafNode} or of {@link IntermediateNode}.
+         */
+        @Nonnull
+        CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
+
+        @Nonnull
+        default byte[] packWithPrefix(final byte[] key) {
+            return Bytes.concat(getSubspacePrefix(), key);
+        }
+    }
+
+    /**
+     * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
+     */
+    public static class BySlotStorageAdapter implements StorageAdapter {
+        @Nonnull
+        private final byte[] subspacePrefix;
+        @Nonnull
+        private final OnWriteListener onWriteListener;
+        @Nonnull
+        private final OnReadListener onReadListener;
+
+        public BySlotStorageAdapter(@Nonnull final byte[] subspacePrefix, @Nonnull final OnWriteListener onWriteListener,
+                                    @Nonnull final OnReadListener onReadListener) {
+            this.subspacePrefix = subspacePrefix;
+            this.onWriteListener = onWriteListener;
+            this.onReadListener = onReadListener;
+        }
+
+        @Override
+        @Nonnull
+        public byte[] getSubspacePrefix() {
+            return subspacePrefix;
+        }
+
+        @Nonnull
+        @Override
+        public OnWriteListener getOnWriteListener() {
+            return onWriteListener;
+        }
+
+        @Nonnull
+        @Override
+        public OnReadListener getOnReadListener() {
+            return onReadListener;
+        }
+
+        @Override
+        public void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
+            final byte[] packedKey = nodeSlot.getSlotKey().pack(packWithPrefix(node.getId()));
+            final byte[] packedValue = nodeSlot.getSlotValue().pack();
+            transaction.set(packedKey, packedValue);
+        }
+
+        @Override
+        public void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
+            final byte[] packedKey = nodeSlot.getSlotKey().pack(packWithPrefix(node.getId()));
+            transaction.clear(packedKey);
+        }
+
+        @Override
+        public void updateNodeSlotsForNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
+            // TODO For performance reasons we should attempt to not clear and rewrite slots that remained identical.
+            for (final Node node : nodes) {
+                transaction.clear(Range.startsWith(packWithPrefix(node.getId())));
+                for (final NodeSlot nodeSlot : node.getSlots()) {
+                    writeNodeSlot(transaction, node, nodeSlot);
+                }
+            }
+        }
+
+        @Nonnull
+        public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
+                                                 @Nonnull final byte[] nodeId) {
+            return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithPrefix(nodeId)),
+                            ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
+                    .thenApply(keyValues -> {
+                        final Node node = nodeFromKeyValues(nodeId, keyValues);
+                        onReadListener.onRead(node, keyValues);
+                        return node;
+                    });
+        }
+
+        /**
+         * Interpret the returned key/value pairs from a fetch of slots from the database and reconstruct an in-memory
+         * {@link Node}.
+         * @param nodeId node id
+         * @param keyValues a list of key values as returned by the call to {@link Transaction#getRange(Range)}.
+         * @return an instance of a subclass of {@link Node} specific to the node kind as read from the database.
+         */
+        @SuppressWarnings("ConstantValue")
+        @Nonnull
+        private Node nodeFromKeyValues(final byte[] nodeId, final List<KeyValue> keyValues) {
+            List<ChildSlot> childSlots = null;
+            List<ItemSlot> itemSlots = null;
+            Kind nodeKind = null;
+
+            // one key/value pair corresponds to one slot
+            for (final KeyValue keyValue : keyValues) {
+                final byte[] rawKey = keyValue.getKey();
+                final int tupleOffset = getSubspacePrefix().length + NODE_ID_LENGTH;
+                final Tuple keyTuple = Tuple.fromBytes(rawKey, tupleOffset, rawKey.length - tupleOffset);
+                Verify.verify(keyTuple.size() == 3);
+                final Kind currentNodeKind;
+                switch ((byte)(long)keyTuple.get(0)) {
+                    case 0x00:
+                        currentNodeKind = Kind.LEAF;
+                        break;
+                    case 0x01:
+                        currentNodeKind = Kind.INTERMEDIATE;
+                        break;
+                    default:
+                        throw new IllegalArgumentException("unknown node kind");
+                }
+                if (nodeKind == null) {
+                    nodeKind = currentNodeKind;
+                } else if (nodeKind != currentNodeKind) {
+                    throw new IllegalArgumentException("same node id uses different node kinds");
+                }
+
+                final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
+
+                if (nodeKind == Kind.LEAF) {
+                    if (itemSlots == null) {
+                        itemSlots = Lists.newArrayList();
+                    }
+                    itemSlots.add(new ItemSlot(keyTuple.getBigInteger(1), keyTuple.getNestedTuple(2),
+                            valueTuple.getNestedTuple(0), new Point(valueTuple.getNestedTuple(1))));
+                } else {
+                    Verify.verify(nodeKind == Kind.INTERMEDIATE);
+                    if (childSlots == null) {
+                        childSlots = Lists.newArrayList();
+                    }
+                    childSlots.add(new ChildSlot(keyTuple.getBigInteger(1),
+                            keyTuple.getNestedTuple(2), valueTuple.getBytes(0),
+                            new Rectangle(valueTuple.getNestedTuple(1))));
+                }
+            }
+
+            if (nodeKind == null && Arrays.equals(rootId, nodeId)) {
+                // root node but nothing read -- root node is the only node that can be empty --
+                // this only happens when the R-Tree is completely empty.
+                nodeKind = Kind.LEAF;
+                itemSlots = Lists.newArrayList();
+            }
+
+            Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
+                          (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
+
+            return nodeKind == Kind.LEAF
+                   ? new LeafNode(nodeId, itemSlots)
+                   : new IntermediateNode(nodeId, childSlots);
         }
     }
 
@@ -2379,7 +2520,7 @@ public class RTree {
             return parentNode;
         }
 
-        @Nullable
+        @Nonnull
         public byte[] getChildId() {
             return childId;
         }
@@ -2662,11 +2803,22 @@ public class RTree {
      * Function interface for a call back whenever we read the slots for a node.
      */
     @FunctionalInterface
-    public interface OnReadListener {
-        OnReadListener NOOP = (nodeId, nodeKind, keyValues) -> { };
+    public interface OnWriteListener {
+        OnWriteListener NOOP = (nodeId, nodeKind, keyValues) -> { };
 
-        void onRead(@Nonnull byte[] nodeId,
-                    @Nonnull Kind nodeKind,
+        void onWrite(@Nonnull Node node,
+                     @Nonnull Tuple key,
+                     @Nonnull Tuple value);
+    }
+
+    /**
+     * Function interface for a call back whenever we read the slots for a node.
+     */
+    @FunctionalInterface
+    public interface OnReadListener {
+        OnReadListener NOOP = (node, keyValues) -> { };
+
+        void onRead(@Nonnull Node node,
                     @Nonnull List<KeyValue> keyValues);
     }
 }

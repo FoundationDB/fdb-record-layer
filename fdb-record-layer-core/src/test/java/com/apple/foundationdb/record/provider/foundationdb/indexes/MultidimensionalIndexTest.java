@@ -220,8 +220,8 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context, additionalStartEndIndex);
             final RecordCursor<QueryResult> recordCursor =
                     indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            recordCursor.asStream().collect(Collectors.toList());
-                    //.forEach(queryResult -> System.out.println(queryResult.getQueriedRecord().getRecord()));
+            recordCursor.asStream()//.collect(Collectors.toList());
+                    .forEach(queryResult -> System.out.println(queryResult.getQueriedRecord().getRecord()));
             commit(context);
         }
 

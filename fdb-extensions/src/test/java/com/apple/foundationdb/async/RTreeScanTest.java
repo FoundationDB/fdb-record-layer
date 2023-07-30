@@ -36,12 +36,10 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Streams;
-import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,8 +48,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -152,7 +148,8 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         final OnReadCounters onReadCounters = new OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
@@ -198,7 +195,8 @@ public class RTreeScanTest extends FDBTestBase {
             }
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId, onReadCounters);
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
@@ -280,100 +278,10 @@ public class RTreeScanTest extends FDBTestBase {
         }
     }
 
-    @Test
-    void name() {
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
-        System.out.println(hc.index(0, 0xFFL));
-        System.out.println(hc.index(0, 0xFFL | (1L << 63L)));
-        System.out.println(hc.index(0, 255L));
-        System.out.println(hc.index(0, -9223372036854775553L));
-
-        //System.out.println(hc.index( Long.MAX_VALUE, 0));
-        System.out.println(index(64, Long.MAX_VALUE, 0));
-        System.out.println(index(64, -1L, 0));
-
-        System.out.println(shiftCoordinate(-1));
-        System.out.println(shiftCoordinate(0));
-        System.out.println(shiftCoordinate(1));
-        System.out.println(shiftCoordinate(Long.MIN_VALUE));
-        System.out.println(shiftCoordinate(Long.MAX_VALUE));
-
-        System.out.println("==========================");
-        System.out.println(index(64, shiftCoordinate(Long.MIN_VALUE), shiftCoordinate(Long.MIN_VALUE)));
-        System.out.println(index(64, shiftCoordinate(Long.MAX_VALUE), shiftCoordinate(Long.MIN_VALUE)));
-    }
-
-    static long shiftCoordinate(long coordinate) {
-        return coordinate < 0
-               ? (Long.MAX_VALUE - (-coordinate - 1L))
-               : (coordinate | (1L << 63));
-    }
-
-    public static BigInteger index(int bits, long... point) {
-        return toIndex(bits, transposedIndex(bits, point));
-    }
-
-    static BigInteger toIndex(int bits, long... transposedIndex) {
-        int length = bits * transposedIndex.length;
-        byte[] b = new byte[length / 8 + 1];
-        int bIndex = length - 1;
-        long mask = 1L << (bits - 1);
-        for (int i = 0; i < bits; i++) {
-            for (int j = 0; j < transposedIndex.length; j++) {
-                if ((transposedIndex[j] & mask) != 0) {
-                    b[b.length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
-                }
-                bIndex--;
-            }
-            mask >>>= 1;
-        }
-        // b is expected to be BigEndian
-        return new BigInteger(1, b);
-    }
-
-    static long[] transposedIndex(int bits, long... unsignedPoint) {
-        final long M = 1L << (bits - 1);
-        final int n = unsignedPoint.length; // n: Number of dimensions
-        final long[] x = Arrays.copyOf(unsignedPoint, n);
-        long p;
-        long q;
-        long t;
-        int i;
-        // Inverse undo
-        for (q = M; q != 1; q >>>= 1) {
-            p = q - 1;
-            for (i = 0; i < n; i++) {
-                if ((x[i] & q) != 0) {
-                    x[0] ^= p; // invert
-                } else {
-                    t = (x[0] ^ x[i]) & p;
-                    x[0] ^= t;
-                    x[i] ^= t;
-                }
-            }
-        } // exchange
-        // Gray encode
-        for (i = 1; i < n; i++) {
-            x[i] ^= x[i - 1];
-        }
-        t = 0;
-        for (q = M; q != 1; q >>>= 1) {
-            if ((x[n - 1] & q) != 0) {
-                t ^= q - 1;
-            }
-        }
-        for (i = 0; i < n; i++) {
-            x[i] ^= t;
-        }
-
-        return x;
-    }
-
     static class OnReadCounters implements RTree.OnReadListener {
         private final AtomicLong readSlotCounter = new AtomicLong(0);
         private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
         private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
-
         private final AtomicLong readNodesCounter = new AtomicLong(0);
         private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
         private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
@@ -421,15 +329,15 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Override
-        public void onRead(@Nonnull final byte[] nodeId, @Nonnull final RTree.Kind nodeKind,
+        public void onRead(@Nonnull final RTree.Node node,
                            @Nonnull final List<KeyValue> keyValues) {
             readSlotCounter.addAndGet(keyValues.size());
             readNodesCounter.incrementAndGet();
-            if (nodeKind == RTree.Kind.LEAF) {
+            if (node.getKind() == RTree.Kind.LEAF) {
                 readLeafSlotCounter.addAndGet(keyValues.size());
                 readLeafNodesCounter.incrementAndGet();
             } else {
-                Verify.verify(nodeKind == RTree.Kind.INTERMEDIATE);
+                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
                 readIntermediateSlotCounter.addAndGet(keyValues.size());
                 readIntermediateNodesCounter.incrementAndGet();
             }

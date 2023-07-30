@@ -56,6 +56,11 @@ public class RTreeIndexHelper {
         if (rtreeSplitS != null) {
             builder.setSplitS(Integer.parseInt(rtreeSplitS));
         }
+        final String rtreeStorage = index.getOption(IndexOptions.RTREE_STORAGE);
+        if (rtreeStorage != null) {
+            builder.setStorage(RTree.Storage.valueOf(rtreeStorage));
+        }
+
         return builder.build();
     }
 

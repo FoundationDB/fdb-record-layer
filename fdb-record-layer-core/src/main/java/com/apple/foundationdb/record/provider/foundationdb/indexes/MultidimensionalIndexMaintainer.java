@@ -127,7 +127,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
                     final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
-                            new OnReadLimiter(cursorLimitManager, timer));
+                            RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
                     final ReadTransaction transaction = state.context.readTransaction(true);
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
                             rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
@@ -197,10 +197,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
                         final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
                         state.index.trimPrimaryKey(primaryKeyParts);
-                        final List<Object> itemKeyParts = Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
+                        final List<Object> itemKeyParts =
+                                Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
                         itemKeyParts.addAll(primaryKeyParts);
                         final Tuple itemKey = Tuple.fromList(itemKeyParts);
-                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId, RTree.OnReadListener.NOOP);
+                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
+                                RTree.OnWriteListener.NOOP, RTree.OnReadListener.NOOP);
                         if (remove) {
                             return rTree.delete(state.transaction,
                                     hilbertValue,
@@ -277,7 +279,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onRead(@Nonnull final byte[] nodeId, @Nonnull final RTree.Kind nodeKind,
+        public void onRead(@Nonnull final RTree.Node node,
                            @Nonnull final List<KeyValue> keyValues) {
             final int accumulatedKeysSize =
                     keyValues.stream()
