@@ -45,6 +45,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
@@ -186,7 +187,8 @@ public class RTreeModificationTest extends FDBTestBase {
         for (int i = 0; i < numSamples; ++i) {
             final RTree.Point point = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
             items[i] = new Item(point,
-                    hc.index((long)point.getCoordinate(0), (long)point.getCoordinate(1)),
+                    hc.index((long)Objects.requireNonNull(point.getCoordinateAsNumber(0)),
+                            (long)Objects.requireNonNull(point.getCoordinateAsNumber(1))),
                     Tuple.from(i),
                     Tuple.from("value" + i));
         }
@@ -213,7 +215,8 @@ public class RTreeModificationTest extends FDBTestBase {
 
             final RTree.Point point = new RTree.Point(Tuple.from(x, y));
             items[i] = new Item(point,
-                    hc.index((long)point.getCoordinate(0), (long)point.getCoordinate(1)),
+                    hc.index((long)Objects.requireNonNull(point.getCoordinate(0)),
+                            (long)Objects.requireNonNull(point.getCoordinate(1))),
                     Tuple.from(i),
                     Tuple.from("value" + i));
 

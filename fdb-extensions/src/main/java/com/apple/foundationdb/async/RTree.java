@@ -2408,12 +2408,12 @@ public class RTree {
             return coordinates.size();
         }
 
-        @Nonnull
+        @Nullable
         public Object getCoordinate(final int dimension) {
             return coordinates.get(dimension);
         }
 
-        @Nonnull
+        @Nullable
         public Number getCoordinateAsNumber(final int dimension) {
             return (Number)getCoordinate(dimension);
         }

@@ -35,6 +35,8 @@ import java.util.Arrays;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RTreeIndexHelper {
+    private static final long nullReplacement = Long.MIN_VALUE;
+
     /**
      * Parse standard options into {@link RTree.Config}.
      * @param index the index definition to get options from
@@ -96,7 +98,9 @@ public class RTreeIndexHelper {
         int numBits = 64;
         final long[] shiftedCoordinates = new long[point.getNumDimensions()];
         for (int i = 0; i < point.getNumDimensions(); i++) {
-            shiftedCoordinates[i] = shiftCoordinate((Long)point.getCoordinateAsNumber(i));
+            Long coordinateAsLong = (Long)point.getCoordinateAsNumber(i);
+            coordinateAsLong = coordinateAsLong == null ? nullReplacement : coordinateAsLong;
+            shiftedCoordinates[i] = shiftCoordinate(coordinateAsLong);
         }
         return toIndex(numBits, transposedIndex(numBits, shiftedCoordinates));
     }

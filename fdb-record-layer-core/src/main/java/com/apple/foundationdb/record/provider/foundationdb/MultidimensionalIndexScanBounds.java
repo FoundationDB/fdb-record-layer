@@ -34,19 +34,22 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-
-import static com.apple.foundationdb.record.IndexScanType.BY_VALUE;
+import java.util.stream.Collectors;
 
 /**
  * {@link IndexScanBounds} for a multidimensional index scan.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class MultidimensionalIndexScanBounds implements IndexScanBounds {
+public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     @Nonnull
     private final TupleRange prefixRange;
 
-    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange) {
+    @Nonnull
+    private final SpatialPredicate spatialPredicate;
+
+    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange, @Nonnull final SpatialPredicate spatialPredicate) {
         this.prefixRange = prefixRange;
+        this.spatialPredicate = spatialPredicate;
     }
 
     @Nonnull
@@ -60,19 +63,48 @@ public abstract class MultidimensionalIndexScanBounds implements IndexScanBounds
         return prefixRange;
     }
 
-    public abstract boolean overlapsMbr(@Nonnull RTree.Rectangle mbr);
+    @Nonnull
+    public SpatialPredicate getSpatialPredicate() {
+        return spatialPredicate;
+    }
 
-    public abstract boolean containsPosition(@Nonnull RTree.Point position);
+    public boolean overlapsMbr(@Nonnull RTree.Rectangle mbr) {
+        return spatialPredicate.overlapsMbr(mbr);
+    }
+
+    public boolean containsPosition(@Nonnull RTree.Point position) {
+        return spatialPredicate.containsPosition(position);
+    }
 
     /**
-     * Scan bounds that consists of other {@link MultidimensionalIndexScanBounds} to form a logical OR.
+     * Spatial predicate.
      */
-    public static class Or extends MultidimensionalIndexScanBounds {
-        @Nonnull
-        private final List<MultidimensionalIndexScanBounds> children;
+    public interface SpatialPredicate {
+        SpatialPredicate TAUTOLOGY = new SpatialPredicate() {
+            @Override
+            public boolean overlapsMbr(@Nonnull final RTree.Rectangle mbr) {
+                return true;
+            }
 
-        public Or(@Nonnull final TupleRange prefixRange, @Nonnull final List<MultidimensionalIndexScanBounds> children) {
-            super(prefixRange);
+            @Override
+            public boolean containsPosition(@Nonnull final RTree.Point position) {
+                return true;
+            }
+        };
+
+        boolean overlapsMbr(@Nonnull RTree.Rectangle mbr);
+
+        boolean containsPosition(@Nonnull RTree.Point position);
+    }
+
+    /**
+     * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical OR.
+     */
+    public static class Or implements SpatialPredicate {
+        @Nonnull
+        private final List<SpatialPredicate> children;
+
+        public Or(@Nonnull final List<SpatialPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
@@ -87,17 +119,21 @@ public abstract class MultidimensionalIndexScanBounds implements IndexScanBounds
             return children.stream()
                     .anyMatch(child -> child.containsPosition(position));
         }
+
+        @Override
+        public String toString() {
+            return children.stream().map(Object::toString).collect(Collectors.joining(" or "));
+        }
     }
 
     /**
-     * Scan bounds that consists of other {@link MultidimensionalIndexScanBounds} to form a logical AND.
+     * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical AND.
      */
-    public static class And extends MultidimensionalIndexScanBounds {
+    public static class And implements SpatialPredicate {
         @Nonnull
-        private final List<MultidimensionalIndexScanBounds> children;
+        private final List<SpatialPredicate> children;
 
-        public And(@Nonnull final TupleRange prefixRange, @Nonnull final List<MultidimensionalIndexScanBounds> children) {
-            super(prefixRange);
+        public And(@Nonnull final List<SpatialPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
@@ -112,17 +148,21 @@ public abstract class MultidimensionalIndexScanBounds implements IndexScanBounds
             return children.stream()
                     .allMatch(child -> child.containsPosition(position));
         }
+
+        @Override
+        public String toString() {
+            return children.stream().map(Object::toString).collect(Collectors.joining(" and "));
+        }
     }
 
     /**
      * Scan bounds describing an n-dimensional hypercube.
      */
-    public static class Hypercube extends MultidimensionalIndexScanBounds {
+    public static class Hypercube implements SpatialPredicate {
         @Nonnull
         private final List<TupleRange> dimensionRanges;
 
-        public Hypercube(@Nonnull final TupleRange prefixRange, @Nonnull final List<TupleRange> dimensionRanges) {
-            super(prefixRange);
+        public Hypercube(@Nonnull final List<TupleRange> dimensionRanges) {
             this.dimensionRanges = ImmutableList.copyOf(dimensionRanges);
         }
 
@@ -246,7 +286,7 @@ public abstract class MultidimensionalIndexScanBounds implements IndexScanBounds
 
         @Override
         public String toString() {
-            return "MD:" + BY_VALUE + ":" + getPrefixRange() + ":" + dimensionRanges;
+            return "HyperCube:[" + dimensionRanges + "]";
         }
     }
 }

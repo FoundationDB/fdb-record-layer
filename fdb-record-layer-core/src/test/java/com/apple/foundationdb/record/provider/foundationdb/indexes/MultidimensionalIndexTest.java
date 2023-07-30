@@ -269,7 +269,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     void indexReadWithIn(int numRecords, int numIns) throws Exception {
         loadRecords(NO_HOOK, numRecords, numRecords);
 
-        final ImmutableList.Builder<MultidimensionalIndexScanBounds> orTermsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<MultidimensionalIndexScanBounds.SpatialPredicate> orTermsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<Long> probesBuilder = ImmutableList.builder();
         final Random random = new Random(0);
         for (int i = 0; i < numIns; i++) {
@@ -280,35 +280,35 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 probe = (long)Math.abs(random.nextGaussian() * (3L * 60L * 60L)) + epochMean;
             }
             probesBuilder.add(probe);
-            final MultidimensionalIndexScanBounds scanBounds =
+            final MultidimensionalIndexScanBounds.Hypercube hyperCube =
 //                    new MultidimensionalIndexScanBounds.Hypercube(TupleRange.allOf(Tuple.from("business")),
 //                            ImmutableList.of(
 //                                    TupleRange.betweenInclusive(Tuple.from(probe), null),
 //                                    TupleRange.betweenInclusive(null, Tuple.from(probe))));
-                    new MultidimensionalIndexScanBounds.Hypercube(TupleRange.allOf(Tuple.from("business")),
-                            ImmutableList.of(
-                                    TupleRange.betweenInclusive(Tuple.from(probe), Tuple.from(probe)),
-                                    TupleRange.betweenInclusive(null, null)));
-            orTermsBuilder.add(scanBounds);
+                            new MultidimensionalIndexScanBounds.Hypercube(
+                                    ImmutableList.of(
+                                            TupleRange.betweenInclusive(Tuple.from(probe), Tuple.from(probe)),
+                                            TupleRange.betweenInclusive(null, null)));
+            orTermsBuilder.add(hyperCube);
         }
 
         final MultidimensionalIndexScanBounds.Or orBounds =
-                new MultidimensionalIndexScanBounds.Or(TupleRange.allOf(Tuple.from("business")),
-                        orTermsBuilder.build());
+                new MultidimensionalIndexScanBounds.Or(orTermsBuilder.build());
 
         final MultidimensionalIndexScanBounds.Hypercube greaterThanBounds =
-                new MultidimensionalIndexScanBounds.Hypercube(TupleRange.allOf(Tuple.from("business")),
+                new MultidimensionalIndexScanBounds.Hypercube(
                         ImmutableList.of(
                                 TupleRange.betweenInclusive(null, null),
                                 TupleRange.betweenInclusive(Tuple.from(1690476099L), null)));
 
         final MultidimensionalIndexScanBounds.And andBounds =
-                new MultidimensionalIndexScanBounds.And(TupleRange.allOf(Tuple.from("business")),
-                        ImmutableList.of(greaterThanBounds, orBounds));
+                new MultidimensionalIndexScanBounds.And(ImmutableList.of(greaterThanBounds, orBounds));
 
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
-                        new CompositeScanParameters(andBounds), false);
+                        new CompositeScanParameters(
+                                new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds)),
+                        false);
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -408,12 +408,12 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         @Nonnull
         @Override
         public IndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index, @Nonnull final EvaluationContext context) {
-            return new MultidimensionalIndexScanBounds.Hypercube(TupleRange.allOf(Tuple.from(calendarName)),
-                    ImmutableList.of(
+            return new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(calendarName)),
+                    new MultidimensionalIndexScanBounds.Hypercube(ImmutableList.of(
                             TupleRange.betweenInclusive(xMinInclusive == null ? null : Tuple.from(xMinInclusive),
                                     xMaxInclusive == null ? null : Tuple.from(xMaxInclusive)),
                             TupleRange.betweenInclusive(yMinInclusive == null ? null : Tuple.from(yMinInclusive),
-                                    yMaxInclusive == null ? null : Tuple.from(yMaxInclusive))));
+                                    yMaxInclusive == null ? null : Tuple.from(yMaxInclusive)))));
         }
 
         @Override

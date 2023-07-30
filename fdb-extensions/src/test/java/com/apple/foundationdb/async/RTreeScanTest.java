@@ -140,8 +140,8 @@ public class RTreeScanTest extends FDBTestBase {
                 numPointsSatisfyingQuery ++;
             }
 
-            final long pointX = ((Number)point.getCoordinate(0)).longValue();
-            final long pointY = ((Number)point.getCoordinate(1)).longValue();
+            final long pointX = Objects.requireNonNull(point.getCoordinateAsNumber(0)).longValue();
+            final long pointY = Objects.requireNonNull(point.getCoordinateAsNumber(1)).longValue();
             if (queryLowX <= pointX && pointX <= queryHighX) {
                 numPointsSatisfyingQueryX ++;
             }
