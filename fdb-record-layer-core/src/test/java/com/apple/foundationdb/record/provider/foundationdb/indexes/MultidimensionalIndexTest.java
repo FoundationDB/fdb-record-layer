@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -91,9 +92,8 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultidimensionalProto.getDescriptor());
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
                 new Index("EventIntervals", DimensionsKeyExpression.of(field("calendar_name"),
-                        concat(field("start_epoch"), field("end_epoch")),
-                                concat(field("start_epoch"), field("end_epoch"))),
-                        IndexTypes.MULTIDIMENSIONAL));
+                        concat(field("start_epoch"), field("end_epoch"))),
+                        IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, "BY_NODE")));
 //        metaDataBuilder.addIndex("MyMultidimensionalRecord",
 //                new Index("calendarNameStartEpoch",
 //                        concat(field("calendar_name"), field("start_epoch")),

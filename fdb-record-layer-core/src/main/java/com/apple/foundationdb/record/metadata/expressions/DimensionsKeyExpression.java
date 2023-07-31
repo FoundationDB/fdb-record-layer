@@ -210,6 +210,22 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     public static DimensionsKeyExpression of(@Nullable final KeyExpression prefix,
+                                             @Nonnull final KeyExpression dimensions) {
+        final int prefixCount = prefix == null ? 0 : prefix.getColumnSize();
+        final int dimensionsCount = dimensions.getColumnSize();
+        Verify.verify(dimensionsCount > 1);
+
+        final ImmutableList.Builder<KeyExpression> wholeKeyBuilder = ImmutableList.builder();
+        wholeKeyBuilder.addAll(liftExpression(prefix));
+        wholeKeyBuilder.addAll(liftExpression(dimensions));
+
+        final KeyExpression wholeKey = Key.Expressions.concat(wholeKeyBuilder.build());
+
+        return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
+    }
+
+    @Nonnull
+    public static DimensionsKeyExpression of(@Nullable final KeyExpression prefix,
                                              @Nonnull final KeyExpression dimensions,
                                              @Nullable final KeyExpression rest) {
         final int prefixCount = prefix == null ? 0 : prefix.getColumnSize();

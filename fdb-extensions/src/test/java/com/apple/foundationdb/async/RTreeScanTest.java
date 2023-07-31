@@ -23,7 +23,6 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBTestBase;
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.RTreeModificationTest.Item;
@@ -329,17 +328,23 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Override
-        public void onRead(@Nonnull final RTree.Node node,
-                           @Nonnull final List<KeyValue> keyValues) {
-            readSlotCounter.addAndGet(keyValues.size());
-            readNodesCounter.incrementAndGet();
+        public void onNodeRead(@Nonnull final RTree.Node node) {
             if (node.getKind() == RTree.Kind.LEAF) {
-                readLeafSlotCounter.addAndGet(keyValues.size());
                 readLeafNodesCounter.incrementAndGet();
             } else {
                 Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
-                readIntermediateSlotCounter.addAndGet(keyValues.size());
                 readIntermediateNodesCounter.incrementAndGet();
+            }
+        }
+
+        @Override
+        public void onKeyValueRead(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+            readSlotCounter.incrementAndGet();
+            if (node.getKind() == RTree.Kind.LEAF) {
+                readLeafSlotCounter.incrementAndGet();
+            } else {
+                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
+                readIntermediateSlotCounter.incrementAndGet();
             }
         }
     }

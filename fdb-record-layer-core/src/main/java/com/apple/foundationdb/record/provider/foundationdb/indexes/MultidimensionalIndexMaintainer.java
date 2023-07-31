@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -279,23 +278,20 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onRead(@Nonnull final RTree.Node node,
-                           @Nonnull final List<KeyValue> keyValues) {
-            final int accumulatedKeysSize =
-                    keyValues.stream()
-                            .mapToInt(keyValue -> keyValue.getKey().length)
-                            .sum();
+        public void onNodeRead(@Nonnull final RTree.Node node) {
 
-            final int accumulatedValuesSize =
-                    keyValues.stream()
-                            .mapToInt(keyValue -> keyValue.getValue().length)
-                            .sum();
-            cursorLimitManager.reportScannedBytes(accumulatedKeysSize + accumulatedValuesSize);
+        }
+
+        @Override
+        public void onKeyValueRead(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+            final int keyLength = key == null ? 0 : key.length;
+            final int valueLength = value == null ? 0 : value.length;
+
+            cursorLimitManager.reportScannedBytes(keyLength + valueLength);
             cursorLimitManager.tryRecordScan();
-
             timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY);
-            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, accumulatedKeysSize);
-            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, accumulatedValuesSize);
+            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, keyLength);
+            timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, valueLength);
         }
     }
 
