@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.401.0
+
+
 ### 3.3.400.0
 
 * **Bug fix** Resolve Lucene readSchema deadlock [(Issue #2234)](https://github.com/FoundationDB/fdb-record-layer/issues/2234)
