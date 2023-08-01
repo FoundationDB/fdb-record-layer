@@ -61,6 +61,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -139,6 +140,8 @@ public class RTree {
     public static final int NODE_ID_LENGTH = 16;
     public static final int MAX_CONCURRENT_READS = 16;
 
+    private static final long nullReplacement = Long.MIN_VALUE;
+
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     /**
@@ -183,13 +186,15 @@ public class RTree {
     public static final Config DEFAULT_CONFIG = new Config();
 
     @Nonnull
-    protected final StorageAdapter storageAdapter;
+    private final StorageAdapter storageAdapter;
     @Nonnull
-    protected final Executor executor;
+    private final Executor executor;
     @Nonnull
-    protected final Config config;
+    private final Config config;
     @Nonnull
-    protected final Supplier<byte[]> nodeIdSupplier;
+    private final Function<Point, BigInteger> hilbertValueFunction;
+    @Nonnull
+    private final Supplier<byte[]> nodeIdSupplier;
 
     /**
      * Only used for debugging to keep node ids readable.
@@ -353,8 +358,10 @@ public class RTree {
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
-        this(subspace, executor, DEFAULT_CONFIG, RTree::newRandomNodeId, OnWriteListener.NOOP, OnReadListener.NOOP);
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor,
+                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
+        this(subspace, executor, DEFAULT_CONFIG, hilbertValueFunction, RTree::newRandomNodeId,
+                OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
     /**
@@ -362,17 +369,21 @@ public class RTree {
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
+     * @param hilbertValueFunction function to compute the Hilbert value for a {@link Point}
      * @param nodeIdSupplier supplier to be invoked when new nodes are created
      * @param onWriteListener an on-write listener to be called after writes take place
      * @param onReadListener an on-read listener to be called after reads take place
      */
     public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor, @Nonnull final Config config,
-                 @Nonnull final Supplier<byte[]> nodeIdSupplier, @Nonnull final OnWriteListener onWriteListener,
+                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
+                 @Nonnull final Supplier<byte[]> nodeIdSupplier,
+                 @Nonnull final OnWriteListener onWriteListener,
                  @Nonnull final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
                 .newStorageAdapter(Objects.requireNonNull(subspace.getKey()), onWriteListener, onReadListener);
         this.executor = executor;
         this.config = config;
+        this.hilbertValueFunction = hilbertValueFunction;
         this.nodeIdSupplier = nodeIdSupplier;
     }
 
@@ -606,23 +617,24 @@ public class RTree {
      * is that we do not have to store both point and Hilbert value (but we currently do).
      * @param tc transaction context
      * @param point the point to be used in space
-     * @param hilbertValue the hilbert value of the point
-     * @param key the additional key to be stored with the item
+     * @param keySuffix the additional key to be stored with the item
      * @param value the additional value to be stored with the item
      * @return a completable future that completes when the insert is completed
      */
     @Nonnull
     public CompletableFuture<Void> insertOrUpdate(@Nonnull final TransactionContext tc,
                                                   @Nonnull final Point point,
-                                                  @Nonnull final BigInteger hilbertValue,
-                                                  @Nonnull final Tuple key,
+                                                  @Nonnull final Tuple keySuffix,
                                                   @Nonnull final Tuple value) {
+        final BigInteger hilbertValue = hilbertValueFunction.apply(point);
+        final Tuple itemKey = Tuple.from(point.getCoordinates(), keySuffix);
+
         //
         // Get to the leaf node we need to start the insert from and then call the appropriate method to perform
         // the actual insert/update.
         //
-        return tc.runAsync(transaction -> fetchUpdatePathToLeaf(transaction, hilbertValue, key)
-                .thenCompose(leafNode -> insertOrUpdateSlot(transaction, leafNode, point, hilbertValue, key, value)));
+        return tc.runAsync(transaction -> fetchUpdatePathToLeaf(transaction, hilbertValue, itemKey)
+                .thenCompose(leafNode -> insertOrUpdateSlot(transaction, leafNode, point, hilbertValue, itemKey, value)));
     }
 
     /**
@@ -914,25 +926,25 @@ public class RTree {
 
     /**
      * Method to delete from the R-tree. The item is treated unique per its point in space as well as its
-     * additional key that is passed in. The Hilbert value of the point is passed in as to allow the caller to compute
-     * Hilbert values themselves. Note that there is a bijective mapping between point and Hilbert value.
-     * As all updating/deleting code paths only use the Hilbert value and not the Euclidean {@link Point}, we do not
-     * need a point to be passed as well.
+     * additional key that is passed in.
      * @param tc transaction context
-     * @param hilbertValue the hilbert value of the point
-     * @param key the additional key to be stored with the item
+     * @param point the point
+     * @param keySuffix the additional key to be stored with the item
      * @return a completable future that completes when the insert is completed
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final TransactionContext tc,
-                                          @Nonnull final BigInteger hilbertValue,
-                                          @Nonnull final Tuple key) {
+                                          @Nonnull final Point point,
+                                          @Nonnull final Tuple keySuffix) {
+        final BigInteger hilbertValue = hilbertValueFunction.apply(point);
+        final Tuple itemKey = Tuple.from(point.getCoordinates(), keySuffix);
+
         //
-        // Get to the leaf node we need to start the delete from and then call the appropriate method to perform
-        // the actual delete.
+        // Get to the leaf node we need to start the delete operation from and then call the appropriate method to
+        // perform the actual delete.
         //
-        return tc.runAsync(transaction -> fetchUpdatePathToLeaf(transaction, hilbertValue, key)
-                .thenCompose(leafNode -> deleteSlotIfExists(transaction, leafNode, hilbertValue, key)));
+        return tc.runAsync(transaction -> fetchUpdatePathToLeaf(transaction, hilbertValue, itemKey)
+                .thenCompose(leafNode -> deleteSlotIfExists(transaction, leafNode, hilbertValue, itemKey)));
     }
 
     /**
@@ -1950,6 +1962,11 @@ public class RTree {
             return key;
         }
 
+        @Nonnull
+        public Tuple getKeySuffix() {
+            return key.getNestedTuple(1);
+        }
+
         /**
          * Create a tuple for the key part of this slot. This tuple is used when the slot is persisted in the database.
          * Note that the serialization format is not yet finalized.
@@ -1988,7 +2005,7 @@ public class RTree {
      * value and its key.
      */
     public static class ItemSlot extends NodeSlot {
-        public static final int SLOT_KEY_TUPLE_SIZE = 3;
+        public static final int SLOT_KEY_TUPLE_SIZE = 2;
         public static final int SLOT_VALUE_TUPLE_SIZE = 1;
 
         @Nonnull
@@ -2016,7 +2033,7 @@ public class RTree {
         @Nonnull
         @Override
         protected Tuple getSlotKey() {
-            return Tuple.from(getHilbertValue(), getPosition().getCoordinates(), getKey());
+            return Tuple.from(getHilbertValue(), getKey());
         }
 
         @Nonnull
@@ -2034,8 +2051,9 @@ public class RTree {
         private static ItemSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
             Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
             Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
-            return new ItemSlot(keyTuple.getBigInteger(0), new Point(keyTuple.getNestedTuple(1)),
-                    keyTuple.getNestedTuple(2), valueTuple.getNestedTuple(0));
+            final Tuple itemKey = keyTuple.getNestedTuple(1);
+            final Point point = new Point(itemKey.getNestedTuple(0));
+            return new ItemSlot(keyTuple.getBigInteger(0), point, itemKey, valueTuple.getNestedTuple(0));
         }
     }
 

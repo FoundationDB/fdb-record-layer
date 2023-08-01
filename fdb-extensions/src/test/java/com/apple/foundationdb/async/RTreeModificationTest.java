@@ -91,7 +91,8 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
+                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
 
@@ -105,7 +106,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == numSamples) {
                         break;
                     }
-                    rt.delete(tr, items[index].getHv(), items[index].getKey()).join();
+                    rt.delete(tr, items[index].getPoint(), items[index].getKeySuffix()).join();
                 }
 
                 return j;
@@ -135,7 +136,8 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
+                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
 
@@ -149,7 +151,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == numDeletes) {
                         break;
                     }
-                    rt.delete(tr, items[index].getHv(), items[index].getKey()).join();
+                    rt.delete(tr, items[index].getPoint(), items[index].getKeySuffix()).join();
                 }
 
                 return j;
@@ -182,17 +184,18 @@ public class RTreeModificationTest extends FDBTestBase {
         return argumentsBuilder.build().stream();
     }
 
+    static BigInteger hilbertValue(@Nonnull RTree.Point point) {
+        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+        return hc.index((long)Objects.requireNonNull(point.getCoordinateAsNumber(0)),
+                (long)Objects.requireNonNull(point.getCoordinateAsNumber(1)));
+    }
+
     static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
         final Random random = new Random(0);
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
             final RTree.Point point = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
-            items[i] = new Item(point,
-                    hc.index((long)Objects.requireNonNull(point.getCoordinateAsNumber(0)),
-                            (long)Objects.requireNonNull(point.getCoordinateAsNumber(1))),
-                    Tuple.from(i),
-                    Tuple.from("value" + i));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
         insertData(db, rtSubspace, items);
@@ -202,7 +205,6 @@ public class RTreeModificationTest extends FDBTestBase {
     static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
         final int smear = 100;
         final Random random = new Random(0);
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
         final Item[] items = new Item[numSamples];
 
         final double step = (double)1000 / numSamples;
@@ -216,11 +218,7 @@ public class RTreeModificationTest extends FDBTestBase {
             } while (x < 0 || y < 0 || x > 1000 || y > 1000);
 
             final RTree.Point point = new RTree.Point(Tuple.from(x, y));
-            items[i] = new Item(point,
-                    hc.index((long)Objects.requireNonNull(point.getCoordinate(0)),
-                            (long)Objects.requireNonNull(point.getCoordinate(1))),
-                    Tuple.from(i),
-                    Tuple.from("value" + i));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
 
             current += step;
         }
@@ -230,7 +228,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTreeModificationTest::hilbertValue);
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas
@@ -241,7 +239,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == items.length) {
                         break;
                     }
-                    rt.insertOrUpdate(tr, items[index].getPoint(), items[index].getHv(), items[index].getKey(), items[index].getValue()).join();
+                    rt.insertOrUpdate(tr, items[index].getPoint(), items[index].getKeySuffix(), items[index].getValue()).join();
                 }
 
                 return j;
@@ -260,16 +258,13 @@ public class RTreeModificationTest extends FDBTestBase {
         @Nonnull
         private final RTree.Point point;
         @Nonnull
-        private final BigInteger hv;
-        @Nonnull
-        private final Tuple key;
+        private final Tuple keySuffix;
         @Nonnull
         private final Tuple value;
 
-        public Item(@Nonnull final RTree.Point point, @Nonnull final BigInteger hv, @Nonnull final Tuple key, @Nonnull final Tuple value) {
+        public Item(@Nonnull final RTree.Point point, @Nonnull final Tuple keySuffix, @Nonnull final Tuple value) {
             this.point = point;
-            this.hv = hv;
-            this.key = key;
+            this.keySuffix = keySuffix;
             this.value = value;
         }
 
@@ -279,13 +274,8 @@ public class RTreeModificationTest extends FDBTestBase {
         }
 
         @Nonnull
-        public BigInteger getHv() {
-            return hv;
-        }
-
-        @Nonnull
-        public Tuple getKey() {
-            return key;
+        public Tuple getKeySuffix() {
+            return keySuffix;
         }
 
         @Nonnull

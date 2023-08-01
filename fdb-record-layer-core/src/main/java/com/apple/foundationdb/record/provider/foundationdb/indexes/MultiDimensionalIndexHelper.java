@@ -1,5 +1,5 @@
 /*
- * RTreeIndexHelper.java
+ * MultiDimensionalIndexHelper.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,7 +34,7 @@ import java.util.Arrays;
  * Helper functions for index maintainers that use a {@link RTree}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RTreeIndexHelper {
+public class MultiDimensionalIndexHelper {
     private static final long nullReplacement = Long.MIN_VALUE;
 
     /**
@@ -96,7 +96,7 @@ public class RTreeIndexHelper {
         }
     }
 
-    private RTreeIndexHelper() {
+    private MultiDimensionalIndexHelper() {
     }
 
     static BigInteger hilbertValue(@Nonnull final RTree.Point point) {

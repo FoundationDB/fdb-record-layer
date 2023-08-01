@@ -67,8 +67,8 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                    final RTree.Config oldOptions = RTreeIndexHelper.getConfig(oldIndex);
-                    final RTree.Config newOptions = RTreeIndexHelper.getConfig(index);
+                    final RTree.Config oldOptions = MultiDimensionalIndexHelper.getConfig(oldIndex);
+                    final RTree.Config newOptions = MultiDimensionalIndexHelper.getConfig(index);
                     if (changedOptions.contains(IndexOptions.RTREE_MIN_M)) {
                         if (oldOptions.getMinM() != newOptions.getMinM()) {
                             throw new MetaDataException("rtree minM changed",

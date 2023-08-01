@@ -78,7 +78,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
     public MultidimensionalIndexMaintainer(IndexMaintainerState state) {
         super(state);
-        this.config = RTreeIndexHelper.getConfig(state.index);
+        this.config = MultiDimensionalIndexHelper.getConfig(state.index);
     }
 
     @SuppressWarnings("resource")
@@ -125,7 +125,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
                     final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
-                    final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
+                    final RTree rTree = new RTree(rtSubspace, getExecutor(), config,
+                            MultiDimensionalIndexHelper::hilbertValue, RTree::newRandomNodeId,
                             RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
                     final ReadTransaction transaction = state.context.readTransaction(true);
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
@@ -142,7 +143,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     keyItems.addAll(prefixKeyPart.getItems());
                                 }
                                 keyItems.addAll(itemSlot.getPosition().getCoordinates().getItems());
-                                keyItems.addAll(itemSlot.getKey().getItems());
+                                keyItems.addAll(itemSlot.getKeySuffix().getItems());
                                 return new IndexEntry(state.index, Tuple.fromList(keyItems), itemSlot.getValue());
                             });
                 },
@@ -192,25 +193,21 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     vignore -> {
                         final RTree.Point point =
                                 new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize)));
-                        final BigInteger hilbertValue = RTreeIndexHelper.hilbertValue(point);
 
                         final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
                         state.index.trimPrimaryKey(primaryKeyParts);
-                        final List<Object> itemKeyParts =
+                        final List<Object> keySuffixParts =
                                 Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
-                        itemKeyParts.addAll(primaryKeyParts);
-                        final Tuple itemKey = Tuple.fromList(itemKeyParts);
-                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTree::newRandomNodeId,
-                                RTree.OnWriteListener.NOOP, RTree.OnReadListener.NOOP);
+                        keySuffixParts.addAll(primaryKeyParts);
+                        final Tuple keySuffix = Tuple.fromList(keySuffixParts);
+                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, MultiDimensionalIndexHelper::hilbertValue,
+                                RTree::newRandomNodeId, RTree.OnWriteListener.NOOP, RTree.OnReadListener.NOOP);
                         if (remove) {
-                            return rTree.delete(state.transaction,
-                                    hilbertValue,
-                                    itemKey);
+                            return rTree.delete(state.transaction, point, keySuffix);
                         } else {
                             return rTree.insertOrUpdate(state.transaction,
                                     point,
-                                    hilbertValue,
-                                    itemKey,
+                                    keySuffix,
                                     indexEntry.getValue());
                         }
                     };

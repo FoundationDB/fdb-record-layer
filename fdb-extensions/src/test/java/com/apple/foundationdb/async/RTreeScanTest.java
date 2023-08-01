@@ -148,7 +148,8 @@ public class RTreeScanTest extends FDBTestBase {
 
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
+                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
@@ -183,7 +184,7 @@ public class RTreeScanTest extends FDBTestBase {
     public void queryTopNWithFilters(@Nonnull final RTree.Rectangle query) {
         final Comparator<Item> itemComparator =
                 Comparator.<Item>comparingLong(item -> item.getPoint().getCoordinates().getLong(0))
-                        .thenComparing(Item::getKey);
+                        .thenComparing(Item::getKeySuffix);
         final MinMaxPriorityQueue<Item> expectedResultsQueue = MinMaxPriorityQueue.orderedBy(itemComparator).maximumSize(5).create();
         final TopNTraversal topNTraversal = new TopNTraversal(query, 5);
 
@@ -195,7 +196,8 @@ public class RTreeScanTest extends FDBTestBase {
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP, onReadCounters);
+                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
@@ -214,7 +216,7 @@ public class RTreeScanTest extends FDBTestBase {
         Streams.zip(expectedResults.stream(), topNItemSlots.stream(),
                 (expected, actual) -> {
                     Assertions.assertEquals(expected.getPoint(), actual.getPosition());
-                    Assertions.assertEquals(expected.getKey(), actual.getKey());
+                    Assertions.assertEquals(expected.getKeySuffix(), actual.getKeySuffix());
                     return 1;
                 }).allMatch(r -> true);
 
@@ -236,7 +238,7 @@ public class RTreeScanTest extends FDBTestBase {
     private static class TopNTraversal implements Predicate<RTree.Rectangle> {
         private static final Comparator<RTree.ItemSlot> comparator =
                 Comparator.<RTree.ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
-                        .thenComparing(itemSlot -> itemSlot.getKey());
+                        .thenComparing(itemSlot -> itemSlot.getKeySuffix());
 
         @Nonnull
         private RTree.Rectangle query;
