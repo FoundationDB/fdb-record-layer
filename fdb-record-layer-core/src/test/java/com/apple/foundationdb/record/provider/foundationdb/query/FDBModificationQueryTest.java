@@ -423,7 +423,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 "RestaurantRecord",
                                 restaurantType,
                                 TestRecords4Proto.RestaurantRecord.getDescriptor(),
-                                ImmutableMap.of(updatePath, updateValue))));
+                                ImmutableMap.of(updatePath, updateValue),
+                                false)));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                     },
@@ -586,7 +587,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 "RestaurantRecord",
                                 restaurantType,
                                 TestRecords4Proto.RestaurantRecord.getDescriptor(),
-                                ImmutableMap.of(namePath, LiteralValue.ofScalar("McDonald's")))));
+                                ImmutableMap.of(namePath, LiteralValue.ofScalar("McDonald's")),
+                                false)));
 
                         graphExpansionBuilder = GraphExpansion.builder();
                         graphExpansionBuilder.addQuantifier(outerQun);

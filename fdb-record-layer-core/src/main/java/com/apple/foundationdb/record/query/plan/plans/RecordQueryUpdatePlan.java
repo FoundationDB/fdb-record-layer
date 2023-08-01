@@ -76,8 +76,9 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final TransformationTrieNode transformationsTrie,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
-                                  @Nonnull final Value computationValue) {
-        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
+                                  @Nonnull final Value computationValue,
+                                  boolean dryRun) {
+        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue, dryRun);
     }
 
     @Override
@@ -88,7 +89,11 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
-        return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+        if (isDryRun()) {
+            return store.getUntypedRecordStore().dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+        } else {
+            return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+        }
     }
 
     @Nonnull
@@ -102,7 +107,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetDescriptor(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap));
+                getComputationValue().translateCorrelations(translationMap),
+                isDryRun());
     }
 
     @Nullable
@@ -140,7 +146,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetDescriptor(),
                 getTransformationsTrie(),
                 getCoercionTrie(),
-                getComputationValue());
+                getComputationValue(),
+                isDryRun());
     }
 
     @Override
@@ -215,7 +222,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                                    @Nonnull final Type.Record targetType,
                                                    @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                    @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                   @Nonnull final Value computationValue) {
+                                                   @Nonnull final Value computationValue,
+                                                   boolean dryRun) {
         final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
                 targetRecordType,
@@ -223,7 +231,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 targetDescriptor,
                 transformationsTrie,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
-                computationValue);
+                computationValue,
+                dryRun);
     }
 
     @Nonnull
