@@ -140,8 +140,6 @@ public class RTree {
     public static final int NODE_ID_LENGTH = 16;
     public static final int MAX_CONCURRENT_READS = 16;
 
-    private static final long nullReplacement = Long.MIN_VALUE;
-
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     /**
@@ -179,8 +177,23 @@ public class RTree {
      */
     public static final int DEFAULT_S = 2;
 
+    /**
+     * Default storage layout. Can be either {@code BY_SLOT} or {@code BY_NODE}. {@code BY_SLOT} encodes all information
+     * pertaining to a {@link NodeSlot} as one key/value pair in the database, {@code BY_NODE} encodes all information
+     * pertaining to a {@link Node} as one key/value pair in the database. While {@code BY_SLOT} avoids conflicts as
+     * most inserts/updates only need to update one slot, it is by far less compact as some information is stored
+     * in a normalized fashion and therefore repeated multiple times (i.e. node identifiers, etc.). {@code BY_NODE}
+     * inlines slot information into the node leading to a more size-efficient layout of the data. That advantage is
+     * offset by a higher likelihood of conflicts.
+     */
     @Nonnull
     public static final Storage DEFAULT_STORAGE = Storage.BY_SLOT;
+
+    /**
+     * Indicator if Hilbert values should be stored or not with the data (in leaf nodes). A Hilbert value can always
+     * be recomputed from the point.
+     */
+    public static final boolean DEFAULT_STORE_HILBERT_VALUES = true;
 
     @Nonnull
     public static final Config DEFAULT_CONFIG = new Config();
@@ -223,9 +236,12 @@ public class RTree {
 
         @Nonnull
         public StorageAdapter newStorageAdapter(@Nonnull final byte[] subspacePrefix,
+                                                final boolean storeHilbertValues,
+                                                @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
                                                 @Nonnull final OnWriteListener onWriteListener,
                                                 @Nonnull final OnReadListener onReadListener) {
-            return storageAdapterCreator.create(subspacePrefix, onWriteListener, onReadListener);
+            return storageAdapterCreator.create(subspacePrefix, storeHilbertValues, hilbertValueFunction,
+                    onWriteListener, onReadListener);
         }
     }
 
@@ -234,6 +250,8 @@ public class RTree {
      */
     public interface StorageAdapterCreator {
         StorageAdapter create(@Nonnull byte[] subspacePrefix,
+                              boolean storeHilbertValues,
+                              @Nonnull Function<Point, BigInteger> hilbertValueFunction,
                               @Nonnull OnWriteListener onWriteListener,
                               @Nonnull OnReadListener onReadListener);
     }
@@ -248,18 +266,23 @@ public class RTree {
         @Nonnull
         private final Storage storage;
 
+        private final boolean storeHilbertValues;
+
         protected Config() {
             this.minM = DEFAULT_MIN_M;
             this.maxM = DEFAULT_MAX_M;
             this.splitS = DEFAULT_S;
             this.storage = DEFAULT_STORAGE;
+            this.storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
         }
 
-        protected Config(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage) {
+        protected Config(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage,
+                         final boolean storeHilbertValues) {
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
             this.storage = storage;
+            this.storeHilbertValues = storeHilbertValues;
         }
 
         public int getMinM() {
@@ -279,8 +302,12 @@ public class RTree {
             return storage;
         }
 
+        public boolean isStoreHilbertValues() {
+            return storeHilbertValues;
+        }
+
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(minM, maxM, splitS, storage);
+            return new ConfigBuilder(minM, maxM, splitS, storage, storeHilbertValues);
         }
     }
 
@@ -295,15 +322,18 @@ public class RTree {
         private int splitS = DEFAULT_S;
         @Nonnull
         private Storage storage = DEFAULT_STORAGE;
+        private boolean storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
 
         protected ConfigBuilder() {
         }
 
-        protected ConfigBuilder(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage) {
+        protected ConfigBuilder(final int minM, final int maxM, final int splitS, @Nonnull final Storage storage,
+                                final boolean storeHilbertValues) {
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
             this.storage = storage;
+            this.storeHilbertValues = storeHilbertValues;
         }
 
         public int getMinM() {
@@ -339,8 +369,16 @@ public class RTree {
             this.storage = storage;
         }
 
+        public boolean isStoreHilbertValues() {
+            return storeHilbertValues;
+        }
+
+        public void setStoreHilbertValues(final boolean storeHilbertValues) {
+            this.storeHilbertValues = storeHilbertValues;
+        }
+
         public Config build() {
-            return new Config(getMinM(), getMaxM(), getSplitS(), getStorage());
+            return new Config(getMinM(), getMaxM(), getSplitS(), getStorage(), isStoreHilbertValues());
         }
     }
 
@@ -380,7 +418,8 @@ public class RTree {
                  @Nonnull final OnWriteListener onWriteListener,
                  @Nonnull final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
-                .newStorageAdapter(Objects.requireNonNull(subspace.getKey()), onWriteListener, onReadListener);
+                .newStorageAdapter(Objects.requireNonNull(subspace.getKey()), config.isStoreHilbertValues(),
+                        hilbertValueFunction, onWriteListener, onReadListener);
         this.executor = executor;
         this.config = config;
         this.hilbertValueFunction = hilbertValueFunction;
@@ -1970,10 +2009,11 @@ public class RTree {
         /**
          * Create a tuple for the key part of this slot. This tuple is used when the slot is persisted in the database.
          * Note that the serialization format is not yet finalized.
+         * @param storeHilbertValues indicator if the hilbert value should be encoded into the slot key or null-ed out
          * @return a new tuple
          */
         @Nonnull
-        protected abstract Tuple getSlotKey();
+        protected abstract Tuple getSlotKey(boolean storeHilbertValues);
 
         /**
          * Create a tuple for the value part of this slot. This tuple is used when the slot is persisted in the database.
@@ -2032,8 +2072,8 @@ public class RTree {
 
         @Nonnull
         @Override
-        protected Tuple getSlotKey() {
-            return Tuple.from(getHilbertValue(), getKey());
+        protected Tuple getSlotKey(final boolean storeHilbertValues) {
+            return Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
         }
 
         @Nonnull
@@ -2048,12 +2088,19 @@ public class RTree {
         }
 
         @Nonnull
-        private static ItemSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+        private static ItemSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple,
+                                                @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
             Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
             Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
             final Tuple itemKey = keyTuple.getNestedTuple(1);
             final Point point = new Point(itemKey.getNestedTuple(0));
-            return new ItemSlot(keyTuple.getBigInteger(0), point, itemKey, valueTuple.getNestedTuple(0));
+            final BigInteger hilbertValue;
+            if (keyTuple.get(0) == null) {
+                hilbertValue = hilbertValueFunction.apply(point);
+            } else {
+                hilbertValue = keyTuple.getBigInteger(0);
+            }
+            return new ItemSlot(hilbertValue, point, itemKey, valueTuple.getNestedTuple(0));
         }
     }
 
@@ -2112,7 +2159,7 @@ public class RTree {
 
         @Nonnull
         @Override
-        protected Tuple getSlotKey() {
+        protected Tuple getSlotKey(final boolean storeHilbertValue) {
             return Tuple.from(getLargestHilbertValue(), getLargestKey());
         }
 
@@ -2213,14 +2260,21 @@ public class RTree {
     public static class BySlotStorageAdapter implements StorageAdapter {
         @Nonnull
         private final byte[] subspacePrefix;
+        private final boolean storeHilbertValues;
+        @Nonnull
+        private final Function<Point, BigInteger> hilbertValueFunction;
         @Nonnull
         private final OnWriteListener onWriteListener;
         @Nonnull
         private final OnReadListener onReadListener;
 
-        public BySlotStorageAdapter(@Nonnull final byte[] subspacePrefix, @Nonnull final OnWriteListener onWriteListener,
+        public BySlotStorageAdapter(@Nonnull final byte[] subspacePrefix, final boolean storeHilbertValues,
+                                    @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
+                                    @Nonnull final OnWriteListener onWriteListener,
                                     @Nonnull final OnReadListener onReadListener) {
             this.subspacePrefix = subspacePrefix;
+            this.storeHilbertValues = storeHilbertValues;
+            this.hilbertValueFunction = hilbertValueFunction;
             this.onWriteListener = onWriteListener;
             this.onReadListener = onReadListener;
         }
@@ -2246,7 +2300,7 @@ public class RTree {
         @Override
         public void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
             Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey());
+            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(storeHilbertValues));
             final byte[] packedKey = keyTuple.pack(packWithPrefix(node.getId()));
             final byte[] packedValue = nodeSlot.getSlotValue().pack();
             transaction.set(packedKey, packedValue);
@@ -2255,7 +2309,7 @@ public class RTree {
         @Override
         public void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
             Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey());
+            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(storeHilbertValues));
             final byte[] packedKey = keyTuple.pack(packWithPrefix(node.getId()));
             transaction.clear(packedKey);
         }
@@ -2317,7 +2371,7 @@ public class RTree {
                     if (itemSlots == null) {
                         itemSlots = Lists.newArrayList();
                     }
-                    itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple));
+                    itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple, hilbertValueFunction));
                 } else {
                     Verify.verify(nodeKind == Kind.INTERMEDIATE);
                     if (childSlots == null) {
@@ -2349,14 +2403,21 @@ public class RTree {
     public static class ByNodeStorageAdapter implements StorageAdapter {
         @Nonnull
         private final byte[] subspacePrefix;
+        private final boolean storeHilbertValues;
+        @Nonnull
+        private final Function<Point, BigInteger> hilbertValueFunction;
         @Nonnull
         private final OnWriteListener onWriteListener;
         @Nonnull
         private final OnReadListener onReadListener;
 
-        public ByNodeStorageAdapter(@Nonnull final byte[] subspacePrefix, @Nonnull final OnWriteListener onWriteListener,
+        public ByNodeStorageAdapter(@Nonnull final byte[] subspacePrefix, final boolean storeHilbertValues,
+                                    @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
+                                    @Nonnull final OnWriteListener onWriteListener,
                                     @Nonnull final OnReadListener onReadListener) {
             this.subspacePrefix = subspacePrefix;
+            this.storeHilbertValues = storeHilbertValues;
+            this.hilbertValueFunction = hilbertValueFunction;
             this.onWriteListener = onWriteListener;
             this.onReadListener = onReadListener;
         }
@@ -2412,7 +2473,7 @@ public class RTree {
             final List<Tuple> slotTuples = Lists.newArrayListWithExpectedSize(node.size());
             for (final NodeSlot nodeSlot : node.getSlots()) {
                 final Tuple slotTuple = Tuple.fromStream(
-                        Streams.concat(nodeSlot.getSlotKey().getItems().stream(),
+                        Streams.concat(nodeSlot.getSlotKey(storeHilbertValues).getItems().stream(),
                                 nodeSlot.getSlotValue().getItems().stream()));
                 slotTuples.add(slotTuple);
             }
@@ -2458,7 +2519,7 @@ public class RTree {
                         if (itemSlots == null) {
                             itemSlots = Lists.newArrayListWithExpectedSize(nodeSlotObjects.size());
                         }
-                        itemSlots.add(ItemSlot.fromKeyAndValue(itemSlotKeyTuple, itemSlotValueTuple));
+                        itemSlots.add(ItemSlot.fromKeyAndValue(itemSlotKeyTuple, itemSlotValueTuple, hilbertValueFunction));
                         break;
 
                     case INTERMEDIATE:
@@ -2863,8 +2924,6 @@ public class RTree {
                 return this;
             }
 
-            Verify.verify(Arrays.stream(ranges).allMatch(Objects::nonNull));
-
             return new Rectangle(Tuple.from(ranges));
         }
 
@@ -2902,8 +2961,6 @@ public class RTree {
                 return this;
             }
 
-            Verify.verify(Arrays.stream(ranges).allMatch(Objects::nonNull));
-            
             return new Rectangle(Tuple.from(ranges));
         }
 

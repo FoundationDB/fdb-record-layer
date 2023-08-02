@@ -36,6 +36,7 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -89,6 +90,20 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
                         changedOptions.remove(IndexOptions.RTREE_SPLIT_S);
+                    }
+                    if (changedOptions.contains(IndexOptions.RTREE_STORAGE)) {
+                        if (Objects.equals(oldOptions.getStorage(), newOptions.getStorage())) {
+                            throw new MetaDataException("rtree storage changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RTREE_STORAGE);
+                    }
+                    if (changedOptions.contains(IndexOptions.RTREE_STORE_HILBERT_VALUES)) {
+                        if (oldOptions.isStoreHilbertValues() == newOptions.isStoreHilbertValues()) {
+                            throw new MetaDataException("rtree store Hilbert values changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RTREE_STORE_HILBERT_VALUES);
                     }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);

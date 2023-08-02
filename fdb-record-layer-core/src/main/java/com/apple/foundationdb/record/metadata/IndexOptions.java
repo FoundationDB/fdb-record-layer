@@ -199,6 +199,12 @@ public class IndexOptions {
      */
     public static final String RTREE_STORAGE = "rtreeStorage";
 
+    /**
+     * Option to indicate whether the tree stores Hilbert values of objects together with the point or not. Hilbert
+     * values can always be recomputed, however, recomputing them may be expensive.
+     */
+    public static final String RTREE_STORE_HILBERT_VALUES = "rtreeStoreHilbertValues";
+
     private IndexOptions() {
     }
 }

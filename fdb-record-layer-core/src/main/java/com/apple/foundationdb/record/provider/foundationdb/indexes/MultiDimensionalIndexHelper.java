@@ -27,15 +27,14 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
 import javax.annotation.Nonnull;
-import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Helper functions for index maintainers that use a {@link RTree}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultiDimensionalIndexHelper {
-    private static final long nullReplacement = Long.MIN_VALUE;
+    private MultiDimensionalIndexHelper() {
+    }
 
     /**
      * Parse standard options into {@link RTree.Config}.
@@ -59,6 +58,10 @@ public class MultiDimensionalIndexHelper {
         final String rtreeStorage = index.getOption(IndexOptions.RTREE_STORAGE);
         if (rtreeStorage != null) {
             builder.setStorage(RTree.Storage.valueOf(rtreeStorage));
+        }
+        final String rtreeStoreHilbertValues = index.getOption(IndexOptions.RTREE_STORE_HILBERT_VALUES);
+        if (rtreeStorage != null) {
+            builder.setStoreHilbertValues(Boolean.parseBoolean(rtreeStoreHilbertValues));
         }
 
         return builder.build();
@@ -94,81 +97,5 @@ public class MultiDimensionalIndexHelper {
         public String logKey() {
             return this.logKey;
         }
-    }
-
-    private MultiDimensionalIndexHelper() {
-    }
-
-    static BigInteger hilbertValue(@Nonnull final RTree.Point point) {
-        int numBits = 64;
-        final long[] shiftedCoordinates = new long[point.getNumDimensions()];
-        for (int i = 0; i < point.getNumDimensions(); i++) {
-            Long coordinateAsLong = (Long)point.getCoordinateAsNumber(i);
-            coordinateAsLong = coordinateAsLong == null ? nullReplacement : coordinateAsLong;
-            shiftedCoordinates[i] = shiftCoordinate(coordinateAsLong);
-        }
-        return toIndex(numBits, transposedIndex(numBits, shiftedCoordinates));
-    }
-
-    private static long shiftCoordinate(long coordinate) {
-        return coordinate < 0
-               ? (Long.MAX_VALUE - (-coordinate - 1L))
-               : (coordinate | (1L << 63));
-    }
-
-    private static BigInteger toIndex(int numBits, long... transposedIndexes) {
-        int length = numBits * transposedIndexes.length;
-        byte[] b = new byte[length / 8 + 1];
-        int bIndex = length - 1;
-        long mask = 1L << (numBits - 1);
-        for (int i = 0; i < numBits; i++) {
-            for (final long transposedIndex : transposedIndexes) {
-                if ((transposedIndex & mask) != 0) {
-                    b[b.length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
-                }
-                bIndex--;
-            }
-            mask >>>= 1;
-        }
-        // b is expected to be BigEndian
-        return new BigInteger(1, b);
-    }
-
-    private static long[] transposedIndex(int numBits, long... unsignedPoints) {
-        final long M = 1L << (numBits - 1);
-        final int n = unsignedPoints.length; // n: Number of dimensions
-        final long[] x = Arrays.copyOf(unsignedPoints, n);
-        long p;
-        long q;
-        long t;
-        int i;
-        // Inverse undo
-        for (q = M; q != 1; q >>>= 1) {
-            p = q - 1;
-            for (i = 0; i < n; i++) {
-                if ((x[i] & q) != 0) {
-                    x[0] ^= p; // invert
-                } else {
-                    t = (x[0] ^ x[i]) & p;
-                    x[0] ^= t;
-                    x[i] ^= t;
-                }
-            }
-        } // exchange
-        // Gray encode
-        for (i = 1; i < n; i++) {
-            x[i] ^= x[i - 1];
-        }
-        t = 0;
-        for (q = M; q != 1; q >>>= 1) {
-            if ((x[n - 1] & q) != 0) {
-                t ^= q - 1;
-            }
-        }
-        for (i = 0; i < n; i++) {
-            x[i] ^= t;
-        }
-
-        return x;
     }
 }

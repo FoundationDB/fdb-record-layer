@@ -32,7 +32,6 @@ import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
-import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
-import java.math.BigInteger;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
@@ -91,7 +88,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -136,7 +133,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -184,17 +181,26 @@ public class RTreeModificationTest extends FDBTestBase {
         return argumentsBuilder.build().stream();
     }
 
-    static BigInteger hilbertValue(@Nonnull RTree.Point point) {
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
-        return hc.index((long)Objects.requireNonNull(point.getCoordinateAsNumber(0)),
-                (long)Objects.requireNonNull(point.getCoordinateAsNumber(1)));
-    }
-
     static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
         final Random random = new Random(0);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
             final RTree.Point point = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
+        }
+
+        insertData(db, rtSubspace, items);
+        return items;
+    }
+
+    static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
+        final Random random = new Random(0);
+        final Item[] items = new Item[numSamples];
+        for (int i = 0; i < numSamples; ++i) {
+            final Long x = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
+            final Long y = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
+
+            final RTree.Point point = new RTree.Point(Tuple.from(x, y));
             items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
@@ -228,7 +234,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTreeModificationTest::hilbertValue);
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTreeHilbertCurveHelpers::hilbertValue);
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas

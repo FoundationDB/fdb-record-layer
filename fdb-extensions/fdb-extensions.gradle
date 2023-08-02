@@ -35,7 +35,6 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
     testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
-    testImplementation "com.github.davidmoten:hilbert-curve:${hilbertCurveVersion}"
 }
 
 test {

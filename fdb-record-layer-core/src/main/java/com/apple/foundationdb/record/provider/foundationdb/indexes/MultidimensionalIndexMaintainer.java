@@ -26,6 +26,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RTree;
+import com.apple.foundationdb.async.RTreeHilbertCurveHelpers;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -126,7 +127,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
                     final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
                     final RTree rTree = new RTree(rtSubspace, getExecutor(), config,
-                            MultiDimensionalIndexHelper::hilbertValue, RTree::newRandomNodeId,
+                            RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId,
                             RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
                     final ReadTransaction transaction = state.context.readTransaction(true);
                     final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
@@ -200,7 +201,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                 Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
                         keySuffixParts.addAll(primaryKeyParts);
                         final Tuple keySuffix = Tuple.fromList(keySuffixParts);
-                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, MultiDimensionalIndexHelper::hilbertValue,
+                        final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTreeHilbertCurveHelpers::hilbertValue,
                                 RTree::newRandomNodeId, RTree.OnWriteListener.NOOP, RTree.OnReadListener.NOOP);
                         if (remove) {
                             return rTree.delete(state.transaction, point, keySuffix);

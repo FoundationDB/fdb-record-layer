@@ -88,7 +88,7 @@ public class RTreeScanTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSubspace.getKey()));
             return null;
         });
-        items = RTreeModificationTest.randomInserts(db, rtSubspace, NUM_SAMPLES);
+        items = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, NUM_SAMPLES);
     }
 
     @AfterAll
@@ -135,6 +135,10 @@ public class RTreeScanTest extends FDBTestBase {
                 numPointsSatisfyingQuery ++;
             }
 
+            if (point.getCoordinate(0) == null || point.getCoordinate(1) == null) {
+                continue;
+            }
+
             final long pointX = Objects.requireNonNull(point.getCoordinateAsNumber(0)).longValue();
             final long pointY = Objects.requireNonNull(point.getCoordinateAsNumber(1)).longValue();
             if (queryLowX <= pointX && pointX <= queryHighX) {
@@ -148,7 +152,7 @@ public class RTreeScanTest extends FDBTestBase {
 
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
@@ -196,7 +200,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeModificationTest::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
