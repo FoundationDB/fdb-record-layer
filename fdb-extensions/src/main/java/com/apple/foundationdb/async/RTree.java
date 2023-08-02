@@ -504,7 +504,7 @@ public class RTree {
                                     (lastHilbertValue != null && lastKey != null));
         AsyncIterator<LeafNode> leafIterator =
                 new LeafIterator(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate);
-        return new ItemIterator(leafIterator);
+        return new ItemSlotIterator(leafIterator);
     }
 
     /**
@@ -2668,7 +2668,7 @@ public class RTree {
      * This iterator is the async equivalent of
      * {@code Streams.stream(leafIterator).flatMap(leafNode -> leafNode.getItems().stream()).toIterator()}.
      */
-    public static class ItemIterator implements AsyncIterator<ItemSlot> {
+    public static class ItemSlotIterator implements AsyncIterator<ItemSlot> {
         @Nonnull
         private final AsyncIterator<LeafNode> leafIterator;
         @Nullable
@@ -2676,7 +2676,7 @@ public class RTree {
         @Nullable
         private Iterator<ItemSlot> currenLeafItemsIterator;
 
-        public ItemIterator(@Nonnull final AsyncIterator<LeafNode> leafIterator) {
+        public ItemSlotIterator(@Nonnull final AsyncIterator<LeafNode> leafIterator) {
             this.leafIterator = leafIterator;
             this.currentLeafNode = null;
             this.currenLeafItemsIterator = null;

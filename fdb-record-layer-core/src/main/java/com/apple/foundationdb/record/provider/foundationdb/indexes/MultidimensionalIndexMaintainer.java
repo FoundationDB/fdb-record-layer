@@ -98,58 +98,60 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
         final int prefixSize = dimensionsKeyExpression.getPrefixSize();
 
-        final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, scanProperties);
+        final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
+        final ScanProperties innerScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
+        final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context,
+                innerScanProperties);
 
         final Function<byte[], RecordCursor<IndexEntry>> outerFunction;
         if (prefixSize > 0) {
-            outerFunction = outerContinuation -> scan(mDScanBounds.getPrefixRange(), outerContinuation, scanProperties);
+            outerFunction = outerContinuation -> scan(mDScanBounds.getPrefixRange(), outerContinuation, innerScanProperties);
         } else {
             outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
         }
 
         return RecordCursor.flatMapPipelined(outerFunction,
-                (outerIndexEntry, innerContinuation) -> {
-                    Subspace rtSubspace = getSecondarySubspace();
-                    final Tuple prefixKeyPart;
-                    if (outerIndexEntry != null) {
-                        prefixKeyPart = outerIndexEntry.getKey();
-                        Verify.verify(prefixKeyPart.size() == prefixSize);
-                        rtSubspace = rtSubspace.subspace(prefixKeyPart);
-                    } else {
-                        prefixKeyPart = null;
-                    }
+                        (outerIndexEntry, innerContinuation) -> {
+                            Subspace rtSubspace = getSecondarySubspace();
+                            final Tuple prefixKeyPart;
+                            if (outerIndexEntry != null) {
+                                prefixKeyPart = outerIndexEntry.getKey();
+                                Verify.verify(prefixKeyPart.size() == prefixSize);
+                                rtSubspace = rtSubspace.subspace(prefixKeyPart);
+                            } else {
+                                prefixKeyPart = null;
+                            }
 
-                    final Continuation parsedContinuation = Continuation.fromBytes(innerContinuation);
-                    final BigInteger lastHilbertValue =
-                            parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
-                    final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
+                            final Continuation parsedContinuation = Continuation.fromBytes(innerContinuation);
+                            final BigInteger lastHilbertValue =
+                                    parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
+                            final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
-                    final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
-                    final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
-                    final RTree rTree = new RTree(rtSubspace, getExecutor(), config,
-                            RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId,
-                            RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
-                    final ReadTransaction transaction = state.context.readTransaction(true);
-                    final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                            rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
-                            cursorLimitManager, timer);
-                    return itemSlotCursor
-                            .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
-                                                itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) >= 0)
-                            .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
-                            .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                            .map(itemSlot -> {
-                                final List<Object> keyItems = Lists.newArrayList();
-                                if (prefixKeyPart != null) {
-                                    keyItems.addAll(prefixKeyPart.getItems());
-                                }
-                                keyItems.addAll(itemSlot.getPosition().getCoordinates().getItems());
-                                keyItems.addAll(itemSlot.getKeySuffix().getItems());
-                                return new IndexEntry(state.index, Tuple.fromList(keyItems), itemSlot.getValue());
-                            });
-                },
-                continuation,
-                state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
+                            final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
+                            final RTree rTree = new RTree(rtSubspace, getExecutor(), config,
+                                    RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId,
+                                    RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
+                            final ReadTransaction transaction = state.context.readTransaction(true);
+                            final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
+                                    rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
+                                    cursorLimitManager, timer);
+                            return itemSlotCursor
+                                    .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
+                                                        itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) > 0)
+                                    .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
+                                    .map(itemSlot -> {
+                                        final List<Object> keyItems = Lists.newArrayList();
+                                        if (prefixKeyPart != null) {
+                                            keyItems.addAll(prefixKeyPart.getItems());
+                                        }
+                                        keyItems.addAll(itemSlot.getPosition().getCoordinates().getItems());
+                                        keyItems.addAll(itemSlot.getKeySuffix().getItems());
+                                        return new IndexEntry(state.index, Tuple.fromList(keyItems), itemSlot.getValue());
+                                    });
+                        },
+                        continuation,
+                        state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nonnull
@@ -411,7 +413,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                             .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
                 }
                 return new Continuation(new BigInteger(parsed.getLastHilbertValue().toByteArray()),
-                        Tuple.fromBytes(parsed.toByteArray()));
+                        Tuple.fromBytes(parsed.getLastKey().toByteArray()));
             } else {
                 return null;
             }

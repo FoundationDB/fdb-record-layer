@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
@@ -33,6 +34,8 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -44,13 +47,20 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Preconditions;
@@ -58,7 +68,9 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -74,19 +86,21 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.async.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Tests for {@code M} type indexes.
+ * Tests for multidimensional type indexes.
  */
 @Tag(Tags.RequiresFDB)
 class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
@@ -132,7 +146,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         return metaDataBuilder;
     }
 
-    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final int numSamples) throws Exception {
+    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples) throws Exception {
         final Random random = new Random(seed);
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationCutOff = 30L * 60L; // meetings are at least 30 minutes long
@@ -141,16 +155,17 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             for (long recNo = 0; recNo < numSamples; recNo++) {
+                final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
                 final long startEpoch = (long)(random.nextGaussian() * epochStandardDeviation) + epochMean;
                 final long endEpoch = startEpoch + durationCutOff + (long)(Math.abs(random.nextGaussian()) * durationStandardDeviation);
                 final long duration = endEpoch - startEpoch;
                 Verify.verify(duration > 0L);
                 final long expirationEpoch = endEpoch + expirationCutOff  + (long)(Math.abs(random.nextGaussian()) * expirationStandardDeviation);
-                logRecord(startEpoch, endEpoch, expirationEpoch);
+                logRecord(calendarName, startEpoch, endEpoch, expirationEpoch);
                 final TestRecordsMultidimensionalProto.MyMultidimensionalRecord record =
                         TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
                                 .setRecNo(recNo)
-                                .setCalendarName("business")
+                                .setCalendarName(calendarName)
                                 .setStartEpoch(startEpoch)
                                 .setEndEpoch(endEpoch)
                                 .setExpirationEpoch(expirationEpoch)
@@ -161,7 +176,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private static void logRecord(final Long startEpoch, final Long endEpoch, final Long expirationEpoch) {
+    private static void logRecord(@Nonnull final String calendarName, final Long startEpoch, final Long endEpoch, final Long expirationEpoch) {
         if (logger.isTraceEnabled()) {
             final Long duration = (startEpoch == null || endEpoch  == null) ? null : (endEpoch - startEpoch);
             Verify.verify(duration == null || duration > 0L);
@@ -170,7 +185,8 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             final String endAsString = endEpoch == null ? "null" : timeFormat.format(new Date(endEpoch * 1000));
             final String durationAsString = duration == null ? "null" : (duration / 3600L + "h" +
                                                                          (duration % 3600L) / 60L + "m" + (duration % 3600L) % 60L + "s");
-            logger.trace("start: " + startAsString + "; end: " + endAsString +
+            logger.trace("calendarName: " + calendarName +
+                         "; start: " + startAsString + "; end: " + endAsString +
                          "; duration: " + durationAsString +
                          "; startEpoch: " + (startEpoch == null ? "null" : startEpoch) +
                          "; endEpoch: " + (endEpoch == null ? "null" : endEpoch) +
@@ -178,7 +194,8 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    public void loadRecordsWithNulls(@Nonnull final RecordMetaDataHook hook, final long seed, final int numSamples) throws Exception {
+    public void loadRecordsWithNulls(@Nonnull final RecordMetaDataHook hook, final long seed,
+                                     final List<String> calendarNames, final int numSamples) throws Exception {
         final Random random = new Random(seed);
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationStandardDeviation = 60L * 60L;
@@ -186,6 +203,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             for (long recNo = 0; recNo < numSamples; recNo++) {
+                final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
                 final Long startEpoch = random.nextFloat() < 0.10f ? null : ((long)(random.nextGaussian() * epochStandardDeviation) + epochMean);
                 final Long endEpoch =
                         random.nextFloat() < 0.10f ? null : ((startEpoch == null ? epochMean : startEpoch) + durationCutOff +
@@ -197,11 +215,11 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                         ? null
                         : (endEpoch == null ? epochMean : endEpoch) + expirationCutOff  +
                           (long)(Math.abs(random.nextGaussian()) * expirationStandardDeviation);
-                logRecord(startEpoch, endEpoch, expirationEpoch);
+                logRecord(calendarName, startEpoch, endEpoch, expirationEpoch);
                 final var recordBuilder =
                         TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
                                 .setRecNo(recNo)
-                                .setCalendarName("business");
+                                .setCalendarName(calendarName);
                 if (startEpoch != null) {
                     recordBuilder.setStartEpoch(startEpoch);
                 }
@@ -222,7 +240,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
     void basicRead(@Nonnull final String storage) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage);
-        loadRecords(additionalIndex, 0, 500);
+        loadRecords(additionalIndex, 0, ImmutableList.of("business"), 500);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndex);
             FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from(1L));
@@ -239,7 +257,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
     void basicReadWithNulls(@Nonnull final String storage) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage);
-        loadRecords(additionalIndex, 0, 500);
+        loadRecords(additionalIndex, 0, ImmutableList.of("business"), 500);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndex);
             FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from(1L));
@@ -252,7 +270,6 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @SuppressWarnings("resource")
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexRead(final long seed, final int numRecords, final String storage) throws Exception {
@@ -261,26 +278,16 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
                     addMultidimensionalIndex(metaDataBuilder, storage);
                 };
-        loadRecords(additionalIndexes, seed, numRecords);
+        loadRecords(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final long intervalStartInclusive = epochMean + 3600L;
         final long intervalEndInclusive = epochMean + 5L * 3600L;
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new HypercubeScanParameters("business",
-                                null, intervalEndInclusive,
+                                (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false);
-
-        final Set<Message> actualResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            actualResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
                 Query.and(
@@ -293,16 +300,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         final RecordQueryPlan plan = planner.plan(query);
-        final Set<Message> expectedResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    plan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            expectedResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
@@ -321,15 +319,14 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString()),
                 Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString()),
                 Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_NODE.toString())
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString()),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString()),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString()),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString()),
+                Arguments.of(random.nextLong(), 5000, BY_NODE.toString())
         );
     }
 
-    @SuppressWarnings("resource")
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexReadWithNulls(final long seed, final int numRecords, final String storage) throws Exception {
@@ -338,26 +335,16 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
                     addMultidimensionalIndex(metaDataBuilder, storage);
                 };
-        loadRecordsWithNulls(additionalIndexes, seed, numRecords);
+        loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final long intervalStartInclusive = epochMean + 3600L;
         final long intervalEndInclusive = epochMean + 5L * 3600L;
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new HypercubeScanParameters("business",
-                                null, intervalEndInclusive,
+                                (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false);
-
-        final Set<Message> actualResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            actualResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
                 Query.and(
@@ -372,20 +359,10 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         final RecordQueryPlan plan = planner.plan(query);
-        final Set<Message> expectedResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    plan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            expectedResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    @SuppressWarnings("resource")
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexReadIsNull(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
@@ -394,24 +371,14 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
                     addMultidimensionalIndex(metaDataBuilder, storage);
                 };
-        loadRecordsWithNulls(additionalIndexes, seed, numRecords);
+        loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new HypercubeScanParameters("business",
-                                null, Long.MIN_VALUE,
+                                (Long)null, Long.MIN_VALUE,
                                 null, null),
                         false);
-
-        final Set<Message> actualResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            actualResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
                 Query.and(
@@ -423,30 +390,20 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         final RecordQueryPlan plan = planner.plan(query);
-        final Set<Message> expectedResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    plan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            expectedResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    @SuppressWarnings("resource")
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadWithIn")
     void indexReadWithIn(final long seed, final int numRecords, final int numIns) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, RTree.Storage.BY_NODE.toString());
+                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString());
                 };
 
-        loadRecords(additionalIndexes, seed, numRecords);
+        loadRecords(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
 
         final ImmutableList.Builder<MultidimensionalIndexScanBounds.SpatialPredicate> orTermsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<Long> probesBuilder = ImmutableList.builder();
@@ -479,17 +436,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                         new CompositeScanParameters(
                                 new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds)),
                         false);
-
-        final Set<Message> actualResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            actualResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
                 Query.and(
@@ -504,16 +451,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         final RecordQueryPlan plan = planner.plan(query);
-        final Set<Message> expectedResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndexes);
-            final RecordCursor<QueryResult> recordCursor =
-                    plan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            expectedResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
@@ -533,17 +471,175 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
-    @Test
-    void indexSkipScan() {
+    @ParameterizedTest
+    @MethodSource("argumentsForIndexReads")
+    void indexSkipScan(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
+        final RecordMetaDataHook additionalIndexes =
+                metaDataBuilder -> {
+                    addCalendarNameStartEpochIndex(metaDataBuilder);
+                    addMultidimensionalIndex(metaDataBuilder, storage);
+                };
+        loadRecords(additionalIndexes, seed, ImmutableList.of("business", "private"), numRecords);
 
-    }
+        final long intervalStartInclusive = epochMean + 3600L;
+        final long intervalEndInclusive = epochMean + 5L * 3600L;
+        final RecordQueryIndexPlan indexPlan =
+                new RecordQueryIndexPlan("EventIntervals",
+                        new HypercubeScanParameters("business", "private",
+                                null, intervalEndInclusive,
+                                intervalStartInclusive, null),
+                        false);
+        final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
-    @Test
-    void coveringIndexScanWithFetch() {
+        final QueryComponent filter =
+                Query.and(
+                        Query.or(
+                                Query.field("start_epoch").isNull(),
+                                Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive)),
+                        Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive));
 
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyMultidimensionalRecord")
+                .setFilter(filter)
+                .build();
+        final RecordQueryPlan plan = planner.plan(query);
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
+        Assertions.assertEquals(expectedResults, actualResults);
     }
 
     @SuppressWarnings("resource")
+    @Test
+    void continuation() throws Exception {
+        final RecordMetaDataHook additionalIndexes =
+                metaDataBuilder -> {
+                    addCalendarNameStartEpochIndex(metaDataBuilder);
+                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString());
+                };
+        loadRecords(additionalIndexes, 0, ImmutableList.of("business", "private"), 500);
+
+        final long intervalStartInclusive = epochMean + 3600L;
+        final long intervalEndInclusive = epochMean + 10L * 3600L;
+        final RecordQueryIndexPlan indexPlan =
+                new RecordQueryIndexPlan("EventIntervals",
+                        new HypercubeScanParameters("business", "private",
+                                null, intervalEndInclusive,
+                                intervalStartInclusive, null),
+                        false);
+
+        final Set<Message> actualResults = Sets.newHashSet();
+        byte[] continuation = null;
+        do {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, additionalIndexes);
+                final RecordCursorIterator<QueryResult> recordCursorIterator =
+                        indexPlan.executePlan(recordStore,
+                                        EvaluationContext.empty(), continuation,
+                                        ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(4))
+                                .asIterator();
+                int numRecordsInBatch = 0;
+                while (recordCursorIterator.hasNext()) {
+                    final int oldSize = actualResults.size();
+                    actualResults.add(Objects.requireNonNull(recordCursorIterator.next()).getMessage());
+                    // make sure we are not adding duplicates
+                    assertEquals(oldSize + 1, actualResults.size());
+                    numRecordsInBatch ++;
+                }
+                continuation = recordCursorIterator.getContinuation();
+                // Must be the returned row limit or smaller if this is the last batch.
+                Assertions.assertTrue((continuation == null && numRecordsInBatch <= 4) || numRecordsInBatch == 4);
+                commit(context);
+            }
+        } while (continuation != null);
+
+        final QueryComponent filter =
+                Query.and(
+                        Query.or(
+                                Query.field("start_epoch").isNull(),
+                                Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive)),
+                        Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive));
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyMultidimensionalRecord")
+                .setFilter(filter)
+                .build();
+        final RecordQueryPlan plan = planner.plan(query);
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
+        Assertions.assertEquals(expectedResults, actualResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
+    void coveringIndexScanWithFetch(@Nonnull final String storage) throws Exception {
+        final RecordMetaDataHook additionalIndexes =
+                metaDataBuilder -> {
+                    addCalendarNameStartEpochIndex(metaDataBuilder);
+                    addMultidimensionalIndex(metaDataBuilder, storage);
+                };
+        loadRecordsWithNulls(additionalIndexes, 0, ImmutableList.of("business", "private"), 500);
+
+        final long intervalStartInclusive = epochMean + 3600L;
+        final long intervalEndInclusive = epochMean + 10L * 3600L;
+        final RecordQueryIndexPlan indexPlan =
+                new RecordQueryIndexPlan("EventIntervals",
+                        new HypercubeScanParameters("business", "private",
+                                null, intervalEndInclusive,
+                                intervalStartInclusive, null),
+                        false);
+
+        final RecordType myMultidimensionalRecord = recordStore.getRecordMetaData().getRecordType("MyMultidimensionalRecord");
+        final Index index = recordStore.getRecordMetaData().getIndex("EventIntervals");
+        final AvailableFields availableFields =
+                AvailableFields.fromIndex(myMultidimensionalRecord,
+                        index,
+                        PlannableIndexTypes.DEFAULT,
+                        Key.Expressions.field("rec_no"),
+                        indexPlan);
+        final IndexKeyValueToPartialRecord.Builder indexKeyToPartialRecord =
+                Objects.requireNonNull(availableFields.buildIndexKeyValueToPartialRecord(myMultidimensionalRecord));
+        final RecordQueryCoveringIndexPlan coveringIndexPlan =
+                new RecordQueryCoveringIndexPlan(indexPlan,
+                        "MyMultidimensionalRecord",
+                        AvailableFields.NO_FIELDS,
+                        indexKeyToPartialRecord.build());
+        final Set<Message> actualResults = getResults(additionalIndexes, coveringIndexPlan);
+        Assertions.assertEquals(57, actualResults.size());
+        actualResults.forEach(record -> {
+            final Descriptors.Descriptor descriptorForType = record.getDescriptorForType();
+            final Descriptors.FieldDescriptor calendarNameField = descriptorForType.findFieldByName("calendar_name");
+            Assertions.assertTrue(record.hasField(calendarNameField));
+            Assertions.assertTrue(Sets.newHashSet("business", "private")
+                    .contains(Objects.requireNonNull((String)record.getField(calendarNameField))));
+
+            final Descriptors.FieldDescriptor startEpochField = descriptorForType.findFieldByName("start_epoch");
+            final Descriptors.FieldDescriptor endEpochField = descriptorForType.findFieldByName("end_epoch");
+            final Long startEpoch = record.hasField(startEpochField) ? (Long)record.getField(startEpochField) : null;
+            final Long endEpoch = record.hasField(endEpochField) ? (Long)record.getField(endEpochField) : null;
+            Assertions.assertTrue(startEpoch == null || startEpoch > 0);
+            Assertions.assertTrue(endEpoch == null || endEpoch > 0);
+            Assertions.assertTrue(startEpoch == null || endEpoch == null || startEpoch < endEpoch);
+
+            final Descriptors.FieldDescriptor expirationEpochField = descriptorForType.findFieldByName("expiration_epoch");
+            Assertions.assertFalse(record.hasField(expirationEpochField));
+        });
+
+        final var fetchPlan = new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, TranslateValueFunction.UNABLE_TO_TRANSLATE,
+                Type.any(), RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY);
+        final Set<Message> actualResultsAfterFetch = getResults(additionalIndexes, fetchPlan);
+
+        Assertions.assertEquals(57, actualResultsAfterFetch.size());
+        actualResults.forEach(record -> {
+            final Descriptors.Descriptor descriptorForType = record.getDescriptorForType();
+
+            final Descriptors.FieldDescriptor endEpochField = descriptorForType.findFieldByName("end_epoch");
+            final Long endEpoch = record.hasField(endEpochField) ? (Long)record.getField(endEpochField) : null;
+            Assertions.assertTrue(endEpoch == null || endEpoch > 0);
+            final Descriptors.FieldDescriptor expirationEpochField = descriptorForType.findFieldByName("expiration_epoch");
+            final Long expirationEpoch = record.hasField(expirationEpochField) ? (Long)record.getField(expirationEpochField) : null;
+            Assertions.assertTrue(expirationEpoch == null || expirationEpoch > 0);
+            Assertions.assertTrue(endEpoch == null || expirationEpoch == null || endEpoch < expirationEpoch);
+        });
+    }
+
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexScan3D(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
@@ -554,7 +650,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                                 IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, storage,
                                 IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
 
-        loadRecordsWithNulls(additionalIndex, seed, numRecords);
+        loadRecordsWithNulls(additionalIndex, seed, ImmutableList.of("business"), numRecords);
 
         final long intervalStartInclusive = epochMean + 3600L;
         final long intervalEndInclusive = epochMean + 5L * 3600L;
@@ -565,17 +661,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                                 intervalStartInclusive, null,
                                 epochMean + expirationCutOff, null),
                         false);
-
-        final Set<Message> actualResults;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndex);
-            final RecordCursor<QueryResult> recordCursor =
-                    indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            actualResults = recordCursor.asStream()
-                    .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
-                    .collect(Collectors.toSet());
-            commit(context);
-        }
+        final Set<Message> actualResults = getResults(additionalIndex, indexPlan);
 
         final QueryComponent filter =
                 Query.and(
@@ -591,23 +677,32 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         final RecordQueryPlan plan = planner.plan(query);
-        final Set<Message> expectedResults;
+        final Set<Message> expectedResults = getResults(additionalIndex, plan);
+        Assertions.assertEquals(expectedResults, actualResults);
+    }
+
+    @SuppressWarnings("resource")
+    @Nonnull
+    private Set<Message> getResults(final RecordMetaDataHook additionalIndexes, final RecordQueryPlan queryPlan) throws Exception {
+        final Set<Message> actualResults;
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, additionalIndex);
+            openRecordStore(context, additionalIndexes);
             final RecordCursor<QueryResult> recordCursor =
-                    plan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
-            expectedResults = recordCursor.asStream()
+                    queryPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE);
+            actualResults = recordCursor.asStream()
                     .map(queryResult -> Objects.requireNonNull(queryResult.getQueriedRecord()).getRecord())
                     .collect(Collectors.toSet());
             commit(context);
         }
-        Assertions.assertEquals(expectedResults, actualResults);
+        return actualResults;
     }
 
     @SuppressWarnings("CheckStyle")
     static class HypercubeScanParameters implements IndexScanParameters {
         @Nonnull
-        private final String calendarName;
+        private final String minCalendarName;
+        @Nonnull
+        private final String maxCalendarName;
         @Nonnull
         private final Long[] minsInclusive;
         @Nonnull
@@ -615,8 +710,15 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
         public HypercubeScanParameters(@Nonnull final String calendarName,
                                        @Nonnull final Long... minMaxLimits) {
+            this(calendarName, calendarName, minMaxLimits);
+        }
+
+        public HypercubeScanParameters(@Nonnull final String minCalendarName,
+                                       @Nonnull final String maxCalendarName,
+                                       @Nonnull final Long... minMaxLimits) {
             Preconditions.checkArgument(minMaxLimits.length % 2 == 0);
-            this.calendarName = calendarName;
+            this.minCalendarName = minCalendarName;
+            this.maxCalendarName = maxCalendarName;
             this.minsInclusive = new Long[minMaxLimits.length / 2];
             this.maxsInclusive = new Long[minMaxLimits.length / 2];
             for (int i = 0; i < minMaxLimits.length; i += 2) {
@@ -647,7 +749,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                         max == null ? null : Tuple.from(max)));
             }
 
-            return new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(calendarName)),
+            return new MultidimensionalIndexScanBounds(TupleRange.betweenInclusive(Tuple.from(minCalendarName), Tuple.from(maxCalendarName)),
                     new MultidimensionalIndexScanBounds.Hypercube(tupleRangesBuilder.build()));
         }
 
