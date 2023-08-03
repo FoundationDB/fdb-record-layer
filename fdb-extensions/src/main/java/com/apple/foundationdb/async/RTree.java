@@ -50,6 +50,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -171,7 +172,7 @@ public class RTree {
      *     already at minimum capacity containing a combined total of 75 children when a child is deleted.
      *     We fuse the three nodes into two as indicated by {@code S = 2}. We have 75 children but there is no way
      *     of distributing them among two nodes such that none of them overflows. This constraint can be formulated as
-     *     {@code (S + 1) * MIN_M / S <= MAX_M}</li>.
+     *     {@code (S + 1) * MIN_M / S <= MAX_M}.</li>
      * </ol>
      * Both constraints are in fact the same constraint and can be written as {@code MAX_M / MIN_M >= (S + 1) / S}.
      */
@@ -395,6 +396,7 @@ public class RTree {
      * Initialize a new R-tree with the default configuration.
      * @param subspace the subspace where the r-tree is stored
      * @param executor an executor to use when running asynchronous tasks
+     * @param hilbertValueFunction function to compute the Hilbert value from a {@link Point}
      */
     public RTree(@Nonnull final Subspace subspace, @Nonnull final Executor executor,
                  @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
@@ -2258,6 +2260,10 @@ public class RTree {
      * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
      */
     public static class BySlotStorageAdapter implements StorageAdapter {
+        private static final Comparator<ItemSlot> comparator =
+                Comparator.<RTree.ItemSlot, BigInteger>comparing(NodeSlot::getHilbertValue)
+                        .thenComparing(NodeSlot::getKey);
+
         @Nonnull
         private final byte[] subspacePrefix;
         private final boolean storeHilbertValues;
@@ -2390,6 +2396,15 @@ public class RTree {
 
             Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
                           (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
+
+            if (nodeKind == Kind.LEAF &&
+                    !storeHilbertValues) {
+                //
+                // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
+                // the Hilbert value.
+                //
+                itemSlots.sort(comparator);
+            }
 
             return nodeKind == Kind.LEAF
                    ? new LeafNode(nodeId, itemSlots)

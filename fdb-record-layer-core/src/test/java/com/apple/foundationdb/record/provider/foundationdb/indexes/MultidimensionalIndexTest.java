@@ -78,7 +78,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,6 +93,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.async.RTree.Storage.BY_NODE;
+import static com.apple.foundationdb.async.RTree.Storage.BY_SLOT;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,12 +137,14 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder, @Nonnull String storage) {
+    RecordMetaDataBuilder addMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
+                                                   @Nonnull final String storage,
+                                                   final boolean storeHilbertValues) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
                 new Index("EventIntervals", DimensionsKeyExpression.of(field("calendar_name"),
                         concat(field("start_epoch"), field("end_epoch"))),
                         IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, storage,
-                        IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
+                        IndexOptions.RTREE_STORE_HILBERT_VALUES, Boolean.toString(storeHilbertValues))));
         return metaDataBuilder;
     }
 
@@ -235,11 +237,10 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-
     @ParameterizedTest
-    @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
-    void basicRead(@Nonnull final String storage) throws Exception {
-        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage);
+    @MethodSource("argumentsForBasicReads")
+    void basicRead(@Nonnull final String storage, final boolean storeHilbertValues) throws Exception {
+        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
         loadRecords(additionalIndex, 0, ImmutableList.of("business"), 500);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndex);
@@ -254,9 +255,9 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
-    void basicReadWithNulls(@Nonnull final String storage) throws Exception {
-        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage);
+    @MethodSource("argumentsForBasicReads")
+    void basicReadWithNulls(@Nonnull final String storage, final boolean storeHilbertValues) throws Exception {
+        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
         loadRecords(additionalIndex, 0, ImmutableList.of("business"), 500);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndex);
@@ -268,15 +269,23 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             assertEquals("business", recordBuilder.getCalendarName());
             commit(context);
         }
+    }
+
+    static Stream<Arguments> argumentsForBasicReads() {
+        return Stream.of(Arguments.of(BY_NODE.toString(), false),
+                Arguments.of(BY_NODE.toString(), true),
+                Arguments.of(BY_SLOT.toString(), false),
+                Arguments.of(BY_SLOT.toString(), true));
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexRead(final long seed, final int numRecords, final String storage) throws Exception {
+    void indexRead(final long seed, final int numRecords, @Nonnull final String storage,
+                   final boolean storeHilbertValues) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, storage);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
                 };
         loadRecords(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final long intervalStartInclusive = epochMean + 3600L;
@@ -314,26 +323,37 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     static Stream<Arguments> argumentsForIndexReads() {
         final Random random = new Random(System.currentTimeMillis());
         return Stream.of(
-                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString()),
-                Arguments.of(random.nextLong(), 10, BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 300, BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 1000, BY_NODE.toString()),
-                Arguments.of(random.nextLong(), 5000, BY_NODE.toString())
+                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), true),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), true),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), true),
+                Arguments.of(random.nextLong(), 5000, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 5000, BY_NODE.toString(), true)
         );
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadWithNulls(final long seed, final int numRecords, final String storage) throws Exception {
+    void indexReadWithNulls(final long seed, final int numRecords, @Nonnull final String storage,
+                            final boolean storeHilbertValues) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, storage);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
                 };
         loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final long intervalStartInclusive = epochMean + 3600L;
@@ -365,11 +385,12 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadIsNull(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
+    void indexReadIsNull(final long seed, final int numRecords, @Nonnull final String storage,
+                         final boolean storeHilbertValues) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, storage);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
                 };
         loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
         final RecordQueryIndexPlan indexPlan =
@@ -400,7 +421,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString());
+                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString(), true);
                 };
 
         loadRecords(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
@@ -473,11 +494,12 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexSkipScan(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
+    void indexSkipScan(final long seed, final int numRecords, @Nonnull final String storage,
+                       final boolean storeHilbertValues) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, storage);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
                 };
         loadRecords(additionalIndexes, seed, ImmutableList.of("business", "private"), numRecords);
 
@@ -513,7 +535,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString());
+                    addMultidimensionalIndex(metaDataBuilder, BY_NODE.toString(), true);
                 };
         loadRecords(additionalIndexes, 0, ImmutableList.of("business", "private"), 500);
 
@@ -568,12 +590,12 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"BY_SLOT", "BY_NODE"})
-    void coveringIndexScanWithFetch(@Nonnull final String storage) throws Exception {
+    @MethodSource("argumentsForBasicReads")
+    void coveringIndexScanWithFetch(@Nonnull final String storage, final boolean storeHilbertValues) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
-                    addMultidimensionalIndex(metaDataBuilder, storage);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues);
                 };
         loadRecordsWithNulls(additionalIndexes, 0, ImmutableList.of("business", "private"), 500);
 
@@ -642,13 +664,13 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexScan3D(final long seed, final int numRecords, @Nonnull final String storage) throws Exception {
+    void indexScan3D(final long seed, final int numRecords, @Nonnull final String storage, final boolean storeHilbertValues) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder ->
                 metaDataBuilder.addIndex("MyMultidimensionalRecord",
                         new Index("EventIntervals3D", DimensionsKeyExpression.of(field("calendar_name"),
                                 concat(field("start_epoch"), field("end_epoch"), field("expiration_epoch"))),
                                 IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, storage,
-                                IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
+                                IndexOptions.RTREE_STORE_HILBERT_VALUES, Boolean.toString(storeHilbertValues))));
 
         loadRecordsWithNulls(additionalIndex, seed, ImmutableList.of("business"), numRecords);
 
