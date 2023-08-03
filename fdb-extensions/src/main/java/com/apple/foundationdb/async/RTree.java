@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.common.primitives.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -236,12 +235,12 @@ public class RTree {
         }
 
         @Nonnull
-        public StorageAdapter newStorageAdapter(@Nonnull final byte[] subspacePrefix,
+        public StorageAdapter newStorageAdapter(@Nonnull final Subspace subspace,
                                                 final boolean storeHilbertValues,
                                                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
                                                 @Nonnull final OnWriteListener onWriteListener,
                                                 @Nonnull final OnReadListener onReadListener) {
-            return storageAdapterCreator.create(subspacePrefix, storeHilbertValues, hilbertValueFunction,
+            return storageAdapterCreator.create(subspace, storeHilbertValues, hilbertValueFunction,
                     onWriteListener, onReadListener);
         }
     }
@@ -250,7 +249,7 @@ public class RTree {
      * Functional interface to create a {@link StorageAdapter}.
      */
     public interface StorageAdapterCreator {
-        StorageAdapter create(@Nonnull byte[] subspacePrefix,
+        StorageAdapter create(@Nonnull Subspace subspace,
                               boolean storeHilbertValues,
                               @Nonnull Function<Point, BigInteger> hilbertValueFunction,
                               @Nonnull OnWriteListener onWriteListener,
@@ -420,8 +419,8 @@ public class RTree {
                  @Nonnull final OnWriteListener onWriteListener,
                  @Nonnull final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
-                .newStorageAdapter(Objects.requireNonNull(subspace.getKey()), config.isStoreHilbertValues(),
-                        hilbertValueFunction, onWriteListener, onReadListener);
+                .newStorageAdapter(subspace, config.isStoreHilbertValues(), hilbertValueFunction, onWriteListener,
+                        onReadListener);
         this.executor = executor;
         this.config = config;
         this.hilbertValueFunction = hilbertValueFunction;
@@ -1865,7 +1864,7 @@ public class RTree {
     /**
      * A leaf node of the tree. A leaf node holds the actual data in {@link ItemSlot}s.
      */
-    static class LeafNode extends Node {
+    public static class LeafNode extends Node {
         @Nonnull
         private List<ItemSlot> items;
 
@@ -1920,7 +1919,7 @@ public class RTree {
      * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
      * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
      */
-    static class IntermediateNode extends Node {
+    public static class IntermediateNode extends Node {
         @Nonnull
         private List<ChildSlot> children;
 
@@ -1981,7 +1980,7 @@ public class RTree {
      * Abstract base class for all node slots. Holds a Hilbert value and a key. The semantics of these attributes
      * is refined in the subclasses {@link ItemSlot} and {@link ChildSlot}.
      */
-    private abstract static class NodeSlot {
+    public abstract static class NodeSlot {
         @Nonnull
         protected BigInteger hilbertValue;
 
@@ -2111,7 +2110,7 @@ public class RTree {
      * hilbert value of its child, the largest key of its child and an mbr that encompasses all points in the subtree
      * rooted at the child.
      */
-    static class ChildSlot extends NodeSlot {
+    public static class ChildSlot extends NodeSlot {
         public static final int SLOT_KEY_TUPLE_SIZE = 2;
         public static final int SLOT_VALUE_TUPLE_SIZE = 2;
 
@@ -2193,11 +2192,11 @@ public class RTree {
     public interface StorageAdapter {
 
         /**
-         * Get the subspace prefix used to store this r-tree.
+         * Get the subspace used to store this r-tree.
          * @return r-tree subspace
          */
         @Nonnull
-        byte[] getSubspacePrefix();
+        Subspace getSubspace();
 
         /**
          * Get the on-write listener.
@@ -2251,8 +2250,8 @@ public class RTree {
         CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
 
         @Nonnull
-        default byte[] packWithPrefix(final byte[] key) {
-            return Bytes.concat(getSubspacePrefix(), key);
+        default byte[] packWithSubspace(final byte[] key) {
+            return getSubspace().pack(key);
         }
     }
 
@@ -2265,7 +2264,7 @@ public class RTree {
                         .thenComparing(NodeSlot::getKey);
 
         @Nonnull
-        private final byte[] subspacePrefix;
+        private final Subspace subspace;
         private final boolean storeHilbertValues;
         @Nonnull
         private final Function<Point, BigInteger> hilbertValueFunction;
@@ -2274,11 +2273,11 @@ public class RTree {
         @Nonnull
         private final OnReadListener onReadListener;
 
-        public BySlotStorageAdapter(@Nonnull final byte[] subspacePrefix, final boolean storeHilbertValues,
+        public BySlotStorageAdapter(@Nonnull final Subspace subspace, final boolean storeHilbertValues,
                                     @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
                                     @Nonnull final OnWriteListener onWriteListener,
                                     @Nonnull final OnReadListener onReadListener) {
-            this.subspacePrefix = subspacePrefix;
+            this.subspace = subspace;
             this.storeHilbertValues = storeHilbertValues;
             this.hilbertValueFunction = hilbertValueFunction;
             this.onWriteListener = onWriteListener;
@@ -2287,8 +2286,8 @@ public class RTree {
 
         @Override
         @Nonnull
-        public byte[] getSubspacePrefix() {
-            return subspacePrefix;
+        public Subspace getSubspace() {
+            return subspace;
         }
 
         @Nonnull
@@ -2307,7 +2306,7 @@ public class RTree {
         public void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
             Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
             keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(storeHilbertValues));
-            final byte[] packedKey = keyTuple.pack(packWithPrefix(node.getId()));
+            final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
             final byte[] packedValue = nodeSlot.getSlotValue().pack();
             transaction.set(packedKey, packedValue);
         }
@@ -2316,7 +2315,7 @@ public class RTree {
         public void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
             Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
             keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(storeHilbertValues));
-            final byte[] packedKey = keyTuple.pack(packWithPrefix(node.getId()));
+            final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
             transaction.clear(packedKey);
         }
 
@@ -2324,7 +2323,7 @@ public class RTree {
         public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
             // TODO For performance reasons we should attempt to not clear and rewrite slots that remained identical.
             for (final Node node : nodes) {
-                transaction.clear(Range.startsWith(packWithPrefix(node.getId())));
+                transaction.clear(Range.startsWith(packWithSubspace(node.getId())));
                 for (final NodeSlot nodeSlot : node.getSlots()) {
                     writeNodeSlot(transaction, node, nodeSlot);
                 }
@@ -2334,7 +2333,7 @@ public class RTree {
         @Nonnull
         public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
                                                  @Nonnull final byte[] nodeId) {
-            return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithPrefix(nodeId)),
+            return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithSubspace(nodeId)),
                             ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
                     .thenApply(keyValues -> {
                         final Node node = fromKeyValues(nodeId, keyValues);
@@ -2360,9 +2359,7 @@ public class RTree {
 
             // one key/value pair corresponds to one slot
             for (final KeyValue keyValue : keyValues) {
-                final byte[] rawKey = keyValue.getKey();
-                final int tupleOffset = getSubspacePrefix().length + NODE_ID_LENGTH;
-                final Tuple keyTuple = Tuple.fromBytes(rawKey, tupleOffset, rawKey.length - tupleOffset);
+                final Tuple keyTuple = getSubspace().unpack(keyValue.getKey()).popFront();
                 final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
 
                 final Kind currentNodeKind = Kind.fromSerializedNodeKind((byte)keyTuple.getLong(0));
@@ -2417,7 +2414,7 @@ public class RTree {
      */
     public static class ByNodeStorageAdapter implements StorageAdapter {
         @Nonnull
-        private final byte[] subspacePrefix;
+        private final Subspace subspace;
         private final boolean storeHilbertValues;
         @Nonnull
         private final Function<Point, BigInteger> hilbertValueFunction;
@@ -2426,11 +2423,11 @@ public class RTree {
         @Nonnull
         private final OnReadListener onReadListener;
 
-        public ByNodeStorageAdapter(@Nonnull final byte[] subspacePrefix, final boolean storeHilbertValues,
+        public ByNodeStorageAdapter(@Nonnull final Subspace subspace, final boolean storeHilbertValues,
                                     @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
                                     @Nonnull final OnWriteListener onWriteListener,
                                     @Nonnull final OnReadListener onReadListener) {
-            this.subspacePrefix = subspacePrefix;
+            this.subspace = subspace;
             this.storeHilbertValues = storeHilbertValues;
             this.hilbertValueFunction = hilbertValueFunction;
             this.onWriteListener = onWriteListener;
@@ -2439,8 +2436,8 @@ public class RTree {
 
         @Override
         @Nonnull
-        public byte[] getSubspacePrefix() {
-            return subspacePrefix;
+        public Subspace getSubspace() {
+            return subspace;
         }
 
         @Nonnull
@@ -2466,8 +2463,8 @@ public class RTree {
         }
 
         private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
-            final byte[] packedKey = packWithPrefix(node.getId());
-            if (node.size() == 0) {
+            final byte[] packedKey = packWithSubspace(node.getId());
+            if (node.isEmpty()) {
                 // if this node slot was the last node slot, delete the entire node
                 transaction.clear(packedKey);
             } else {
@@ -2498,7 +2495,7 @@ public class RTree {
         @Nonnull
         public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
                                                  @Nonnull final byte[] nodeId) {
-            return transaction.get(packWithPrefix(nodeId))
+            return transaction.get(packWithSubspace(nodeId))
                     .thenApply(valueBytes -> {
                         final Node node = fromTuple(nodeId, valueBytes == null ? null : Tuple.fromBytes(valueBytes));
                         onReadListener.onNodeRead(node);
@@ -2813,7 +2810,7 @@ public class RTree {
         private final Tuple coordinates;
 
         public Point(@Nonnull final Tuple coordinates) {
-            Preconditions.checkArgument(coordinates.size() > 0);
+            Preconditions.checkArgument(!coordinates.isEmpty());
             this.coordinates = coordinates;
         }
 
@@ -2875,7 +2872,7 @@ public class RTree {
         private final Tuple ranges;
 
         public Rectangle(final Tuple ranges) {
-            Preconditions.checkArgument(ranges.size() > 0 && ranges.size() % 2 == 0);
+            Preconditions.checkArgument(!ranges.isEmpty() && ranges.size() % 2 == 0);
             this.ranges = ranges;
         }
 

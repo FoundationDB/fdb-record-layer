@@ -120,7 +120,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
         // Check that there are no slots left that may have gotten orphaned
         final List<KeyValue> keyValues =
-                db.run(tr -> tr.getRange(Range.startsWith(rt.getStorageAdapter().getSubspacePrefix())).asList().join());
+                db.run(tr -> tr.getRange(Range.startsWith(rt.getStorageAdapter().getSubspace().getKey())).asList().join());
         Assertions.assertTrue(keyValues.isEmpty());
 
         validateRTree(db, rt);

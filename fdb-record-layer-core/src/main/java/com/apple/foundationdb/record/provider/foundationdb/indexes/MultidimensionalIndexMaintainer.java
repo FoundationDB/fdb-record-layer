@@ -110,30 +110,14 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, innerScanProperties);
 
         final Subspace indexSubspace =  getIndexSubspace();
-        final Function<byte[], RecordCursor<Tuple>> outerFunction;
-        if (prefixSize > 0) {
-            outerFunction = outerContinuation -> new ChainedCursor<>(
-                    state.context,
-                    lastKey -> nextPrefixTuple(mDScanBounds.getPrefixRange(), lastKey, innerScanProperties),
-                    Tuple::pack,
-                    Tuple::fromBytes,
-                    continuation,
-                    innerScanProperties);
-        } else {
-            outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
-        }
-
-        return RecordCursor.flatMapPipelined(outerFunction,
-                        (outerTuple, innerContinuation) -> {
+        return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, mDScanBounds, innerScanProperties),
+                        (prefixTuple, innerContinuation) -> {
                             final Subspace rtSubspace;
-                            final Tuple prefixTuple;
-                            if (outerTuple != null) {
-                                Verify.verify(outerTuple.size() > prefixSize);
-                                rtSubspace = indexSubspace.subspace(outerTuple);
-                                prefixTuple = TupleHelpers.subTuple(outerTuple, 0, prefixSize);
+                            if (prefixTuple != null) {
+                                Verify.verify(prefixTuple.size() == prefixSize);
+                                rtSubspace = indexSubspace.subspace(prefixTuple);
                             } else {
                                 rtSubspace = indexSubspace;
-                                prefixTuple = null;
                             }
 
                             final Continuation parsedContinuation = Continuation.fromBytes(innerContinuation);
@@ -169,15 +153,33 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
+    private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize, final MultidimensionalIndexScanBounds mDScanBounds, final ScanProperties innerScanProperties) {
+        final Function<byte[], RecordCursor<Tuple>> outerFunction;
+        if (prefixSize > 0) {
+            outerFunction = outerContinuation -> new ChainedCursor<>(
+                    state.context,
+                    lastKey -> nextPrefixTuple(mDScanBounds.getPrefixRange(), prefixSize, lastKey, innerScanProperties),
+                    Tuple::pack,
+                    Tuple::fromBytes,
+                    outerContinuation,
+                    innerScanProperties);
+        } else {
+            outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
+        }
+        return outerFunction;
+    }
+
+    @Nonnull
     @Override
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
         throw new RecordCoreException("index maintainer does not support this scan api");
     }
 
     @SuppressWarnings("resource")
-    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull TupleRange prefixRange,
-                                                               @Nonnull Optional<Tuple> lastPrefixTuple,
-                                                               @Nonnull ScanProperties scanProperties) {
+    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
+                                                               final int prefixSize,
+                                                               @Nonnull final Optional<Tuple> lastPrefixTuple,
+                                                               @Nonnull final ScanProperties scanProperties) {
         final Subspace indexSubspace = getIndexSubspace();
         final KeyValueCursor cursor;
         if (lastPrefixTuple.isEmpty()) {
@@ -205,7 +207,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             if (next.hasNext()) {
                 final KeyValue kv = Objects.requireNonNull(next.get());
                 cursor.close();
-                return Optional.of(indexSubspace.unpack(kv.getKey()));
+                return Optional.of(TupleHelpers.subTuple(indexSubspace.unpack(kv.getKey()), 0, prefixSize));
             }
             return Optional.empty();
         } );
