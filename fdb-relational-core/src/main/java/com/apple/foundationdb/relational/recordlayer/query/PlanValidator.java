@@ -72,11 +72,11 @@ public final class PlanValidator {
 
     public static class PlanValidationException extends RelationalException {
         public PlanValidationException(String message) {
-            super(message, ErrorCode.INVALID_PLAN_CONTINUATION);
+            super(message, ErrorCode.INVALID_CONTINUATION);
         }
 
         public PlanValidationException(String message, Throwable cause) {
-            super(message, ErrorCode.INVALID_PLAN_CONTINUATION, cause);
+            super(message, ErrorCode.INVALID_CONTINUATION, cause);
         }
     }
 }
