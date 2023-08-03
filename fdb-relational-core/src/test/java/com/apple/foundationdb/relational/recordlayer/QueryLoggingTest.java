@@ -236,4 +236,22 @@ public class QueryLoggingTest {
         Assertions.assertThat(logAppender.getLastLogEntry()).contains("queryHash=\"" + queryHash + "\"");
         Assertions.assertThat(logAppender.getLastLogEntry()).contains("planHash=\"1902303907\"");
     }
+
+    @Test
+    void testLogInsert() throws Exception {
+        statement.executeUpdate("INSERT INTO RESTAURANT(REST_NO) VALUES (45) OPTIONS (LOG QUERY)");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"INSERT INTO RESTAURANT ( REST_NO ) VALUES ( ? )\"");
+    }
+
+    @Test
+    void testLogUpdate() throws Exception {
+        statement.executeUpdate("UPDATE RESTAURANT SET NAME = 'restau' WHERE REST_NO = 3 OPTIONS (LOG QUERY)");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"UPDATE RESTAURANT SET NAME = ? WHERE REST_NO = ?\"");
+    }
+
+    @Test
+    void testLogDelete() throws Exception {
+        statement.executeUpdate("DELETE FROM RESTAURANT WHERE REST_NO = 54 OPTIONS (LOG QUERY)");
+        Assertions.assertThat(logAppender.getLastLogEntry()).contains("query=\"DELETE FROM RESTAURANT WHERE REST_NO = ?\"");
+    }
 }

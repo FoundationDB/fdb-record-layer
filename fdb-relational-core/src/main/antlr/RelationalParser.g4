@@ -173,22 +173,14 @@ deleteStatement
       (WHERE expression)?
       orderByClause? (LIMIT limitClause)?
       (RETURNING selectElements)?
+      queryOptions?
     ;
 
 insertStatement
     : INSERT
-      IGNORE? INTO? tableName
-      (
-        (columns=uidListWithNestingsInParens)? insertStatementValue
-        | SET
-            setFirst=updatedElement
-            (',' setElements+=updatedElement)*
-      )
-      (
-        ON DUPLICATE KEY UPDATE
-        duplicatedFirst=updatedElement
-        (',' duplicatedElements+=updatedElement)*
-      )?
+      INTO? tableName
+      (columns=uidListWithNestingsInParens)? insertStatementValue
+      queryOptions?
     ;
 
 selectStatementWithContinuation
@@ -242,6 +234,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE expression)?
       (RETURNING selectElements)?
+      queryOptions?
     ;
 
 // details
