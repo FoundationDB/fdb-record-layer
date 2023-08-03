@@ -65,6 +65,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
                     .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.INT), (descriptor, in) -> (Integer) null)
                     .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN), (descriptor, in) -> (Boolean) null)
                     .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.STRING), (descriptor, in) -> (String) null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.ARRAY), (descriptor, in) -> null)
+                    .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.RECORD), (descriptor, in) -> null)
                     .build();
     /**
      * The hash value of this expression.
@@ -115,7 +117,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     @Nonnull
     @Override
     public PromoteValue withNewChild(@Nonnull final Value newChild) {
-        return new PromoteValue(inValue, promoteToType, promotionTrie);
+        return new PromoteValue(newChild, promoteToType, promotionTrie);
     }
 
     @Nullable
@@ -186,8 +188,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         if (currentType.isPrimitive()) {
-            SemanticException.check(targetType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            if (!isPromotionNeeded(currentType, targetType)) {
+            if (currentType.getTypeCode() != Type.TypeCode.NULL && !isPromotionNeeded(currentType, targetType)) {
                 return null;
             }
             // this is definitely a leaf; and we need to promote
