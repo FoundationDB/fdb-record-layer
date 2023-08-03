@@ -108,7 +108,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 2);
+        Verify.verify(Iterables.size(newChildren) >= 2);
         return new VariadicFunctionValue(this.operation, ImmutableList.copyOf(newChildren));
     }
 
