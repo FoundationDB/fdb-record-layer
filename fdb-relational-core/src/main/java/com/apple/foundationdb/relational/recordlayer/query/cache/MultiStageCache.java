@@ -25,11 +25,11 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -37,8 +37,6 @@ import javax.annotation.Nullable;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -48,12 +46,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * This is a simple generic cache of caches that employs LRU and TTL expiration policies. It uses the {@link Cache}
- * cache implementation internally for both primary and secondary caches. Originally this class was built on
- * https://github.com/ben-manes/caffeine Caffeine but Relational team were asked to wait until customer upgrades its Cache to
- * Caffeine from Guava Cache before we use Caffeine so the move to Caffeine was undone for now. We lose better
- * performance and being able to pass an executor for the cache to use performing work but given Guava recommends
- * Caffeine over their Cache implementation, this retarded deploy should be short-lived.
+ * This is a simple generic cache of caches that employs LRU and TTL expiration policies. It uses the {@link Caffeine}
+ * cache implementation internally for both primary and secondary caches.
  * <br>
  * Items stored in the primary cache expire after a duration (see {@link Builder#setTtl(long)}) of time, if an item is read
  * the duration is reset (read-TTL).
@@ -110,7 +104,6 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
     @Nullable
     private final Ticker ticker;
 
-    @SuppressWarnings("PMD.EmptyIfStmt") // Temporary until bring back Caffeine and can set executor.
     protected MultiStageCache(int size,
                               int secondarySize,
                               long ttl,
@@ -125,15 +118,13 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
         Assert.thatUnchecked(ttl > 0, String.format("Invalid cache ttl '%d'", ttl), ErrorCode.INTERNAL_ERROR);
         Assert.thatUnchecked(secondaryTtl > 0, String.format("Invalid secondary cache ttl '%d'", secondaryTtl), ErrorCode.INTERNAL_ERROR);
 
-        final var mainCacheBuilder = CacheBuilder.newBuilder().recordStats().maximumSize(size);
+        final var mainCacheBuilder = Caffeine.newBuilder().recordStats().maximumSize(size);
         mainCacheBuilder.expireAfterAccess(ttl, ttlTimeUnit);
         if (executor != null) {
-            // Caffeine cache allows you do this but guava cache does not. Leaving this code here for now because
-            // Caffeine cache is coming.
-            // mainCacheBuilder.executor(executor);
+            mainCacheBuilder.executor(executor);
         }
         if (ticker != null) {
-            mainCacheBuilder.ticker(ticker);
+            mainCacheBuilder.ticker(ticker::read);
         }
         mainCache = mainCacheBuilder.build();
 
@@ -144,6 +135,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
         this.ticker = ticker;
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     @Nonnull
     public V reduce(@Nonnull final K key,
@@ -152,39 +144,28 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                     @Nonnull final Function<Stream<V>, V> reductionFunction,
                     @Nonnull final Consumer<RelationalMetric.RelationalCount> registerCacheEvent) {
-        final Cache<S, V> secondaryCache;
-        try {
-            secondaryCache = mainCache.get(key, new Callable<Cache<S, V>>() {
-                @Override
-                @SuppressWarnings("PMD.EmptyIfStmt") // Temporary until bring back Caffeine and can set executor.
-                public Cache<S, V> call() throws Exception {
-                    registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
-                    final CacheBuilder secondaryCacheBuilder = CacheBuilder.newBuilder()
-                            .maximumSize(secondarySize)
-                            .recordStats()
-                            .removalListener((RemovalListener<S, V>) k -> {
-                                final var value = mainCache.getIfPresent(key);
-                                if (value != null && value.asMap().size() == 0) {
-                                    mainCache.invalidate(key); // best effort
-                                }
-                            });
-                    if (secondaryTtl > 0) {
-                        secondaryCacheBuilder.expireAfterWrite(secondaryTtl, secondaryTtlTimeUnit);
-                    }
-                    if (secondaryExecutor != null) {
-                        // Caffeine cache allows you do this but guava cache does not. Leaving this code here for now because
-                        // Caffeine cache is coming.
-                        // secondaryCacheBuilder.executor(secondaryExecutor);
-                    }
-                    if (ticker != null) {
-                        secondaryCacheBuilder.ticker(ticker);
-                    }
-                    return secondaryCacheBuilder.build();
-                }
-            });
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        final var secondaryCache = mainCache.get(key, newKey -> {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
+            final var secondaryCacheBuilder = Caffeine.newBuilder()
+                    .maximumSize(secondarySize)
+                    .recordStats()
+                    .removalListener((RemovalListener<S, V>) (k, v, i) -> {
+                        final var value = mainCache.getIfPresent(key);
+                        if (value != null && value.asMap().size() == 0) {
+                            mainCache.invalidate(key); // best effort
+                        }
+                    });
+            if (secondaryTtl > 0) {
+                secondaryCacheBuilder.expireAfterWrite(secondaryTtl, secondaryTtlTimeUnit);
+            }
+            if (secondaryExecutor != null) {
+                secondaryCacheBuilder.executor(secondaryExecutor);
+            }
+            if (ticker != null) {
+                secondaryCacheBuilder.ticker(ticker::read);
+            }
+            return secondaryCacheBuilder.build();
+        });
 
         final var result = reductionFunction.apply(secondaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(secondaryKey)).map(Map.Entry::getValue));
         if (result != null) {
@@ -210,7 +191,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
         return new CacheStatistics() {
             @Override
             public long numEntries() {
-                return mainCache.size();
+                return mainCache.estimatedSize();
             }
 
             @Override
@@ -223,7 +204,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
             public Long numSecondaryEntries(@Nonnull final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
-                    return secondary.size();
+                    return secondary.estimatedSize();
                 }
                 return null;
             }
