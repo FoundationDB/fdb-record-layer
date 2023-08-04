@@ -188,7 +188,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         if (currentType.isPrimitive()) {
-            if (currentType.getTypeCode() != Type.TypeCode.NULL && !isPromotionNeeded(currentType, targetType)) {
+            if (!isPromotionNeeded(currentType, targetType)) {
                 return null;
             }
             // this is definitely a leaf; and we need to promote
@@ -259,6 +259,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     }
 
     public static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+        if (inType.getTypeCode() == Type.TypeCode.NULL) {
+            return true;
+        }
         SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }
