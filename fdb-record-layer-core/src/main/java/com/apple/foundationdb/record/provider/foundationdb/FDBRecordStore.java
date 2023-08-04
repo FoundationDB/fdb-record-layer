@@ -3828,7 +3828,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             ),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
-                                logExceptionAsWarn(KeyValueLogMessage.build("unable to build index",
+                                logExceptionAsWarn(KeyValueLogMessage.build("unable to rebuild or mark index",
                                         LogMessageKeys.INDEX_NAME, index.getName()
                                 ), exception);
                                 return markIndexDisabled(index).thenApply(b -> null);
