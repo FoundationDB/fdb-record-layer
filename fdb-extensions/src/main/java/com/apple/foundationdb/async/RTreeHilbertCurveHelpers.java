@@ -42,8 +42,8 @@ public class RTreeHilbertCurveHelpers {
         final long[] shiftedCoordinates = new long[point.getNumDimensions()];
         for (int i = 0; i < point.getNumDimensions(); i++) {
             Long coordinateAsLong = (Long)point.getCoordinateAsNumber(i);
-            coordinateAsLong = coordinateAsLong == null ? nullReplacement : coordinateAsLong;
-            shiftedCoordinates[i] = shiftCoordinate(coordinateAsLong);
+            final long coordinate = coordinateAsLong == null ? nullReplacement : coordinateAsLong;
+            shiftedCoordinates[i] = shiftCoordinate(coordinate);
         }
         return toIndex(numBits, transposedIndex(numBits, shiftedCoordinates));
     }
@@ -80,7 +80,7 @@ public class RTreeHilbertCurveHelpers {
     }
 
     private static long[] transposedIndex(int numBits, long... unsignedPoints) {
-        final long M = 1L << (numBits - 1);
+        final long m = 1L << (numBits - 1);
         final int n = unsignedPoints.length; // n: Number of dimensions
         final long[] x = Arrays.copyOf(unsignedPoints, n);
         long p;
@@ -88,7 +88,7 @@ public class RTreeHilbertCurveHelpers {
         long t;
         int i;
         // Inverse undo
-        for (q = M; q != 1; q >>>= 1) {
+        for (q = m; q != 1; q >>>= 1) {
             p = q - 1;
             for (i = 0; i < n; i++) {
                 if ((x[i] & q) != 0) {
@@ -105,7 +105,7 @@ public class RTreeHilbertCurveHelpers {
             x[i] ^= x[i - 1];
         }
         t = 0;
-        for (q = M; q != 1; q >>>= 1) {
+        for (q = m; q != 1; q >>>= 1) {
             if ((x[n - 1] & q) != 0) {
                 t ^= q - 1;
             }

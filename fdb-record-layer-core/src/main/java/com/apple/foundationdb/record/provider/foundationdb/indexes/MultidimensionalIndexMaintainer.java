@@ -1,5 +1,5 @@
 /*
- * RankIndexMaintainer.java
+ * MultidimensionalIndexMaintainer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -161,7 +161,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
     @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range,
+                                         @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
         throw new RecordCoreException("index maintainer does not support this scan api");
     }
 
@@ -185,7 +186,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return outerFunction;
     }
 
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "PMD.CloseResource"})
     private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nonnull final Optional<Tuple> lastPrefixTuple,
@@ -214,13 +215,13 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         return cursor.onNext().thenApply(next -> {
+            cursor.close();
             if (next.hasNext()) {
                 final KeyValue kv = Objects.requireNonNull(next.get());
-                cursor.close();
                 return Optional.of(TupleHelpers.subTuple(indexSubspace.unpack(kv.getKey()), 0, prefixSize));
             }
             return Optional.empty();
-        } );
+        });
     }
 
     @Nonnull

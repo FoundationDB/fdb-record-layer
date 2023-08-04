@@ -1813,6 +1813,7 @@ public class RTree {
         private IntermediateNode parentNode;
         int slotIndexInParent;
 
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
         public Node(@Nonnull final byte[] id, @Nullable final IntermediateNode parentNode, final int slotIndexInParent) {
             this.id = id;
             this.parentNode = parentNode;
@@ -1820,6 +1821,7 @@ public class RTree {
         }
 
         @Nonnull
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
         public byte[] getId() {
             return id;
         }
@@ -2126,6 +2128,7 @@ public class RTree {
         @Nonnull
         private Rectangle mbr;
 
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
         public ChildSlot(@Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
                          @Nonnull final byte[] childId, @Nonnull final Rectangle mbr) {
             super(largestHilbertValue, largestKey);
@@ -2134,6 +2137,7 @@ public class RTree {
         }
 
         @Nonnull
+        @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
         public byte[] getChildId() {
             return childId;
         }
@@ -2341,6 +2345,7 @@ public class RTree {
         }
 
         @Nonnull
+        @Override
         public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
                                                  @Nonnull final byte[] nodeId) {
             return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithSubspace(nodeId)),
@@ -2503,6 +2508,7 @@ public class RTree {
         }
 
         @Nonnull
+        @Override
         public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
                                                  @Nonnull final byte[] nodeId) {
             return transaction.get(packWithSubspace(nodeId))

@@ -184,14 +184,14 @@ public class TupleRange {
     }
 
     /**
-     * Create a {@link TupleRange} over a prefix of the keys of this range.
-     * For example, if this range is over all {@link Tuple}s from <code>("a", 3)</code> exclusive to
-     * <code>("b", 4)</code> inclusive and one calls this method with {@code prefixCount} of {@code 1}, this will create
-     * a range from <code>("a")</code> inclusive to <code>("b")</code> inclusive. Note that the newly returned
-     * {@link TupleRange} is guaranteed to encompass the old range.
+     * Create a {@link TupleRange} over a prefix of the keys of this range. For example, if this range is over all
+     * {@link Tuple}s from <code>("a", 3)</code> exclusive to <code>("b", 4)</code> inclusive and one calls this method
+     * with {@code prefixCount} of {@code 1}, this will create a range from <code>("a")</code> inclusive to
+     * <code>("b")</code> inclusive. Note that the newly returned {@link TupleRange} is guaranteed to encompass
+     * the old range.
      *
      * @param prefixCount the number of prefix parts to consider
-     * @return a new {@link TupleRange} of a prefix of {@coe predixCount} parts of this tuple range
+     * @return a new {@link TupleRange} of a prefix of {@code predixCount} parts of this tuple range
      */
     @Nonnull
     public TupleRange prefix(final int prefixCount) {
