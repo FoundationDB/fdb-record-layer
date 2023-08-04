@@ -195,13 +195,15 @@ public class IndexOptions {
     public static final String RTREE_SPLIT_S = "rtreeSplitS";
 
     /**
-     * The R-tree storage format.
+     * The R-tree storage format. Available options are {@code BY_SLOT}
+     * (see {@link com.apple.foundationdb.async.RTree.Storage#BY_SLOT}) and {@code BY_NODE}
+     * (see {@link com.apple.foundationdb.async.RTree.Storage#BY_NODE}).
      */
     public static final String RTREE_STORAGE = "rtreeStorage";
 
     /**
      * Option to indicate whether the tree stores Hilbert values of objects together with the point or not. Hilbert
-     * values can always be recomputed, however, recomputing them may be expensive.
+     * values can always be recomputed, however, recomputing them incurs a CPU cost.
      */
     public static final String RTREE_STORE_HILBERT_VALUES = "rtreeStoreHilbertValues";
 

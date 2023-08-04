@@ -741,6 +741,20 @@ public class StoreTimer {
      *
      * @param event the event type to use to record timing
      * @param future a future that will complete when the operation is finished
+     * @param <T> the type of the future
+     *
+     * @return a new future that will be complete after also recording timing information
+     */
+    public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future) {
+        // TODO remove executor form the API as it is not needed
+        return instrument(event, future, null);
+    }
+
+    /**
+     * Add timing instrumentation to an asynchronous operation.
+     *
+     * @param event the event type to use to record timing
+     * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
      *
@@ -751,7 +765,7 @@ public class StoreTimer {
             record(event, 0);
             return future;
         }
-        return instrumentAsync(Collections.singleton(event), future, executor, System.nanoTime());
+        return instrumentAsync(Collections.singleton(event), future, System.nanoTime());
     }
 
     /**
@@ -771,7 +785,7 @@ public class StoreTimer {
             }
             return future;
         }
-        return instrumentAsync(events, future, executor, System.nanoTime());
+        return instrumentAsync(events, future, System.nanoTime());
     }
 
     /**
@@ -790,7 +804,7 @@ public class StoreTimer {
             record(event, System.nanoTime() - startTime);
             return future;
         }
-        return instrumentAsync(Collections.singleton(event), future, executor, startTime);
+        return instrumentAsync(Collections.singleton(event), future, startTime);
     }
 
     /**
@@ -812,7 +826,7 @@ public class StoreTimer {
             }
             return future;
         }
-        return instrumentAsync(events, future, executor, startTime);
+        return instrumentAsync(events, future, startTime);
     }
 
     /**
@@ -864,7 +878,7 @@ public class StoreTimer {
         };
     }
 
-    protected <T> CompletableFuture<T> instrumentAsync(Set<Event> events, CompletableFuture<T> future, Executor executor, long startTime) {
+    protected <T> CompletableFuture<T> instrumentAsync(Set<Event> events, CompletableFuture<T> future, long startTime) {
         return future.whenComplete((result, exception) -> {
             long timeDifference = System.nanoTime() - startTime;
             for (Event event : events) {

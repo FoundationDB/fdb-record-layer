@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -58,6 +59,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -108,9 +110,15 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
         final ScanProperties innerScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, innerScanProperties);
-
         final Subspace indexSubspace =  getIndexSubspace();
-        return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, mDScanBounds, innerScanProperties),
+        final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
+
+        //
+        // Skip-scan through the prefixes in a way that we only consider each distinct prefix. That skip scan
+        // forms the outer of a join with an inner that searches the R-tree for that prefix using the
+        // spatial predicates of the scan bounds.
+        //
+        return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, mDScanBounds, innerScanProperties),
                         (prefixTuple, innerContinuation) -> {
                             final Subspace rtSubspace;
                             if (prefixTuple != null) {
@@ -125,10 +133,9 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
                             final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
-                            final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
                             final RTree rTree = new RTree(rtSubspace, getExecutor(), config,
                                     RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId,
-                                    RTree.OnWriteListener.NOOP, new OnReadLimiter(cursorLimitManager, timer));
+                                    RTree.OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
                             final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
                                     rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
@@ -153,26 +160,29 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize, final MultidimensionalIndexScanBounds mDScanBounds, final ScanProperties innerScanProperties) {
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        throw new RecordCoreException("index maintainer does not support this scan api");
+    }
+
+    @Nonnull
+    private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
+                                                                 @Nonnull final StoreTimer timer,
+                                                                 @Nonnull final MultidimensionalIndexScanBounds mDScanBounds,
+                                                                 @Nonnull final ScanProperties innerScanProperties) {
         final Function<byte[], RecordCursor<Tuple>> outerFunction;
         if (prefixSize > 0) {
-            outerFunction = outerContinuation -> new ChainedCursor<>(
+            outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN, new ChainedCursor<>(
                     state.context,
                     lastKey -> nextPrefixTuple(mDScanBounds.getPrefixRange(), prefixSize, lastKey, innerScanProperties),
                     Tuple::pack,
                     Tuple::fromBytes,
                     outerContinuation,
-                    innerScanProperties);
+                    innerScanProperties));
         } else {
             outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
         }
         return outerFunction;
-    }
-
-    @Nonnull
-    @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-        throw new RecordCoreException("index maintainer does not support this scan api");
     }
 
     @SuppressWarnings("resource")
@@ -246,7 +256,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             final Function<Void, CompletableFuture<Void>> futureSupplier =
                     ignored -> {
                         final RTree.Point point =
-                                new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize)));
+                                validatePoint(new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize))));
 
                         final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
                         state.index.trimPrimaryKey(primaryKeyParts);
@@ -254,8 +264,9 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                 Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
                         keySuffixParts.addAll(primaryKeyParts);
                         final Tuple keySuffix = Tuple.fromList(keySuffixParts);
+                        final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
                         final RTree rTree = new RTree(rtSubspace, getExecutor(), config, RTreeHilbertCurveHelpers::hilbertValue,
-                                RTree::newRandomNodeId, RTree.OnWriteListener.NOOP, RTree.OnReadListener.NOOP);
+                                RTree::newRandomNodeId, new OnWrite(timer), RTree.OnReadListener.NOOP);
                         if (remove) {
                             return rTree.delete(state.transaction, point, keySuffix);
                         } else {
@@ -275,6 +286,15 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.whenAll(rankFutures.values());
     }
 
+    private RTree.Point validatePoint(@Nonnull RTree.Point point) {
+        for (int d = 0; d < point.getNumDimensions(); d ++) {
+            Object coordinate = point.getCoordinate(d);
+            Preconditions.checkArgument(coordinate == null || coordinate instanceof Long,
+                    "dimension coordinates must be of type long");
+        }
+        return point;
+    }
+
     @Override
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         Verify.verify(getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize() >= prefix.size());
@@ -286,20 +306,35 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    static class OnReadLimiter implements RTree.OnReadListener {
+    static class OnRead implements RTree.OnReadListener {
         @Nonnull
         private final CursorLimitManager cursorLimitManager;
         @Nonnull
         private final FDBStoreTimer timer;
 
-        public OnReadLimiter(@Nonnull final CursorLimitManager cursorLimitManager, @Nonnull final FDBStoreTimer timer) {
+        public OnRead(@Nonnull final CursorLimitManager cursorLimitManager,
+                      @Nonnull final FDBStoreTimer timer) {
             this.cursorLimitManager = cursorLimitManager;
             this.timer = timer;
         }
 
         @Override
-        public void onNodeRead(@Nonnull final RTree.Node node) {
+        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+            return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SCAN, future);
+        }
 
+        @Override
+        public void onNodeRead(@Nonnull final RTree.Node node) {
+            switch (node.getKind()) {
+                case LEAF:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_READS);
+                    break;
+                case INTERMEDIATE:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_INTERMEDIATE_NODE_READS);
+                    break;
+                default:
+                    throw new RecordCoreException("unsupported kind of node");
+            }
         }
 
         @Override
@@ -307,11 +342,78 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             final int keyLength = key == null ? 0 : key.length;
             final int valueLength = value == null ? 0 : value.length;
 
-            cursorLimitManager.reportScannedBytes(keyLength + valueLength);
+            final int totalLength = keyLength + valueLength;
+            cursorLimitManager.reportScannedBytes(totalLength);
             cursorLimitManager.tryRecordScan();
             timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY);
             timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, keyLength);
             timer.increment(FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, valueLength);
+
+            switch (node.getKind()) {
+                case LEAF:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_READ_BYTES, totalLength);
+                    break;
+                case INTERMEDIATE:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_INTERMEDIATE_NODE_READ_BYTES, totalLength);
+                    break;
+                default:
+                    throw new RecordCoreException("unsupported kind of node");
+            }
+        }
+    }
+
+    static class OnWrite implements RTree.OnWriteListener {
+        @Nonnull
+        private final FDBStoreTimer timer;
+
+        public OnWrite(@Nonnull final FDBStoreTimer timer) {
+            this.timer = timer;
+        }
+
+        @Override
+        public <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
+            return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_MODIFICATION, future);
+        }
+
+        @Override
+        public void onNodeWritten(@Nonnull final RTree.Node node) {
+            switch (node.getKind()) {
+                case LEAF:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_WRITES);
+                    break;
+                case INTERMEDIATE:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES);
+                    break;
+                default:
+                    throw new RecordCoreException("unsupported kind of node");
+            }
+        }
+
+        @Override
+        public void onKeyValueWritten(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+            final int keyLength = key == null ? 0 : key.length;
+            final int valueLength = value == null ? 0 : value.length;
+
+            final int totalLength = keyLength + valueLength;
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, keyLength);
+            timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, valueLength);
+
+            switch (node.getKind()) {
+                case LEAF:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_WRITE_BYTES, totalLength);
+                    break;
+                case INTERMEDIATE:
+                    timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES, totalLength);
+                    break;
+                default:
+                    throw new RecordCoreException("unsupported kind of node");
+            }
+        }
+
+        @Override
+        public void onNodeCleared(@Nonnull final RTree.Node node) {
+
         }
     }
 

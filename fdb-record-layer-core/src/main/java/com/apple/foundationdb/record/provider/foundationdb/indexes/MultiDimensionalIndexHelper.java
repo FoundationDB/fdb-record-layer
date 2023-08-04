@@ -68,12 +68,12 @@ public class MultiDimensionalIndexHelper {
     }
 
     /**
-     * Instrumentation events specific to rank index maintenance.
+     * Instrumentation events specific to R-tree index maintenance.
      */
     public enum Events implements StoreTimer.DetailEvent {
-        RANKED_SET_SCORE_FOR_RANK("ranked set score for rank"),
-        RANKED_SET_RANK_FOR_SCORE("ranked set rank for score"),
-        RANKED_SET_UPDATE("ranked set update");
+        MULTIDIMENSIONAL_SCAN("scannig the R-tree of a multidimensional index"),
+        MULTIDIMENSIONAL_SKIP_SCAN("skip scan the prefix tuples of a multidimensional scan"),
+        MULTIDIMENSIONAL_MODIFICATION("modifying the R-tree of a multidimensional index");
 
         private final String title;
         private final String logKey;

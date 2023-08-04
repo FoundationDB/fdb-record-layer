@@ -54,6 +54,13 @@ public class RTreeHilbertCurveHelpers {
                : (coordinate | (1L << 63));
     }
 
+    //
+    // The following code is a modified version of logic out of the class HilbertCurve
+    // at https://github.com/davidmoten/hilbert-curve. That code is open-sourced under the Apache license 2.0
+    // https://github.com/davidmoten/hilbert-curve/blob/master/LICENSE. The code has been adapted to compute
+    // unique Hilbert values for all Java long coordinates in an n-dimensional space. (-2^63 ... 2^63 - 1).
+    //
+
     private static BigInteger toIndex(int numBits, long... transposedIndexes) {
         int length = numBits * transposedIndexes.length;
         byte[] b = new byte[length / 8 + 1];

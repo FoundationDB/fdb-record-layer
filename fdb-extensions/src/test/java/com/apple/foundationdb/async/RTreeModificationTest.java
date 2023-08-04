@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -49,7 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * Tests for {@link RTree}.
+ * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {
@@ -83,9 +82,9 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10, 100, 1000, 10_000})
-    public void testAllDeleted(final int numSamples) {
-        final Item[] items = randomInserts(db, rtSubspace, numSamples);
+    @MethodSource("numSamplesAndSeeds")
+    public void testAllDeleted(final long seed, final int numSamples) {
+        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
@@ -129,8 +128,8 @@ public class RTreeModificationTest extends FDBTestBase {
 
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
-    public void testRandomDeletes(final int numSamples, final int numDeletes) {
-        final Item[] items = randomInserts(db, rtSubspace, numSamples);
+    public void testRandomDeletes(final long seed, final int numSamples, final int numDeletes) {
+        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
@@ -170,19 +169,30 @@ public class RTreeModificationTest extends FDBTestBase {
     // Helpers
     //
 
-    public static Stream<Arguments> numSamplesAndNumDeletes() {
-        final Random random = new Random(1);
+    public static Stream<Arguments> numSamplesAndSeeds() {
+        final Random random = new Random(System.currentTimeMillis());
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
         for (int i = 0; i < NUM_TEST_RUNS; i ++) {
-            final int numSamples = random.nextInt(NUM_SAMPLES + 1);
-            final int numDeletes = random.nextInt(numSamples + 1);
-            argumentsBuilder.add(Arguments.of(numSamples, numDeletes));
+            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
+            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
         }
         return argumentsBuilder.build().stream();
     }
 
-    static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
-        final Random random = new Random(0);
+    public static Stream<Arguments> numSamplesAndNumDeletes() {
+        final Random random = new Random(System.currentTimeMillis());
+        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
+        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
+            final int numSamples = random.nextInt(NUM_SAMPLES + 1);
+            final int numDeletes = random.nextInt(numSamples + 1);
+            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples, numDeletes));
+        }
+        return argumentsBuilder.build().stream();
+    }
+
+    static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                final long seed, final int numSamples) {
+        final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
             final RTree.Point point = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
@@ -193,8 +203,9 @@ public class RTreeModificationTest extends FDBTestBase {
         return items;
     }
 
-    static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
-        final Random random = new Random(0);
+    static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                         final long seed, int numSamples) {
+        final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
             final Long x = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
@@ -208,9 +219,10 @@ public class RTreeModificationTest extends FDBTestBase {
         return items;
     }
 
-    static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
+    static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                    final long seed, int numSamples) {
         final int smear = 100;
-        final Random random = new Random(0);
+        final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
 
         final double step = (double)1000 / numSamples;

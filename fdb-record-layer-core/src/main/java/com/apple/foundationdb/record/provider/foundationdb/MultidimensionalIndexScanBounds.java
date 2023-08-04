@@ -1,5 +1,5 @@
 /*
- * IndexScanRange.java
+ * MultidimensionalIndexScanBounds.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,13 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * {@link IndexScanBounds} for a multidimensional index scan.
+ * {@link IndexScanBounds} for a multidimensional index scan. A multidimensional scan bounds object contains a
+ * {@link #prefixRange} and a {@link SpatialPredicate} which can be almost arbitrarily complex. The prefix range
+ * is a regular tuple range informing the index maintainer how to constrain the search over the non-multidimensional
+ * fields that can be viewed as a prefix whose data is stored in a regular one-dimensional index. The spatial predicate
+ * implements methods to quickly establish geometric overlap and containment. Spatial predicates do have internal
+ * structure as they can delegate to contained other spatial predicates thus allowing to form e.g. logical conjuncts
+ * or disjuncts.
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexScanBounds implements IndexScanBounds {
@@ -68,16 +74,32 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         return spatialPredicate;
     }
 
+    /**
+     * Method to compute if the rectangle handed in overlaps with this scan bounds object. This method is invoked when
+     * the R-tree data structure of a multidimensional index is searched. Note that this method can be implemented using
+     * a best-effort approach as it is permissible to indicate overlap between {@code mbr} and {@code this} when there
+     * is in fact no overlap. The rate of false-positives directly influences the search performance in the
+     * multidimensional index.
+     * @param mbr the minimum-bounding {@link com.apple.foundationdb.async.RTree.Rectangle}
+     * @return {@code true} if {@code this} overlaps with {@code mbr}
+     */
     public boolean overlapsMbr(@Nonnull RTree.Rectangle mbr) {
         return spatialPredicate.overlapsMbr(mbr);
     }
 
+    /**
+     * Method to compute if the point handed in is contained by this scan bounds object.
+     * @param position the {@link com.apple.foundationdb.async.RTree.Point}
+     * @return {@code true} if {@code position} is contained by {@code this}
+     */
     public boolean containsPosition(@Nonnull RTree.Point position) {
         return spatialPredicate.containsPosition(position);
     }
 
     /**
-     * Spatial predicate.
+     * Spatial predicate. The implementing classes form a boolean algebra of sorts. Most notably {@link Hypercube}
+     * represents the logical variables, while {@link And} and {@link Or} can be used to build up more complex powerful
+     * bounds.
      */
     public interface SpatialPredicate {
         SpatialPredicate TAUTOLOGY = new SpatialPredicate() {

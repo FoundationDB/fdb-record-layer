@@ -34,6 +34,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Streams;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -52,13 +53,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
- * Tests for {@link RTree}.
+ * Tests for scanning {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeScanTest extends FDBTestBase {
@@ -88,7 +90,9 @@ public class RTreeScanTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSubspace.getKey()));
             return null;
         });
-        items = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, NUM_SAMPLES);
+        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, 0L, NUM_SAMPLES / 2);
+        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rtSubspace, 0L, NUM_SAMPLES / 2);
+        items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
     @AfterAll
@@ -331,6 +335,11 @@ public class RTreeScanTest extends FDBTestBase {
             logger.info("num read nodes = {}", readNodesCounter.get());
             logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
             logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
+        }
+
+        @Override
+        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+            return future;
         }
 
         @Override

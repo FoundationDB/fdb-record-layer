@@ -208,6 +208,10 @@ public class RTree {
     private final Function<Point, BigInteger> hilbertValueFunction;
     @Nonnull
     private final Supplier<byte[]> nodeIdSupplier;
+    @Nonnull
+    private final OnWriteListener onWriteListener;
+    @Nonnull
+    private final OnReadListener onReadListener;
 
     /**
      * Only used for debugging to keep node ids readable.
@@ -223,7 +227,7 @@ public class RTree {
          */
         BY_SLOT(BySlotStorageAdapter::new),
         /**
-         * Every node with all its slots is represented as one key/value pair.
+         * Every node with all its slots is serialized as one key/value pair.
          */
         BY_NODE(ByNodeStorageAdapter::new);
 
@@ -425,6 +429,8 @@ public class RTree {
         this.config = config;
         this.hilbertValueFunction = hilbertValueFunction;
         this.nodeIdSupplier = nodeIdSupplier;
+        this.onWriteListener = onWriteListener;
+        this.onReadListener = onReadListener;
     }
 
     /**
@@ -528,7 +534,7 @@ public class RTree {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
         final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> fetchNode(readTransaction, currentId.get())
+        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(fetchNode(readTransaction, currentId.get()))
                 .thenApply(node -> {
                     if (node.getKind() == Kind.INTERMEDIATE) {
                         final List<ChildSlot> childSlots = ((IntermediateNode)node).getSlots();
@@ -1322,7 +1328,7 @@ public class RTree {
         final AtomicInteger slotInParent = new AtomicInteger(-1);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> fetchNode(transaction, currentId.get())
+        return AsyncUtil.whileTrue(() -> onWriteListener.onAsyncReadForWrite(fetchNode(transaction, currentId.get()))
                         .thenApply(node -> {
                             if (parentNode.get() != null) {
                                 node.linkToParent(parentNode.get(), slotInParent.get());
@@ -1341,7 +1347,7 @@ public class RTree {
                                 return false;
                             }
                         }), executor)
-                .thenApply(vignore -> {
+                .thenApply(ignored -> {
                     final LeafNode node = leafNode.get();
                     if (logger.isTraceEnabled()) {
                         logger.trace("update path; path={}", nodeIdPath(node));
@@ -1412,10 +1418,11 @@ public class RTree {
 
                 final int slotIndex = minSibling + index;
                 if (slotIndex != slotIndexInParent) {
-                    working.add(fetchNode(transaction, currentId).thenAccept(siblingNode -> {
-                        siblingNode.linkToParent(parentNode, slotIndex);
-                        siblings[index] = siblingNode;
-                    }));
+                    working.add(onWriteListener.onAsyncReadForWrite(fetchNode(transaction, currentId))
+                            .thenAccept(siblingNode -> {
+                                siblingNode.linkToParent(parentNode, slotIndex);
+                                siblings[index] = siblingNode;
+                            }));
                 } else {
                     // put node in the list of siblings -- even though node is strictly speaking not a sibling of itself
                     siblings[index] = node;
@@ -1458,7 +1465,7 @@ public class RTree {
                     break;
                 }
 
-                working.add(fetchNode(transaction, currentParentNodeAndChildId.getChildId()).thenApply(childNode -> {
+                working.add(onReadListener.onAsyncRead(fetchNode(transaction, currentParentNodeAndChildId.getChildId())).thenApply(childNode -> {
                     BigInteger lastHilbertValue = null;
                     Tuple lastKey = null;
 
@@ -2187,7 +2194,7 @@ public class RTree {
     }
 
     /**
-     * Storage adapter used for serialization and deserialization.
+     * Storage adapter used for serialization and deserialization of nodes.
      */
     public interface StorageAdapter {
 
@@ -2309,6 +2316,7 @@ public class RTree {
             final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
             final byte[] packedValue = nodeSlot.getSlotValue().pack();
             transaction.set(packedKey, packedValue);
+            onWriteListener.onKeyValueWritten(node, packedKey, packedValue);
         }
 
         @Override
@@ -2317,6 +2325,7 @@ public class RTree {
             keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(storeHilbertValues));
             final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
             transaction.clear(packedKey);
+            onWriteListener.onNodeCleared(node);
         }
 
         @Override
@@ -2327,6 +2336,7 @@ public class RTree {
                 for (final NodeSlot nodeSlot : node.getSlots()) {
                     writeNodeSlot(transaction, node, nodeSlot);
                 }
+                onWriteListener.onNodeWritten(node);
             }
         }
 
@@ -2398,7 +2408,7 @@ public class RTree {
                     !storeHilbertValues) {
                 //
                 // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
-                // the Hilbert value.
+                // the Hilbert value as fdb does the sorting for us.
                 //
                 itemSlots.sort(comparator);
             }
@@ -3072,13 +3082,38 @@ public class RTree {
     /**
      * Function interface for a call back whenever we read the slots for a node.
      */
-    @FunctionalInterface
     public interface OnWriteListener {
-        OnWriteListener NOOP = (nodeId, nodeKind, keyValues) -> { };
+        OnWriteListener NOOP = new OnWriteListener() {
+            @Override
+            public <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
+                return future;
+            }
 
-        void onWrite(@Nonnull Node node,
-                     @Nonnull Tuple key,
-                     @Nonnull Tuple value);
+            @Override
+            public void onNodeWritten(@Nonnull final Node node) {
+                // nothing
+            }
+
+            @Override
+            public void onKeyValueWritten(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+                // nothing
+            }
+
+            @Override
+            public void onNodeCleared(@Nonnull final Node node) {
+                // nothing
+            }
+        };
+
+        <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull CompletableFuture<T> future);
+
+        void onNodeWritten(@Nonnull Node node);
+
+        void onKeyValueWritten(@Nonnull Node node,
+                               @Nullable byte[] key,
+                               @Nullable byte[] value);
+
+        void onNodeCleared(@Nonnull Node node);
     }
 
     /**
@@ -3086,6 +3121,11 @@ public class RTree {
      */
     public interface OnReadListener {
         OnReadListener NOOP = new OnReadListener() {
+            @Override
+            public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+                return future;
+            }
+
             @Override
             public void onNodeRead(@Nonnull final Node node) {
                 // nothing
@@ -3096,6 +3136,8 @@ public class RTree {
                 // nothing
             }
         };
+
+        <T> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future);
 
         void onNodeRead(@Nonnull Node node);
 
