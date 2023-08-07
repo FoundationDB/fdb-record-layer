@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths;
 import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan.computeTrieForFieldPaths;
@@ -83,12 +84,18 @@ public class ReplaceValue extends AbstractValue {
         return MessageHelpers.transformMessage(store,
                 context,
                 transformationsTrie,
-                null, // source and destination are always oft the same type
+                null, // source and destination are always of the same type
                 child.getResultType(),
                 inRecord.getDescriptorForType(),
                 child.getResultType(),
                 inRecord.getDescriptorForType(),
                 inRecord);
+    }
+
+    public String toString() {
+        final var str = new StringBuilder("Replace(");
+        str.append("[").append(transformMap.keySet().stream().map(FieldValue.FieldPath::toString).collect(Collectors.joining(", "))).append("] ");
+        return str.toString();
     }
 
     @Override
