@@ -17,7 +17,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 * **Bug fix** COALESCE does not work with non-scalar types [(Issue #2242)](https://github.com/FoundationDB/fdb-record-layer/issues/2242)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Change log level of "found lucene analyzer" to debug [(Issue #2250)](https://github.com/FoundationDB/fdb-record-layer/issues/2250)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
