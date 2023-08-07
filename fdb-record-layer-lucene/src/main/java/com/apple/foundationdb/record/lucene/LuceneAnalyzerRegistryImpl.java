@@ -66,8 +66,8 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
                             LuceneLogMessageKeys.ANALYZER_TYPE, type.name()));
                 }
             } else {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("found lucene analyzer",
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(KeyValueLogMessage.of("found lucene analyzer",
                             LuceneLogMessageKeys.ANALYZER_NAME, name,
                             LuceneLogMessageKeys.ANALYZER_TYPE, type.name()));
                 }
