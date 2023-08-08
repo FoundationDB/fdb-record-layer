@@ -126,7 +126,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final Supplier<Integer> planHashForContinuationSupplier;
     @Nonnull
     private final Supplier<Integer> planHashForWithoutLiteralsSupplier;
-    private final boolean dryRun;
+    private boolean dryRun;
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
@@ -134,8 +134,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                       @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                       @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
-                                                      @Nonnull final Value computationValue,
-                                                      boolean dryRun) {
+                                                      @Nonnull final Value computationValue) {
         this.inner = inner;
         this.innerFlowedType = inner.getFlowedObjectType();
         this.targetRecordType = targetRecordType;
@@ -150,7 +149,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
         this.planHashForWithoutLiteralsSupplier = Suppliers.memoize(this::computeRegularPlanHashWithoutLiterals);
-        this.dryRun = dryRun;
+        this.dryRun = false;
     }
 
     @Nonnull
@@ -195,6 +194,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        dryRun = executeProperties.getDryRun();
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 

@@ -67,7 +67,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue, false);
+        super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue);
     }
 
     @Override

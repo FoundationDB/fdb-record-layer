@@ -83,14 +83,12 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
 
     @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-    private final boolean dryRun;
 
     public UpdateExpression(@Nonnull final Quantifier.ForEach inner,
                             @Nonnull final String targetRecordType,
                             @Nonnull final Type.Record targetType,
                             @Nonnull final Descriptors.Descriptor targetDescriptor,
-                            @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                            final boolean dryRun) {
+                            @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
@@ -99,7 +97,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         this.transformMap = ImmutableMap.copyOf(transformMap);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
-        this.dryRun = dryRun;
     }
 
     @Nonnull
@@ -139,7 +136,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         for (final var entry : transformMap.entrySet()) {
             translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
         }
-        return new UpdateExpression(inner, targetRecordType, targetType, targetDescriptor, translatedTransformMapBuilder.build(), dryRun);
+        return new UpdateExpression(inner, targetRecordType, targetType, targetDescriptor, translatedTransformMapBuilder.build());
     }
 
     @Nonnull
@@ -156,8 +153,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
                 targetType,
                 targetDescriptor,
                 transformMap,
-                makeComputationValue(physicalInner, targetType),
-                dryRun);
+                makeComputationValue(physicalInner, targetType));
     }
 
     @Override

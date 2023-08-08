@@ -76,9 +76,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final TransformationTrieNode transformationsTrie,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
-                                  @Nonnull final Value computationValue,
-                                  boolean dryRun) {
-        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue, dryRun);
+                                  @Nonnull final Value computationValue) {
+        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
     }
 
     @Override
@@ -107,8 +106,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetDescriptor(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap),
-                isDryRun());
+                getComputationValue().translateCorrelations(translationMap));
     }
 
     @Nullable
@@ -146,8 +144,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetDescriptor(),
                 getTransformationsTrie(),
                 getCoercionTrie(),
-                getComputationValue(),
-                isDryRun());
+                getComputationValue());
     }
 
     @Override
@@ -222,8 +219,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                                                    @Nonnull final Type.Record targetType,
                                                    @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                    @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                   @Nonnull final Value computationValue,
-                                                   boolean dryRun) {
+                                                   @Nonnull final Value computationValue) {
         final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
                 targetRecordType,
@@ -231,8 +227,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 targetDescriptor,
                 transformationsTrie,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
-                computationValue,
-                dryRun);
+                computationValue);
     }
 
     @Nonnull
