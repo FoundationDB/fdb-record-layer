@@ -41,10 +41,15 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void standardTestsWithProto() throws Exception {
         doRun("standard-tests-proto.yaml");
     }
-
+    
     @Test
     public void standardTestsWithMetaData() throws Exception {
         doRun("standard-tests-metadata.yaml");
+    }
+
+    @Test
+    public void nullOperator() throws Exception {
+        doRun("null-operator-tests.yaml");
     }
 
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
