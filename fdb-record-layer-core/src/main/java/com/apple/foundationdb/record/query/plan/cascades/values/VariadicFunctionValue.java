@@ -161,8 +161,7 @@ public class VariadicFunctionValue extends AbstractValue {
         }
 
         final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of((((ComparisonFn)builtInFunction).getComparisonFunction()), resultType.getTypeCode()));
-
-        Verify.verifyNotNull(physicalOperator, "unable to encapsulate scalar function due to type mismatch(es)");
+        SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
         final ImmutableList.Builder<Value> promotedArgs = ImmutableList.builder();
         for (final var arg: arguments) {
