@@ -91,7 +91,7 @@ public class IndexingThrottle {
         private long forcedDelayTimestampMilliSeconds = 0;
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
         private long consecutiveFailureCount = 0;
-        private StoreTimerSnapshot lastFailureSnapshot = null;
+        private StoreTimerSnapshot storeTimerSnapshot = null;
 
 
         Booker(@Nonnull IndexingCommon common) {
@@ -171,7 +171,7 @@ public class IndexingThrottle {
                 if (additionalLogMessageKeyValues != null) {
                     message.addKeysAndValues(additionalLogMessageKeyValues);
                 }
-                addStoreTimerAtFailure(message);
+                addStoreTimerAtFailureAndReset(message);
                 LOGGER.info(message.toString(), fdbException);
             }
         }
@@ -266,12 +266,19 @@ public class IndexingThrottle {
             }
         }
 
-        private void addStoreTimerAtFailure(KeyValueLogMessage message) {
+        private void addStoreTimerAtFailureAndReset(KeyValueLogMessage message) {
             final FDBStoreTimer timer = common.getRunner().getTimer();
             if (timer != null) {
-                StoreTimer metricsDiff = lastFailureSnapshot == null ? timer : StoreTimer.getDifference(timer, lastFailureSnapshot);
-                lastFailureSnapshot = StoreTimerSnapshot.from(timer);
+                StoreTimer metricsDiff = storeTimerSnapshot == null ? timer : StoreTimer.getDifference(timer, storeTimerSnapshot);
+                storeTimerSnapshot = StoreTimerSnapshot.from(timer);
                 message.addKeysAndValues(metricsDiff.getKeysAndValues());
+            }
+        }
+
+        private void resetStoreTimerSnapshot() {
+            final FDBStoreTimer timer = common.getRunner().getTimer();
+            if (timer != null) {
+                storeTimerSnapshot = StoreTimerSnapshot.from(timer);
             }
         }
     }
@@ -325,6 +332,7 @@ public class IndexingThrottle {
             loadConfig();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
+                booker.resetStoreTimerSnapshot();
                 return buildFunction.apply(store, recordsScanned);
             }), (result, exception) -> {
                 booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
@@ -358,7 +366,7 @@ public class IndexingThrottle {
                                     LogMessageKeys.DELAY, delay.getNextDelayMillis())
                             .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
                             .addKeysAndValues(logMessageKeyValues());
-                    booker.addStoreTimerAtFailure(message);
+                    booker.addStoreTimerAtFailureAndReset(message);
                     LOGGER.warn(message.toString(), e);
                 }
                 CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
