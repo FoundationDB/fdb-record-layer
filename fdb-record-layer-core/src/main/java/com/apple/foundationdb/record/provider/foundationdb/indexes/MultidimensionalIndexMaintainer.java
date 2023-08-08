@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -54,8 +55,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -81,7 +82,6 @@ import java.util.function.Function;
 /**
  * An index maintainer for keeping a {@link com.apple.foundationdb.async.RTree}.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     private final RTree.Config config;
@@ -138,7 +138,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTree.OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
                             final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                                    rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbr),
+                                    rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbrApproximately),
                                     cursorLimitManager, timer);
                             return itemSlotCursor
                                     .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
@@ -173,13 +173,14 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                                                  @Nonnull final ScanProperties innerScanProperties) {
         final Function<byte[], RecordCursor<Tuple>> outerFunction;
         if (prefixSize > 0) {
-            outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN, new ChainedCursor<>(
-                    state.context,
-                    lastKey -> nextPrefixTuple(mDScanBounds.getPrefixRange(), prefixSize, lastKey, innerScanProperties),
-                    Tuple::pack,
-                    Tuple::fromBytes,
-                    outerContinuation,
-                    innerScanProperties));
+            outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
+                    new ChainedCursor<>(state.context,
+                            lastKeyOptional -> nextPrefixTuple(mDScanBounds.getPrefixRange(),
+                                    prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
+                            Tuple::pack,
+                            Tuple::fromBytes,
+                            outerContinuation,
+                            innerScanProperties));
         } else {
             outerFunction = outerContinuation -> RecordCursor.fromFuture(CompletableFuture.completedFuture(null));
         }
@@ -189,11 +190,11 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings({"resource", "PMD.CloseResource"})
     private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
                                                                final int prefixSize,
-                                                               @Nonnull final Optional<Tuple> lastPrefixTuple,
+                                                               @Nullable final Tuple lastPrefixTuple,
                                                                @Nonnull final ScanProperties scanProperties) {
         final Subspace indexSubspace = getIndexSubspace();
         final KeyValueCursor cursor;
-        if (lastPrefixTuple.isEmpty()) {
+        if (lastPrefixTuple == null) {
             cursor = KeyValueCursor.Builder.withSubspace(indexSubspace)
                     .setContext(state.context)
                     .setRange(prefixRange)
@@ -209,7 +210,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     .setScanProperties(scanProperties.setStreamingMode(CursorStreamingMode.ITERATOR)
                             .with(innerExecuteProperties -> innerExecuteProperties.setReturnedRowLimit(1)));
 
-            cursor = builder.setLow(indexSubspace.pack(lastPrefixTuple.get()), EndpointType.RANGE_EXCLUSIVE)
+            cursor = builder.setLow(indexSubspace.pack(lastPrefixTuple), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(prefixRange.getHigh(), prefixRange.getHighEndpoint())
                     .build();
         }
@@ -297,14 +298,17 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
+    public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+        if (!super.canDeleteWhere(matcher, evaluated)) {
+            return false;
+        }
+        return evaluated.size() <= getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize();
+    }
+
+    @Override
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         Verify.verify(getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize() >= prefix.size());
-        return super.deleteWhere(tr, prefix).thenApply(v -> {
-            final Subspace indexSubspace = getIndexSubspace();
-            final byte[] key = indexSubspace.pack(prefix);
-            tr.clear(key, ByteArrayUtil.strinc(key));
-            return v;
-        });
+        return super.deleteWhere(tr, prefix);
     }
 
     static class OnRead implements RTree.OnReadListener {

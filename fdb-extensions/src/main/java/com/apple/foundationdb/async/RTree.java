@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,16 +112,16 @@ import java.util.stream.Collectors;
  * Another variant (the one we implement here) is a Hilbert R-tree. See
  * <a href="https://www.vldb.org/conf/1994/P500.PDF">Hilbert R-tree</a> for details. In short, the Hilbert R-tree,
  * in addition to being a regular R-tree, also utilizes the Hilbert value
- * (<a href="https://github.com/davidmoten/hilbert-curve">Hilbert value</a>) of the center of an mbr of an object
- * (or the point itself if the object is a point) to establish an ordering among objects and nodes stored in the tree.
- * All traversals of the tree return objects in Hilbert Value order. The Hilbert value usually is a {@link BigInteger}
- * that can be encoded into the continuation of a query thus overcoming the fundamental problems plaguing other
- * variants of the R-trees as mentioned above. In addition to a stable and logical traversal order, the Hilbert
- * value is used to naturally cluster the tree as similar values in Hilbert space map to nearby points in N-dimensional
- * Euclidean space. Lastly, the Hilbert value is also used to avoid eager node-splitting during insertions as well as
- * eager node-fusing during deletions as it defines a natural order between siblings. A node can <em>transfer</em> empty
- * slots from their siblings (for insertions) or children (for deletions). In this way the tree is packed more tightly
- * and costly re-balancing can be avoided while we still do not have to resort to re-insertions of overflowing children.
+ * (see {@link RTreeHilbertCurveHelpers}) of the center of an mbr of an object (or the point itself if the object is a
+ * point) to establish an ordering among objects and nodes stored in the tree. All traversals of the tree return objects
+ * in Hilbert Value order. The Hilbert value usually is a {@link BigInteger} that can be encoded into the continuation
+ * of a query thus overcoming the fundamental problems plaguing other variants of the R-trees as mentioned above. In
+ * addition to a stable and logical traversal order, the Hilbert value is used to naturally cluster the tree as similar
+ * values in Hilbert space map to nearby points in N-dimensional Euclidean space. Lastly, the Hilbert value is also used
+ * to avoid eager node-splitting during insertions as well as eager node-fusing during deletions as it defines a natural
+ * order between siblings. A node can <em>transfer</em> empty slots from their siblings (for insertions) or children
+ * (for deletions). In this way the tree is packed more tightly and costly re-balancing can be avoided while we still
+ * do not have to resort to re-insertions of overflowing children.
  * <br>
  * Clustering based on the Hilbert value has been proven to be superior compared to R-trees, R+-trees, and R*-trees.
  * A disadvantage of a Hilbert R-tree is the definition of the canvas the Hilbert curve is defined over. While there
@@ -179,7 +179,7 @@ public class RTree {
 
     /**
      * Default storage layout. Can be either {@code BY_SLOT} or {@code BY_NODE}. {@code BY_SLOT} encodes all information
-     * pertaining to a {@link NodeSlot} as one key/value pair in the database, {@code BY_NODE} encodes all information
+     * pertaining to a {@link NodeSlot} as one key/value pair in the database; {@code BY_NODE} encodes all information
      * pertaining to a {@link Node} as one key/value pair in the database. While {@code BY_SLOT} avoids conflicts as
      * most inserts/updates only need to update one slot, it is by far less compact as some information is stored
      * in a normalized fashion and therefore repeated multiple times (i.e. node identifiers, etc.). {@code BY_NODE}

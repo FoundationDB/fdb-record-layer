@@ -22,18 +22,14 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.RTree;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -83,8 +79,8 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * @param mbr the minimum-bounding {@link com.apple.foundationdb.async.RTree.Rectangle}
      * @return {@code true} if {@code this} overlaps with {@code mbr}
      */
-    public boolean overlapsMbr(@Nonnull RTree.Rectangle mbr) {
-        return spatialPredicate.overlapsMbr(mbr);
+    public boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr) {
+        return spatialPredicate.overlapsMbrApproximately(mbr);
     }
 
     /**
@@ -104,7 +100,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     public interface SpatialPredicate {
         SpatialPredicate TAUTOLOGY = new SpatialPredicate() {
             @Override
-            public boolean overlapsMbr(@Nonnull final RTree.Rectangle mbr) {
+            public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
                 return true;
             }
 
@@ -114,7 +110,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
             }
         };
 
-        boolean overlapsMbr(@Nonnull RTree.Rectangle mbr);
+        boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr);
 
         boolean containsPosition(@Nonnull RTree.Point position);
     }
@@ -131,9 +127,9 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         }
 
         @Override
-        public boolean overlapsMbr(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
             return children.stream()
-                    .anyMatch(child -> child.overlapsMbr(mbr));
+                    .anyMatch(child -> child.overlapsMbrApproximately(mbr));
         }
 
         @Override
@@ -160,9 +156,9 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         }
 
         @Override
-        public boolean overlapsMbr(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
             return children.stream()
-                    .allMatch(child -> child.overlapsMbr(mbr));
+                    .allMatch(child -> child.overlapsMbrApproximately(mbr));
         }
 
         @Override
@@ -189,57 +185,15 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         }
 
         @Override
-        public boolean overlapsMbr(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
             Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
 
             for (int d = 0; d < mbr.getNumDimensions(); d++) {
                 final Tuple lowTuple = Tuple.from(mbr.getLow(d));
                 final Tuple highTuple = Tuple.from(mbr.getHigh(d));
-
                 final TupleRange dimensionRange = dimensionRanges.get(d);
-
-                switch (dimensionRange.getLowEndpoint()) {
-                    case TREE_START:
-                        break;
-                    case RANGE_INCLUSIVE:
-                    case RANGE_EXCLUSIVE:
-                        final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
-                        if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                                TupleHelpers.compare(highTuple, dimensionLow) < 0) {
-                            return false;
-                        }
-                        if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                                TupleHelpers.compare(highTuple, dimensionLow) <= 0) {
-                            return false;
-                        }
-                        break;
-                    case TREE_END:
-                    case CONTINUATION:
-                    case PREFIX_STRING:
-                    default:
-                        throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
-                }
-
-                switch (dimensionRange.getHighEndpoint()) {
-                    case TREE_END:
-                        break;
-                    case RANGE_INCLUSIVE:
-                    case RANGE_EXCLUSIVE:
-                        final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
-                        if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                                TupleHelpers.compare(lowTuple, dimensionHigh) > 0) {
-                            return false;
-                        }
-                        if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                                TupleHelpers.compare(highTuple, dimensionHigh) >= 0) {
-                            return false;
-                        }
-                        break;
-                    case TREE_START:
-                    case CONTINUATION:
-                    case PREFIX_STRING:
-                    default:
-                        throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
+                if (!dimensionRange.overlaps(lowTuple, highTuple)) {
+                    return false;
                 }
             }
             return true;
@@ -251,51 +205,9 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
 
             for (int d = 0; d < position.getNumDimensions(); d++) {
                 final Tuple coordinate = Tuple.from(position.getCoordinate(d));
-
                 final TupleRange dimensionRange = dimensionRanges.get(d);
-
-                switch (dimensionRange.getLowEndpoint()) {
-                    case TREE_START:
-                        break;
-                    case RANGE_INCLUSIVE:
-                    case RANGE_EXCLUSIVE:
-                        final Tuple dimensionLow = Objects.requireNonNull(dimensionRange.getLow());
-                        if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                                TupleHelpers.compare(coordinate, dimensionLow) < 0) {
-                            return false;
-                        }
-                        if (dimensionRange.getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                                TupleHelpers.compare(coordinate, dimensionLow) <= 0) {
-                            return false;
-                        }
-                        break;
-                    case TREE_END:
-                    case CONTINUATION:
-                    case PREFIX_STRING:
-                    default:
-                        throw new RecordCoreException("do not support endpoint " + dimensionRange.getLowEndpoint());
-                }
-
-                switch (dimensionRange.getHighEndpoint()) {
-                    case TREE_END:
-                        break;
-                    case RANGE_INCLUSIVE:
-                    case RANGE_EXCLUSIVE:
-                        final Tuple dimensionHigh = Objects.requireNonNull(dimensionRange.getHigh());
-                        if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                                TupleHelpers.compare(coordinate, dimensionHigh) > 0) {
-                            return false;
-                        }
-                        if (dimensionRange.getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                                TupleHelpers.compare(coordinate, dimensionHigh) >= 0) {
-                            return false;
-                        }
-                        break;
-                    case TREE_START:
-                    case CONTINUATION:
-                    case PREFIX_STRING:
-                    default:
-                        throw new RecordCoreException("do not support endpoint " + dimensionRange.getHighEndpoint());
+                if (!dimensionRange.contains(coordinate)) {
+                    return false;
                 }
             }
             return true;

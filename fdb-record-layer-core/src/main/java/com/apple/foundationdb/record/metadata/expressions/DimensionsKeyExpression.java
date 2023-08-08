@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,6 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     private final int prefixSize;
     private final int dimensionsSize;
 
-
     public DimensionsKeyExpression(@Nonnull final KeyExpression wholeKey,
                                    final int prefixSize,
                                    final int dimensionsSize) {
@@ -89,7 +88,18 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        return getWholeKey().validate(descriptor);
+        if (prefixSize + dimensionsSize > wholeKey.getColumnSize()) {
+            throw new InvalidExpressionException("dimensions declared a prefix size and number of dimensions " +
+                                                 "that are together larger than the number of columns in the index");
+        }
+        final List<Descriptors.FieldDescriptor> fieldDescriptors = getWholeKey().validate(descriptor);
+        for (int i = prefixSize; i < prefixSize + dimensionsSize; i ++) {
+            final Descriptors.FieldDescriptor fieldDescriptor = Objects.requireNonNull(fieldDescriptors.get(i));
+            if (fieldDescriptor.getType() != Descriptors.FieldDescriptor.Type.INT64) {
+                throw new InvalidExpressionException("the declared dimension columns have to be of type INT64");
+            }
+        }
+        return fieldDescriptors;
     }
 
     @Override
