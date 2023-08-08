@@ -15,9 +15,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** COALESCE does not work with non-scalar types [(Issue #2242)](https://github.com/FoundationDB/fdb-record-layer/issues/2242)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Change log level of "found lucene analyzer" to debug [(Issue #2250)](https://github.com/FoundationDB/fdb-record-layer/issues/2250)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -25,7 +25,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Re-word misleading error message "unable to build index [(Issue #2247)](https://github.com/FoundationDB/fdb-record-layer/issues/2247)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.0.0
+
+* **Bug fix** COALESCE does not work with non-scalar types [(Issue #2242)](https://github.com/FoundationDB/fdb-record-layer/issues/2242)
+* **Bug fix** Change log level of "found lucene analyzer" to debug [(Issue #2250)](https://github.com/FoundationDB/fdb-record-layer/issues/2250)
+* **Feature** Re-word misleading error message "unable to build index [(Issue #2247)](https://github.com/FoundationDB/fdb-record-layer/issues/2247)
 
 ### 3.3.401.0
 
