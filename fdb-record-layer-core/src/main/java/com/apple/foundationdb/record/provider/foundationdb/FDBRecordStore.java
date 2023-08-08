@@ -3863,14 +3863,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
-                    final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
                             () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
+                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion)
                             ),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
-                                logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
+                                logExceptionAsWarn(KeyValueLogMessage.build("unable to build index",
                                         LogMessageKeys.INDEX_NAME, index.getName()
                                 ), exception);
                                 return markIndexDisabled(index).thenApply(b -> null);
@@ -3914,25 +3913,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     protected CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
                                                          @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
-                                                         @Nullable Integer oldMetaDataVersion,
-                                                         @Nonnull StringBuilder errMessageBuilder) {
+                                                         @Nullable Integer oldMetaDataVersion) {
         // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
         // state hasn't been cleared.
         if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
-            errMessageBuilder.append("rebuild index with no records");
             return rebuildIndexWithNoRecord(index, reason);
         }
 
         switch (indexState) {
         case WRITE_ONLY:
-            errMessageBuilder.append("clear and mark index write only");
             return clearAndMarkIndexWriteOnly(index).thenApply(b -> null);
         case DISABLED:
-            errMessageBuilder.append("mark index disabled");
             return markIndexDisabled(index).thenApply(b -> null);
         case READABLE:
         default:
-            errMessageBuilder.append("rebuild index");
             return rebuildIndex(index, recordTypes, reason);
         }
     }
