@@ -132,9 +132,7 @@ public class ExecuteProperties {
 
     /**
      * Set the limit on the number of rows that will be returned.
-     *
      * @param rowLimit the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} or {@link Integer#MAX_VALUE} for no limit
-     *
      * @return a new <code>ExecuteProperties</code> with the given limit
      */
     @Nonnull
@@ -205,8 +203,7 @@ public class ExecuteProperties {
     /**
      * Get whether reaching the scan limit throws an exception.
      * @return {@code true} if the scan limit throws an exception when reached,
-     * {@code false} if the scan returns early with
-     * {@link com.apple.foundationdb.record.RecordCursor.NoNextReason#SCAN_LIMIT_REACHED}
+     * {@code false} if the scan returns early with {@link com.apple.foundationdb.record.RecordCursor.NoNextReason#SCAN_LIMIT_REACHED}
      */
     public boolean isFailOnScanLimitReached() {
         return failOnScanLimitReached;
@@ -253,7 +250,6 @@ public class ExecuteProperties {
 
     /**
      * Remove any skip count and adjust the limit to include enough rows that we can skip those and then apply the current limit.
-     *
      * @return a new properties without skip and with an adjusted limit
      */
     @Nonnull
@@ -276,9 +272,7 @@ public class ExecuteProperties {
     /**
      * Merge these limits with the ones specified in <code>other</code>, using the limit specified by <code>other</code>
      * except where it is unlimited, in which case the limit from this <code>ExecuteProperties</code> is used instead.
-     *
      * @param other the <code>ExecuteProperties</code> to the take the limits from
-     *
      * @return an <code>ExecuteProperties</code> with limits merged as described above
      */
     @Nonnull
@@ -308,9 +302,7 @@ public class ExecuteProperties {
 
     /**
      * Set the default {@link CursorStreamingMode} for new {@link ScanProperties}.
-     *
      * @param defaultCursorStreamingMode default streaming mode
-     *
      * @return a new <code>ExecuteProperties</code> with the given default streaming mode
      */
     public ExecuteProperties setDefaultCursorStreamingMode(CursorStreamingMode defaultCursorStreamingMode) {
@@ -322,10 +314,8 @@ public class ExecuteProperties {
 
     /**
      * Reset the stateful parts of the properties to their "original" values, creating an independent mutable state.
-     *
-     * @return an {@code ExecuteProperties} with an independent mutable state
-     *
      * @see ExecuteState#reset()
+     * @return an {@code ExecuteProperties} with an independent mutable state
      */
     @Nonnull
     public ExecuteProperties resetState() {
