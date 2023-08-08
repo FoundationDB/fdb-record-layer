@@ -194,7 +194,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        dryRun = executeProperties.getDryRun();
+        dryRun = executeProperties.isDryRun();
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
