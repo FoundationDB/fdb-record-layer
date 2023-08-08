@@ -427,6 +427,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return saveTypedRecord(serializer, rec, existenceCheck, version, behavior);
     }
 
+    @Override
+    @Nonnull
+    public CompletableFuture<FDBStoredRecord<Message>> dryRunSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
+                                                                             @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+        return saveTypedRecord(serializer, rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT, true);
+    }
+
     @Nonnull
     @API(API.Status.INTERNAL)
     protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
@@ -434,6 +441,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                         @Nonnull RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
                                                                                         @Nonnull VersionstampSaveBehavior behavior) {
+        return saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, false);
+    }
+
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                        @Nonnull M rec,
+                                                                                        @Nonnull RecordExistenceCheck existenceCheck,
+                                                                                        @Nullable FDBRecordVersion version,
+                                                                                        @Nonnull VersionstampSaveBehavior behavior,
+                                                                                        boolean isDryRun) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Descriptors.Descriptor recordDescriptor = rec.getDescriptorForType();
         final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
@@ -463,57 +481,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LogMessageKeys.EXPECTED_TYPE, recordType.getName());
                 }
             }
-            final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
-            if (oldRecord == null) {
-                addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+            if (isDryRun) {
+                return CompletableFuture.completedFuture(recordBuilder.build());
             } else {
-                if (getTimer() != null) {
-                    getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
+                if (oldRecord == null) {
+                    addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+                } else {
+                    if (getTimer() != null) {
+                        getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                    }
                 }
+                return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
             }
-            return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
         });
-        return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
-    }
-
-    @Nonnull
-    @API(API.Status.INTERNAL)
-    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec,
-                                                                                           @Nonnull RecordExistenceCheck existenceCheck) {
-        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
-        final Descriptors.Descriptor recordDescriptor = rec.getDescriptorForType();
-        final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
-        final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
-
-        final FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
-        final FDBRecordVersion recordVersion = recordVersionForSave(metaData, null, VersionstampSaveBehavior.DEFAULT);
-        recordBuilder.setVersion(recordVersion);
-        final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
-        recordBuilder.setPrimaryKey(primaryKey);
-
-        final CompletableFuture<FDBStoredRecord<M>> result = loadExistingRecord(serializer, primaryKey).thenCompose(oldRecord -> {
-            if (oldRecord == null) {
-                if (existenceCheck.errorIfNotExists()) {
-                    throw new RecordDoesNotExistException("record does not exist",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-            } else {
-                if (existenceCheck.errorIfExists()) {
-                    throw new RecordAlreadyExistsException("record already exists",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-                if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
-                    throw new RecordTypeChangedException("record type changed",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey,
-                            LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
-                            LogMessageKeys.EXPECTED_TYPE, recordType.getName());
-                }
-            }
-            // (TODO): recordBuilder.setSizeInfo(sizeInfo);
-            // (TODO): update indexState in recordStoreState
-            return CompletableFuture.completedFuture(recordBuilder.build());
-        });
-        // (TODO): timer should be changed here
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
 

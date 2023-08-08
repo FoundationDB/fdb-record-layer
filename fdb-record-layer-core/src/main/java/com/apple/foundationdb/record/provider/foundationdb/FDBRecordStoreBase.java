@@ -505,6 +505,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         return saveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
+    @Nonnull
+    default CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+        return dryRunSaveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
+    }
+
     /**
      * Async version of {@link #saveRecord(Message, FDBRecordVersion)}.
      * @param rec the record to save
@@ -538,6 +543,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
+                                                          @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
+
+    @Nonnull
+    CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
                                                           @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
 
     /**
