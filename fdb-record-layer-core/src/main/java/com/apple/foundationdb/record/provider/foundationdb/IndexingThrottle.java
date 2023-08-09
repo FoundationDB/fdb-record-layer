@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
@@ -88,6 +90,9 @@ public class IndexingThrottle {
         private int consecutiveSuccessCount = 0;
         private long forcedDelayTimestampMilliSeconds = 0;
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
+        private long consecutiveFailureCount = 0;
+        private StoreTimerSnapshot storeTimerSnapshot = null;
+
 
         Booker(@Nonnull IndexingCommon common) {
             this.common = common;
@@ -153,8 +158,9 @@ public class IndexingThrottle {
                            @Nullable List<Object> additionalLogMessageKeyValues) {
             // TODO: decrease the limit only for certain errors
             countFailedTransactions++;
+            consecutiveFailureCount++;
             long oldLimit = recordsLimit;
-            recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * 9) / 10)));
+            recordsLimit = Math.max(1, Math.min(lastFailureRecordsScanned - 1, ((lastFailureRecordsScanned * oneToNineFactor(consecutiveFailureCount)) / 10)));
             if (LOGGER.isInfoEnabled()) {
                 final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
                                 LogMessageKeys.ERROR, fdbException.getMessage(),
@@ -165,8 +171,19 @@ public class IndexingThrottle {
                 if (additionalLogMessageKeyValues != null) {
                     message.addKeysAndValues(additionalLogMessageKeyValues);
                 }
+                addStoreTimerAtFailureAndReset(message);
                 LOGGER.info(message.toString(), fdbException);
             }
+        }
+
+        private static long oneToNineFactor(long count) {
+            if (count > 7) {
+                return 1; // panic mode after the 7th failure
+            }
+            if (count > 3) {
+                return 5; // 50% after the third failure
+            }
+            return 10 - Math.max(1, count);
         }
 
         void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
@@ -193,12 +210,15 @@ public class IndexingThrottle {
                 } else {
                     consecutiveSuccessCount++;
                 }
+                consecutiveFailureCount = 0;
+                resetStoreTimerSnapshot();
             } else {
                 // Here: memorize the actual records count for the decrease limit function (if applicable) and reset the counter
                 countRunnerFailedTransactions++;
                 lastFailureRecordsScanned = recordsScannedThisTransaction;
                 totalRecordsScannedFailure += recordsScannedThisTransaction;
                 recordsScanned.set(0);
+                // in this path, reset the store timer snapshot only after proper logging
             }
         }
 
@@ -247,6 +267,22 @@ public class IndexingThrottle {
                 recordsLimit = maxLimit;
             }
         }
+
+        private void addStoreTimerAtFailureAndReset(KeyValueLogMessage message) {
+            final FDBStoreTimer timer = common.getRunner().getTimer();
+            if (timer != null) {
+                StoreTimer metricsDiff = storeTimerSnapshot == null ? timer : StoreTimer.getDifference(timer, storeTimerSnapshot);
+                storeTimerSnapshot = StoreTimerSnapshot.from(timer); // = resetStoreTimerSnapshot
+                message.addKeysAndValues(metricsDiff.getKeysAndValues());
+            }
+        }
+
+        private void resetStoreTimerSnapshot() {
+            final FDBStoreTimer timer = common.getRunner().getTimer();
+            if (timer != null) {
+                storeTimerSnapshot = StoreTimerSnapshot.from(timer);
+            }
+        }
     }
 
     IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
@@ -292,10 +328,12 @@ public class IndexingThrottle {
         AtomicInteger tries = new AtomicInteger(0);
         AtomicLong recordsScanned = new AtomicLong(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
+        booker.resetStoreTimerSnapshot();
         final ExponentialDelay delay = new ExponentialDelay(common.getRunner().getDatabase().getFactory().getInitialDelayMillis(),
                 common.getRunner().getDatabase().getFactory().getMaxDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
+            // TODO: eliminate the usage of the runner - call (and handle) every transaction here
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
                 return buildFunction.apply(store, recordsScanned);
@@ -331,6 +369,7 @@ public class IndexingThrottle {
                                     LogMessageKeys.DELAY, delay.getNextDelayMillis())
                             .addKeysAndValues(onlineIndexerLogMessageKeyValues) // already contains common.indexLogMessageKeyValues()
                             .addKeysAndValues(logMessageKeyValues());
+                    booker.addStoreTimerAtFailureAndReset(message);
                     LOGGER.warn(message.toString(), e);
                 }
                 CompletableFuture<Boolean> delayedContinue = delay.delay().thenApply(ignore -> true);
@@ -385,7 +424,7 @@ public class IndexingThrottle {
         return (int) booker.getRecordsLimit();
     }
 
-    public long getTotalRecordsScannedScuccessfully() {
+    public long getTotalRecordsScannedSuccessfully() {
         return booker.totalRecordsScannedSuccess;
     }
 }
