@@ -211,12 +211,14 @@ public class IndexingThrottle {
                     consecutiveSuccessCount++;
                 }
                 consecutiveFailureCount = 0;
+                resetStoreTimerSnapshot();
             } else {
                 // Here: memorize the actual records count for the decrease limit function (if applicable) and reset the counter
                 countRunnerFailedTransactions++;
                 lastFailureRecordsScanned = recordsScannedThisTransaction;
                 totalRecordsScannedFailure += recordsScannedThisTransaction;
                 recordsScanned.set(0);
+                // in this path, reset the store timer snapshot only after proper logging
             }
         }
 
@@ -270,7 +272,7 @@ public class IndexingThrottle {
             final FDBStoreTimer timer = common.getRunner().getTimer();
             if (timer != null) {
                 StoreTimer metricsDiff = storeTimerSnapshot == null ? timer : StoreTimer.getDifference(timer, storeTimerSnapshot);
-                storeTimerSnapshot = StoreTimerSnapshot.from(timer);
+                storeTimerSnapshot = StoreTimerSnapshot.from(timer); // = resetStoreTimerSnapshot
                 message.addKeysAndValues(metricsDiff.getKeysAndValues());
             }
         }
@@ -326,13 +328,14 @@ public class IndexingThrottle {
         AtomicInteger tries = new AtomicInteger(0);
         AtomicLong recordsScanned = new AtomicLong(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
+        booker.resetStoreTimerSnapshot();
         final ExponentialDelay delay = new ExponentialDelay(common.getRunner().getDatabase().getFactory().getInitialDelayMillis(),
                 common.getRunner().getDatabase().getFactory().getMaxDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
+            // TODO: eliminate the usage of the runner - call (and handle) every transaction here
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
-                booker.resetStoreTimerSnapshot();
                 return buildFunction.apply(store, recordsScanned);
             }), (result, exception) -> {
                 booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
