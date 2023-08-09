@@ -70,10 +70,6 @@ public final class BuildVersion {
         return this.versionProperties.getProperty("version");
     }
 
-    public String getGitHash() {
-        return this.versionProperties.getProperty("gitHash");
-    }
-
     /**
      * Get a piece of the driver version string.
      * Index == 0 if we want the 'major' part of version string and index == 1
@@ -82,7 +78,12 @@ public final class BuildVersion {
      * @throws ArrayIndexOutOfBoundsException Thrown when passed a nonsense index.
      */
     static int parseDriverVersion(String version, int index) {
-        return Integer.parseInt(version.split("\\.")[index]);
+        // 2322B01
+        int[] v = new int[3];
+        v[0] = Integer.parseInt(version.substring(0, 2)); // first two chars
+        v[1] = Integer.parseInt(version.substring(2, 4)); // second two chars
+        v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).split("-")[0]); // all digits after the "B" and before the "-" of "-SNAPSHOT"
+        return v[index];
     }
 
     /**
