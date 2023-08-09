@@ -29,12 +29,9 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import org.davidmoten.hilbert.HilbertCurve;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,12 +39,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
@@ -55,12 +48,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * Tests for {@link RTree}.
+ * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {
-    private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
-
     private static final int NUM_TEST_RUNS = 10;
     private static final int NUM_SAMPLES = 10_000;
 
@@ -91,11 +82,16 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10, 100, 1000, 10_000})
-    public void testAllDeleted(final int numSamples) {
-        final Item[] items = randomInserts(db, rtSubspace, numSamples);
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+    @MethodSource("numSamplesAndSeeds")
+    public void testAllDeleted(final long seed, final int numSamples) {
+        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
+        final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
+
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numSamples; ) {
             final int batchStart = i; // lambdas
@@ -106,7 +102,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == numSamples) {
                         break;
                     }
-                    rt.delete(tr, items[index].getHv(), items[index].getKey()).join();
+                    rt.delete(tr, items[index].getPoint(), items[index].getKeySuffix()).join();
                 }
 
                 return j;
@@ -123,18 +119,23 @@ public class RTreeModificationTest extends FDBTestBase {
 
         // Check that there are no slots left that may have gotten orphaned
         final List<KeyValue> keyValues =
-                db.run(tr -> tr.getRange(Range.startsWith(rt.getSubspacePrefix())).asList().join());
+                db.run(tr -> tr.getRange(Range.startsWith(rt.getStorageAdapter().getSubspace().getKey())).asList().join());
         Assertions.assertTrue(keyValues.isEmpty());
 
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
     }
 
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
-    public void testRandomDeletes(final int numSamples, final int numDeletes) {
-        final Item[] items = randomInserts(db, rtSubspace, numSamples);
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+    public void testRandomDeletes(final long seed, final int numSamples, final int numDeletes) {
+        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
+        final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
 
         final int numDeletesPerBatch = 1_000;
         for (int i = 0; i < numDeletes; ) {
@@ -146,7 +147,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == numDeletes) {
                         break;
                     }
-                    rt.delete(tr, items[index].getHv(), items[index].getKey()).join();
+                    rt.delete(tr, items[index].getPoint(), items[index].getKeySuffix()).join();
                 }
 
                 return j;
@@ -161,43 +162,67 @@ public class RTreeModificationTest extends FDBTestBase {
         Assertions.assertEquals(numSamples - numDeletes, nresults.get());
 
         validateRTree(db, rt);
+        onReadCounters.resetCounters();
     }
 
     //
     // Helpers
     //
 
-    public static Stream<Arguments> numSamplesAndNumDeletes() {
-        final Random random = new Random(1);
+    public static Stream<Arguments> numSamplesAndSeeds() {
+        final Random random = new Random(System.currentTimeMillis());
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
         for (int i = 0; i < NUM_TEST_RUNS; i ++) {
-            final int numSamples = random.nextInt(NUM_SAMPLES + 1);
-            final int numDeletes = random.nextInt(numSamples + 1);
-            argumentsBuilder.add(Arguments.of(numSamples, numDeletes));
+            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
+            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
         }
         return argumentsBuilder.build().stream();
     }
 
-    static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
-        final Random random = new Random(0);
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+    public static Stream<Arguments> numSamplesAndNumDeletes() {
+        final Random random = new Random(System.currentTimeMillis());
+        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
+        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
+            final int numSamples = random.nextInt(NUM_SAMPLES + 1);
+            final int numDeletes = random.nextInt(numSamples + 1);
+            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples, numDeletes));
+        }
+        return argumentsBuilder.build().stream();
+    }
+
+    static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                final long seed, final int numSamples) {
+        final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
             final RTree.Point point = new RTree.Point(Tuple.from((long)random.nextInt(1000), (long)random.nextInt(1000)));
-            items[i] = new Item(point,
-                    hc.index((long)point.getCoordinate(0), (long)point.getCoordinate(1)),
-                    Tuple.from(i),
-                    Tuple.from("value" + i));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
         insertData(db, rtSubspace, items);
         return items;
     }
 
-    static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace, int numSamples) {
+    static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                         final long seed, int numSamples) {
+        final Random random = new Random(seed);
+        final Item[] items = new Item[numSamples];
+        for (int i = 0; i < numSamples; ++i) {
+            final Long x = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
+            final Long y = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
+
+            final RTree.Point point = new RTree.Point(Tuple.from(x, y));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
+        }
+
+        insertData(db, rtSubspace, items);
+        return items;
+    }
+
+    static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                    final long seed, int numSamples) {
         final int smear = 100;
-        final Random random = new Random(0);
-        final HilbertCurve hc = HilbertCurve.bits(63).dimensions(2);
+        final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
 
         final double step = (double)1000 / numSamples;
@@ -211,10 +236,7 @@ public class RTreeModificationTest extends FDBTestBase {
             } while (x < 0 || y < 0 || x > 1000 || y > 1000);
 
             final RTree.Point point = new RTree.Point(Tuple.from(x, y));
-            items[i] = new Item(point,
-                    hc.index((long)point.getCoordinate(0), (long)point.getCoordinate(1)),
-                    Tuple.from(i),
-                    Tuple.from("value" + i));
+            items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
 
             current += step;
         }
@@ -224,7 +246,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool());
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTreeHilbertCurveHelpers::hilbertValue);
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas
@@ -235,7 +257,7 @@ public class RTreeModificationTest extends FDBTestBase {
                     if (index == items.length) {
                         break;
                     }
-                    rt.insert(tr, items[index].getPoint(), items[index].getHv(), items[index].getKey(), items[index].getValue()).join();
+                    rt.insertOrUpdate(tr, items[index].getPoint(), items[index].getKeySuffix(), items[index].getValue()).join();
                 }
 
                 return j;
@@ -243,29 +265,24 @@ public class RTreeModificationTest extends FDBTestBase {
         }
     }
 
-    static void validateRTree(@Nonnull final Database db, @Nonnull final InstrumentedRTree rt) {
+    static void validateRTree(@Nonnull final Database db, @Nonnull final RTree rt) {
         db.run(tr -> {
             rt.validate(tr).join();
             return null;
         });
-
-        rt.resetCounters();
     }
 
     static class Item {
         @Nonnull
         private final RTree.Point point;
         @Nonnull
-        private final BigInteger hv;
-        @Nonnull
-        private final Tuple key;
+        private final Tuple keySuffix;
         @Nonnull
         private final Tuple value;
 
-        public Item(@Nonnull final RTree.Point point, @Nonnull final BigInteger hv, @Nonnull final Tuple key, @Nonnull final Tuple value) {
+        public Item(@Nonnull final RTree.Point point, @Nonnull final Tuple keySuffix, @Nonnull final Tuple value) {
             this.point = point;
-            this.hv = hv;
-            this.key = key;
+            this.keySuffix = keySuffix;
             this.value = value;
         }
 
@@ -275,92 +292,13 @@ public class RTreeModificationTest extends FDBTestBase {
         }
 
         @Nonnull
-        public BigInteger getHv() {
-            return hv;
-        }
-
-        @Nonnull
-        public Tuple getKey() {
-            return key;
+        public Tuple getKeySuffix() {
+            return keySuffix;
         }
 
         @Nonnull
         public Tuple getValue() {
             return value;
-        }
-    }
-
-    static class InstrumentedRTree extends RTree {
-        private final AtomicLong readSlotCounter = new AtomicLong(0);
-        private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
-
-        private final AtomicLong readNodesCounter = new AtomicLong(0);
-        private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
-
-        public InstrumentedRTree(final Subspace subspace) {
-            super(subspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG, RTree::newSequentialNodeId);
-            resetCounters();
-        }
-
-        public void resetCounters() {
-            readSlotCounter.set(0L);
-            readLeafSlotCounter.set(0L);
-            readIntermediateSlotCounter.set(0L);
-            readNodesCounter.set(0L);
-            readLeafNodesCounter.set(0L);
-            readIntermediateNodesCounter.set(0L);
-        }
-
-        public long getReadSlotCounter() {
-            return readSlotCounter.get();
-        }
-
-        public long getReadLeafSlotCounter() {
-            return readLeafSlotCounter.get();
-        }
-
-        public long getReadIntermediateSlotCounter() {
-            return readIntermediateSlotCounter.get();
-        }
-
-        public long getReadNodesCounter() {
-            return readNodesCounter.get();
-        }
-
-        public long getReadLeafNodesCounter() {
-            return readLeafNodesCounter.get();
-        }
-
-        public long getReadIntermediateNodesCounter() {
-            return readIntermediateNodesCounter.get();
-        }
-
-        public void logCounters() {
-            logger.info("num read slots = {}", readSlotCounter.get());
-            logger.info("num read leaf slots = {}", readLeafSlotCounter.get());
-            logger.info("num read intermediate slots = {}", readIntermediateSlotCounter.get());
-            logger.info("num read nodes = {}", readNodesCounter.get());
-            logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
-            logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
-        }
-
-        @Nonnull
-        @Override
-        protected RTree.Node nodeFromKeyValues(final byte[] nodeId, final List<KeyValue> keyValues) {
-            final RTree.Node resultNode = super.nodeFromKeyValues(nodeId, keyValues);
-            readSlotCounter.addAndGet(keyValues.size());
-            readNodesCounter.incrementAndGet();
-            if (resultNode.getKind() == Kind.LEAF) {
-                readLeafSlotCounter.addAndGet(keyValues.size());
-                readLeafNodesCounter.incrementAndGet();
-            } else {
-                Verify.verify(resultNode.getKind() == Kind.INTERMEDIATE);
-                readIntermediateSlotCounter.addAndGet(keyValues.size());
-                readIntermediateNodesCounter.incrementAndGet();
-            }
-            return resultNode;
         }
     }
 }

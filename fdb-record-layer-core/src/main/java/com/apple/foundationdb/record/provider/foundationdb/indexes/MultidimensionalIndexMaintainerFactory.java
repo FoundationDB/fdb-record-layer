@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.RankedSet;
+import com.apple.foundationdb.async.RTree;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -36,15 +36,16 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 /**
- * A factory for {@link RankIndexMaintainer} indexes.
+ * A factory for {@link MultidimensionalIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
-@API(API.Status.MAINTAINED)
-public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
-    static final String[] TYPES = { IndexTypes.RANK };
+@API(API.Status.EXPERIMENTAL)
+public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFactory {
+    static final String[] TYPES = { IndexTypes.MULTIDIMENSIONAL};
 
     @Override
     @Nonnull
@@ -59,7 +60,7 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
             @Override
             public void validate(@Nonnull MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
-                validateGrouping(1);
+                validateNotGrouping();
                 validateNotVersion();
             }
 
@@ -67,28 +68,42 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
             public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
-                    RankedSet.Config oldOptions = RankedSetIndexHelper.getConfig(oldIndex);
-                    RankedSet.Config newOptions = RankedSetIndexHelper.getConfig(index);
-                    if (changedOptions.contains(IndexOptions.RANK_NLEVELS)) {
-                        if (oldOptions.getNLevels() != newOptions.getNLevels()) {
-                            throw new MetaDataException("rank levels changed",
+                    final RTree.Config oldOptions = MultiDimensionalIndexHelper.getConfig(oldIndex);
+                    final RTree.Config newOptions = MultiDimensionalIndexHelper.getConfig(index);
+                    if (changedOptions.contains(IndexOptions.RTREE_MIN_M)) {
+                        if (oldOptions.getMinM() != newOptions.getMinM()) {
+                            throw new MetaDataException("rtree minM changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_NLEVELS);
+                        changedOptions.remove(IndexOptions.RTREE_MIN_M);
                     }
-                    if (changedOptions.contains(IndexOptions.RANK_HASH_FUNCTION)) {
-                        if (!oldOptions.getHashFunction().equals(newOptions.getHashFunction())) {
-                            throw new MetaDataException("rank hash function changed",
+                    if (changedOptions.contains(IndexOptions.RTREE_MAX_M)) {
+                        if (oldOptions.getMaxM() != newOptions.getMaxM()) {
+                            throw new MetaDataException("rtree minM changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_HASH_FUNCTION);
+                        changedOptions.remove(IndexOptions.RTREE_MAX_M);
                     }
-                    if (changedOptions.contains(IndexOptions.RANK_COUNT_DUPLICATES)) {
-                        if (oldOptions.isCountDuplicates() != newOptions.isCountDuplicates()) {
-                            throw new MetaDataException("rank count duplicate changed",
+                    if (changedOptions.contains(IndexOptions.RTREE_SPLIT_S)) {
+                        if (oldOptions.getSplitS() != newOptions.getSplitS()) {
+                            throw new MetaDataException("rtree splitS changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
-                        changedOptions.remove(IndexOptions.RANK_COUNT_DUPLICATES);
+                        changedOptions.remove(IndexOptions.RTREE_SPLIT_S);
+                    }
+                    if (changedOptions.contains(IndexOptions.RTREE_STORAGE)) {
+                        if (Objects.equals(oldOptions.getStorage(), newOptions.getStorage())) {
+                            throw new MetaDataException("rtree storage changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RTREE_STORAGE);
+                    }
+                    if (changedOptions.contains(IndexOptions.RTREE_STORE_HILBERT_VALUES)) {
+                        if (oldOptions.isStoreHilbertValues() == newOptions.isStoreHilbertValues()) {
+                            throw new MetaDataException("rtree store Hilbert values changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RTREE_STORE_HILBERT_VALUES);
                     }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);
@@ -98,8 +113,7 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-        return new RankIndexMaintainer(state);
+    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+        return new MultidimensionalIndexMaintainer(state);
     }
-
 }

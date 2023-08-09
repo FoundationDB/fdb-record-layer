@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -332,6 +333,9 @@ public class QueryToKeyMatcher {
     @Nonnull
     private Match matches(@Nonnull FieldWithComparison query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
+        if (key instanceof DimensionsKeyExpression) {
+            key = ((DimensionsKeyExpression)key).getWholeKey();
+        }
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             // Then should express in its contract, but this is good backup

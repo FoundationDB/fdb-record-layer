@@ -142,7 +142,7 @@ public class CursorLimitManager {
             usedInitialPass = true;
         } else if (failOnScanLimitReached) {
             throw new ScanLimitReachedException("limit on number of key-values scanned per transaction reached")
-                    .addLogInfo("no_next_reason", getStoppedReason().map(reason -> reason.toString()).orElse("Unknown."));
+                    .addLogInfo("no_next_reason", getStoppedReason().map(Enum::toString).orElse("Unknown."));
         }
 
         return !halted;
