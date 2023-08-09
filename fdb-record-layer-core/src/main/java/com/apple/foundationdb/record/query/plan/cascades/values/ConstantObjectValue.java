@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -95,6 +96,19 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
         final var otherConstantObjectValue = (ConstantObjectValue)other;
         return ordinal == otherConstantObjectValue.ordinal;
+    }
+
+    @Nonnull
+    @Override
+    public boolean canResultInType(@Nonnull final Type type) {
+        return resultType.isUnresolved() || resultType.getTypeCode() == Type.TypeCode.NULL;
+    }
+
+    @Nonnull
+    @Override
+    public Value with(@Nonnull final Type type) {
+        Verify.verify(canResultInType(type));
+        return ConstantObjectValue.of(alias, ordinal, type);
     }
 
     public int getOrdinal() {

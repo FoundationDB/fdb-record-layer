@@ -343,19 +343,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default boolean canBePromotedToType(@Nonnull final Type type) {
+    default boolean canResultInType(@Nonnull final Type type) {
         return false;
     }
 
     @Nonnull
-    default Value promoteToType(@Nonnull final Type type) {
+    default Value with(@Nonnull final Type type) {
         throw new RecordCoreException("cannot promote to type"); // TODO coerce type here
     }
 
     @Nonnull
     default Optional<Value> promoteToTypeMaybe(@Nonnull final Type type) {
-        if (canBePromotedToType(type)) {
-            return Optional.of(promoteToType(type));
+        if (canResultInType(type)) {
+            return Optional.of(with(type));
         }
         return Optional.empty();
     }
