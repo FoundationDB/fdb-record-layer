@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
@@ -79,9 +78,7 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
                 call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
 
         final var distinctPlansReference =
-                innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)
-                ? planPartitionReference
-                : call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
+                call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
