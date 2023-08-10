@@ -230,9 +230,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     throw ExceptionUtil.toRelationalException(ipbe);
                 }
             });
-            final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-            return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
-                    physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
+                final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
+                return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
+                        physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            });
         }
 
         public int planHash() {

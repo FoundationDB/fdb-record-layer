@@ -55,9 +55,14 @@ public class RelationalMetric {
          * */
         TOTAL_GET_PLAN_QUERY("get the physical plan"),
         /**
-         * Time taken to .
+         * Time taken to run executePlan() on RecordQueryPlan.
          * */
         EXECUTE_RECORD_QUERY_PLAN("execute the record query plan"),
+        /**
+         * Time taken to create the RecordLayer result set iterator.
+         * */
+        CREATE_RESULT_SET_ITERATOR("create result set iterator"),
+
         /**
          * Time taken in the execution phase of the query.
          * */

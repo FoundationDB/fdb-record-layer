@@ -91,6 +91,8 @@ public class RecordLayerMetricCollectorTest {
                 "CACHE_LOOKUP event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN),
                 "EXECUTE_RECORD_QUERY_PLAN event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR),
+                "CREATE_RESULT_SET_ITERATOR event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.TOTAL_EXECUTE_QUERY),
                 "TOTAL_EXECUTE_QUERY event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY),
