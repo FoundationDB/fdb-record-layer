@@ -596,6 +596,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_COMPOSED_BITMAP_INDEX("number of composed bitmap plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan}. */
         PLAN_SORT("number of sort plans", false),
+        PLAN_DAM("number of dam plans", false),
         /** The number of records given given to any filter within any plan. */
         QUERY_FILTER_GIVEN("number of records given to any filter within any plan", false),
         /** The number of records passed by any filter within any plan. */

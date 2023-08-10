@@ -87,6 +87,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -463,6 +464,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
         return Cardinalities.unknownMaxCardinality();
+    }
+
+    @Nonnull
+    @Override
+    public Cardinalities visitRecordQueryDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        return fromChild(damPlan);
     }
 
     @Nonnull
