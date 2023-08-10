@@ -64,7 +64,7 @@
 #---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
-- query: drop schema template null_operator_tests_template
----
 - query: drop database /FRL/NULL_YAML
+---
+- query: drop schema template null_operator_tests_template
 ...

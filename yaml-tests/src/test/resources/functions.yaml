@@ -26,6 +26,8 @@
     create type as struct T(T1 integer)
     create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
     create table B(b1 bigint, b2 double, primary key(b1, b2))
+    create type as struct U(T1 integer, A string, B double)
+    create table C(c1 bigint, st U, primary key(c1))
 ---
 - query: drop database if exists /FRL/FUNCTION_YAML
 ---
@@ -44,11 +46,8 @@
 - query: insert into B values (1, 2), (3, null), (null, 4), (null, null)
 - count: 4
 ---
-- query: select greatest(a1, 0), greatest(a1, 1), greatest(a1, 2), greatest(a1, null) from A
-- result: [{_0: 1, _1: 1, _2: 2, !null _}]
----
-- query: select greatest(a2, 0), greatest(a2, 1), greatest(a2, 2), greatest(a2, null) from A
-- result: [{_0: 1, _1: 1, _2: 2, !null _}]
+- query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null)
+- count: 4
 ---
 - query: select greatest(a3, '0'), greatest(a3, '1'), greatest(a3, '2'), greatest(a3, null) from A
 - result: [{_0: '1', _1: '1', _2: '2', !null _}]
@@ -68,9 +67,9 @@
 - query: select greatest(a8, 0), greatest(a8, 1), greatest(a8, 2), greatest(a8, null) from A
 - result: [{_0: 1.0, _1: 1.0, _2: 2.0, !null _}]
 ---
-#- query: select greatest(a9, '0'), greatest(a9, '1'), greatest(a9, '2'), greatest(a9, null) from A
-#- error: '22F00'
-#---
+- query: select greatest(a9, '0'), greatest(a9, '1'), greatest(a9, '2'), greatest(a9, null) from A
+- error: '22000'
+---
 - query: select greatest(a1, a2, a8), greatest(1, 2, 3.0, 4, 5) from A
 - result: [{_0: 1.0, _1: 5.0}]
 ---
@@ -98,9 +97,9 @@
 - query: select least(a8, 0), least(a8, 1), least(a8, 2), least(a8, null) from A
 - result: [{_0: 0.0, _1: 1.0, _2: 1.0, !null _}]
 ---
-#- query: select least(a9, '0'), least(a9, '1'), least(a9, '2'), least(a9, null) from A
-#- error: '22F00'
-#---
+- query: select least(a9, '0'), least(a9, '1'), least(a9, '2'), least(a9, null) from A
+- error: '22000'
+---
 - query: select least(a1, a2, a8), least(1, 2, 3.0, 4, 5) from A
 - result: [{_0: 1.0, _1: 1.0}]
 ---
@@ -113,6 +112,46 @@
     {b1: 3, b2: !null _, 3.0},
     {b1: !null _, b2: 4.0, 4.0},
     {b1: !null _, b2: !null _, 42.0}]
+---
+- query: select coalesce(null, null, st, null) from C
+- unorderedResult: [
+    {{ T1: 2, A: 'b', B: 2.0}},
+    {{ T1: 3, A: 'c', B: 3.0}},
+    {{ T1: 4, A: 'd', B: 4.0}},
+    {!null _}]
+---
+- query: select coalesce(st, st) from C
+- unorderedResult: [
+    {{ T1: 2, A: 'b', B: 2.0}},
+    {{ T1: 3, A: 'c', B: 3.0}},
+    {{ T1: 4, A: 'd', B: 4.0}},
+    {!null _}]
+---
+- query: select coalesce(null, st) from C
+- unorderedResult: [
+    {{ T1: 2, A: 'b', B: 2.0}},
+    {{ T1: 3, A: 'c', B: 3.0}},
+    {{ T1: 4, A: 'd', B: 4.0}},
+    {!null _}]
+---
+- query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
+- unorderedResult: [
+    {{ _0: 5, _1: 'e', _2: 5.0}}]
+---
+- query: select coalesce(null, (1, 1.0, 'a', true)) from C
+- unorderedResult: [
+    {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+    {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+    {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
+    {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
+---
+- query: update C set st = coalesce(st, null) where c1 = 4 returning st
+- unorderedResult: [
+    {!null _}]
+---
+- query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning st
+- unorderedResult: [
+      {{ T1: 5, A: 'e', B: 5.0}}]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---

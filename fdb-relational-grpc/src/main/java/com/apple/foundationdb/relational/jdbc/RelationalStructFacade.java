@@ -103,7 +103,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public boolean getBoolean(int oneBasedColumn) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getBoolean();
     }
 
     @Override
@@ -143,7 +143,7 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public double getDouble(int oneBasedColumn) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getDouble();
     }
 
     @Override
@@ -192,6 +192,12 @@ class RelationalStructFacade implements RelationalStruct {
                 break;
             case Types.STRUCT:
                 obj = getStruct(oneBasedColumn);
+                break;
+            case Types.DOUBLE:
+                obj = getDouble(oneBasedColumn);
+                break;
+            case Types.BOOLEAN:
+                obj = getBoolean(oneBasedColumn);
                 break;
             default:
                 throw new SQLException("Unsupported object type: " + type);
