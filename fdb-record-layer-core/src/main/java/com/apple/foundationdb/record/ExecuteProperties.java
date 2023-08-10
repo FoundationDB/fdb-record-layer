@@ -76,11 +76,6 @@ public class ExecuteProperties {
     private final CursorStreamingMode defaultCursorStreamingMode;
 
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode) {
-        this(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, false);
-    }
-
-    private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
                               @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
         this.skip = skip;
         this.rowLimit = rowLimit;
