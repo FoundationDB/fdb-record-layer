@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -268,13 +269,21 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
     @Override
     @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMajorVersion() {
-        return BuildVersion.getInstance().getMajorVersion();
+        try {
+            return BuildVersion.getInstance().getMajorVersion();
+        } catch (RelationalException ex) {
+            throw ex.toUncheckedWrappedException();
+        }
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport //nothing to test
     default int getDriverMinorVersion() {
-        return BuildVersion.getInstance().getMinorVersion();
+        try {
+            return BuildVersion.getInstance().getMinorVersion();
+        } catch (RelationalException ex) {
+            throw ex.toUncheckedWrappedException();
+        }
     }
 
     @Override

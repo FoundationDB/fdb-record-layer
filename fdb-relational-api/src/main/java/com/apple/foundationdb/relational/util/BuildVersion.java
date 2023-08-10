@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -77,12 +80,16 @@ public final class BuildVersion {
      * @return sub-version.
      * @throws ArrayIndexOutOfBoundsException Thrown when passed a nonsense index.
      */
-    static int parseDriverVersion(String version, int index) {
+    static int parseDriverVersion(String version, int index) throws RelationalException {
         // 2322B01
         int[] v = new int[3];
-        v[0] = Integer.parseInt(version.substring(0, 2)); // first two chars
-        v[1] = Integer.parseInt(version.substring(2, 4)); // second two chars
-        v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).replace("-SNAPSHOT", "")); // all digits after the "B" and before the "-" of "-SNAPSHOT"
+        try {
+            v[0] = Integer.parseInt(version.substring(0, 2)); // first two chars
+            v[1] = Integer.parseInt(version.substring(2, 4)); // second two chars
+            v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).replace("-SNAPSHOT", "")); // all digits after the "B" and before the "-" of "-SNAPSHOT"
+        } catch (RuntimeException ex) {
+            throw new RelationalException("Cannot parse driver version: " + version, ErrorCode.INTERNAL_ERROR, ex);
+        }
         return v[index];
     }
 
@@ -91,7 +98,7 @@ public final class BuildVersion {
      * e.g. if version is 1.2.3, this method will return '1'.
      * @return major version.
      */
-    public int getMajorVersion() {
+    public int getMajorVersion() throws RelationalException {
         return getMajorVersion(getVersion());
     }
 
@@ -100,7 +107,7 @@ public final class BuildVersion {
      * @param version full version
      * @return major sub-version.
      */
-    public int getMajorVersion(String version) {
+    public int getMajorVersion(String version) throws RelationalException {
         return parseDriverVersion(version, 0 /*0 means first part of version string, the major part*/);
     }
 
@@ -109,7 +116,7 @@ public final class BuildVersion {
      * e.g. if version is 1.2.3, this method will return '2'.
      * @return minor version.
      */
-    public int getMinorVersion() {
+    public int getMinorVersion() throws RelationalException {
         return getMinorVersion(getVersion());
     }
 
@@ -118,7 +125,7 @@ public final class BuildVersion {
      * @param version full version
      * @return minor sub-version.
      */
-    public int getMinorVersion(String version) {
+    public int getMinorVersion(String version) throws RelationalException {
         return parseDriverVersion(version, 1 /*1 means second part of version string, the minor part*/);
     }
 }

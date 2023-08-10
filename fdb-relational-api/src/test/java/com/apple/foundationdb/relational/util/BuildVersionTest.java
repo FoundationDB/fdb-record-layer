@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.util;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +38,7 @@ public class BuildVersionTest {
     }
 
     @Test
-    public void getPieceOfDriverVersion() {
+    public void getPieceOfDriverVersion() throws RelationalException {
         final String version = "2345B6";
         BuildVersion bv = BuildVersion.getInstance();
         Assertions.assertThat(23 == bv.parseDriverVersion(version, 0));
@@ -47,7 +49,7 @@ public class BuildVersionTest {
     }
 
     @Test
-    public void testGetMinorVersion() {
+    public void testGetMinorVersion() throws RelationalException {
         BuildVersion bv = BuildVersion.getInstance();
         String version = bv.getInstance().getVersion();
         int minorVersion = bv.getInstance().getMinorVersion();
@@ -56,7 +58,7 @@ public class BuildVersionTest {
     }
 
     @Test
-    public void testGetMajorVersion() {
+    public void testGetMajorVersion() throws RelationalException {
         BuildVersion bv = BuildVersion.getInstance();
         String version = bv.getInstance().getVersion();
         int majorVersion = bv.getInstance().getMajorVersion();

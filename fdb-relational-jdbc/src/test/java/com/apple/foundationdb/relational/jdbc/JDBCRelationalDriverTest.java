@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
@@ -103,7 +104,7 @@ public class JDBCRelationalDriverTest {
     }
 
     @Test
-    public void connectAndGetDatabaseMetaData() throws SQLException, IOException {
+    public void connectAndGetDatabaseMetaData() throws SQLException, IOException, RelationalException {
         try (RelationalServer relationalServer =
                 ServerTestUtil.createAndStartRelationalServer(GrpcConstants.DEFAULT_SERVER_PORT)) {
             try (Connection connection =

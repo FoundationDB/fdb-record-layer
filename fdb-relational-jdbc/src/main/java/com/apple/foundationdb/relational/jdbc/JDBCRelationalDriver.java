@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
@@ -79,12 +80,20 @@ public class JDBCRelationalDriver implements Driver {
 
     @Override
     public int getMajorVersion() {
-        return BuildVersion.getInstance().getMajorVersion();
+        try {
+            return BuildVersion.getInstance().getMajorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override
     public int getMinorVersion() {
-        return BuildVersion.getInstance().getMinorVersion();
+        try {
+            return BuildVersion.getInstance().getMinorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override

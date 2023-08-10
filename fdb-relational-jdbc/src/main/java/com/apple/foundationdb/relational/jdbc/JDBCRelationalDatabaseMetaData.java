@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -75,12 +76,20 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public int getDriverMajorVersion() {
-        return BuildVersion.getInstance().getMajorVersion();
+        try {
+            return BuildVersion.getInstance().getMajorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override
     public int getDriverMinorVersion() {
-        return BuildVersion.getInstance().getMinorVersion();
+        try {
+            return BuildVersion.getInstance().getMinorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override
@@ -154,12 +163,20 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public int getDatabaseMajorVersion() throws SQLException {
-        return BuildVersion.getInstance().getMajorVersion(getDatabaseProductVersion());
+        try {
+            return BuildVersion.getInstance().getMajorVersion(getDatabaseProductVersion());
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override
     public int getDatabaseMinorVersion() throws SQLException {
-        return BuildVersion.getInstance().getMinorVersion(getDatabaseProductVersion());
+        try {
+            return BuildVersion.getInstance().getMinorVersion(getDatabaseProductVersion());
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 
     @Override

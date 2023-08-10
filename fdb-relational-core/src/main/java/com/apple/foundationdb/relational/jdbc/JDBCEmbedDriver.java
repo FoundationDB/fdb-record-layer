@@ -151,12 +151,20 @@ public final class JDBCEmbedDriver implements java.sql.Driver {
 
     @Override
     public int getMajorVersion() {
-        return BuildVersion.getInstance().getMajorVersion();
+        try {
+            return BuildVersion.getInstance().getMajorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override
     public int getMinorVersion() {
-        return BuildVersion.getInstance().getMinorVersion();
+        try {
+            return BuildVersion.getInstance().getMinorVersion();
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
@@ -69,11 +70,11 @@ public class JDBCEmbedDriverTest {
         Assertions.assertNotNull(getDriver().getPropertyInfo(JDBCEmbedDriver.JDBC_URL_PREFIX, null));
     }
 
-    public void testGetMajorVersion() throws SQLException {
+    public void testGetMajorVersion() throws SQLException, RelationalException {
         Assertions.assertEquals(getDriver().getMajorVersion(), BuildVersion.getInstance().getMajorVersion());
     }
 
-    public void testGetMininVersion() throws SQLException {
+    public void testGetMininVersion() throws SQLException, RelationalException {
         Assertions.assertEquals(getDriver().getMinorVersion(), BuildVersion.getInstance().getMinorVersion());
     }
 
