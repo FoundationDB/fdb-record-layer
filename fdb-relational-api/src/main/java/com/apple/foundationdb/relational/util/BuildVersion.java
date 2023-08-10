@@ -82,7 +82,7 @@ public final class BuildVersion {
         int[] v = new int[3];
         v[0] = Integer.parseInt(version.substring(0, 2)); // first two chars
         v[1] = Integer.parseInt(version.substring(2, 4)); // second two chars
-        v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).split("-")[0]); // all digits after the "B" and before the "-" of "-SNAPSHOT"
+        v[2] = Integer.parseInt(version.substring(version.indexOf("B") + 1).replace("-SNAPSHOT", "")); // all digits after the "B" and before the "-" of "-SNAPSHOT"
         return v[index];
     }
 
