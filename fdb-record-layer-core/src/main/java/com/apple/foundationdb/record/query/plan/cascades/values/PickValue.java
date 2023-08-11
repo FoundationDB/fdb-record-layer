@@ -151,6 +151,6 @@ public class PickValue extends AbstractValue {
                 SemanticException.check(commonType.equals(resultType), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
         }
-        return Verify.verifyNotNull(commonType); // throws if there are no alternatives
+        return Verify.verifyNotNull(commonType).withNullability(true); // throws if there are no alternatives
     }
 }

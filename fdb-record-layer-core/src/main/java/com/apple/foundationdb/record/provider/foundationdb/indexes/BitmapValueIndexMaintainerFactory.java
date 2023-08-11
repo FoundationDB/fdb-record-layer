@@ -99,7 +99,7 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new BitmapValueIndexMaintainer(state);
     }
 }

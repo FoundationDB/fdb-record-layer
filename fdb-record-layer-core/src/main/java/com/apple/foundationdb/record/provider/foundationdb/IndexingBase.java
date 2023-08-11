@@ -667,8 +667,8 @@ public abstract class IndexingBase {
         return throttle.buildCommitRetryAsync(buildFunction, null, additionalLogMessageKeyValues, duringRangesIteration);
     }
 
-    public long getTotalRecordsScannedScuccessfully() {
-        return throttle.getTotalRecordsScannedScuccessfully();
+    public long getTotalRecordsScannedSuccessfully() {
+        return throttle.getTotalRecordsScannedSuccessfully();
     }
 
     protected void timerIncrement(FDBStoreTimer.Counts event) {

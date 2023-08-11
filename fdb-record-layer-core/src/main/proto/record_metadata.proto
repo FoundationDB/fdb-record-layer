@@ -133,6 +133,12 @@ message Grouping {
   optional int32 grouped_count = 3 [default = 1];
 }
 
+message Dimensions {
+  required KeyExpression whole_key = 1;
+  optional int32 prefix_size = 2;
+  optional int32 dimensions_size = 3;
+}
+
 message KeyWithValue {
   required KeyExpression inner_key = 1;
   optional int32 split_point = 2 [default = 1];
@@ -182,6 +188,7 @@ message KeyExpression {
   optional KeyWithValue key_with_value = 10;
   optional RecordTypeKey record_type_key = 11;
   optional List list = 12;
+  optional Dimensions dimensions = 13;
 }
 
 message JoinedRecordType {

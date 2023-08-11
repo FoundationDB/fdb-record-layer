@@ -64,7 +64,7 @@ public class VersionIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new VersionIndexMaintainer(state);
     }
 }

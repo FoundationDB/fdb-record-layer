@@ -74,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -548,6 +549,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
             // TODO
             return Ordering.emptyOrder();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+            return orderingFromSingleChild(damPlan);
         }
 
         @Nonnull

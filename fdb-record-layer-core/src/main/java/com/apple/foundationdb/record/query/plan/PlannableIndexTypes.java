@@ -41,7 +41,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class PlannableIndexTypes {
     public static final PlannableIndexTypes DEFAULT = new PlannableIndexTypes(
-            Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+            Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION, IndexTypes.MULTIDIMENSIONAL),
             Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
             Sets.newHashSet(IndexTypes.TEXT),
             Sets.newHashSet()

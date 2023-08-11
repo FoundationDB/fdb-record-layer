@@ -21,17 +21,13 @@
 package com.apple.foundationdb.record.sorting;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Collect keyed values into a {@link TreeMap} so that they end up sorted.
@@ -39,122 +35,19 @@ import java.util.concurrent.CompletableFuture;
  * @param <V> type of value
  */
 @API(API.Status.EXPERIMENTAL)
-public class MemorySorter<K, V> {
-    @Nonnull
-    private final NavigableMap<K, V> map;
-    @Nonnull
-    private final MemorySortAdapter<K, V> adapter;
-    @Nullable
-    private final StoreTimer timer;
+public class MemorySorter<K, V> extends MemoryScratchpad<K, V, NavigableMap<K, V>> {
+    public MemorySorter(@Nonnull final MemorySortAdapter<K, V> adapter, @Nullable final StoreTimer timer) {
+        super(adapter, new TreeMap<>(adapter), timer);
+    }
 
-    private LoadResult loadResult;
-
-    public MemorySorter(@Nonnull MemorySortAdapter<K, V> adapter, @Nullable StoreTimer timer) {
-        this.adapter = adapter;
-        this.map = new TreeMap<>(adapter);
-        this.timer = timer;
+    @Override
+    public void removeLast(@Nonnull final K currentKey) {
+        getMap().pollLastEntry();
     }
 
     @Nonnull
-    public NavigableMap<K, V> getMap() {
-        return map;
-    }
-
-    @Nonnull
-    public MemorySortAdapter<K, V> getAdapter() {
-        return adapter;
-    }
-
-    public void addKeyValue(K key, V value) {
-        map.put(key, value);
-    }
-
-    public void addValue(V value) {
-        addKeyValue(adapter.generateKey(value), value);
-    }
-
-    /** How the {@code getMaxRecordCountInMemory} is interpreted for {@link #load}. */
-    public enum RecordCountInMemoryLimitMode {
-        /** Map retains top {@code getMaxRecordCountInMemory} values and discards additional values. */
-        DISCARD,
-        /** Map retains {@code getMaxRecordCountInMemory} values and then stops. */
-        STOP
-    }
-
-    /** The result of {@link #load}. */
-    public static class LoadResult {
-        private final boolean full;
-        @Nonnull
-        private final RecordCursorContinuation sourceContinuation;
-        @Nonnull
-        private final RecordCursor.NoNextReason sourceNoNextReason;
-
-        public LoadResult(final boolean full, @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
-            this.full = full;
-            this.sourceContinuation = sourceContinuation;
-            this.sourceNoNextReason = sourceNoNextReason;
-        }
-
-        public boolean isFull() {
-            return full;
-        }
-
-        @Nonnull
-        public RecordCursorContinuation getSourceContinuation() {
-            return sourceContinuation;
-        }
-
-        @Nonnull
-        public RecordCursor.NoNextReason getSourceNoNextReason() {
-            return sourceNoNextReason;
-        }
-    }
-
-    /**
-     * Load and sort records from a cursor.
-     * @param source source cursor
-     * @param minimumKey ignore cursor entries that are not greater than this key
-     * @return the reason the load stopped
-     */
-    public CompletableFuture<LoadResult> load(@Nonnull RecordCursor<V> source, @Nullable K minimumKey) {
-        loadResult = null;
-        return AsyncUtil.whileTrue(() -> source.onNext().thenApply(sourceResult -> {
-            if (!sourceResult.hasNext()) {
-                loadResult = new LoadResult(false, sourceResult.getContinuation(), sourceResult.getNoNextReason());
-                return false;
-            }
-            final long startTime = System.nanoTime();
-            try {
-                if (minimumKey == null) {
-                    addValue(sourceResult.get());
-                } else {
-                    V value = sourceResult.get();
-                    K key = adapter.generateKey(value);
-                    if (adapter.compare(key, minimumKey) > 0) {
-                        addKeyValue(key, value);
-                    } else {
-                        return true;
-                    }
-                }
-                if (map.size() <= adapter.getMaxRecordCountInMemory()) {
-                    return true;
-                }
-                switch (adapter.getRecordCountInMemoryLimitMode()) {
-                    case DISCARD:
-                        map.pollLastEntry();
-                        return true;
-                    case STOP:
-                        // TODO: Need some more NoNextReason's
-                        loadResult = new LoadResult(true, sourceResult.getContinuation(), RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
-                        return false;
-                    default:
-                        throw new RecordCoreArgumentException("Unknown size limit mode: " + adapter.getRecordCountInMemoryLimitMode());
-                }
-            } finally {
-                if (timer != null) {
-                    timer.recordSinceNanoTime(SortEvents.Events.MEMORY_SORT_STORE_RECORD, startTime);
-                }
-            }
-        })).thenApply(vignore -> loadResult);
+    @Override
+    public Collection<V> tailValues(@Nullable final K minimumKey) {
+        return getMap().tailMap(minimumKey, false).values();
     }
 }
