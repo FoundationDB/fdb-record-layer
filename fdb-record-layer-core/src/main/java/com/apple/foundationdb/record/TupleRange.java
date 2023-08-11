@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -32,6 +32,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * A range within a subspace specified by two {@link Tuple} endpoints.
@@ -181,6 +182,159 @@ public class TupleRange {
             newHighEndpoint = highEndpoint;
         }
         return new TupleRange(newLow, newHigh, newLowEndpoint, newHighEndpoint);
+    }
+
+    /**
+     * Create a {@link TupleRange} over a prefix of the keys of this range. For example, if this range is over all
+     * {@link Tuple}s from <code>("a", 3)</code> exclusive to <code>("b", 4)</code> inclusive and one calls this method
+     * with {@code prefixCount} of {@code 1}, this will create a range from <code>("a")</code> inclusive to
+     * <code>("b")</code> inclusive. Note that the newly returned {@link TupleRange} is guaranteed to encompass
+     * the old range.
+     *
+     * @param prefixCount the number of prefix parts to consider
+     * @return a new {@link TupleRange} of a prefix of {@code predixCount} parts of this tuple range
+     */
+    @Nonnull
+    public TupleRange prefix(final int prefixCount) {
+        final Tuple newLow;
+        final EndpointType newLowEndpoint;
+        if (low == null) {
+            // assert TREE_START
+            newLow = null;
+            newLowEndpoint = lowEndpoint;
+        } else {
+            if (low.size() > prefixCount) {
+                newLow = Tuple.fromList(low.getItems().subList(0, prefixCount));
+            } else {
+                newLow = low;
+            }
+            newLowEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        final Tuple newHigh;
+        final EndpointType newHighEndpoint;
+        if (high == null) {
+            // assert TREE_END
+            newHigh = null;
+            newHighEndpoint = highEndpoint;
+        } else {
+            if (TupleHelpers.equals(low, high)) {
+                newHigh = newLow;
+            } else {
+                if (high.size() > prefixCount) {
+                    newHigh = Tuple.fromList(high.getItems().subList(0, prefixCount));
+                } else {
+                    newHigh = high;
+                }
+            }
+            newHighEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        return new TupleRange(newLow, newHigh, newLowEndpoint, newHighEndpoint);
+    }
+
+    /**
+     * Method to compute if an inclusive/inclusive range given by two {@link Tuple}s overlap with this tuple range.
+     * @param lowTuple low tuple
+     * @param highTuple high tuple
+     * @return {@code true} if and only if the range {@code [lowTuple, highTuple]} overlaps this tuple range
+     */
+    public boolean overlaps(@Nonnull final Tuple lowTuple, @Nonnull final Tuple highTuple) {
+        switch (getLowEndpoint()) {
+            case TREE_START:
+                break;
+            case RANGE_INCLUSIVE:
+            case RANGE_EXCLUSIVE:
+                final Tuple dimensionLow = Objects.requireNonNull(getLow());
+                if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                        TupleHelpers.compare(highTuple, dimensionLow) < 0) {
+                    return false;
+                }
+                if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                        TupleHelpers.compare(highTuple, dimensionLow) <= 0) {
+                    return false;
+                }
+                break;
+            case TREE_END:
+            case CONTINUATION:
+            case PREFIX_STRING:
+            default:
+                throw new RecordCoreException("do not support endpoint " + getLowEndpoint());
+        }
+
+        switch (getHighEndpoint()) {
+            case TREE_END:
+                break;
+            case RANGE_INCLUSIVE:
+            case RANGE_EXCLUSIVE:
+                final Tuple dimensionHigh = Objects.requireNonNull(getHigh());
+                if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                        TupleHelpers.compare(lowTuple, dimensionHigh) > 0) {
+                    return false;
+                }
+                if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                        TupleHelpers.compare(highTuple, dimensionHigh) >= 0) {
+                    return false;
+                }
+                break;
+            case TREE_START:
+            case CONTINUATION:
+            case PREFIX_STRING:
+            default:
+                throw new RecordCoreException("do not support endpoint " + getHighEndpoint());
+        }
+        return true;
+    }
+
+    /**
+     * Method to compute if a given {@link Tuple} is contained within this tuple range.
+     * @param tuple tuple
+     * @return {@code true} if and only if {@code tuple} is contained within this tuple range
+     */
+    public boolean contains(@Nonnull final Tuple tuple) {
+        switch (getLowEndpoint()) {
+            case TREE_START:
+                break;
+            case RANGE_INCLUSIVE:
+            case RANGE_EXCLUSIVE:
+                final Tuple dimensionLow = Objects.requireNonNull(getLow());
+                if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                        TupleHelpers.compare(tuple, dimensionLow) < 0) {
+                    return false;
+                }
+                if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                        TupleHelpers.compare(tuple, dimensionLow) <= 0) {
+                    return false;
+                }
+                break;
+            case TREE_END:
+            case CONTINUATION:
+            case PREFIX_STRING:
+            default:
+                throw new RecordCoreException("do not support endpoint " + getLowEndpoint());
+        }
+
+        switch (getHighEndpoint()) {
+            case TREE_END:
+                break;
+            case RANGE_INCLUSIVE:
+            case RANGE_EXCLUSIVE:
+                final Tuple dimensionHigh = Objects.requireNonNull(getHigh());
+                if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
+                        TupleHelpers.compare(tuple, dimensionHigh) > 0) {
+                    return false;
+                }
+                if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
+                        TupleHelpers.compare(tuple, dimensionHigh) >= 0) {
+                    return false;
+                }
+                break;
+            case TREE_START:
+            case CONTINUATION:
+            case PREFIX_STRING:
+            default:
+                throw new RecordCoreException("do not support endpoint " + getHighEndpoint());
+        }
+
+        return true;
     }
 
     /**

@@ -1065,6 +1065,39 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testIndexingThrottleBookerRepeatingExceptions() {
+        final OnlineIndexer.Config config = OnlineIndexer.Config.newBuilder()
+                .setInitialLimit(1000)
+                .setRecordsPerSecond(100)
+                .setIncreaseLimitAfter(5)
+                .setMaxRetries(5)
+                .setMaxLimit(10000)
+                .build();
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            final IndexingCommon common = new IndexingCommon(context.newRunner(),
+                    recordStore.asBuilder(),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
+                    null,
+                    config,
+                    false, false, 0
+            );
+
+            final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
+            postTransaction(booker, 1, 1000, true); // set last failure count to 1000
+            assertEquals(1000, booker.getRecordsLimit()); // up to max
+            final List<Integer> expectedLimitList = Arrays.asList(900, 720, 504,  252, 126, 63, 31,  3, 1, 1, 1, 1, 1, 1);
+            final RecordCoreRetriableTransactionException exception = new RecordCoreRetriableTransactionException("Retriable and lessener", new FDBException("not_committed", 1020));
+            for (int expectedLimit: expectedLimitList) {
+                mayRetryAfterHandlingException(booker, exception, 1, true);
+                assertEquals(expectedLimit, booker.getRecordsLimit()); // limit
+                postTransaction(booker, 1, expectedLimit, true); // set last failure count to new limit
+            }
+        }
+    }
+
+    @Test
     public void runWithWeakReadSemantics() {
         boolean dbTracksReadVersionOnRead = fdb.isTrackLastSeenVersionOnRead();
         boolean dbTracksReadVersionOnCommit = fdb.isTrackLastSeenVersionOnCommit();

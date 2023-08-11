@@ -393,6 +393,10 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
             found++;
             root = RecordTypeKeyExpression.RECORD_TYPE_KEY;
         }
+        if (expression.hasDimensions()) {
+            found++;
+            root = new DimensionsKeyExpression(expression.getDimensions());
+        }
         if (root == null || found > 1) {
             throw new DeserializationException("Exactly one root must be specified for an index");
         }

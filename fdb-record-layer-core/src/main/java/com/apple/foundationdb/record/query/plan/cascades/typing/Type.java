@@ -504,6 +504,13 @@ public interface Type extends Narrowable<Type> {
         Verify.verify(!t1.isUnresolved());
         Verify.verify(!t2.isUnresolved());
 
+        if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.resolvePromotionFunction(t1, t2) != null) {
+            return t2.withNullability(true);
+        }
+        if (t2.getTypeCode() == TypeCode.NULL && PromoteValue.resolvePromotionFunction(t2, t1) != null) {
+            return t1.withNullability(true);
+        }
+
         if (t1.isPrimitive() != t2.isPrimitive()) {
             return null;
         }
@@ -547,10 +554,12 @@ public interface Type extends Narrowable<Type> {
                         return null;
                     }
 
-                    final Optional<String> resultFieldNameOptional =
-                            t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional())
-                            ? t1Field.getFieldNameOptional()
-                            : Optional.empty();
+                    Optional<String> resultFieldNameOptional = Optional.empty();
+                    if (t1Field.getFieldNameOptional().isEmpty()) {
+                        resultFieldNameOptional = t2Field.getFieldNameOptional();
+                    } else if (t2Field.getFieldNameOptional().isEmpty() || (t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional()))) {
+                        resultFieldNameOptional = t1Field.getFieldNameOptional();
+                    }
 
                     resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional));
                 }

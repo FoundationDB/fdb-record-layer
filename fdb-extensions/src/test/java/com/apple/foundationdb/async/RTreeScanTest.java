@@ -25,15 +25,16 @@ import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.async.RTreeModificationTest.InstrumentedRTree;
 import com.apple.foundationdb.async.RTreeModificationTest.Item;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Streams;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -52,12 +53,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
- * Tests for {@link RTree}.
+ * Tests for scanning {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeScanTest extends FDBTestBase {
@@ -87,7 +90,9 @@ public class RTreeScanTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSubspace.getKey()));
             return null;
         });
-        items = RTreeModificationTest.randomInserts(db, rtSubspace, NUM_SAMPLES);
+        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, 0L, NUM_SAMPLES / 2);
+        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rtSubspace, 0L, NUM_SAMPLES / 2);
+        items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
     @AfterAll
@@ -116,7 +121,7 @@ public class RTreeScanTest extends FDBTestBase {
 
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryWithFilters(@Nonnull final RTree.Rectangle query) throws Exception {
+    public void queryWithFilters(@Nonnull final RTree.Rectangle query) {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -134,8 +139,12 @@ public class RTreeScanTest extends FDBTestBase {
                 numPointsSatisfyingQuery ++;
             }
 
-            final long pointX = ((Number)point.getCoordinate(0)).longValue();
-            final long pointY = ((Number)point.getCoordinate(1)).longValue();
+            if (point.getCoordinate(0) == null || point.getCoordinate(1) == null) {
+                continue;
+            }
+
+            final long pointX = Objects.requireNonNull(point.getCoordinateAsNumber(0)).longValue();
+            final long pointY = Objects.requireNonNull(point.getCoordinateAsNumber(1)).longValue();
             if (queryLowX <= pointX && pointX <= queryHighX) {
                 numPointsSatisfyingQueryX ++;
             }
@@ -145,7 +154,11 @@ public class RTreeScanTest extends FDBTestBase {
             }
         }
 
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final OnReadCounters onReadCounters = new OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
+
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate), itemSlot -> {
@@ -163,11 +176,11 @@ public class RTreeScanTest extends FDBTestBase {
         logger.trace("num points satisfying X range in query = {}", numPointsSatisfyingQueryX);
         logger.trace("num points satisfying Y range in query = {}", numPointsSatisfyingQueryY);
 
-        rt.logCounters();
+        onReadCounters.logCounters();
 
         final double ffPredicate = (double)nresults.get() / NUM_SAMPLES;
         logger.trace("ff of predicate = {}", ffPredicate);
-        final double ffSargable = (double)rt.getReadSlotCounter() / NUM_SAMPLES;
+        final double ffSargable = (double)onReadCounters.getReadSlotCounter() / NUM_SAMPLES;
         logger.trace("ff of sargable = {}", ffSargable);
         final double overread = (ffSargable / ffPredicate - 1d) * 100d;
         logger.trace("over-read = {}%", overread);
@@ -179,7 +192,7 @@ public class RTreeScanTest extends FDBTestBase {
     public void queryTopNWithFilters(@Nonnull final RTree.Rectangle query) {
         final Comparator<Item> itemComparator =
                 Comparator.<Item>comparingLong(item -> item.getPoint().getCoordinates().getLong(0))
-                        .thenComparing(Item::getKey);
+                        .thenComparing(Item::getKeySuffix);
         final MinMaxPriorityQueue<Item> expectedResultsQueue = MinMaxPriorityQueue.orderedBy(itemComparator).maximumSize(5).create();
         final TopNTraversal topNTraversal = new TopNTraversal(query, 5);
 
@@ -189,8 +202,10 @@ public class RTreeScanTest extends FDBTestBase {
                 expectedResultsQueue.add(items[i]);
             }
         }
-
-        final InstrumentedRTree rt = new InstrumentedRTree(rtSubspace);
+        final OnReadCounters onReadCounters = new OnReadCounters();
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
@@ -209,11 +224,11 @@ public class RTreeScanTest extends FDBTestBase {
         Streams.zip(expectedResults.stream(), topNItemSlots.stream(),
                 (expected, actual) -> {
                     Assertions.assertEquals(expected.getPoint(), actual.getPosition());
-                    Assertions.assertEquals(expected.getKey(), actual.getKey());
+                    Assertions.assertEquals(expected.getKeySuffix(), actual.getKeySuffix());
                     return 1;
                 }).allMatch(r -> true);
 
-        rt.logCounters();
+        onReadCounters.logCounters();
     }
 
     //
@@ -231,7 +246,7 @@ public class RTreeScanTest extends FDBTestBase {
     private static class TopNTraversal implements Predicate<RTree.Rectangle> {
         private static final Comparator<RTree.ItemSlot> comparator =
                 Comparator.<RTree.ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
-                        .thenComparing(itemSlot -> itemSlot.getKey());
+                        .thenComparing(itemSlot -> itemSlot.getKeySuffix());
 
         @Nonnull
         private RTree.Rectangle query;
@@ -268,6 +283,83 @@ public class RTreeScanTest extends FDBTestBase {
                     final Tuple newRanges = Tuple.from(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
                     this.query = new RTree.Rectangle(newRanges);
                 }
+            }
+        }
+    }
+
+    static class OnReadCounters implements RTree.OnReadListener {
+        private final AtomicLong readSlotCounter = new AtomicLong(0);
+        private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
+        private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
+        private final AtomicLong readNodesCounter = new AtomicLong(0);
+        private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
+        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
+
+        public void resetCounters() {
+            readSlotCounter.set(0L);
+            readLeafSlotCounter.set(0L);
+            readIntermediateSlotCounter.set(0L);
+            readNodesCounter.set(0L);
+            readLeafNodesCounter.set(0L);
+            readIntermediateNodesCounter.set(0L);
+        }
+
+        public long getReadSlotCounter() {
+            return readSlotCounter.get();
+        }
+
+        public long getReadLeafSlotCounter() {
+            return readLeafSlotCounter.get();
+        }
+
+        public long getReadIntermediateSlotCounter() {
+            return readIntermediateSlotCounter.get();
+        }
+
+        public long getReadNodesCounter() {
+            return readNodesCounter.get();
+        }
+
+        public long getReadLeafNodesCounter() {
+            return readLeafNodesCounter.get();
+        }
+
+        public long getReadIntermediateNodesCounter() {
+            return readIntermediateNodesCounter.get();
+        }
+
+        public void logCounters() {
+            logger.info("num read slots = {}", readSlotCounter.get());
+            logger.info("num read leaf slots = {}", readLeafSlotCounter.get());
+            logger.info("num read intermediate slots = {}", readIntermediateSlotCounter.get());
+            logger.info("num read nodes = {}", readNodesCounter.get());
+            logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
+            logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
+        }
+
+        @Override
+        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+            return future;
+        }
+
+        @Override
+        public void onNodeRead(@Nonnull final RTree.Node node) {
+            if (node.getKind() == RTree.Kind.LEAF) {
+                readLeafNodesCounter.incrementAndGet();
+            } else {
+                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
+                readIntermediateNodesCounter.incrementAndGet();
+            }
+        }
+
+        @Override
+        public void onKeyValueRead(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+            readSlotCounter.incrementAndGet();
+            if (node.getKind() == RTree.Kind.LEAF) {
+                readLeafSlotCounter.incrementAndGet();
+            } else {
+                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
+                readIntermediateSlotCounter.incrementAndGet();
             }
         }
     }

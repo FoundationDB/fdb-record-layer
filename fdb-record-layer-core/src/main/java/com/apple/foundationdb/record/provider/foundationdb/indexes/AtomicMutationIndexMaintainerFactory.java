@@ -144,7 +144,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
 
     @Override
     @Nonnull
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new AtomicMutationIndexMaintainer(state);
     }
 

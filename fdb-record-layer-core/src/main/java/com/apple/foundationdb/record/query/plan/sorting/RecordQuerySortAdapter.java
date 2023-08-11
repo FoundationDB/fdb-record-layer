@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.SecureRandom;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
@@ -62,6 +63,8 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     private final int memoryLimit;
     private final boolean memoryOnly;
     @Nonnull
+    private final BiFunction<MemorySortAdapter<Tuple, FDBQueriedRecord<M>>, Tuple, MemorySortComparator<Tuple>> comparatorFunction;
+    @Nonnull
     private final RecordQuerySortKey key;
     @Nonnull
     private final SortedRecordSerializer<M> serializer;
@@ -71,10 +74,11 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     private Key encryptionKey;
     private static final Supplier<SecureRandom> RANDOM = Suppliers.memoize(SecureRandom::new);
 
-    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly,
+    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly, @Nonnull BiFunction<MemorySortAdapter<Tuple, FDBQueriedRecord<M>>, Tuple, MemorySortComparator<Tuple>> comparatorFunction,
                                      @Nonnull RecordQuerySortKey key, @Nonnull FDBRecordStoreBase<M> recordStore) {
         this.memoryLimit = memoryLimit;
         this.memoryOnly = memoryOnly;
+        this.comparatorFunction = comparatorFunction;
         this.key = key;
         RecordSerializer<M> recordSerializer = recordStore.getSerializer();
         if (recordSerializer instanceof TransformedRecordSerializer) {
@@ -207,5 +211,11 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     @Override
     public SecureRandom getSecureRandom() {
         return RANDOM.get();
+    }
+
+    @Nonnull
+    @Override
+    public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
+        return comparatorFunction.apply(this, minimumKey);
     }
 }

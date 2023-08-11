@@ -596,6 +596,7 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_COMPOSED_BITMAP_INDEX("number of composed bitmap plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan}. */
         PLAN_SORT("number of sort plans", false),
+        PLAN_DAM("number of dam plans", false),
         /** The number of records given given to any filter within any plan. */
         QUERY_FILTER_GIVEN("number of records given to any filter within any plan", false),
         /** The number of records passed by any filter within any plan. */
@@ -726,6 +727,15 @@ public class FDBStoreTimer extends StoreTimer {
         TRANSACTION_TOO_LARGE("transaction too large", false),
         /** Count the number of scans executed that returned no data. */
         EMPTY_SCANS("empty scans", false),
+        MULTIDIMENSIONAL_LEAF_NODE_READS("leaf nodes read", false),
+        MULTIDIMENSIONAL_LEAF_NODE_READ_BYTES("leaf node bytes read", true),
+        MULTIDIMENSIONAL_LEAF_NODE_WRITES("leaf nodes written", false),
+        MULTIDIMENSIONAL_LEAF_NODE_WRITE_BYTES("leaf node bytes written", true),
+
+        MULTIDIMENSIONAL_INTERMEDIATE_NODE_READS("intermediate nodes read", false),
+        MULTIDIMENSIONAL_INTERMEDIATE_NODE_READ_BYTES("intermediate node bytes read", true),
+        MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES("intermediate nodes written", false),
+        MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES("intermediate node bytes written", true),
         ;
 
         private final String title;

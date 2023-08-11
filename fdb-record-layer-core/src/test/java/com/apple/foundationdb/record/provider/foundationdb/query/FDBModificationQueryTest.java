@@ -65,17 +65,21 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deletePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deleteTarget;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.insertPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.target;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.updatePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray;
 
@@ -433,8 +437,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
-                    updatePlan(
-                            typeFilterPlan(scanPlan()))
+                    updatePlan(unorderedPrimaryKeyDistinctPlan(
+                            typeFilterPlan(scanPlan())))
                             .where(target(equalsObject("RestaurantRecord"))));
 
             var resultValues = fetchResultValues(context, plan, record -> {
@@ -610,7 +614,11 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     insertPlan(
                             flatMapPlan(explodePlan(),
                                     descendantPlans(
-                                            updatePlan(indexPlan().where(indexName("RestaurantRecord$name"))).where(target(equalsObject("RestaurantRecord"))))))
+                                            updatePlan(fetchFromPartialRecordPlan(
+                                                    unorderedPrimaryKeyDistinctPlan(
+                                                            coveringIndexPlan()
+                                                                    .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")))))))
+                                                    .where(target(equalsObject("RestaurantRecord"))))))
                             .where(target(equalsObject("RestaurantRecord"))));
 
             var resultValues = fetchResultValues(context, plan, record -> {

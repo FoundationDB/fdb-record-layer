@@ -192,7 +192,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
     }
 }
