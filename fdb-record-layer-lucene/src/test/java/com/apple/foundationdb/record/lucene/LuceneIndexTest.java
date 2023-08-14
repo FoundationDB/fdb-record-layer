@@ -97,7 +97,6 @@ import java.io.SequenceInputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -1152,7 +1151,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         FDBRecordContext context = openContext();
         for (int i = 0; i < 2000; i++) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            String[] randomWords = generateRandomWords(500);
+            String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
             final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
                     .setDocId(i)
                     .setText(randomWords[1])
@@ -2418,26 +2417,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, next.getNoNextReason());
             assertNull(Verify.verifyNotNull(context.getTimer()).getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY));
         }
-    }
-
-    public static String[] generateRandomWords(int numberOfWords) {
-        assert numberOfWords > 0 : "Number of words have to be greater than 0";
-        StringBuilder builder = new StringBuilder();
-        Random random = new Random();
-        char[] word = null;
-        for (int i = 0; i < numberOfWords; i++) {
-            word = new char[random.nextInt(8) + 3]; // words of length 3 through 10. (1 and 2 letter words are boring.)
-            for (int j = 0; j < word.length; j++) {
-                word[j] = (char)('a' + random.nextInt(26));
-            }
-            if (i != numberOfWords - 1) {
-                builder.append(word).append(" ");
-            }
-        }
-        String[] returnValue = new String[2];
-        returnValue[0] = new String(word);
-        returnValue[1] = builder.toString();
-        return returnValue;
     }
 
     private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {

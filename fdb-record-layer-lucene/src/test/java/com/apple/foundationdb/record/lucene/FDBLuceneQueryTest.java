@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -58,6 +59,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -81,7 +83,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -89,7 +93,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTest.generateRandomWords;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
@@ -126,6 +129,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
+
+    // The fork/join pool parallelism factor (the number of active threads in the pool).
+    private static final int PARALLELISM = 8;
 
     @BeforeAll
     public static void setup() {
@@ -801,7 +807,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         for (int i = 0; i < 200; i++) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
-                String[] randomWords = generateRandomWords(500);
+                String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
                 final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
                         .setDocId(i)
                         .setText(randomWords[1])
@@ -1269,6 +1275,49 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertEquals(Set.of(2L, 4L, 5L), new HashSet<>(primaryKeys));
             }
+        }
+    }
+
+    /**
+     * This test is reproducing a thread deadlock that happened with Lucene threads when reading schema information.
+     * The fix for the deadlock has removed the {@code Map.computeIfAbsent} call (with the {@code synchronized} block)
+     * that blocked the {@code asyncToSync} calls.
+     * This test creates a large enough set of {@link org.apache.lucene.index.SegmentReader} futures so as to flood the thread pool,
+     * and then queries Lucene. The large number of futures in the pool, together with the {@code synchronized} block
+     * would cause a deadlock.
+     */
+    @Test
+    void testQueryWithManyDocuments() {
+        // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
+        // (random words) rather than using random English words from a canned text. With English text, Lucene compression
+        // reduces the size of the segment such that we need many more records to create the required number of segments
+        FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                null, false));
+        FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout( event -> {
+            // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
+            return new ImmutablePair<>(1L, TimeUnit.SECONDS);
+        });
+        // Save many records (create many segments)
+        for (long i = 0 ; i < 20 ; i++) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                for (int j = 0 ; j < 10 ; j++) {
+                    TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                            .setDocId(i * 1000 + j)
+                            .setGroup(1)
+                            .setText(LuceneIndexTestUtils.generateRandomWords(1000)[1])
+                            .build();
+                    recordStore.saveRecord(document1);
+                }
+                commit(context);
+            }
+        }
+        // Run a query
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            // Random words are up to 10 characters long, so this would never match
+            assertPrimaryKeys("text:morningstart", false, Set.of());
         }
     }
 }
