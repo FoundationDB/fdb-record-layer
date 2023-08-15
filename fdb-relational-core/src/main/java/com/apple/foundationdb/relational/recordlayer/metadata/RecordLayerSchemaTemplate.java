@@ -68,6 +68,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private final boolean enableLongRows;
 
+    private final boolean storeRowVersions;
+
     @Nonnull
     private final Supplier<RecordMetaData> metaDataSupplier;
 
@@ -80,11 +82,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       int version,
-                                      boolean enableLongRows) {
+                                      boolean enableLongRows,
+                                      boolean storeRowVersions) {
         this.name = name;
-        this.version = version;
         this.tables = tables;
+        this.version = version;
         this.enableLongRows = enableLongRows;
+        this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -94,11 +98,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       int version,
                                       boolean enableLongRows,
+                                      boolean storeRowVersions,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
         this.tables = tables;
         this.enableLongRows = enableLongRows;
+        this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -118,6 +124,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public boolean isEnableLongRows() {
         return enableLongRows;
+    }
+
+    @Override
+    public boolean isStoreRowVersions() {
+        return storeRowVersions;
     }
 
     @Nonnull
@@ -272,6 +283,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private boolean intermingleTables;
 
+        private boolean storeRowVersions;
+
         private final Map<String, RecordLayerTable> tables;
 
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
@@ -311,6 +324,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         public boolean isIntermingleTables() {
             return intermingleTables;
+        }
+
+        @Nonnull
+        public Builder setStoreRowVersions(boolean value) {
+            this.storeRowVersions = value;
+            return this;
         }
 
         @Nonnull
@@ -425,9 +444,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions);
             }
         }
 

@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -63,6 +64,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
@@ -84,6 +86,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -93,6 +96,46 @@ import static java.util.stream.Collectors.toList;
  * Contains a set of utility methods that are relevant for parsing the AST.
  */
 public final class ParserUtils {
+
+    public enum PseudoColumn {
+        ROW_VERSION(qun -> new VersionValue(qun.getAlias())),
+        ;
+
+        private static final String PREFIX = "__";
+
+        @Nonnull
+        private final Function<Quantifier, Value> valueCreator;
+        @Nonnull
+        private final String columnName;
+
+        PseudoColumn(@Nonnull Function<Quantifier, Value> valueCreator) {
+            this.valueCreator = valueCreator;
+            this.columnName = PREFIX + name();
+        }
+
+        @Nonnull
+        public Value getValue(@Nonnull Quantifier qun) {
+            return Objects.requireNonNull(valueCreator.apply(qun));
+        }
+
+        @Nonnull
+        public String getColumnName() {
+            return columnName;
+        }
+
+        @Nullable
+        public static Value maybeValueForColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
+            if (!columnName.startsWith(PREFIX)) {
+                return null;
+            }
+            for (PseudoColumn pseudo : PseudoColumn.values()) {
+                if (pseudo.columnName.equals(columnName)) {
+                    return pseudo.getValue(qun);
+                }
+            }
+            return null;
+        }
+    }
 
     private static final Map<String, Class<? extends BuiltInFunction<Value>>> functionMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
@@ -219,7 +262,7 @@ public final class ParserUtils {
         }
     }
 
-    public static FieldValue resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+    public static Value resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScope();
         Assert.thatUnchecked(!fieldPath.isEmpty());
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
@@ -233,7 +276,7 @@ public final class ParserUtils {
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+    private static Value resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScope();
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
         Assert.thatUnchecked(!fieldPath.isEmpty());
@@ -304,7 +347,7 @@ public final class ParserUtils {
 
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
-    private static FieldValue resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
+    private static Value resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScope();
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
         final var fieldAccessors = toAccessors(fieldPath);
@@ -335,22 +378,45 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    private static List<FieldValue> resolveField(@Nonnull final Collection<Quantifier> quns,
-                                                 @Nonnull final List<FieldValue.Accessor> fieldAccessors,
-                                                 @Nonnull final List<String> fieldPath) {
+    private static List<Value> resolveField(@Nonnull final Collection<Quantifier> quns,
+                                            @Nonnull final List<FieldValue.Accessor> fieldAccessors,
+                                            @Nonnull final List<String> fieldPath) {
         Assert.thatUnchecked(fieldPath.size() == fieldAccessors.size());
-        final var result = ImmutableList.<FieldValue>builder();
+        final ImmutableList.Builder<Value> result = ImmutableList.builder();
         for (final var qun : quns) {
+            Value resolvedValue = null;
             if (fieldPath.size() > 1) { // maybe qualified, check if the first part matches the quantifier's alias itself.
                 if (fieldPath.get(0).equals(qun.getAlias().getId()) && resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
-                    result.add(FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath.subList(1, fieldPath.size())));
+                    resolvedValue = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath.subList(1, fieldPath.size()));
                 }
             }  // not qualified, or nested field.
-            if (resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors)) {
-                result.add(FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath));
+            if (resolvedValue == null && resolveFieldPath(qun.getFlowedObjectType(), fieldAccessors)) {
+                resolvedValue = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), fieldPath);
+            }
+            if (resolvedValue == null) {
+                resolvedValue = resolvePseudoField(qun, fieldPath);
+            }
+            if (resolvedValue != null) {
+                result.add(resolvedValue);
             }
         }
         return result.build();
+    }
+
+    @Nullable
+    private static Value resolvePseudoField(@Nonnull Quantifier qun, @Nonnull List<String> fieldPath) {
+        if (fieldPath.size() == 1) {
+            String fieldName = Objects.requireNonNull(Iterables.getOnlyElement(fieldPath));
+            return PseudoColumn.maybeValueForColumn(qun, fieldName);
+        } else if (fieldPath.size() == 2) {
+            String correlationId = fieldPath.get(0);
+            if (!correlationId.equals(qun.getAlias().getId())) {
+                return null;
+            }
+            return PseudoColumn.maybeValueForColumn(qun, fieldPath.get(1));
+        } else {
+            return null;
+        }
     }
 
     @Nonnull
@@ -552,6 +618,8 @@ public final class ParserUtils {
     public static Column<Value> toColumn(@Nonnull final Value value) {
         if (value instanceof FieldValue) {
             return toColumn(value, ((FieldValue) value).getLastFieldName().orElseThrow());
+        } else if (value instanceof VersionValue) {
+            return toColumn(value, PseudoColumn.ROW_VERSION.getColumnName());
         } else {
             return Column.unnamedOf(value);
         }

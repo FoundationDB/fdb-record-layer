@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -337,7 +338,15 @@ public class Matchers {
         }
 
         public void addCell(@Nullable final Object cell) {
-            resultSet.get(resultSet.size() - 1).add(cell == null ? "<NULL>" : cell.toString());
+            String cellString;
+            if (cell == null) {
+                cellString = "<NULL>";
+            } else if (cell instanceof byte[]) {
+                cellString = ByteArrayUtil2.loggable((byte[]) cell);
+            } else {
+                cellString = cell.toString();
+            }
+            resultSet.get(resultSet.size() - 1).add(cellString);
         }
 
         public void newRow() {
@@ -533,6 +542,10 @@ public class Matchers {
             } else {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", printer);
             }
+        }
+        if (expected instanceof YamlRunner.NotNull) {
+            // Actual value is not null, which is all the test cares about
+            return ResultSetMatchResult.success();
         }
         if (expected instanceof YamlRunner.StringContains) {
             return ((YamlRunner.StringContains) expected).matchWith(actual, printer);

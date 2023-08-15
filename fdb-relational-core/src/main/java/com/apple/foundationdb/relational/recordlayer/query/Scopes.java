@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
@@ -291,7 +292,7 @@ public class Scopes {
         }
 
         public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
-            Assert.thatUnchecked(column.getValue() instanceof FieldValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
+            Assert.thatUnchecked(column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
             Assert.thatUnchecked(getProjectList().contains(column), "Cannot order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
             if (orderByCardinals.isEmpty()) {
                 isReverse = isDesc;
@@ -300,7 +301,7 @@ public class Scopes {
             }
             var orderByCardinalInProjectionList = projectionList.indexOf(column);
             Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
-                    String.format("Order by column %s is duplicated in the order by clause", column.getField().getFieldName()), ErrorCode.COLUMN_ALREADY_EXISTS);
+                    String.format("Order by column %s is duplicated in the order by clause", (column.getValue() instanceof VersionValue ? "version" : column.getField().getFieldName())), ErrorCode.COLUMN_ALREADY_EXISTS);
             orderByCardinals.add(projectionList.indexOf(column));
         }
 

@@ -409,7 +409,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    private List<Column<? extends Value>> expandStarColumns(Value id) {
+    private List<Column<? extends Value>> expandStarColumns(@Nullable Value id) {
         final var scope = scopes.getCurrentScope();
         final var isUnderlyingSelectWhere = scope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         final var isUnderlyingGroupByExpression = scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
@@ -1308,6 +1308,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                     schemaTemplateBuilder.setEnableLongRows(option.booleanLiteral().TRUE() != null);
                 } else if (option.INTERMINGLE_TABLES() != null) {
                     schemaTemplateBuilder.setIntermingleTables(option.booleanLiteral().TRUE() != null);
+                } else if (option.STORE_ROW_VERSIONS() != null) {
+                    schemaTemplateBuilder.setStoreRowVersions(option.booleanLiteral().TRUE() != null);
                 } else {
                     Assert.failUnchecked("Encountered unknown options in schema template creation", ErrorCode.SYNTAX_ERROR);
                 }

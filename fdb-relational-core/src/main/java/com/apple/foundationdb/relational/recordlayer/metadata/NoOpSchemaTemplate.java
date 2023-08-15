@@ -63,6 +63,11 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     }
 
     @Override
+    public boolean isStoreRowVersions() {
+        return false;
+    }
+
+    @Override
     @Nonnull
     public Schema generateSchema(@Nonnull final String databaseId, @Nonnull final String schemaName) {
         return new RecordLayerSchema(schemaName, databaseId, this);

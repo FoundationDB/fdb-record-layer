@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
@@ -86,6 +87,16 @@ class QueryCommand extends Command {
         QueryConfigWithValue(@Nonnull QueryConfig config, @Nonnull Object val) {
             this.config = config;
             this.val = val;
+        }
+
+        public String valueString() {
+            if (val == null) {
+                return "<NULL>";
+            } else if (val instanceof byte[]) {
+                return ByteArrayUtil2.loggable((byte[]) val);
+            } else {
+                return val.toString();
+            }
         }
     }
 
@@ -165,7 +176,7 @@ class QueryCommand extends Command {
                     Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                     "↪ expected result:%n" +
-                    (queryConfigWithValue.val == null ? "<NULL>" : queryConfigWithValue.val.toString()) + "%n" +
+                    queryConfigWithValue.valueString() +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                     "↩ actual result:%n" +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +

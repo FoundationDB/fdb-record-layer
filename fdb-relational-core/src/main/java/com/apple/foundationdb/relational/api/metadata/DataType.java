@@ -665,7 +665,8 @@ public abstract class DataType {
         NULLABLE_FLOAT(new FloatType(true)),
         NULLABLE_DOUBLE(new DoubleType(true)),
         NULLABLE_STRING(new StringType(true)),
-        NULLABLE_BYTES(new BytesType(true));
+        NULLABLE_BYTES(new BytesType(true)),
+        ;
 
         @Nonnull
         private final DataType datatype;

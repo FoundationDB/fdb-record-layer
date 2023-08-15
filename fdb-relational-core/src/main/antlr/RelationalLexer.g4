@@ -1083,6 +1083,7 @@ SQL_THREAD_WAIT_AFTER_GTIDS:         'SQL_THREAD_WAIT_AFTER_GTIDS';
 SQRT:                                'SQRT';
 SRID:                                'SRID';
 STARTPOINT:                          'STARTPOINT';
+STORE_ROW_VERSIONS:                  'STORE_ROW_VERSIONS';
 STRCMP:                              'STRCMP';
 STR_TO_DATE:                         'STR_TO_DATE';
 ST_AREA:                             'ST_AREA';

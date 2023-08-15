@@ -58,6 +58,11 @@ public class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
+    public void versionsTests() throws Exception {
+        doRun("versions-tests.yaml");
+    }
+
+    @Test
     public void scenarioTests() throws Exception {
         doRun("scenario-tests.yaml");
     }

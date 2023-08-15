@@ -71,6 +71,7 @@ public final class YamlRunner implements AutoCloseable {
             yamlConstructors.put(new Tag("!l"), new CustomTagsInject.ConstructLong());
             yamlConstructors.put(new Tag("!sc"), new CustomTagsInject.ConstructStringContains());
             yamlConstructors.put(new Tag("!null"), new CustomTagsInject.ConstructNullPlaceholder());
+            yamlConstructors.put(new Tag("!not_null"), new CustomTagsInject.ConstructNotNull());
         }
 
         @Override
@@ -137,6 +138,13 @@ public final class YamlRunner implements AutoCloseable {
                 return NullPlaceholder.INSTANCE;
             }
         }
+
+        private static class ConstructNotNull extends AbstractConstruct {
+            @Override
+            public Object construct(Node node) {
+                return NotNull.INSTANCE;
+            }
+        }
     }
 
     static final class Ignore {
@@ -193,6 +201,18 @@ public final class YamlRunner implements AutoCloseable {
         @Override
         public String toString() {
             return "!null";
+        }
+    }
+
+    static final class NotNull {
+        static final NotNull INSTANCE = new NotNull();
+
+        private NotNull() {
+        }
+
+        @Override
+        public String toString() {
+            return "!not_null";
         }
     }
 

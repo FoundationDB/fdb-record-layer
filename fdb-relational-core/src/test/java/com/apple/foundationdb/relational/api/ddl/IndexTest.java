@@ -37,10 +37,12 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -49,8 +51,10 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
 
 public class IndexTest {
@@ -76,6 +80,11 @@ public class IndexTest {
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                 .withSchemaTemplate(schemaTemplate)
                 .build();
+    }
+
+    @BeforeEach
+    void setUpQueryLogger() {
+        QueryLogger.configure(Options.NONE);
     }
 
     void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
@@ -341,6 +350,52 @@ public class IndexTest {
     }
 
     @Test
+    void createIndexWithNestedRepeatedSameParent() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT T1.col5, X.col3, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X ORDER BY T1.col5, X.col3";
+        indexIs(stmt, keyWithValue(concat(field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 2), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithNestedRepeatedCartesianProduct() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT T1.col5, X.col3, Y.col4 FROM T1, (SELECT col3 FROM T1.A) X, (SELECT col4 FROM T1.A) Y ORDER BY T1.col5, X.col3";
+        indexIs(stmt, keyWithValue(concat(field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL3")), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL4"))), 2), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithRepeatedNestedSplitByField() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+    }
+
+    @Test
+    void createIndexWithRepeatedNestedCartesianSplitByField() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT Y.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X, (SELECT col2 FROM T1.A) Y ORDER BY Y.col2, T1.col5, X.col3";
+        indexIs(stmt, keyWithValue(concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL2")), field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 3), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithNonRepeatedNestedSplitByField() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT T1.a.col2, T1.col5, T1.a.col3, T1.a.col4 FROM T1 ORDER BY T1.a.col2, T1.col5, T1.a.col3";
+        // In theory, this should be fine, as the nested value is not repeated, but this is currently not distinguished by the index generator
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+    }
+
+    @Test
     void createAggregateIndexWithGroupByContainingMoreThanOneAggregationIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
@@ -426,6 +481,102 @@ public class IndexTest {
                                                                                                 field("X"))))))))),
                         1),
                 IndexTypes.VALUE);
+    }
+
+    @Test
+    void createSimpleVersionIndex() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT \"__ROW_VERSION\" FROM T1 ORDER BY \"__ROW_VERSION\" " +
+                "WITH OPTIONS(store_row_versions=true)";
+        indexIs(stmt, version(), IndexTypes.VERSION);
+    }
+
+    @Test
+    void createVersionIndexWithAliasedTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT t.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t.\"__ROW_VERSION\" " +
+                "WITH OPTIONS(store_row_versions=true)";
+        indexIs(stmt, version(), IndexTypes.VERSION);
+    }
+
+    @Test
+    void failToCreateVersionIndexWithUnknownTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT t2.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t2.\"__ROW_VERSION\" " +
+                "WITH OPTIONS(store_row_versions=true)";
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "attempting to query non existing column 'T2.__ROW_VERSION'");
+    }
+
+    @Test
+    void createCompoundVersionIndex() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 string, col3 bigint, col4 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT col2, \"__ROW_VERSION\", col3, col4 FROM T1 ORDER BY col2, \"__ROW_VERSION\", col3 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        indexIs(stmt, keyWithValue(concat(field("COL2"), version(), field("COL3"), field("COL4")), 3), IndexTypes.VERSION);
+    }
+
+    @Test
+    void createVersionIndexWithVersionInValue() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 string, col3 bigint, col4 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT col2, \"__ROW_VERSION\", col3, col4 FROM T1 ORDER BY col2 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        indexIs(stmt, keyWithValue(concat(field("COL2"), version(), field("COL3"), field("COL4")), 1), IndexTypes.VERSION);
+    }
+
+    @Test
+    void createVersionIndexWithNestingFields() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT a.col2, \"__ROW_VERSION\", a.col3, a.col4 FROM T1 ORDER BY a.col2, \"__ROW_VERSION\", a.col3 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        // In theory, this should be fine, as the nested value is not repeated, but this is currently not distinguished by the index generator
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+    }
+
+    @Test
+    void createVersionIndexWithRepeatedNested() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT t1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X ORDER BY t1.\"__ROW_VERSION\", X.col3 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        indexIs(stmt, keyWithValue(concat(version(), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 2), IndexTypes.VERSION);
+    }
+
+    @Test
+    void createVersionIndexWithRepeatedNestedSplitByVersion() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.\"__ROW_VERSION\", X.col3 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+    }
+
+    @Test
+    void failToCreateVersionIndexWithAmbiguousSource() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, \"__ROW_VERSION\" FROM T1, (SELECT col2 FROM T1.A) X ORDER BY X.col2, \"__ROW_VERSION\" " +
+                "WITH OPTIONS(store_row_versions=true)";
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '__ROW_VERSION'");
+    }
+
+    @Test
+    void versionIndexWithoutStoreRowVersions() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT \"__ROW_VERSION\" FROM T1 ORDER BY \"__ROW_VERSION\" " +
+                "WITH OPTIONS(store_row_versions=false)";
+        // TODO: it's possible the right thing here is to reject index creation because the meta-data is not configured to store versions
+        indexIs(stmt, version(), IndexTypes.VERSION);
     }
 
     @ParameterizedTest

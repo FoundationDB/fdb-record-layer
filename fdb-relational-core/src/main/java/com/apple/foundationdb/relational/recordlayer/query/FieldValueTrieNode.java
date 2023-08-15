@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.TrieNode;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +36,7 @@ import com.google.common.collect.PeekingIterator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -115,6 +118,30 @@ public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Va
         return Objects.hash(getValue(), getChildrenMap());
     }
 
+    public void validateNoOverlaps(@Nonnull Collection<FieldValueTrieNode> otherNodes) {
+        // Make sure the same field path isn't referenced by other nodes
+        Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> children = getChildrenMap();
+        if (children == null || children.isEmpty()) {
+            return;
+        }
+        for (FieldValueTrieNode otherNode : otherNodes) {
+            Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> otherChildren = otherNode.getChildrenMap();
+            if (otherChildren == null || otherChildren.isEmpty()) {
+                continue;
+            }
+            for (Map.Entry<FieldValue.ResolvedAccessor, FieldValueTrieNode> otherEntry : otherChildren.entrySet()) {
+                if (children.containsKey(otherEntry.getKey())) {
+                    throw new RelationalException("Index with multiple disconnected references to the same column are not supported", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
+                }
+            }
+        }
+    }
+
+    public boolean isLeaf() {
+        var children = getChildrenMap();
+        return children == null || children.isEmpty();
+    }
+
     /**
      * This method compresses an <i>ordered</i> set of prefixes into a trie data structure.
      *
@@ -154,5 +181,44 @@ public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Va
         }
 
         return new FieldValueTrieNode(childrenMapBuilder.build());
+    }
+
+    @Nonnull
+    public static FieldValueTrieNode computeTrieForValues(@Nonnull final FieldValue.FieldPath prefix,
+                                                          @Nonnull final PeekingIterator<Value> orderedValueIterator) {
+        final List<FieldValue.ResolvedAccessor> prefixAccessors = prefix.getFieldAccessors();
+        final var childrenMapBuilder = ImmutableMap.<FieldValue.ResolvedAccessor, FieldValueTrieNode>builder();
+        while (orderedValueIterator.hasNext()) {
+            final var value = orderedValueIterator.peek();
+            if (!(value instanceof FieldValue)) {
+                break;
+            }
+
+            final var fieldPath = ((FieldValue) value).getFieldPath();
+            if (prefix.equals(fieldPath)) {
+                orderedValueIterator.next();
+                return new FieldValueTrieNode(null);
+            } else if (!prefix.isPrefixOf(fieldPath)) {
+                break;
+            }
+
+            final var currentAccessor = fieldPath.getFieldAccessors().get(prefixAccessors.size());
+            final var nestedPrefix = new FieldValue.FieldPath(ImmutableList.<FieldValue.ResolvedAccessor>builderWithExpectedSize(prefixAccessors.size() + 1)
+                    .addAll(prefixAccessors)
+                    .add(currentAccessor)
+                    .build()
+            );
+
+            final var currentTrie = computeTrieForValues(nestedPrefix, orderedValueIterator);
+            childrenMapBuilder.put(currentAccessor, currentTrie);
+        }
+
+        try {
+            return new FieldValueTrieNode(childrenMapBuilder.build());
+        } catch (IllegalArgumentException e) {
+            // Can happen if there are duplicate keys in the child map. This, in turn, indicates that the
+            // same nested field path is being used multiple times (incorrectly)
+            throw new RelationalException("Index with multiple disconnected references to the same column are not supported", ErrorCode.UNSUPPORTED_OPERATION, e).toUncheckedWrappedException();
+        }
     }
 }

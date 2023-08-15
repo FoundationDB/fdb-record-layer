@@ -99,6 +99,7 @@ optionsClause
 option
     : ENABLE_LONG_ROWS EQUAL_SYMBOL booleanLiteral
     | INTERMINGLE_TABLES EQUAL_SYMBOL booleanLiteral
+    | STORE_ROW_VERSIONS EQUAL_SYMBOL booleanLiteral
     ;
 
 dropStatement

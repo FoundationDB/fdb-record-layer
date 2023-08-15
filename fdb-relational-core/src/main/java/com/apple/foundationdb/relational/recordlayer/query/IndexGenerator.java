@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -57,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -67,7 +69,9 @@ import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.collect.PeekingIterator;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -147,17 +151,19 @@ public final class IndexGenerator {
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), String.format("Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.",
                 unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))), ErrorCode.UNSUPPORTED_OPERATION);
 
-        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue));
+        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
-        final var fieldValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue).map(sv -> (FieldValue) sv).collect(toList());
+        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
+        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof VersionValue).map(sv -> (VersionValue) sv).collect(toList());
+        Assert.thatUnchecked(versionValues.size() <= 1, "Cannot have index with more than one version column", ErrorCode.UNSUPPORTED_OPERATION);
         final var orderByValues = getOrderByValues(relationalExpression);
         if (aggregateValues.isEmpty()) {
-            indexBuilder.setIndexType(IndexTypes.VALUE);
-            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue), "Unsupported index definition, order by must be a subset of projection list", ErrorCode.UNSUPPORTED_OPERATION);
+            indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
+            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue), "Unsupported index definition, order by must be a subset of projection list", ErrorCode.UNSUPPORTED_OPERATION);
             if (fieldValues.size() > 1) {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), "Unsupported index definition, value indexes must have an order by clause at the top level", ErrorCode.UNSUPPORTED_OPERATION);
             }
-            final var reordered = reorderValues(fieldValues, orderByValues.stream().map(v -> (FieldValue) v).collect(toList()));
+            final var reordered = reorderValues(fieldValues, orderByValues);
             final var expression = generate(reordered);
             final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
@@ -224,13 +230,13 @@ public final class IndexGenerator {
         return List.of();
     }
 
-    private static List<FieldValue> reorderValues(@Nonnull final List<FieldValue> values, @Nonnull List<FieldValue> orderByValues) {
+    private static List<Value> reorderValues(@Nonnull final List<Value> values, @Nonnull List<Value> orderByValues) {
         Assert.thatUnchecked(values.size() >= orderByValues.size());
         if (orderByValues.isEmpty()) {
             return values;
         }
         final var remaining = values.stream().filter(v -> !orderByValues.contains(v)).collect(ImmutableList.toImmutableList());
-        return ImmutableList.<FieldValue>builder().addAll(orderByValues).addAll(remaining).build();
+        return ImmutableList.<Value>builder().addAll(orderByValues).addAll(remaining).build();
     }
 
     @Nonnull
@@ -247,7 +253,7 @@ public final class IndexGenerator {
             }
         } else {
             Assert.thatUnchecked(child instanceof FieldValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of((FieldValue) child));
+            groupedValue = generate(List.of(child));
             Assert.thatUnchecked(groupedValue instanceof FieldKeyExpression || groupedValue instanceof ThenKeyExpression);
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = (groupedValue instanceof FieldKeyExpression) ?
@@ -263,14 +269,46 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull final List<FieldValue> fields) {
-        if (fields.size() == 1) {
-            return toKeyExpression(fields.get(0).getFieldPath().getFieldAccessors().stream().map(acc -> Pair.of(acc.getName(), acc.getType())).collect(toList()));
+    private KeyExpression generate(@Nonnull final List<Value> fields) {
+        if (fields.isEmpty()) {
+            return EmptyKeyExpression.EMPTY;
+        } else if (fields.size() == 1) {
+            return toKeyExpression(fields.get(0));
         }
 
-        final var orderedFieldPaths = fields.stream().map(FieldValue::getFieldPath).collect(toList());
-        final var trie = FieldValueTrieNode.computeTrieForFieldPaths(orderedFieldPaths);
-        return toKeyExpression(trie);
+        List<FieldValueTrieNode> trieNodes = new ArrayList<>(fields.size());
+        List<KeyExpression> components = new ArrayList<>(fields.size());
+        PeekingIterator<Value> valueIterator = Iterators.peekingIterator(fields.iterator());
+        while (valueIterator.hasNext()) {
+            if (!(valueIterator.peek() instanceof FieldValue)) {
+                components.add(toKeyExpression(valueIterator.next()));
+            } else {
+                FieldValueTrieNode trieNode = FieldValueTrieNode.computeTrieForValues(FieldValue.FieldPath.empty(), valueIterator);
+                trieNode.validateNoOverlaps(trieNodes);
+                trieNodes.add(trieNode);
+
+                components.add(toKeyExpression(trieNode));
+            }
+        }
+
+        if (components.size() == 1) {
+            return components.get(0);
+        } else {
+            return concat(components);
+        }
+    }
+
+    @Nonnull
+    private KeyExpression toKeyExpression(Value value) {
+        if (value instanceof VersionValue) {
+            return VersionKeyExpression.VERSION;
+        } else if (value instanceof FieldValue) {
+            FieldValue fieldValue = (FieldValue) value;
+            return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().stream().map(acc -> Pair.of(acc.getName(), acc.getType())).collect(toList()));
+        } else {
+            Assert.failUnchecked("unable to construct expression", ErrorCode.UNSUPPORTED_OPERATION);
+            return null;
+        }
     }
 
     @Nonnull
@@ -313,7 +351,7 @@ public final class IndexGenerator {
         final var allRecordValues = expressionRefs.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, "Unsupported index definition, some operators return non-record values", ErrorCode.UNSUPPORTED_OPERATION);
 
-        final var allSimpleValues = expressionRefs.stream().allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
+        final var allSimpleValues = expressionRefs.stream().allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
         Assert.thatUnchecked(allSimpleValues, "Unsupported index definition, not all fields can be mapped to key expression in", ErrorCode.UNSUPPORTED_OPERATION);
     }
 

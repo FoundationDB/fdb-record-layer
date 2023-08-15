@@ -325,6 +325,12 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
+    @Disabled("Requires continuation support")
+    public void versionsTests() throws Exception {
+        super.versionsTests();
+    }
+
+    @Override
     @Disabled("TODO: Need to work on supporting labels")
     public void limit() throws Exception {
         super.limit();

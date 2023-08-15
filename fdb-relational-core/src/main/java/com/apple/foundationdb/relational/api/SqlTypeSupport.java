@@ -64,6 +64,8 @@ public final class SqlTypeSupport {
                 return Types.BIGINT;
             case STRING:
                 return Types.VARCHAR;
+            case VERSION:
+                return Types.BINARY;
             case ENUM:
                 //TODO(bfines) should be string?
                 return Types.JAVA_OBJECT;

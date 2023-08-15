@@ -49,6 +49,14 @@ public interface SchemaTemplate extends Metadata {
     boolean isEnableLongRows();
 
     /**
+     * Returns {@code true} if each row is stored along with an monotonically increasing version. This
+     * is required to make use of the {@code row_version()} function within queries and indexes.
+     *
+     * @return {@code true} if each row is stored along with a monotonically increasing {@code row_version()}.
+     */
+    boolean isStoreRowVersions();
+
+    /**
      * Returns the {@link Table}s inside the schema template.
      *
      * @return The {@link Table}s inside the schema template.
