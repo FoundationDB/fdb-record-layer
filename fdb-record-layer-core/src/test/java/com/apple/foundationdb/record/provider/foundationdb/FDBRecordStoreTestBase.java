@@ -138,10 +138,10 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     @BeforeEach
     public void clearAndInitialize() {
         getFDB();
-        fdb.run(timer, null, context -> {
-            path.deleteAllData(context);
-            return null;
-        });
+//        fdb.run(timer, null, context -> {
+//            path.deleteAllData(context);
+//            return null;
+//        });
 
         // Reset these indexes added and last modified versions, which can be updated during tests.
         // For example, adding the indexes to a RecordMetaDataBuilder can update these fields
