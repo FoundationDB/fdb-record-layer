@@ -37,6 +37,21 @@ public class ExecutePropertiesTest {
     private static int RECORD_SCAN_LIMIT = 200;
 
     @Test
+    public void testSetDryRun() {
+        final ExecuteProperties base = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT) // not the default
+                .setReturnedRowLimit(ROW_LIMIT)
+                .setTimeLimit(TIME_LIMIT)
+                .setScannedRecordsLimit(RECORD_SCAN_LIMIT)
+                .build();
+        // default dryRun = false
+        assertFalse(base.isDryRun());
+        // set dryRun = true
+        ExecuteProperties p1 = base.setDryRun(true);
+        assertTrue(p1.isDryRun());
+    }
+
+    @Test
     public void testSetLimitsFrom() {
         final ExecuteProperties base = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT) // not the default

@@ -66,6 +66,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1174,6 +1175,29 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             Message.Builder messageBuilder = DynamicMessage.newBuilder(myNewRecordDescriptor);
             messageBuilder.setField(recNo, 2345);
             recordStore.saveRecord(messageBuilder.build());
+        }
+    }
+
+    @Test
+    public void testDryRunSaveRecord() throws Exception {
+        CompletableFuture<FDBStoredRecord<Message>> future1;
+        TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+        TestRecords1Proto.MySimpleRecord record1 = recBuilder.setRecNo(1).build();
+        TestRecords1Proto.MySimpleRecord record2 = recBuilder.setRecNo(2).setNumValue3Indexed(3).build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            future1 = recordStore.dryRunSaveRecordAsync(record1, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
+            // assert returns the message to be saved
+            assertEquals(record1, future1.get().getRecord());
+            assertEquals(record2, recordStore.saveRecord(record2).getRecord());
+            commit(context);
+        }
+        // assert dryRun doesn't save the record
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.updateRecords(TestRecords1Proto.getDescriptor()));
+            assertNull(recordStore.loadRecord(Tuple.from(1)));
+            assertEquals(record2, recordStore.loadRecord(Tuple.from(2)).getRecord());
+            commit(context);
         }
     }
 
