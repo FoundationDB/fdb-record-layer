@@ -6,6 +6,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -29,7 +30,6 @@ import org.junit.jupiter.api.Timeout;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +53,9 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             "text_and_number_idx",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
             LuceneIndexTypes.LUCENE,
-            Collections.emptyMap());
+            Map.of(
+                    LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]"
+            ));
 
     @BeforeAll
     public static void setup() {
@@ -74,7 +76,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
              var blockReads = new PrintStream(new FileOutputStream(".out/blockReads.txt", false), true)) {
             List<String> keys = null;
             for (int i = 0; i < 1000; i++) {
-                //dataModel.saveNewRecords(100);
+                dataModel.saveNewRecords(100);
                 timer.reset();
                 final long startMillis = System.currentTimeMillis();
                 for (int j = 0; j < updateBatches; j++) {
