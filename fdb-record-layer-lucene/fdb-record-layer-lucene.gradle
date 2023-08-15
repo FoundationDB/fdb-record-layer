@@ -79,6 +79,14 @@ test {
         if (skipSlow) {
             excludeTags 'Slow'
         }
+
+        // We need the destructive tests to be available in the 'test' task, so that IntelliJ's gradle test runner can
+        // find them. However, we _only_ want to run them as part of the 'test' task if we're running from IntelliJ.
+        // This isn't a great way to detect it, but it's the only one I could find. If this ever breaks, I'd look here first.
+        if (System.getenv('XPC_SERVICE_NAME') == null || !(System.getenv('XPC_SERVICE_NAME').contains("intellij") || System.getenv('XPC_SERVICE_NAME').contains("idea"))) {
+            excludeTags 'WipesFDB'
+            excludeTags 'Performance'
+        }
     }
 }
 
