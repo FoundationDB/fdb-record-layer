@@ -65,6 +65,28 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void updateProfile() throws IOException {
+        DataModel dataModel = new DataModel();
+        dataModel.prep();
+        final int updatesPerContext = 10;
+        final int updateBatches = 1000;
+        final String recordCount = "recordCount";
+        timer.reset();
+        for (int j = 0; j < updateBatches; j++) {
+            FDBDirectory.blocksRead.clear();
+            FDBDirectory.readStacks.clear();
+            dataModel.updateRecords(updatesPerContext);
+        }
+        final Map<String, Number> keysAndValues = timer.getKeysAndValues();
+        logger.info(KeyValueLogMessage.build("Did updates")
+                .addKeysAndValues(keysAndValues)
+                .addKeyAndValue("updatesPerContext", updatesPerContext)
+                .addKeyAndValue("updateBatches", updateBatches)
+                .addKeyAndValue(recordCount, dataModel.maxDocId)
+                .toString());
+    }
+
+    @Test
     void update() throws IOException {
         DataModel dataModel = new DataModel();
         dataModel.prep();
