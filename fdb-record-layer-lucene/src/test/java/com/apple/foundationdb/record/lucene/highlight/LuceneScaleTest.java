@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -83,17 +84,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     FDBDirectory.blocksRead.clear();
                     FDBDirectory.readStacks.clear();
                     dataModel.updateRecords(updatesPerContext);
-                    blockReads.println("=====================");
-                    blockReads.println("recordCount: " + dataModel.maxDocId);
-                    FDBDirectory.blocksRead.forEach((tuple, count) -> {
-                        blockReads.println(tuple + ": " + count);
-                    });
-                    FDBDirectory.readStacks.entrySet().stream()
-                            .sorted(Comparator.comparing(entry -> entry.getValue().get()))
-                            .forEach(entry -> {
-                        blockReads.println("Count: " + entry.getValue());
-                        blockReads.println(entry.getKey());
-                    });
+                    dumpBlockReads(dataModel, blockReads);
                 }
                 final Map<String, Number> keysAndValues = timer.getKeysAndValues();
                 logger.info(KeyValueLogMessage.build("Did updates")
@@ -125,23 +116,33 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private static void dumpBlockReads(final DataModel dataModel, final PrintStream blockReads) {
+        blockReads.println("=====================");
+        blockReads.println("recordCount: " + dataModel.maxDocId);
+        blockReads.println("Sum: " + FDBDirectory.blocksRead.values().stream().mapToInt(AtomicInteger::get).sum());
+        FDBDirectory.blocksRead.forEach((tuple, count) -> {
+            blockReads.println(tuple + ": " + count);
+        });
+        blockReads.println("Sum: " + FDBDirectory.readStacks.values().stream().mapToInt(AtomicInteger::get).sum());
+        FDBDirectory.readStacks.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> entry.getValue().get()))
+                .forEach(entry -> {
+                    blockReads.println("Count: " + entry.getValue());
+                    blockReads.println(entry.getKey());
+                });
+    }
+
     private class DataModel {
         int maxDocId = 0;
         Random random = new Random();
         private boolean continuing;
 
-        /**
-         * Prep the run, loading a few documents to make sure that static initializers have all been exercised.
-         */
         void prep() {
             try (FDBRecordContext context = openContext()) {
                 maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
                         openStore(context).scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                         .getCount()).intValue();
                 continuing = maxDocId > 0;
-            }
-            for (int i = 0; i < 10; i++) {
-                saveNewRecord();
             }
         }
 
