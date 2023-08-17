@@ -102,6 +102,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -120,7 +122,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.oneOf;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -1200,26 +1201,48 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void markReadable() throws Exception {
-        final String indexName = "MySimpleRecord$str_value_indexed";
-
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
+            final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
+            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
+            // Save 20 records without any indexes.
+            for (int i = 0; i < 20; i++) {
+                TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
+                        .setRecNo(i).setNumValue(i + 1000).build();
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+        final String indexName = "MySimpleRecord$str_value_indexed";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
             recordStore.clearAndMarkIndexWriteOnly(indexName).get();
             assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
-            context.commit();
+            commit(context);
         }
 
+        final String throwMsg = "Intentionally thrown during test";
+        final AtomicLong counter = new AtomicLong(0);
+        UnaryOperator<OnlineIndexer.Config> configLoader = old -> {
+            if (counter.incrementAndGet() > 1) {
+                counter.set(0);
+                throw new RecordCoreException(throwMsg);
+            }
+            return old;
+        };
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
+            openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
-                indexBuilder.buildRange(recordStore, null, Key.Evaluated.scalar(1066L)).get();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
+                    .setLimit(1)
+                    .setConfigLoader(configLoader)
+                    .build()) {
+                RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                assertTrue(ex.getMessage().contains(throwMsg));
                 Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
                 assertTrue(firstUnbuilt.isPresent());
-                assertArrayEquals(Key.Evaluated.scalar(1066).toTuple().pack(), firstUnbuilt.get().begin);
-                assertArrayEquals(new byte[] {(byte)0xff}, firstUnbuilt.get().end);
                 recordStore.markIndexReadable(index).handle((built, e) -> {
                     assertNotNull(e);
                     assertThat(e, instanceOf(CompletionException.class));
@@ -1228,27 +1251,50 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     return null;
                 }).get();
                 assertThat(recordStore.isIndexReadable(index), is(false));
-
-                indexBuilder.buildRange(recordStore, Key.Evaluated.scalar(1066L), null).get();
-                assertFalse(recordStore.firstUnbuiltRange(index).get().isPresent());
-                assertTrue(recordStore.markIndexReadable(index).get());
-                assertFalse(recordStore.markIndexReadable(index).get());
-                assertThat(recordStore.isIndexReadable(index), is(true));
             }
-            // Not committing.
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertThat(recordStore.isIndexReadable(index), is(false));
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
+                    .build()) {
+                indexBuilder.buildIndex(false);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertFalse(recordStore.firstUnbuiltRange(index).get().isPresent());
+            assertTrue(recordStore.markIndexReadable(index).get());
+            assertFalse(recordStore.markIndexReadable(index).get());
+            assertThat(recordStore.isIndexReadable(index), is(true));
+            commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
-            uncheckedOpenSimpleRecordStore(context);
+            openSimpleRecordStore(context);
+            assertFalse(recordStore.isIndexWriteOnly(indexName));
+            recordStore.markIndexDisabled(indexName).get();
+            assertTrue(recordStore.isIndexDisabled(indexName));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index).build()) {
-                indexBuilder.buildRange(recordStore, null, Key.Evaluated.scalar(1066L)).get();
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
+                    .setLimit(1)
+                    .setConfigLoader(configLoader)
+                    .build()) {
+                RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                assertTrue(ex.getMessage().contains(throwMsg));
             }
             Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
-            assertArrayEquals(Key.Evaluated.scalar(1066).toTuple().pack(), firstUnbuilt.get().begin);
-            assertArrayEquals(new byte[]{(byte)0xff}, firstUnbuilt.get().end);
             assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).get());
             assertFalse(recordStore.uncheckedMarkIndexReadable(index.getName()).get());
             assertThat(recordStore.isIndexReadable(index), is(true));
@@ -1257,8 +1303,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // readable does not throw an error.
             firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
-            assertArrayEquals(Key.Evaluated.scalar(1066).toTuple().pack(), firstUnbuilt.get().begin);
-            assertArrayEquals(new byte[]{(byte)0xff}, firstUnbuilt.get().end);
             assertFalse(recordStore.markIndexReadable(index.getName()).get());
             assertThat(recordStore.isIndexReadable(index), is(true));
         }
@@ -2708,11 +2752,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testBoundaryPrimaryKeys() {
-        runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
-    }
-
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("removal")
     public void testBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
@@ -2791,7 +2831,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         runLocalityTest(() -> testNoBoundaryPrimaryKeysImpl());
     }
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("removal")
     public void testNoBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
@@ -2857,6 +2897,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         return oneRangePerSplit;
     }
 
+    @SuppressWarnings("removal")
     private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
                                            @Nullable List<Pair<Tuple, Tuple>> expectedSplitRanges,
                                            OnlineIndexer indexer) {
