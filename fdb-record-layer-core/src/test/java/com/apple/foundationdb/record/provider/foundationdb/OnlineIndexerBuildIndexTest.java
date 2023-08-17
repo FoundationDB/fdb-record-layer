@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
@@ -53,7 +52,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -150,21 +151,24 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 LogMessageKeys.KEY_SPACE_PATH, path,
                 LogMessageKeys.LIMIT, 20,
                 TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100));
+
+        UnaryOperator<OnlineIndexOperationConfig> configLoader = old -> {
+            OnlineIndexOperationConfig.Builder conf = OnlineIndexOperationConfig.newBuilder()
+                    .setMaxLimit(20)
+                    .setMaxRetries(Integer.MAX_VALUE)
+                    .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100);
+            if (ThreadLocalRandom.current().nextBoolean()) {
+                // randomly enable the progress logging to ensure that it doesn't throw exceptions,
+                // or otherwise disrupt the build.
+                LOGGER.info("Setting progress log interval");
+                conf.setProgressLogIntervalMillis(0);
+            }
+            return conf.build();
+        };
         final OnlineIndexer.Builder builder = newIndexerBuilder()
                 .setIndex(index)
-                .setConfigLoader(old -> {
-                    OnlineIndexOperationConfig.Builder conf = OnlineIndexOperationConfig.newBuilder()
-                            .setMaxLimit(20)
-                            .setMaxRetries(Integer.MAX_VALUE)
-                            .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100);
-                    if (ThreadLocalRandom.current().nextBoolean()) {
-                        // randomly enable the progress logging to ensure that it doesn't throw exceptions,
-                        // or otherwise disrupt the build.
-                        LOGGER.info("Setting progress log interval");
-                        conf.setProgressLogIntervalMillis(0);
-                    }
-                    return conf.build();
-                }).setTimer(timer);
+                .setConfigLoader(configLoader)
+                .setTimer(timer);
         if (ThreadLocalRandom.current().nextBoolean()) {
             LOGGER.info("Setting priority to DEFAULT");
             builder.setPriority(FDBTransactionPriority.DEFAULT);
@@ -185,6 +189,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     .setForbidRecordScan(true);
         }
         builder.setIndexingPolicy(indexingPolicy.build());
+        boolean isMutualIndexing = false;
 
         try (OnlineIndexer indexBuilder = builder.build()) {
             CompletableFuture<Void> buildFuture;
@@ -220,31 +225,17 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 } else {
                     // Safe builds do not support building ranges yet.
                     assumeFalse(safeBuild);
-                    buildFuture = indexBuilder.buildEndpoints().thenCompose(tupleRange -> {
-                        if (tupleRange != null) {
-                            // Divide the range so that each agent takes an equal amount of the integer range
-                            // Use BigIntegers for computing the boundaries because intermediate steps can exceed
-                            // 64-bit precision if, for example, start is near Long.MIN_VALUE and end is near Long.MAX_VALUE
-                            final BigInteger start = Objects.requireNonNull(tupleRange.getLow()).getBigInteger(0);
-                            final BigInteger end = Objects.requireNonNull(tupleRange.getHigh()).getBigInteger(0);
-                            final BigInteger rangePerAgent = end.subtract(start).divide(BigInteger.valueOf(agents));
-
-                            CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
-                            for (int i = 0; i < agents; i++) {
-                                long itrStart = start.add(rangePerAgent.multiply(BigInteger.valueOf(i))).longValue();
-                                long itrEnd = (i == agents - 1) ? end.longValue() : start.add(rangePerAgent.multiply(BigInteger.valueOf(i + 1))).longValue();
-                                LOGGER.info(KeyValueLogMessage.of("building range",
-                                        TestLogMessageKeys.INDEX, index,
-                                        TestLogMessageKeys.AGENT, i,
-                                        TestLogMessageKeys.BEGIN, itrStart,
-                                        TestLogMessageKeys.END, itrEnd));
-                                futures[i] = indexBuilder.buildRange(
-                                        Key.Evaluated.scalar(itrStart),
-                                        Key.Evaluated.scalar(itrEnd));
-                            }
-                            return CompletableFuture.allOf(futures);
-                        } else {
-                            return AsyncUtil.DONE;
+                    final List<Tuple> boundaries = getBoundariesList(records, records.size() / agents);
+                    IntStream range = IntStream.rangeClosed(0, agents);
+                    buildFuture = AsyncUtil.DONE;
+                    isMutualIndexing = true; // if set, indexBuilder.getTotalRecordsScanned is useless.
+                    range.parallel().forEach(ignore -> {
+                        try (OnlineIndexer mutualIndexer = newIndexerBuilder()
+                                .setIndex(index)
+                                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                        .setMutualIndexingBoundaries(boundaries))
+                                .build()) {
+                            mutualIndexer.buildIndex(false);
                         }
                     });
                 }
@@ -303,7 +294,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     assertEquals(IndexState.READABLE, indexState);
                 } else {
                     assertEquals(IndexState.WRITE_ONLY, indexState);
-                    assertEquals(indexBuilder.getTotalRecordsScanned(), indexBuildState.getRecordsScanned());
+                    if (!isMutualIndexing) {
+                        assertEquals(indexBuilder.getTotalRecordsScanned(), indexBuildState.getRecordsScanned());
+                    }
                     // Count index is not defined so we cannot determine the records in total from it.
                     assertNull(indexBuildState.getRecordsInTotal());
                 }
@@ -314,7 +307,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             // record might not be scanned
             int updateRecordMargin = (sourceIndex == null || recordsWhileBuilding == null) ? 0 : recordsWhileBuilding.size();
             int deletedRecordCount = deleteWhileBuilding == null ? 0 : deleteWhileBuilding.size();
-            if (sourceIndex == null || getIndexMaintenanceFilter().equals(IndexMaintenanceFilter.NORMAL)) {
+            if (!isMutualIndexing && (sourceIndex == null || getIndexMaintenanceFilter().equals(IndexMaintenanceFilter.NORMAL))) {
                 assertThat(indexBuilder.getTotalRecordsScanned(),
                         allOf(
                                 greaterThanOrEqualTo((long)(records.size() - deletedRecordCount - updateRecordMargin)),

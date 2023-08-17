@@ -28,12 +28,15 @@ import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -328,5 +331,38 @@ public abstract class OnlineIndexerTest {
             recordStore.vacuumReadableIndexesBuildData();
             context.commit();
         }
+    }
+
+    protected List<Tuple> getBoundariesList(final long numRecords, final long step) {
+        List<Tuple> boundaries = new ArrayList<>();
+        boundaries.add(null);
+        for (long i = step; i < numRecords; i += step) {
+            final TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).build();
+            final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
+            final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
+            final FDBStoredRecordBuilder<TestRecords1Proto.MySimpleRecord> recordBuilder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
+            final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
+            boundaries.add(primaryKey);
+        }
+        boundaries.add(null);
+        return boundaries;
+    }
+
+    protected <M extends Message> List<Tuple> getBoundariesList(List<M> records, final int step) {
+        // Assumption: the records are sorted by RecNo
+        List<Tuple> boundaries = new ArrayList<>();
+        boundaries.add(null);
+        if (TestRecords1Proto.MySimpleRecord.class.isAssignableFrom(records.get(0).getClass())) {
+            for (int i = step; i < records.size(); i += step) {
+                final TestRecords1Proto.MySimpleRecord rec = (TestRecords1Proto.MySimpleRecord) records.get(i);
+                final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
+                final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
+                final FDBStoredRecordBuilder<TestRecords1Proto.MySimpleRecord> recordBuilder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
+                final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
+                boundaries.add(primaryKey);
+            }
+        }
+        boundaries.add(null);
+        return boundaries;
     }
 }
