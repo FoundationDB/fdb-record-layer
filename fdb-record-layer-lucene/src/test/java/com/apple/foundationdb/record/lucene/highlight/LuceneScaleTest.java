@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -141,13 +140,16 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static void dumpBlockReads(final DataModel dataModel, final PrintStream blockReads) {
         blockReads.println("=====================");
         blockReads.println("recordCount: " + dataModel.maxDocId);
-        blockReads.println("Sum: " + FDBDirectory.blocksRead.values().stream().mapToInt(AtomicInteger::get).sum());
-        FDBDirectory.blocksRead.forEach((tuple, count) -> {
-            blockReads.println(tuple + ": " + count);
+        blockReads.println("OutsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
+        blockReads.println("InsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
+        FDBDirectory.blocksRead.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+                .forEach(entry -> {
+            blockReads.println(entry.getKey() + ": " + entry.getValue());
         });
-        blockReads.println("Sum: " + FDBDirectory.readStacks.values().stream().mapToInt(AtomicInteger::get).sum());
+        blockReads.println("OutsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
+        blockReads.println("InsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
         FDBDirectory.readStacks.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getValue().get()))
+                .sorted(Comparator.comparing(entry -> entry.getValue().getInsideCache()))
                 .forEach(entry -> {
                     blockReads.println("Count: " + entry.getValue());
                     blockReads.println(entry.getKey());

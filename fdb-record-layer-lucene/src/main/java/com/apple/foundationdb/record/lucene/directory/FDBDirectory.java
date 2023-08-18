@@ -102,8 +102,27 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
 public class FDBDirectory extends Directory  {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
 
-    public static final Map<Tuple, AtomicInteger> blocksRead = new ConcurrentHashMap<>();
-    public static final Map<String, AtomicInteger> readStacks = new ConcurrentHashMap<>();
+    public static final Map<Tuple, DoubleCounter> blocksRead = new ConcurrentHashMap<>();
+    public static final Map<String, DoubleCounter> readStacks = new ConcurrentHashMap<>();
+
+    public static class DoubleCounter {
+        AtomicInteger outsideCache = new AtomicInteger();
+        AtomicInteger insideCache = new AtomicInteger();
+
+        public int getOutsideCache() {
+            return outsideCache.get();
+        }
+
+        public int getInsideCache() {
+            return insideCache.get();
+        }
+
+
+        @Override
+        public String toString() {
+            return "(" + outsideCache + "," + insideCache + ")";
+        }
+    }
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
@@ -452,13 +471,17 @@ public class FDBDirectory extends Directory  {
             return exceptionalFuture;
         }
         final long id = reference.getId();
+        blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
+                k -> new DoubleCounter()).outsideCache.incrementAndGet();
+        readStacks.computeIfAbsent(stack,
+                k -> new DoubleCounter()).outsideCache.incrementAndGet();
         // TODO NO, do not use blockCache.asMap().computeIfAbsent()
         return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
                     if (sharedCache == null) {
                         blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
-                                k -> new AtomicInteger()).incrementAndGet();
+                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         readStacks.computeIfAbsent(stack,
-                                k -> new AtomicInteger()).incrementAndGet();
+                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         return readData(id, block);
                     }
                     final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
@@ -468,9 +491,9 @@ public class FDBDirectory extends Directory  {
                     } else {
                         context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
                         blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
-                                k -> new AtomicInteger()).incrementAndGet();
+                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         readStacks.computeIfAbsent(stack,
-                                k -> new AtomicInteger()).incrementAndGet();
+                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         return readData(id, block).thenApply(data -> {
                             sharedCache.putBlockIfAbsent(id, block, data);
                             return data;
