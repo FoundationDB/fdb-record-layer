@@ -178,15 +178,17 @@ public interface MatchCandidate {
 
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data.
+     *
      * @param partialMatch the match to be used
      * @param planContext the plan context
      * @param memoizer the memoizer
+     *
      * @return a new {@link RecordQueryPlan}
      */
     @SuppressWarnings("java:S135")
     default RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                              @Nonnull final PlanContext planContext,
-                                             @Nonnull final Memoizer memoizer) {
+                                             @Nonnull final Memoizer memoizer, final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -204,23 +206,26 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentPlan(partialMatch, planContext, memoizer, comparisonRangesForScanBuilder.build());
+        return toEquivalentPlan(partialMatch, planContext, memoizer, comparisonRangesForScanBuilder.build(), reverseScanOrder);
     }
 
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data. This method is
      * expected to be implemented by specific implementations of {@link MatchCandidate}.
+     *
      * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
      * @param planContext the plan context
      * @param memoizer the memoizer
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
+     *
      * @return a new {@link RecordQueryPlan}
      */
     @Nonnull
     RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
                                      @Nonnull PlanContext planContext,
                                      @Nonnull Memoizer memoizer,
-                                     @Nonnull List<ComparisonRange> comparisonRanges);
+                                     @Nonnull List<ComparisonRange> comparisonRanges,
+                                     boolean reverseScanOrder);
 
     @Nonnull
     @SuppressWarnings("java:S1452")

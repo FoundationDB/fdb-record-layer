@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -85,7 +86,7 @@ import java.util.stream.StreamSupport;
  * </ul>
  *
  * The logic that this rules delegates to and actually creates the expressions can be found in
- * {@link MatchCandidate#toEquivalentPlan(PartialMatch, com.apple.foundationdb.record.query.plan.cascades.PlanContext, Memoizer)}.
+ * {@link MatchCandidate#toEquivalentPlan(PartialMatch, PlanContext, Memoizer, boolean)}.
  * @param <R> subtype of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)
@@ -259,13 +260,27 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @SuppressWarnings({"java:S1905", "java:S135"})
     private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
                                                                              @Nonnull final Set<RequestedOrdering> interestedOrderings) {
-        final var partialMatchesWithCompensation =
-                matches
-                        .stream()
-                        .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
-                        .map(partialMatch -> new PartialMatchWithCompensation(partialMatch, partialMatch.compensate()))
-                        .sorted(Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)p -> p.getPartialMatch().getBindingPredicates().size()).reversed())
-                        .collect(ImmutableList.toImmutableList());
+        final List<PartialMatchWithCompensation> partialMatchesWithCompensation = new ArrayList<>();
+        for (final var partialMatch: matches) {
+            final var orderings = satisfiedOrderings(partialMatch, interestedOrderings);
+            if (orderings.isEmpty()) {
+                continue;
+            }
+            boolean reverse = false;
+            for (final var ordering: orderings) {
+                // Ignore orderings without parts (only containing preserve_distinctness for example)
+                if (!ordering.getOrderingParts().isEmpty()) {
+                    // If one is reverse, they are all reverse
+                    reverse = ordering.getOrderingParts().get(0).isReverse();
+                    break;
+                }
+            }
+            partialMatchesWithCompensation.add(new PartialMatchWithCompensation(
+                    partialMatch, partialMatch.compensate(), reverse));
+        }
+        partialMatchesWithCompensation.sort(
+                Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)
+                        p -> p.getPartialMatch().getBindingPredicates().size()).reversed());
 
         final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
         for (var i = 0; i < partialMatchesWithCompensation.size(); i++) {
@@ -379,7 +394,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         partialMatchWithCompensation -> {
                             final var partialMatch = partialMatchWithCompensation.getPartialMatch();
                             return partialMatch.getMatchCandidate()
-                                    .toEquivalentPlan(partialMatch, planContext, memoizer);
+                                    .toEquivalentPlan(partialMatch, planContext, memoizer, partialMatchWithCompensation.isReverseScanOrder());
                         }));
     }
 
@@ -581,11 +596,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         private final PartialMatch partialMatch;
         @Nonnull
         private final Compensation compensation;
+        private final boolean reverseScanOrder;
 
         public PartialMatchWithCompensation(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final Compensation compensation) {
+                                            @Nonnull final Compensation compensation,
+                                            final boolean reverseScanOrder) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
+            this.reverseScanOrder = reverseScanOrder;
         }
 
         @Nonnull
@@ -596,6 +614,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         @Nonnull
         public Compensation getCompensation() {
             return compensation;
+        }
+
+        public boolean isReverseScanOrder() {
+            return reverseScanOrder;
         }
     }
 }

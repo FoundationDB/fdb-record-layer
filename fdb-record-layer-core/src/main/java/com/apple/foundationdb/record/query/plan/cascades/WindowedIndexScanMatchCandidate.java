@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -348,12 +347,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                             @Nonnull final PlanContext planContext,
                                             @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
-        final var reverseScanOrder =
-                partialMatch.getMatchInfo()
-                        .deriveReverseScanOrder()
-                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
-
+                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+                                            final boolean reverseScanOrder) {
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
                 .orElseGet(() ->

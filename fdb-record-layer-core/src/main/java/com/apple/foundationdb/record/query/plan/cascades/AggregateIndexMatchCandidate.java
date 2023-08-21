@@ -273,12 +273,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                             @Nonnull final PlanContext planContext,
                                             @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
-        final var reverseScanOrder =
-                partialMatch.getMatchInfo()
-                        .deriveReverseScanOrder()
-                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
-
+                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+                                            final boolean reverseScanOrder) {
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
         // reset indexes of all fields, such that we can normalize them
