@@ -349,8 +349,7 @@ public class CascadesPlanner implements QueryPlanner {
                                     recordStoreState,
                                     rootReference,
                                     allowedIndexesOptional,
-                                    indexQueryabilityFilter,
-                                    false
+                                    indexQueryabilityFilter
                             ),
                     evaluationContext);
             final var plan = resultOrFail();
