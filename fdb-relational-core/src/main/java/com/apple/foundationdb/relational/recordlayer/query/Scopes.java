@@ -150,8 +150,12 @@ public class Scopes {
         private final Map<CorrelationIdentifier, Quantifier> quantifiers;
 
         @Nonnull
-        private final List<Column<? extends Value>> projectionList;
+        private final List<Column<? extends Value>> selectedColumnList;
 
+        @Nonnull
+        private final List<Integer> projectedCardinals;
+
+        @Nonnull
         private final List<Integer> orderByCardinals;
 
         private boolean isReverse;
@@ -182,12 +186,12 @@ public class Scopes {
         private Scope(@Nullable final Scope parent,
                       @Nullable final Scope sibling,
                       @Nonnull final Map<CorrelationIdentifier, Quantifier> quantifiers,
-                      @Nonnull final List<Column<? extends Value>> projectionList,
+                      @Nonnull final List<Column<? extends Value>> selectedColumnList,
                       @Nullable final QueryPredicate predicate) {
             this.parent = parent;
             this.sibling = sibling;
             this.quantifiers = quantifiers;
-            this.projectionList = projectionList;
+            this.selectedColumnList = selectedColumnList;
             this.predicate = predicate;
             this.flags = EnumSet.noneOf(Flag.class);
             this.aggCounter = 0;
@@ -195,6 +199,7 @@ public class Scopes {
             this.groupByType = null;
             this.aggregateValues = new ArrayList<>();
             this.aggregateReferences = new ArrayList<>();
+            this.projectedCardinals = new ArrayList<>();
             this.orderByCardinals = new ArrayList<>();
         }
 
@@ -202,7 +207,7 @@ public class Scopes {
         private SelectExpression convertToSelectExpression() {
             final GraphExpansion.Builder builder = GraphExpansion.builder();
             builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()))
-                    .addAllResultColumns(projectionList);
+                    .addAllResultColumns(selectedColumnList);
             if (predicate != null) {
                 builder.addPredicate(predicate);
             }
@@ -223,12 +228,22 @@ public class Scopes {
 
         @Nonnull
         public RelationalExpression convertToRelationalExpression() {
+            RelationalExpression relationalExpression;
             if (getParent() != null || getSibling() != null) {
                 Assert.thatUnchecked(orderByCardinals.isEmpty(), "ORDER BY is only supported for top level selects", ErrorCode.UNSUPPORTED_OPERATION);
-                return convertToSelectExpression();
+                relationalExpression = convertToSelectExpression();
             } else {
-                return convertToLogicalSortExpression();
+                relationalExpression = convertToLogicalSortExpression();
             }
+            if (projectedCardinals.size() != selectedColumnList.size()) {
+                final var qun = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
+                final var builder = GraphExpansion.builder().addQuantifier(qun);
+                for (int idx : projectedCardinals) {
+                    builder.addResultColumn(qun.getFlowedColumns().get(idx));
+                }
+                return builder.build().buildSelect();
+            }
+            return relationalExpression;
         }
 
         public void addQuantifier(@Nonnull final Quantifier quantifier) {
@@ -288,26 +303,29 @@ public class Scopes {
         }
 
         public void addProjectionColumn(@Nonnull final Column<? extends Value> column) {
-            projectionList.add(column);
+            selectedColumnList.add(column);
+            projectedCardinals.add(selectedColumnList.size() - 1);
         }
 
         public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
             Assert.thatUnchecked(column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
-            Assert.thatUnchecked(getProjectList().contains(column), "Cannot order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
             if (orderByCardinals.isEmpty()) {
                 isReverse = isDesc;
             } else {
                 Assert.thatUnchecked(isReverse == isDesc, "Combination of ASC and DESC directions in orderBy clauses is not supported", ErrorCode.UNSUPPORTED_OPERATION);
             }
-            var orderByCardinalInProjectionList = projectionList.indexOf(column);
+            if (!getProjectList().contains(column)) {
+                selectedColumnList.add(column);
+            }
+            var orderByCardinalInProjectionList = selectedColumnList.indexOf(column);
             Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
                     String.format("Order by column %s is duplicated in the order by clause", (column.getValue() instanceof VersionValue ? "version" : column.getField().getFieldName())), ErrorCode.COLUMN_ALREADY_EXISTS);
-            orderByCardinals.add(projectionList.indexOf(column));
+            orderByCardinals.add(selectedColumnList.indexOf(column));
         }
 
         @Nonnull
         public List<Column<? extends Value>> getProjectList() {
-            return projectionList;
+            return selectedColumnList;
         }
 
         public void setFlag(@Nonnull Flag flag) {

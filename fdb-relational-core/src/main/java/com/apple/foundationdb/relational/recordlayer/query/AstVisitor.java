@@ -1433,7 +1433,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var isUnique = ctx.UNIQUE() != null;
         final var generator = IndexGenerator.from(viewPlan);
         final var table = context.asDdl().getMetadataBuilder().extractTable(generator.getRecordTypeName());
-        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression);
+        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, "Cannot create index and order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
         final var index = generator.generate(indexName, isUnique, table.getType(), containsNonNullableArray);
         final var tableWithIndex = RecordLayerTable.Builder
                 .from(table)

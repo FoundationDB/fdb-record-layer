@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -260,14 +259,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private Optional<PhysicalQueryPlan> optimizedPlan;
 
-        private final boolean isReverseSort;
-
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
                                  @Nonnull final PlanGenerationContext context,
                                  @Nonnull final String query) {
             super(query);
             this.relationalExpression = relationalExpression;
-            this.isReverseSort = getReverseSortRequirements(relationalExpression);
             this.context = context;
             this.optimizedPlan = Optional.empty();
             this.query = query;
@@ -297,7 +293,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                     GroupExpressionRef.of(relationalExpression),
                             configuration.getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
-                            isReverseSort, typedEvaluationContext);
+                            typedEvaluationContext);
                 } catch (RecordCoreException ex) {
                     throw ExceptionUtil.toRelationalException(ex);
                 }
@@ -349,14 +345,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         public PlanGenerationContext getGenerationContext() {
             return context;
-        }
-
-        private static boolean getReverseSortRequirements(@Nonnull final RelationalExpression relationalExpression) {
-            if (relationalExpression instanceof LogicalSortExpression) {
-                return ((LogicalSortExpression) relationalExpression).isReverse();
-            } else {
-                return false;
-            }
         }
 
         @Nonnull
