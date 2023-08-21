@@ -189,7 +189,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
@@ -223,7 +222,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan,
                 mapPlan(
@@ -262,7 +260,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
-                false,
                 parameterRelationshipGraph));
     }
 
@@ -292,7 +289,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -346,7 +342,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -408,7 +403,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -494,7 +488,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty());
 
         // TODO write a matcher when this plan becomes more stable
@@ -572,7 +565,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         // TODO write a matcher when this plan becomes more stable
@@ -604,7 +596,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,

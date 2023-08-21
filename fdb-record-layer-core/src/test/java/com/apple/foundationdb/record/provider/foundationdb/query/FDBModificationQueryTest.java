@@ -100,7 +100,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
@@ -139,7 +138,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -163,7 +161,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -203,7 +200,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
@@ -229,7 +225,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -324,7 +319,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(plan, this::openNestedRecordStore, Function.identity()));
@@ -390,7 +384,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
@@ -433,7 +426,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -467,7 +459,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -534,7 +525,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> { });
 
@@ -607,7 +597,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -637,7 +626,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
