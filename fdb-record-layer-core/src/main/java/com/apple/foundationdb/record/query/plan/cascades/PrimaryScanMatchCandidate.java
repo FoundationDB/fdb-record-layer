@@ -180,12 +180,8 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     public RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
                                             @Nonnull final PlanContext planContext,
                                             @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges) {
-        final var reverseScanOrder =
-                partialMatch.getMatchInfo()
-                        .deriveReverseScanOrder()
-                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of scan"));
-
+                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+                                            final boolean reverseScanOrder) {
         final var availableRecordTypeNames = getAvailableRecordTypeNames();
         final var availableType =
                 Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes()))

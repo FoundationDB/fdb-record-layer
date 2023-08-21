@@ -86,7 +86,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(false, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
@@ -107,7 +106,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(false, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()), "Cascades planner could not plan query");
     }
 
@@ -119,7 +117,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(false, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
@@ -133,7 +130,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(true, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
@@ -154,7 +150,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(true, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],>")))));
@@ -168,7 +163,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 () -> constructGroupByPlan(true, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));

@@ -500,7 +500,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 AliasMap aliasMap = AliasMap.of(select.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
-            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, false, EvaluationContext.empty()).getPlan();
+            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
                     indexPlan()
@@ -572,7 +572,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 var select = Quantifier.forEach(GroupExpressionRef.of(outerGraphBuilder.build().buildSelect()));
 
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, select));
-            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, false, EvaluationContext.empty()).getPlan();
+            }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
                     predicatesFilterPlan(

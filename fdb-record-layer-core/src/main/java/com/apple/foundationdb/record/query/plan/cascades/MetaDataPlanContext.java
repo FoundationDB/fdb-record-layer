@@ -170,8 +170,7 @@ public class MetaDataPlanContext implements PlanContext {
                                                @Nonnull final RecordStoreState recordStoreState,
                                                @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference,
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
-                                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
-                                               final boolean isSortReverse) {
+                                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
         final var queriedRecordTypeNames = RecordTypesProperty.evaluate(rootReference);
 
         if (queriedRecordTypeNames.isEmpty()) {
@@ -200,7 +199,7 @@ public class MetaDataPlanContext implements PlanContext {
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (final var index : indexList) {
             final Iterable<MatchCandidate> candidatesForIndex =
-                    MatchCandidate.fromIndexDefinition(metaData, index, isSortReverse);
+                    MatchCandidate.fromIndexDefinition(metaData, index, false);
             matchCandidatesBuilder.addAll(candidatesForIndex);
         }
 
@@ -208,7 +207,7 @@ public class MetaDataPlanContext implements PlanContext {
             MatchCandidate.fromPrimaryDefinition(metaData,
                             ImmutableSet.of(recordType.getName()),
                             recordType.getPrimaryKey(),
-                            isSortReverse)
+                            false)
                     .ifPresent(matchCandidatesBuilder::add);
         }
 

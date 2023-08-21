@@ -337,34 +337,9 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    @Deprecated(forRemoval = true)
-    public RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
-                                     @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
-                                     @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
-                                     final boolean isSortReverse,
-                                     @Nonnull ParameterRelationshipGraph ignored) {
-        try {
-            planPartial(expressionRefSupplier,
-                    rootReference ->
-                            MetaDataPlanContext.forRootReference(configuration,
-                                    metaData,
-                                    recordStoreState,
-                                    rootReference,
-                                    allowedIndexesOptional,
-                                    indexQueryabilityFilter,
-                                    isSortReverse),
-                    EvaluationContext.empty());
-            return resultOrFail();
-        } finally {
-            Debugger.withDebugger(Debugger::onDone);
-        }
-    }
-
-    @Nonnull
     public QueryPlanResult planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
-                                     final boolean isSortReverse,
                                      @Nonnull final EvaluationContext evaluationContext) {
         try {
             planPartial(expressionRefSupplier,
@@ -374,8 +349,7 @@ public class CascadesPlanner implements QueryPlanner {
                                     recordStoreState,
                                     rootReference,
                                     allowedIndexesOptional,
-                                    indexQueryabilityFilter,
-                                    isSortReverse
+                                    indexQueryabilityFilter
                             ),
                     evaluationContext);
             final var plan = resultOrFail();
@@ -384,7 +358,6 @@ public class CascadesPlanner implements QueryPlanner {
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
-
     }
 
     private RecordQueryPlan resultOrFail() {

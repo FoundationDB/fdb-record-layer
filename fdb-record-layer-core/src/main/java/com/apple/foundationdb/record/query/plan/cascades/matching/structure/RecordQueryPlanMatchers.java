@@ -249,6 +249,13 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<RecordQueryPlan> isReverse() {
+        return typedWithDownstream(RecordQueryPlan.class,
+                Extractor.of(RecordQueryPlan::isReverse, name -> "isReversed(" + name + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordQueryPlanWithIndex> indexName(@Nonnull String indexName) {
         return typedWithDownstream(RecordQueryPlanWithIndex.class,
                 Extractor.of(RecordQueryPlanWithIndex::getIndexName, name -> "indexName(" + name + ")"),
