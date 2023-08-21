@@ -26,8 +26,10 @@ import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.PostingsReaderBase;
+import org.apache.lucene.codecs.PostingsWriterBase;
 import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
+import org.apache.lucene.codecs.lucene84.Lucene84PostingsWriter;
 import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
@@ -61,67 +63,14 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
     @Override
     public FieldsConsumer fieldsConsumer(final SegmentWriteState state) throws IOException {
-        return postingsFormat.fieldsConsumer(state);
+        PostingsWriterBase postingsWriter = new Lucene84PostingsWriter(state);
+        return new LuceneOptimizedPostingsFieldsConsumer(state, postingsWriter);
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
-        return new LazyFieldsProducer(state);
-    }
-
-    private static class LazyFieldsProducer extends FieldsProducer {
-
-        private final Supplier<FieldsProducer> fieldsProducer;
-
-        private boolean initialized;
-
-        private LazyFieldsProducer(final SegmentReadState state) {
-            fieldsProducer = Suppliers.memoize(() -> {
-                try {
-                    PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
-                    BlockTreeTermsReader blockTreeTermsReader = new BlockTreeTermsReader(postingsReader, state);
-                    initialized = true;
-                    return blockTreeTermsReader;
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                }
-            });
-        }
-
-        @Override
-        public void close() throws IOException {
-            if (initialized) {
-                fieldsProducer.get().close();
-            }
-        }
-
-        @Override
-        public void checkIntegrity() throws IOException {
-            if (allowCheckDataIntegrity) {
-                fieldsProducer.get().checkIntegrity();
-            }
-        }
-
-        @Override
-        public Iterator<String> iterator() {
-            return fieldsProducer.get().iterator();
-        }
-
-        @Override
-        public Terms terms(final String field) throws IOException {
-            return fieldsProducer.get().terms(field);
-        }
-
-        @Override
-        public int size() {
-            return fieldsProducer.get().size();
-        }
-
-        @Override
-        public long ramBytesUsed() {
-            return fieldsProducer.get().ramBytesUsed();
-        }
+        return new LuceneOptimizedPostingsFieldsProducer(state, new LuceneOptimizedPostingsReader(state));
     }
 
 }
