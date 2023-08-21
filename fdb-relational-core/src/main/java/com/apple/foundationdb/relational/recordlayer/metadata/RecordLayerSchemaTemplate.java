@@ -175,7 +175,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                                                @Nonnull final String templateName,
                                                                int version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
-        final var builder = deserializer.getSchemaTemplate(templateName, version, metaData.isSplitLongRecords());
+        final var builder = deserializer.getSchemaTemplate(templateName, version);
         return builder.setCachedMetadata(metaData).build();
     }
 

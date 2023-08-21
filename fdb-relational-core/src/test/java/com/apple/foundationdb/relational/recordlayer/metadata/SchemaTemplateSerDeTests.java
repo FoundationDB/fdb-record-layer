@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.BitSet;
@@ -47,6 +49,52 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 
 public class SchemaTemplateSerDeTests {
+
+    private static RecordLayerSchemaTemplate basicTestTemplate() {
+        return RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("t1")
+                        .addColumn(
+                                RecordLayerColumn
+                                        .newBuilder()
+                                        .setName("col1")
+                                        .setDataType(DataType.Primitives.INTEGER.type())
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i1")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i2")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i3")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .addIndex(
+                                RecordLayerIndex
+                                        .newBuilder()
+                                        .setName("i4")
+                                        .setTableName("t1")
+                                        .setIndexType(IndexTypes.VALUE)
+                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
+                                        .build())
+                        .build())
+                .build();
+    }
 
     private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<Pair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
@@ -96,6 +144,41 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
+    @ParameterizedTest(name = "testEnableLongRows[enableLongRows-{0}]")
+    @ValueSource(booleans = {false, true})
+    public void testEnableLongRows(boolean enableLongRows) {
+        RecordLayerSchemaTemplate schemaTemplate = basicTestTemplate().toBuilder()
+                .setVersion(42)
+                .setEnableLongRows(enableLongRows)
+                .build();
+        Assertions.assertEquals(enableLongRows, schemaTemplate.isEnableLongRows());
+
+        // Validate the schema template option is included in the final meta-data
+        RecordMetaData metaData = schemaTemplate.toRecordMetadata();
+        Assertions.assertEquals(enableLongRows, metaData.isSplitLongRecords());
+
+        // Validate that when wrapping a met
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
+        Assertions.assertEquals(enableLongRows, wrappedMetaData.isEnableLongRows());
+        Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
+    }
+
+    @ParameterizedTest(name = "testStoreRowVersions[storeRowVersions-{0}]")
+    @ValueSource(booleans = {false, true})
+    public void testStoreRowVersions(boolean storeRowVersions) {
+        RecordLayerSchemaTemplate schemaTemplate = basicTestTemplate().toBuilder()
+                .setVersion(42)
+                .setStoreRowVersions(storeRowVersions)
+                .build();
+        Assertions.assertEquals(storeRowVersions, schemaTemplate.isStoreRowVersions());
+        Assertions.assertEquals(storeRowVersions, schemaTemplate.toRecordMetadata().isStoreRecordVersions());
+
+        RecordMetaData metaData = schemaTemplate.toRecordMetadata();
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
+        Assertions.assertEquals(storeRowVersions, wrappedMetaData.isStoreRowVersions());
+        Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
+    }
+
     @Test
     public void testGoodSchemaTemplateWithGenerations() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
@@ -128,49 +211,7 @@ public class SchemaTemplateSerDeTests {
 
     @Test
     public void readableIndexBitsetWorksCorrectly() throws RelationalException {
-        final var template = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
-                .addTable(RecordLayerTable.newBuilder(false)
-                        .setName("t1")
-                        .addColumn(
-                                RecordLayerColumn
-                                        .newBuilder()
-                                        .setName("col1")
-                                        .setDataType(DataType.Primitives.INTEGER.type())
-                                        .build())
-                        .addIndex(
-                                RecordLayerIndex
-                                        .newBuilder()
-                                        .setName("i1")
-                                        .setTableName("t1")
-                                        .setIndexType(IndexTypes.VALUE)
-                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
-                                        .build())
-                        .addIndex(
-                                RecordLayerIndex
-                                        .newBuilder()
-                                        .setName("i2")
-                                        .setTableName("t1")
-                                        .setIndexType(IndexTypes.VALUE)
-                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
-                                        .build())
-                        .addIndex(
-                                RecordLayerIndex
-                                        .newBuilder()
-                                        .setName("i3")
-                                        .setTableName("t1")
-                                        .setIndexType(IndexTypes.VALUE)
-                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
-                                        .build())
-                        .addIndex(
-                                RecordLayerIndex
-                                        .newBuilder()
-                                        .setName("i4")
-                                        .setTableName("t1")
-                                        .setIndexType(IndexTypes.VALUE)
-                                        .setKeyExpression(Key.Expressions.field("col1", KeyExpression.FanType.None))
-                                        .build())
-                        .build())
-                .build();
+        final var template = basicTestTemplate();
         // we have table "t1" with four indexes "i1, i2, i3, i4".
         Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000001}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i1"))));
         Assertions.assertEquals(BitSet.valueOf(new long[]{0b00000010}), template.getIndexEntriesAsBitset(Optional.of(Set.of("i2"))));

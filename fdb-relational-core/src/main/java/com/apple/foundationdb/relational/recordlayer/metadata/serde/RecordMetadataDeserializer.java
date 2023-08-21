@@ -42,13 +42,17 @@ public class RecordMetadataDeserializer {
         this.recordMetaData = recordMetaData;
     }
 
-    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, int version, boolean enableLongRows) {
+    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
 
         final var registeredTypes = unionDescriptor.getFields();
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
+                .setVersion(version)
+                .setStoreRowVersions(recordMetaData.isStoreRecordVersions())
+                .setEnableLongRows(recordMetaData.isSplitLongRecords())
+                .setName(schemaTemplateName)
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final var nameToTableBuilder = new HashMap<String, RecordLayerTable.Builder>();
         for (final var registeredType : registeredTypes) {
@@ -71,7 +75,7 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
-        return schemaTemplateBuilder.setVersion(version).setName(schemaTemplateName).setEnableLongRows(enableLongRows);
+        return schemaTemplateBuilder;
     }
 
     @Nonnull

@@ -68,6 +68,11 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     @Override
     public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
+        // Note: this does not preserve the index added and lest modified version, necessary
+        // correctly handling index rebuilds when the template is updated. This also results
+        // in the RecordMetaData builder updating its version, so the resulting meta-data will not
+        // have a version that matches the schema template's version
+        // See: TODO (Relational index misses version information)
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
         final var recLayerIndex = (RecordLayerIndex) index;
         getBuilder().addIndex(index.getTableName(),
