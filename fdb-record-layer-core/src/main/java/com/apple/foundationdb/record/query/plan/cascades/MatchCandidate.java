@@ -178,17 +178,16 @@ public interface MatchCandidate {
 
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data.
-     *
      * @param partialMatch the match to be used
      * @param planContext the plan context
      * @param memoizer the memoizer
-     *
      * @return a new {@link RecordQueryPlan}
      */
     @SuppressWarnings("java:S135")
     default RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                              @Nonnull final PlanContext planContext,
-                                             @Nonnull final Memoizer memoizer, final boolean reverseScanOrder) {
+                                             @Nonnull final Memoizer memoizer,
+                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -212,12 +211,10 @@ public interface MatchCandidate {
     /**
      * Creates a {@link RecordQueryPlan} that represents a scan over the materialized candidate data. This method is
      * expected to be implemented by specific implementations of {@link MatchCandidate}.
-     *
      * @param partialMatch the {@link PartialMatch} that matched the query and the candidate
      * @param planContext the plan context
      * @param memoizer the memoizer
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
-     *
      * @return a new {@link RecordQueryPlan}
      */
     @Nonnull
