@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedIndexInput;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -754,7 +755,26 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        return new FDBIndexInput(name, this);
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return new LuceneOptimizedWrappedIndexInput(name,
+                    () -> getFDBLuceneFileReference(convertToDataFile(name)).getSegmentInfo());
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return new LuceneOptimizedWrappedIndexInput(name,
+                    () -> getFDBLuceneFileReference(convertToDataFile(name)).getEntries());
+        } else if (FDBDirectory.isFieldInfoFile(name)) {
+            return new LuceneOptimizedWrappedIndexInput(name,
+                    () -> {
+                        try {
+                            return readSchema(getFDBLuceneFileReference(
+                                    convertToDataFile(name)).getBitSetWords());
+                        } catch (IOException e) {
+                            LOGGER.error(getLogMessage("Read schema failed"), e);
+                            throw new RuntimeException(e);
+                        }
+                    });
+        } else {
+            return new FDBIndexInput(name, this);
+        }
     }
 
     public IndexInput openLazyInput(@Nonnull final String name, long initialOffset, long position) throws IOException {

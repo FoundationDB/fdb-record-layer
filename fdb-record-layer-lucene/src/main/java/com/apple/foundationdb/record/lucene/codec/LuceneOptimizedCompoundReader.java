@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -120,6 +121,13 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         final String id = IndexFileNames.stripSegmentName(name);
         final FileEntry entry = entries.get(id);
         if (entry == null) {
+            // LuceneOptimizedWrappedDirectory bypasses the writing of the `fnm` file, instead writing
+            // it to the file reference for the cfs. By doing this TrackingDirectoryWrapper bypasses it, and we never see
+            // it here, and the lucene tests fail, for now open if it matches that filename
+
+            if (FDBDirectory.isFieldInfoFile(name)) {
+                return directory.openInput(name, context);
+            }
             String datFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
             throw new FileNotFoundException("No sub-file with id " + id + " found in compound file \"" + datFileName + "\" (fileName=" + name + " files: " + entries.keySet() + ")");
         }

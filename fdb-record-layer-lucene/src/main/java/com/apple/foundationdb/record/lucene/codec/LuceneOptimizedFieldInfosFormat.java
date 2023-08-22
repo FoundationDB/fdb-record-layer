@@ -43,12 +43,12 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
         // Note on caching: This (fieldInfos) were cached here as well, to reduce the costs of parsing the (cached) bytes,
         // but that resulted in a deadlock. The current implementation reads and parses the data every time.
-        return fieldInfosFormat.read(
-                ((LuceneOptimizedCompoundReader)directory).getDirectory(), segmentInfo, segmentSuffix, iocontext);
+        return fieldInfosFormat.read(directory, segmentInfo, segmentSuffix, iocontext);
     }
 
     @Override
-    public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final FieldInfos infos, final IOContext context) throws IOException {
+    public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix,
+                      final FieldInfos infos, final IOContext context) throws IOException {
         fieldInfosFormat.write(new LuceneOptimizedWrappedDirectory(directory, infos), segmentInfo, segmentSuffix, infos, context);
     }
 
