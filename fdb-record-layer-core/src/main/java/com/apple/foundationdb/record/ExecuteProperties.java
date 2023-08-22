@@ -326,6 +326,7 @@ public class ExecuteProperties {
      * @param state execute state
      * @param failOnScanLimitReached fail on scan limit reached
      * @param defaultCursorStreamingMode default streaming mode
+     * @param isDryRun whether it is dry run
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
     @Nonnull

@@ -481,10 +481,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LogMessageKeys.EXPECTED_TYPE, recordType.getName());
                 }
             }
+            final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord, isDryRun);
             if (isDryRun) {
-                return CompletableFuture.completedFuture(recordBuilder.build());
+                return CompletableFuture.completedFuture(newRecord);
             } else {
-                final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
                 } else {
@@ -535,18 +535,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private <M extends Message> FDBStoredRecord<M> serializeAndSaveRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
-                                                                          @Nonnull final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo) {
+                                                                          @Nonnull final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo, final boolean isDryRun) {
         final Tuple primaryKey = recordBuilder.getPrimaryKey();
         final FDBRecordVersion version = recordBuilder.getVersion();
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        preloadCache.invalidate(primaryKey); // clear out cache of older value if present
-        SplitHelper.saveWithSplit(context, recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldSizeInfo, sizeInfo);
-        countKeysAndValues(FDBStoreTimer.Counts.SAVE_RECORD_KEY, FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, sizeInfo);
+        if (!isDryRun) {
+            preloadCache.invalidate(primaryKey); // clear out cache of older value if present
+        }
+        SplitHelper.saveWithSplit(context, recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldSizeInfo, sizeInfo, isDryRun);
+        if (!isDryRun) {
+            countKeysAndValues(FDBStoreTimer.Counts.SAVE_RECORD_KEY, FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, sizeInfo);
+        }
         recordBuilder.setSize(sizeInfo);
 
-        if (version != null && useOldVersionFormat()) {
+        if (!isDryRun && version != null && useOldVersionFormat()) {
             saveVersionWithOldFormat(primaryKey, version);
         }
         return recordBuilder.build();
