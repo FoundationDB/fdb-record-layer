@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
@@ -463,6 +466,36 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 return record;
             }, c -> { });
             Assertions.assertEquals(1, resultValues.size());
+            // dryRun update plan
+            ExecuteProperties dryRunExecuteProperties = ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setState(ExecuteState.NO_LIMITS)
+                    .setDryRun(true)
+                    .build();
+            var dryRunResultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var oldRecordField = recordDescriptor.findFieldByName("old");
+                final var oldRecordDescriptor = oldRecordField.getMessageType();
+                final var oldRecord = (Message)record.getField(oldRecordField);
+                final var oldRestNo = oldRecordDescriptor.findFieldByName("rest_no");
+                final var oldName = oldRecordDescriptor.findFieldByName("name");
+                final var newRecordField = recordDescriptor.findFieldByName("new");
+                final var newRecordDescriptor = newRecordField.getMessageType();
+                final var newRecord = (Message)record.getField(newRecordField);
+                final var newRestNo = newRecordDescriptor.findFieldByName("rest_no");
+                final var newName = newRecordDescriptor.findFieldByName("name");
+                if ((long)newRecord.getField(newRestNo) == 100L) {
+                    Assertions.assertEquals(100L, (long)oldRecord.getField(oldRestNo));
+                    Assertions.assertEquals("Burger King McDonald's", oldRecord.getField(oldName));
+                    // resultValue returns the new value, but new value shouldn't be written to database
+                    // the selectPlan below should still returns Burger King McDonald's
+                    Assertions.assertEquals("Burger King McDonald's McDonald's", newRecord.getField(newName));
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> { }, dryRunExecuteProperties);
+            Assertions.assertEquals(1, dryRunResultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
@@ -475,6 +508,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 final var name = recordDescriptor.findFieldByName("name");
                 switch ((int)(long)record.getField(rest_no)) {
                     case 100:
+                        // did 1 update and 1 dry Run update, changed the value from Burger King to Burger King McDonald's
                         Assertions.assertEquals("Burger King McDonald's", record.getField(name)); //updated record because of conflict on name
                         break;
                     case 200:
