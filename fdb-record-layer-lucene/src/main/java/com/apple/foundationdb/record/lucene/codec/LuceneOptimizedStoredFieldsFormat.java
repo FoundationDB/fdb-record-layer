@@ -30,8 +30,10 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This class provides a Lazy reader implementation to limit the amount of
@@ -58,7 +60,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
     private class LazyStoredFieldsReader extends StoredFieldsReader {
         private Supplier<StoredFieldsReader> storedFieldsReader;
-        private boolean initialized;
+        private AtomicBoolean initialized = new AtomicBoolean(false);
         private Directory directory;
         private SegmentInfo si;
         private FieldInfos fn;
@@ -75,14 +77,20 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
                 } catch (IOException ioe) {
                     throw new UncheckedIOException(ioe);
                 } finally {
-                    initialized = true;
+                    initialized.set(true);
                 }
             });
         }
 
-        public LazyStoredFieldsReader(LazyStoredFieldsReader lazyStoredFieldsReader) {
-            this(lazyStoredFieldsReader.directory, lazyStoredFieldsReader.si, lazyStoredFieldsReader.fn,
-                    lazyStoredFieldsReader.context);
+        public LazyStoredFieldsReader(LazyStoredFieldsReader other) {
+            this.directory = other.directory;
+            this.si = other.si;
+            this.fn = other.fn;
+            this.context = other.context;
+            // TODO this makes this less lazy, but if we don't do this the tests fail because we don't close
+            //      the underlying handles. There is almost certainly a way to fix both
+            this.storedFieldsReader = Suppliers.memoize(() -> other.storedFieldsReader.get().clone());
+            initialized.set(true);
         }
 
         @Override
@@ -105,7 +113,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
         @Override
         public void close() throws IOException {
-            if (initialized) { // Needed to not fetch data...
+            if (initialized.get()) { // Needed to not fetch data...
                 storedFieldsReader.get().close();
             }
         }

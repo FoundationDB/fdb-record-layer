@@ -41,6 +41,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
@@ -49,7 +50,7 @@ import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompound
 /**
  * An Optimized Directory that understands that we store segments and names in the file reference instead of
  * stand-alone files.
- *
+ * TODO: I think this could be merged down into FDBDirectory, the only question is how to maintain FieldInfos in the schema
  */
 class LuceneOptimizedWrappedDirectory extends Directory {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedWrappedDirectory.class);
@@ -146,16 +147,17 @@ class LuceneOptimizedWrappedDirectory extends Directory {
     public IndexInput openInput(String name, final IOContext context) throws IOException {
         if (FDBDirectory.isSegmentInfo(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)).getSegmentInfo());
+                    () -> Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)), name).getSegmentInfo());
         } else if (FDBDirectory.isEntriesFile(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)).getEntries());
+                    () -> Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)), name).getEntries());
         } else if (FDBDirectory.isFieldInfoFile(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
                     () -> {
                         try {
-                            return fdbDirectory.readSchema(fdbDirectory.getFDBLuceneFileReference(
-                                            convertToDataFile(name)).getBitSetWords());
+                            return fdbDirectory.readSchema(
+                                    Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(
+                                            convertToDataFile(name)), name).getBitSetWords());
                         } catch (IOException e) {
                             LOG.error("Read schema failed", e);
                             throw new RuntimeException(e);
