@@ -28,7 +28,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
@@ -40,7 +39,7 @@ class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
 
     @Override
     public SegmentInfo read(final Directory directory, final String segmentName, final byte[] segmentID, final IOContext context) throws IOException {
-        SegmentInfo segmentInfo = segmentInfosFormat.read(new LuceneOptimizedWrappedDirectory(directory), segmentName, segmentID, context);
+        SegmentInfo segmentInfo = segmentInfosFormat.read(directory, segmentName, segmentID, context);
         SegmentInfo segmentInfoToReturn = new SegmentInfo(directory, segmentInfo.getVersion(), segmentInfo.getMinVersion(), segmentInfo.name,
                 segmentInfo.maxDoc(), segmentInfo.getUseCompoundFile(), segmentInfo.getCodec(), segmentInfo.getDiagnostics(),
                 segmentInfo.getId(),
@@ -51,12 +50,7 @@ class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
 
     @Override
     public void write(final Directory dir, final SegmentInfo info, final IOContext ioContext) throws IOException {
-        SegmentInfo segmentInfoToWrite = new SegmentInfo(new LuceneOptimizedWrappedDirectory(dir), info.getVersion(), info.getMinVersion(), info.name,
-                info.maxDoc(), info.getUseCompoundFile(), info.getCodec(), Collections.emptyMap(),
-                info.getId(),
-                info.getAttributes(), info.getIndexSort());
-        segmentInfoToWrite.setFiles(info.files());
-        segmentInfosFormat.write(new LuceneOptimizedWrappedDirectory(dir), segmentInfoToWrite, ioContext);
+        segmentInfosFormat.write(dir, info, ioContext);
         final String fileName = IndexFileNames.segmentFileName(info.name, "", Lucene86SegmentInfoFormat.SI_EXTENSION);
         info.setFiles(info.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
     }

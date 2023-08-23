@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedIndexInput;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedIndexOutput;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -661,11 +662,31 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        long startTime = System.nanoTime();
-        try {
-            return new FDBIndexOutput(name, name, this);
-        } finally {
-            context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return new LuceneOptimizedWrappedIndexOutput(name) {
+                @Override
+                public void close() throws IOException {
+                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
+                    reference.setSegmentInfo(outputStream.toByteArray());
+                    writeFDBLuceneFileReference(name, reference);
+                }
+            };
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return new LuceneOptimizedWrappedIndexOutput(name) {
+                @Override
+                public void close() throws IOException {
+                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
+                    reference.setEntries(outputStream.toByteArray());
+                    writeFDBLuceneFileReference(name, reference);
+                }
+            };
+        } else {
+            long startTime = System.nanoTime();
+            try {
+                return new FDBIndexOutput(name, name, this);
+            } finally {
+                context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
+            }
         }
     }
 

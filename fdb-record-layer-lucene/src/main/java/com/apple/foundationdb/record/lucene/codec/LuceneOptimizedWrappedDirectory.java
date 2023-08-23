@@ -41,7 +41,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
@@ -85,26 +84,7 @@ class LuceneOptimizedWrappedDirectory extends Directory {
 
     @Override
     public IndexOutput createOutput(String name, final IOContext context) throws IOException {
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name) {
-                @Override
-                public void close() throws IOException {
-                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                    reference.setSegmentInfo(outputStream.toByteArray());
-                    ((FDBDirectory) FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
-                }
-            };
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name) {
-                @Override
-                public void close() throws IOException {
-                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                    reference.setEntries(outputStream.toByteArray());
-                    ((FDBDirectory) FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
-                }
-            };
-
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
+        if (FDBDirectory.isFieldInfoFile(name)) {
             return new LuceneOptimizedWrappedIndexOutput(name) {
                 @Override
                 public void close() throws IOException {
@@ -145,27 +125,7 @@ class LuceneOptimizedWrappedDirectory extends Directory {
 
     @Override
     public IndexInput openInput(String name, final IOContext context) throws IOException {
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)), name).getSegmentInfo());
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(convertToDataFile(name)), name).getEntries());
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> {
-                        try {
-                            return fdbDirectory.readSchema(
-                                    Objects.requireNonNull(fdbDirectory.getFDBLuceneFileReference(
-                                            convertToDataFile(name)), name).getBitSetWords());
-                        } catch (IOException e) {
-                            LOG.error("Read schema failed", e);
-                            throw new RuntimeException(e);
-                        }
-                    });
-        } else {
-            return wrappedDirectory.openInput(name, context);
-        }
+        return wrappedDirectory.openInput(name, context);
     }
 
     /**
