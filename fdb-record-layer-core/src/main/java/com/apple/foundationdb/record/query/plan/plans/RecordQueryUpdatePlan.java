@@ -87,8 +87,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
-        if (isDryRun()) {
+    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
+        if (isDryRun) {
             return store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
         } else {
             return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);

@@ -77,7 +77,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
+    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
         return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 

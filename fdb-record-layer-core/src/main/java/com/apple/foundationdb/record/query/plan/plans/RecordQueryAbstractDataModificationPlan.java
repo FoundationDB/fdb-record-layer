@@ -126,7 +126,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final Supplier<Integer> planHashForContinuationSupplier;
     @Nonnull
     private final Supplier<Integer> planHashForWithoutLiteralsSupplier;
-    private boolean dryRun;
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
@@ -149,7 +148,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
         this.planHashForWithoutLiteralsSupplier = Suppliers.memoize(this::computeRegularPlanHashWithoutLiterals);
-        this.dryRun = false;
     }
 
     @Nonnull
@@ -194,13 +192,12 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        dryRun = executeProperties.isDryRun();
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult)))
-                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight())
+                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
@@ -230,7 +227,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
+    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {
@@ -356,10 +353,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     public String getTargetRecordType() {
         return targetRecordType;
-    }
-
-    public boolean isDryRun() {
-        return dryRun;
     }
 
     @Override
