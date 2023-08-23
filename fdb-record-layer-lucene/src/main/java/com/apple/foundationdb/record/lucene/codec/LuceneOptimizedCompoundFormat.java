@@ -29,6 +29,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -67,7 +68,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
         si.files().stream().forEach(file -> {
             try {
-                dir.openInput(file, IOContext.READONCE);
+                final IndexInput indexInput = dir.openInput(file, IOContext.READONCE);
+                // Close the input. This isn't really important for the FDBDirectory because we don't have actual file
+                // handles, but it is good practice, and without it, Lucene's randomized testers fail
+                indexInput.close();
             } catch (IOException ioe) {
                 throw new RecordCoreArgumentException("Cannot open input for file", ioe)
                         .addLogInfo(LogMessageKeys.SOURCE_FILE, file);
