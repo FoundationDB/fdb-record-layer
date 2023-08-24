@@ -124,8 +124,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
                     return (Value)typedArg; } )
                 .collect(ImmutableList.toImmutableList());
 
-        Verify.verify(!typedArgs.isEmpty());
-        final Type elementType = resolveElementType(arguments);
+        final Type elementType = !typedArgs.isEmpty() ? resolveElementType(arguments) : Type.nullType();
         return new LightArrayConstructorValue(injectPromotions(arguments, elementType), elementType);
     }
 
