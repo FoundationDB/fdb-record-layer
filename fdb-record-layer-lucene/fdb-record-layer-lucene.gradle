@@ -77,6 +77,9 @@ test {
     useJUnitPlatform {
         // Used by lucene tests to create Directory objects for testing our codecs
         systemProperty 'tests.directory', 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
+        // uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
+        // it might differ
+        //systemProperty 'tests.directory', 'org.apache.lucene.store.RAMDirectory'
         if (skipFDB) {
             excludeTags 'RequiresFDB'
         }
