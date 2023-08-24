@@ -76,6 +76,8 @@ public final class SqlTypeNamesSupport {
                 return Types.STRUCT;
             case "ARRAY":
                 return Types.ARRAY;
+            case "NULL":
+                return Types.NULL;
             default:
                 throw new IllegalStateException("Unexpected sql type name:" + sqlTypeName);
         }

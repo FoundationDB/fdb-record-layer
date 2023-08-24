@@ -55,11 +55,16 @@ public class LiteralsUtils {
     public static Value processArrayLiteral(@Nonnull final List<Value> values,
                                             int index,
                                             @Nonnull final PlanGenerationContext context) {
-        Assert.thatUnchecked(!values.isEmpty());
-        // all values must have the same type.
-        final var valueTypes = values.stream().map(Value::getResultType).filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
-        Assert.thatUnchecked(valueTypes.size() == 1, "could not determine type of array literal", ErrorCode.DATATYPE_MISMATCH);
-        final var result = ConstantObjectValue.of(Quantifier.constant(), index, new Type.Array(valueTypes.get(0)));
+        Type elementType;
+        if (!values.isEmpty()) {
+            // all values must have the same type.
+            final var valueTypes = values.stream().map(Value::getResultType).filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
+            Assert.thatUnchecked(valueTypes.size() == 1, "could not determine type of array literal", ErrorCode.DATATYPE_MISMATCH);
+            elementType = valueTypes.get(0);
+        } else {
+            elementType = Type.nullType();
+        }
+        final var result = ConstantObjectValue.of(Quantifier.constant(), index, new Type.Array(elementType));
         if (context.shouldProcessLiteral()) {
             context.addLiteralReference(result);
         }
