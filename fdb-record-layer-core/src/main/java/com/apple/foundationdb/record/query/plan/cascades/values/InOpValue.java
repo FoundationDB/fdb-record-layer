@@ -198,7 +198,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
             SemanticException.check(res1.isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
             final var arrayElementType = Objects.requireNonNull(((Type.Array) res1).getElementType());
-            if (res0.getTypeCode() != arrayElementType.getTypeCode()) {
+            if (!arrayElementType.isUnresolved() && res0.getTypeCode() != arrayElementType.getTypeCode()) {
                 final var maximumType = Type.maximumType(arg0.getResultType(), arrayElementType);
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
