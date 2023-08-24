@@ -338,7 +338,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                                                         @Nonnull SplitHelperTestConfig testConfig,
                                                         @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo, true);
+        SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
 
         int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
         boolean isSplit = dataKeyCount > 1;
