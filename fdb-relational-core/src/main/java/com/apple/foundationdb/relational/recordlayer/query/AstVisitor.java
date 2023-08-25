@@ -60,7 +60,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -69,13 +68,11 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -464,7 +461,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Void visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx) {
         if (ctx.STAR() != null) {
             final var cols = expandStarColumns(null);
-            final var scope = scopes.getCurrentScope();
+            final var scope = Assert.notNullUnchecked(scopes.getCurrentScope());
             cols.forEach(scope::addProjectionColumn);
         } else {
             for (var selectElement : ctx.selectElement()) {
@@ -478,21 +475,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @ExcludeFromJacocoGeneratedReport
     public Void visitSelectStarElement(RelationalParser.SelectStarElementContext ctx) {
         final var cols = expandStarColumns((Value) visit(ctx.uid()));
-        final var scope = scopes.getCurrentScope();
+        final var scope = Assert.notNullUnchecked(scopes.getCurrentScope());
         cols.forEach(scope::addProjectionColumn);
-        return null;
-    }
-
-    @Override
-    public Void visitSelectFunctionElement(RelationalParser.SelectFunctionElementContext ctx) {
-        Column<Value> column;
-        if (ctx.AS() != null) {
-            column = ParserUtils.toColumn((Value) ctx.functionCall().accept(this),
-                    Objects.requireNonNull(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class)));
-        } else {
-            column = ParserUtils.toColumn((Value) ctx.functionCall().accept(this));
-        }
-        scopes.getCurrentScope().addProjectionColumn(column);
         return null;
     }
 
@@ -742,25 +726,21 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public Value visitLikePredicate(RelationalParser.LikePredicateContext ctx) {
-        Assert.thatUnchecked(ctx.predicate().size() == 2);
-        String escapeChar = null;
-        if (ctx.STRING_LITERAL() != null) {
-            escapeChar = ParserUtils.normalizeString(ctx.STRING_LITERAL().getText());
+        @Nullable String escapeChar = null;
+        if (ctx.escape != null) {
+            escapeChar = ParserUtils.normalizeString(ctx.escape.getText());
             Assert.thatUnchecked(escapeChar != null);
             Assert.thatUnchecked(escapeChar.length() == 1);
         }
+        final var pattern = Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.pattern.getText()));
+        final var patternValue = new LiteralValue<>(pattern);
+        final var patternValueBinding = LiteralsUtils.processLiteral(patternValue, patternValue.getLiteralValue(), context);
         final var likeFn = new LikeOperatorValue.LikeFn();
         final var patternFn = new PatternForLikeValue.PatternForLikeFn();
-        var result = (Value) ParserUtils.encapsulate(
-                likeFn,
-                List.of(
-                        (Value) visit(ctx.predicate(0)),
-                        (Value) ParserUtils.encapsulate(
-                                patternFn,
-                                List.of(
-                                        (Value) visit(ctx.predicate(1)),
-                                        new LiteralValue<>(escapeChar))
-                        )));
+        var result = (Value) ParserUtils.encapsulate(likeFn,
+                List.of((Value) visit(ctx.predicate()),
+                        (Value) ParserUtils.encapsulate(patternFn, List.of(patternValueBinding, new LiteralValue<>(escapeChar)))));
+        // todo (yhatem): remove this, processing unary expressions should be localised.
         if (ctx.NOT() != null) {
             result = new NotValue(result);
         }
@@ -771,9 +751,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Value visitInPredicate(RelationalParser.InPredicateContext ctx) {
-        if (ctx.NOT() != null) {
-            Assert.failUnchecked("NOT IN is not supported", ErrorCode.SYNTAX_ERROR);
-        }
         if (ctx.inList().selectStatement() != null) {
             Assert.failUnchecked("IN <SELECT_STATEMENT> is not supported", ErrorCode.SYNTAX_ERROR);
         }
@@ -795,7 +772,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 typedList = ParserUtils.encapsulate(AbstractArrayConstructorValue.ArrayFn.class, ParserUtils.validateInValuesList(values));
             }
         }
-        final var left = (Value) visit(ctx.predicate());
+        final var left = (Value) visit(ctx.expressionAtom());
         return (Value) ParserUtils.encapsulate(InOpValue.InFn.class, List.of(left, typedList));
     }
 
@@ -1183,24 +1160,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     /////// Functions ////////////////////
 
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Object visitSpecificFunctionCall(RelationalParser.SpecificFunctionCallContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
-    }
-
     @Override
     public Value visitAggregateFunctionCall(RelationalParser.AggregateFunctionCallContext ctx) {
         return (Value) ctx.aggregateWindowedFunction().accept(this);
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Object visitNonAggregateFunctionCall(RelationalParser.NonAggregateFunctionCallContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
     }
 
     @Override
@@ -1212,13 +1174,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 .collect(Collectors.toList());
         BuiltInFunction<? extends Value> scalarFunction = ParserUtils.getExplicitFunction(ctx.scalarFunctionName().getText());
         return ParserUtils.encapsulate(scalarFunction, args);
-    }
-
-    @Override // not supported yet
-    @ExcludeFromJacocoGeneratedReport
-    public Object visitUdfFunctionCall(RelationalParser.UdfFunctionCallContext ctx) {
-        Assert.failUnchecked(UNSUPPORTED_QUERY);
-        return null;
     }
 
     @Override
@@ -1748,26 +1703,5 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public QueryPlan visitSimpleDescribeSchemaTemplateStatement(RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
         final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaTemplateQueryAction(Assert.notNullUnchecked(schemaTemplateName)));
-    }
-
-    /**
-     * Parses a query generating an equivalent abstract syntax tree.
-     *
-     * @param query The query.
-     * @return The abstract syntax tree.
-     * @throws RelationalException if something goes wrong.
-     */
-    @Nonnull
-    public static RelationalParser.RootContext parseQuery(@Nonnull final String query) throws RelationalException {
-        final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        parser.removeErrorListeners();
-        final SyntaxErrorListener listener = new SyntaxErrorListener();
-        parser.addErrorListener(listener);
-        RelationalParser.RootContext rootContext = parser.root();
-        if (!listener.getSyntaxErrors().isEmpty()) {
-            throw listener.getSyntaxErrors().get(0).toRelationalException();
-        }
-        return rootContext;
     }
 }

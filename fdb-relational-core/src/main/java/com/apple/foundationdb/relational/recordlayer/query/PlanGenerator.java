@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEqu
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.common.base.VerifyException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;

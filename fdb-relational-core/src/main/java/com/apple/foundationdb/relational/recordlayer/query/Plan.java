@@ -131,7 +131,7 @@ public abstract class Plan<T> {
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
                 .build();
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
-        final var ast = AstVisitor.parseQuery(query);
+        final var ast = QueryParser.parse(query);
         final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri(), query);
         long start = System.nanoTime();
         try {

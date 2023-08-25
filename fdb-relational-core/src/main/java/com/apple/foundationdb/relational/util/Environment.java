@@ -1,5 +1,5 @@
 /*
- * ParserTests.java
+ * Environment.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,21 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query;
+package com.apple.foundationdb.relational.util;
 
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
+public class Environment {
 
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-public class ParserTests {
-
-    @ParameterizedTest
-    @ValueSource(strings = {"__foo", "2foo", "#foo", ".foo", "__"})
-    public void invalidIdentifierTest(String id) {
-        final var query = String.format("SELECT * from %s", id);
-        RelationalAssertions.assertThrows(() -> QueryParser.parse(query))
-                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    /**
+     * Checks whether the environment of the currently running process is a debug environment, this is usually
+     * set when running tests and should be used to e.g. trigger extra logging or diagnostics.
+     * @return {@code true} if the environment of the currently running process is debug, otherwise {@code false}.
+     */
+    public static boolean isDebug() {
+        return Boolean.getBoolean("debugBuild");
     }
+
 }

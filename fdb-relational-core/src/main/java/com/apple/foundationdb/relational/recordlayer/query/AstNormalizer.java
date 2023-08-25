@@ -28,18 +28,15 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -390,7 +387,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitInPredicate(RelationalParser.InPredicateContext ctx) {
-        ctx.predicate().accept(this);
+        ctx.expressionAtom().accept(this);
         ctx.IN().accept(this);
 
         if (ctx.inList().preparedStatementParameter() != null) {
@@ -444,8 +441,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query) throws RelationalException {
-        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE,
-                () -> lexAndParse(query));
+        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query));
         return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,
@@ -453,21 +449,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getUserVersion(),
                         context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes())
                 ));
-    }
-
-    @Nonnull
-    @VisibleForTesting
-    public static RelationalParser.RootContext lexAndParse(@Nonnull final String query) throws RelationalException {
-        final RelationalLexer tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final RelationalParser parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        parser.removeErrorListeners();
-        final SyntaxErrorListener listener = new SyntaxErrorListener();
-        parser.addErrorListener(listener);
-        RelationalParser.RootContext rootContext = parser.root();
-        if (!listener.getSyntaxErrors().isEmpty()) {
-            throw listener.getSyntaxErrors().get(0).toRelationalException();
-        }
-        return rootContext;
     }
 
     @Nonnull

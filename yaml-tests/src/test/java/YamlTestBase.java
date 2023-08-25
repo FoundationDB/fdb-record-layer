@@ -36,7 +36,7 @@ public abstract class YamlTestBase {
     private static final Logger LOG = LogManager.getLogger(YamlTestBase.class);
 
     public YamlTestBase() {
-        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
         Debugger.setup();

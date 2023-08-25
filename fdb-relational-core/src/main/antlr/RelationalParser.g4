@@ -323,7 +323,6 @@ selectElements // done
 // done
 selectElement
     : uid DOT STAR              #selectStarElement // done
-    | functionCall (AS? uid)?   #selectFunctionElement // done (partially supported)
     | expression (AS? uid)?     #selectExpressionElement // done
     ;
 
@@ -756,11 +755,8 @@ ifNotExists
 //    Functions
 
 functionCall
-    : specificFunction                                              #specificFunctionCall // done (unsupported)
-    | aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
-    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done (unsupported)
+    : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | fullId '(' functionArgs? ')'                                  #udfFunctionCall // done (unsupported)
     ;
 
 specificFunction
@@ -952,22 +948,22 @@ functionArgs
     ;
 
 functionArg
-    : constant | fullColumnName | functionCall | expression
+    : expression
     ;
 
 //    Expressions, predicates
 
 // Simplified approach for expression
 expression
-    : notOperator=(NOT | '!') expression                            #notExpression     // done
-    | expression logicalOperator expression                         #logicalExpression // done
-    | predicate IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)     #isExpression      // done
-    | predicate NOT? LIKE predicate (ESCAPE STRING_LITERAL)?        #likePredicate // done
-    | predicate                                                     #predicateExpression // done
+    : notOperator=(NOT | '!') expression                                                #notExpression     // done
+    | expression logicalOperator expression                                             #logicalExpression // done
+    | predicate IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                         #isExpression      // done
+    | predicate NOT? LIKE pattern=STRING_LITERAL (ESCAPE escape=STRING_LITERAL)?        #likePredicate // done
+    | predicate                                                                         #predicateExpression // done
     ;
 
 predicate
-    : predicate NOT? IN inList                                      #inPredicate // done
+    : expressionAtom IN inList                                      #inPredicate // done
     | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
     | expressionAtom                                                #expressionAtomPredicate // done
     ;
@@ -983,12 +979,7 @@ expressionAtom
     | fullColumnName                                                #fullColumnNameExpressionAtom // done
     | functionCall                                                  #functionCallExpressionAtom // done
     | preparedStatementParameter                                    #preparedStatementParameterAtom // done
-    | expressionAtom COLLATE collationName                          #collateExpressionAtom // done (unsupported)
-    | unaryOperator expressionAtom                                  #unaryExpressionAtom // done (unsupported)
-    | BINARY expressionAtom                                         #binaryExpressionAtom // done (unsupported)
-    //| '(' expression (',' expression)* ')'                          #nestedExpressionAtom // done
-    | recordConstructor                                    #recordConstructorExpressionAtom // done
-    //| ROW '(' expression (',' expression)+ ')'                      #nestedRowExpressionAtom // done (unsupported)
+    | recordConstructor                                             #recordConstructorExpressionAtom // done
     | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)

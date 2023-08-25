@@ -113,7 +113,7 @@ public final class Utils {
     }
 
     public static void enableCascadesDebugger() {
-        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
         Debugger.setup();

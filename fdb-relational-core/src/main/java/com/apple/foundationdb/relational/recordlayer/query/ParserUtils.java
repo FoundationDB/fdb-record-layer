@@ -69,6 +69,7 @@ import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -651,8 +652,17 @@ public final class ParserUtils {
     }
 
     public static boolean hasAggregation(@Nonnull final RelationalParser.SelectElementsContext selectElementsContext) {
-        return selectElementsContext.selectElement().stream().anyMatch(element -> element.getChildCount() > 0 &&
-                element.getChild(0) instanceof RelationalParser.AggregateFunctionCallContext);
+        return selectElementsContext.selectElement().stream().anyMatch(ParserUtils::isAggregation);
+    }
+
+    private static boolean isAggregation(@Nonnull final ParseTree element) {
+        if (element instanceof RelationalParser.AggregateWindowedFunctionContext) {
+            return true;
+        }
+        if (element.getChildCount() == 0) {
+            return false;
+        }
+        return isAggregation(element.getChild(0));
     }
 
     public static int getLastFieldIndex(@Nonnull final Type type) {
