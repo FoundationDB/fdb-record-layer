@@ -248,33 +248,57 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
-            for (ExecuteProperties p : List.of(ExecuteProperties.newBuilder().setDryRun(true).build(), ExecuteProperties.SERIAL_EXECUTE)) {
-                var resultValues = fetchResultValues(context, plan, record -> {
-                    final var recordDescriptor = record.getDescriptorForType();
-                    final var rest_no = recordDescriptor.findFieldByName("rest_no");
-                    final var name = recordDescriptor.findFieldByName("name");
-                    switch ((int)(long)record.getField(rest_no)) {
-                        case 100:
-                            Assertions.assertEquals("Burger King", record.getField(name));
-                            break;
-                        case 200:
-                            Assertions.assertEquals("Heirloom Cafe", record.getField(name));
-                            break;
-                        default:
-                            Assertions.fail("unexpected record");
-                    }
-                    return record;
-                }, c -> {
-                }, p);
-                Assertions.assertEquals(2, resultValues.size());
-            }
+            // dry run insert 2 records
+            var resultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                switch ((int)(long)record.getField(rest_no)) {
+                    case 100:
+                        Assertions.assertEquals("Burger King", record.getField(name));
+                        break;
+                    case 200:
+                        Assertions.assertEquals("Heirloom Cafe", record.getField(name));
+                        break;
+                    default:
+                        Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            }, ExecuteProperties.newBuilder().setDryRun(true).build());
+            Assertions.assertEquals(2, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
                     false,
                     EvaluationContext.empty()).getPlan();
-            var resultValues = fetchResultValues(context, selectPlan, record -> {
+            // select returns 0 record
+            resultValues = fetchResultValues(context, selectPlan, record -> record, c -> {
+            });
+            Assertions.assertEquals(0, resultValues.size());
+
+            // wet run insert 2 records
+            resultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                switch ((int)(long)record.getField(rest_no)) {
+                case 100:
+                    Assertions.assertEquals("Burger King", record.getField(name));
+                    break;
+                case 200:
+                    Assertions.assertEquals("Heirloom Cafe", record.getField(name));
+                    break;
+                default:
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(2, resultValues.size());
+            // select returns 2 records
+            resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
                 final var name = recordDescriptor.findFieldByName("name");

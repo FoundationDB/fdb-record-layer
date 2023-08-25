@@ -1224,7 +1224,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
-        // (TODO) assert dryRun doesn't change index
     }
 
     private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {
