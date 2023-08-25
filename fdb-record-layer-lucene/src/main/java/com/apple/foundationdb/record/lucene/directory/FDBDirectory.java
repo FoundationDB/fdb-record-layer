@@ -503,8 +503,12 @@ public class FDBDirectory extends Directory  {
     public String[] listAll() {
         long startTime = System.nanoTime();
         try {
-            Set<String> outSet = getFileReferenceCache().keySet();
-            return outSet.toArray(new String[0]);
+            return getFileReferenceCache()
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> !entry.getValue().isDeleted())
+                    .map(Map.Entry::getKey)
+                    .toArray(String[]::new);
         } finally {
             context.record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
