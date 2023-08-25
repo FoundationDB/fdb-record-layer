@@ -500,7 +500,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> {});
+            }, c -> {
+            });
             Assertions.assertEquals(1, resultValues.size());
             // dryRun update plan
             ExecuteProperties dryRunExecuteProperties = ExecuteProperties.newBuilder()
@@ -530,7 +531,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> {}, dryRunExecuteProperties);
+            }, c -> {
+            }, dryRunExecuteProperties);
             Assertions.assertEquals(1, dryRunResultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
@@ -554,7 +556,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> {});
+            }, c -> {
+            });
             Assertions.assertEquals(2, resultValues.size());
         }
     }
@@ -606,7 +609,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     IndexQueryabilityFilter.TRUE,
                     false,
                     EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> {});
+            fetchResultValues(context, plan, Function.identity(), c -> {
+            });
 
             plan = cascadesPlanner.planGraph(
                     () -> {
@@ -701,7 +705,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> {});
+            }, c -> {
+            });
             Assertions.assertEquals(1, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
@@ -727,7 +732,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> {});
+            }, c -> {
+            });
             Assertions.assertEquals(3, resultValues.size());
         }
     }

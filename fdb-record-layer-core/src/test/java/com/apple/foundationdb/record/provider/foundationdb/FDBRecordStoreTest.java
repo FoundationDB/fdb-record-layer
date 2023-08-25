@@ -1181,7 +1181,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testDryRunSaveRecord() throws Exception {
         TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
         TestRecords1Proto.MySimpleRecord record1 = recBuilder.setRecNo(1).setStrValueIndexed("abc").build();
-        FDBStoredRecord<Message> result1, result2;
+        FDBStoredRecord<Message> result1;
+        FDBStoredRecord<Message> result2;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             result1 = recordStore.dryRunSaveRecordAsync(record1, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS).get();
