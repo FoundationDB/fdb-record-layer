@@ -292,7 +292,7 @@ public class SplitHelper {
     }
 
 
-        @Nonnull
+    @Nonnull
     static byte[] packVersion(@Nonnull FDBRecordVersion version) {
         if (version.isComplete()) {
             return Tuple.from(version.toVersionstamp(false)).pack();
