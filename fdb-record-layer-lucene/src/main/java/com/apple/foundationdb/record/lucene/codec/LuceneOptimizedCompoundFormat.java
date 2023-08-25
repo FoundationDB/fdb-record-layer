@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
@@ -29,7 +27,6 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -66,17 +63,12 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     @Override
     public void write(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
-        si.files().stream().forEach(file -> {
-            try {
-                final IndexInput indexInput = dir.openInput(file, IOContext.READONCE);
-                // Close the input. This isn't really important for the FDBDirectory because we don't have actual file
-                // handles, but it is good practice, and without it, Lucene's randomized testers fail
-                indexInput.close();
-            } catch (IOException ioe) {
-                throw new RecordCoreArgumentException("Cannot open input for file", ioe)
-                        .addLogInfo(LogMessageKeys.SOURCE_FILE, file);
-            }
-        });
+        for (String s : si.files()) {
+            // Close the input. This isn't really important for the FDBDirectory because we don't have actual file
+            // handles, but it is good practice, and without it, Lucene's randomized testers fail
+            dir.openInput(s, IOContext.READONCE)
+                    .close();
+        }
         compoundFormat.write(new LuceneOptimizedWrappedDirectory(dir), si, context);
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
         si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
