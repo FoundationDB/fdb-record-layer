@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -58,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
@@ -601,8 +601,8 @@ public class PlannerRepl implements Debugger {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static ImmutableMap<String, Commands.Command<Event>> loadCommands() {
         final ImmutableMap.Builder<String, Commands.Command<Event>> commandsMapBuilder = ImmutableMap.builder();
-        final ServiceLoader<Commands.Command> loader
-                = ServiceLoader.load(Commands.Command.class);
+        final Iterable<Commands.Command> loader
+                = ServiceLoaderProvider.load(Commands.Command.class);
 
         loader.forEach(command -> {
             commandsMapBuilder.put(command.getCommandToken(), command);
@@ -621,8 +621,8 @@ public class PlannerRepl implements Debugger {
     @Nonnull
     private static SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> loadProcessors() {
         SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> processorsMap = HashMultimap.create();
-        final ServiceLoader<Processors.Processor> loader
-                = ServiceLoader.load(Processors.Processor.class);
+        final Iterable<Processors.Processor> loader
+                = ServiceLoaderProvider.load(Processors.Processor.class);
 
         loader.forEach(processor -> {
             processorsMap.put(processor.getEventType(), processor);

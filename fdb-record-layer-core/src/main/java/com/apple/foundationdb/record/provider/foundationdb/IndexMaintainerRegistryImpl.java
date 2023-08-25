@@ -26,13 +26,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ServiceLoader;
 
 /**
  * A singleton {@link IndexMaintainerRegistry} that finds {@link IndexMaintainerFactory} classes in the classpath.
@@ -55,7 +55,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
     @Nonnull
     protected static Map<String, IndexMaintainerFactory> initRegistry() {
         final Map<String, IndexMaintainerFactory> registry = new HashMap<>();
-        for (IndexMaintainerFactory factory : ServiceLoader.load(IndexMaintainerFactory.class)) {
+        for (IndexMaintainerFactory factory : ServiceLoaderProvider.load(IndexMaintainerFactory.class)) {
             for (String type : factory.getIndexTypes()) {
                 if (registry.containsKey(type)) {
                     if (LOGGER.isWarnEnabled()) {
