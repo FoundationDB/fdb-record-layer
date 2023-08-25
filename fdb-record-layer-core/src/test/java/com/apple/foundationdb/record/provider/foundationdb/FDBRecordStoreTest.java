@@ -1198,6 +1198,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(record2, recordStore.loadRecord(Tuple.from(2)).getRecord());
             commit(context);
         }
+        // (TODO) assert dryRun doesn't change index
     }
 
     private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {

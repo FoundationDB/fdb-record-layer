@@ -221,12 +221,12 @@ public class SplitHelper {
         }
     }
 
-    public static void saveWithSplitSizeInfo(@Nonnull final Subspace subspace,
-                                     @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
-                                     final boolean splitLongRecords, final boolean omitUnsplitSuffix,
-                                     @Nullable SizeInfo sizeInfo) {
+    public static void dryRunSaveWithSplitOnlySetSizeInfo(@Nonnull final Subspace subspace,
+                                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
+                                                          final boolean splitLongRecords, final boolean omitUnsplitSuffix,
+                                                          @Nullable SizeInfo sizeInfo) {
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
-            writeSplitRecordSizeInfo(subspace, key, serialized, sizeInfo);
+            dryRunWriteSplitRecordOnlySetSizeInfo(subspace, key, serialized, sizeInfo);
         } else {
             final Tuple recordKey;
             if (splitLongRecords || !omitUnsplitSuffix) {
@@ -240,12 +240,12 @@ public class SplitHelper {
                 sizeInfo.setSplit(false);
             }
         }
-        writeVersionSizeInfo(subspace, key, version, sizeInfo);
+        dryRunWriteVersionSizeInfo(subspace, key, version, sizeInfo);
     }
 
-    private static void writeSplitRecordSizeInfo(@Nonnull final Subspace subspace,
-                                                 @Nonnull final Tuple key, @Nonnull final byte[] serialized,
-                                                 @Nullable SizeInfo sizeInfo) {
+    private static void dryRunWriteSplitRecordOnlySetSizeInfo(@Nonnull final Subspace subspace,
+                                                              @Nonnull final Tuple key, @Nonnull final byte[] serialized,
+                                                              @Nullable SizeInfo sizeInfo) {
         final Subspace keySplitSubspace = subspace.subspace(key);
         long index = SplitHelper.START_SPLIT_RECORD;
         int offset = 0;
@@ -269,8 +269,8 @@ public class SplitHelper {
         }
     }
 
-    private static void writeVersionSizeInfo(@Nonnull final Subspace subspace, @Nonnull final Tuple key,
-                                                    @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
+    private static void dryRunWriteVersionSizeInfo(@Nonnull final Subspace subspace, @Nonnull final Tuple key,
+                                                   @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
         if (version == null) {
             if (sizeInfo != null) {
                 sizeInfo.setVersionedInline(false);

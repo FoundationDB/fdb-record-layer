@@ -245,7 +245,6 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                                                   @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
-
         int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
         boolean isSplit = dataKeyCount > 1;
         int keyCount = dataKeyCount;
@@ -330,15 +329,16 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         } else {
             assertNull(versionBytes);
         }
+
         return sizeInfo;
     }
 
-    private SplitHelper.SizeInfo saveSuccessfullyDryRun(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
-                                                        @Nullable FDBRecordVersion version,
-                                                        @Nonnull SplitHelperTestConfig testConfig,
-                                                        @Nullable FDBStoredSizes previousSizeInfo) {
+    private SplitHelper.SizeInfo dryRunSetSizeInfo(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+                                                   @Nullable FDBRecordVersion version,
+                                                   @Nonnull SplitHelperTestConfig testConfig,
+                                                   @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
+        SplitHelper.dryRunSaveWithSplitOnlySetSizeInfo(subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, sizeInfo);
 
         int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
         boolean isSplit = dataKeyCount > 1;
@@ -387,7 +387,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
                     RecordCoreException.class, "Record is too long");
         } else if (testConfig.isDryRun) {
-            return saveSuccessfullyDryRun(context, key, serialized, version, testConfig, previousSizeInfo);
+            return dryRunSetSizeInfo(context, key, serialized, version, testConfig, previousSizeInfo);
         } else {
             return saveSuccessfully(context, key, serialized, version, testConfig, previousSizeInfo);
         }
@@ -416,6 +416,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             FDBStoredSizes sizes1 = saveWithSplit(context, Tuple.from(1066L), SHORT_STRING, testConfig);
             FDBStoredSizes sizes2 = saveWithSplit(context, Tuple.from(1415L), LONG_STRING, testConfig);
             FDBStoredSizes sizes3 = saveWithSplit(context, Tuple.from(1776L), VERY_LONG_STRING, testConfig);
+
             // Save over some things using the previous split points
             if (testConfig.splitLongRecords) {
                 saveWithSplit(context, Tuple.from(1066L), VERY_LONG_STRING, testConfig, sizes1);
