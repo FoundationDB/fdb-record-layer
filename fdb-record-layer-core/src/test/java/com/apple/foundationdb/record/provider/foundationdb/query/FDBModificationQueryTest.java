@@ -163,7 +163,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 }
                 return record;
             }, c -> {
-            });
+            }, ExecuteProperties.newBuilder().setDryRun(true).build());
             Assertions.assertEquals(1, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
