@@ -594,7 +594,25 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
 
-        if (isEntriesFile(name) || isSegmentInfo(name)) {
+        if (isEntriesFile(name)) {
+            final FDBLuceneFileReference reference = getFDBLuceneFileReference(convertToDataFile(name));
+            if (reference != null) {
+                reference.setEntries(null);
+            } else {
+                throw new NoSuchFileException(name);
+            }
+            writeFDBLuceneFileReference(name, reference);
+            // TODO do we need to update the cache?
+            return;
+        } else if (isSegmentInfo(name)) {
+            final FDBLuceneFileReference reference = getFDBLuceneFileReference(convertToDataFile(name));
+            if (reference != null) {
+                reference.setSegmentInfo(null);
+            } else {
+                throw new NoSuchFileException(name);
+            }
+            writeFDBLuceneFileReference(name, reference);
+            // TODO do we need to update the cache?
             return;
         }
         try {
@@ -603,10 +621,21 @@ public class FDBDirectory extends Directory  {
                 if (value == null) {
                     return false;
                 }
-                context.ensureActive().clear(metaSubspace.pack(name));
-                context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-                cache.remove(name);
-                return true;
+                if (isCompoundFile(name)) {
+                    if (!value.isDeleted()) {
+                        value.markDeleted();
+                        writeFDBLuceneFileReference(name, value);
+                        context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    context.ensureActive().clear(metaSubspace.pack(name));
+                    context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                    cache.remove(name);
+                    return true;
+                }
             })));
 
             if (!deleted) {
@@ -662,6 +691,10 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
+        // .si .cfe .fdm, .fdx, .fdt and .cfs are supposed to sit adjacently (the other ones don't sit in the .cfs)
+        // but a rollback could cause `.cfs` to get deleted. Since we store the `.si`, .cfe, .fdm on the reference itself
+        // when we go to read the segments_N it will expect them to be there, but they will be missing....
+        // perhaps a better answer would be to store them directly in the segments_N file
         if (FDBDirectory.isSegmentInfo(name)) {
             return new LuceneOptimizedWrappedIndexOutput(name) {
                 @Override
@@ -778,22 +811,23 @@ public class FDBDirectory extends Directory  {
         }
         if (FDBDirectory.isSegmentInfo(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> getFDBLuceneFileReference(convertToDataFile(name)).getSegmentInfo());
+                    () -> Objects.requireNonNull(getFDBLuceneFileReference(convertToDataFile(name)), name).getSegmentInfo());
         } else if (FDBDirectory.isEntriesFile(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> getFDBLuceneFileReference(convertToDataFile(name)).getEntries());
+                    () -> Objects.requireNonNull(getFDBLuceneFileReference(convertToDataFile(name)), name).getEntries());
         } else if (FDBDirectory.isFieldInfoFile(name)) {
             return new LuceneOptimizedWrappedIndexInput(name,
                     () -> {
                         try {
-                            return readSchema(getFDBLuceneFileReference(
-                                    convertToDataFile(name)).getBitSetWords());
+                            return readSchema(Objects.requireNonNull(getFDBLuceneFileReference(
+                                    convertToDataFile(name)), name).getBitSetWords());
                         } catch (IOException e) {
                             LOGGER.error(getLogMessage("Read schema failed"), e);
                             throw new RuntimeException(e);
                         }
                     });
         } else {
+            // AFAICT this won't complain if a file doesn't exist
             return new FDBIndexInput(name, this);
         }
     }

@@ -44,20 +44,21 @@ public class FDBLuceneFileReference {
     private byte[] segmentInfo;
     private byte[] entries;
     private List<Long> bitSetWords;
+    private boolean isDeleted;
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
                 protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
                 protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null,
-                protoMessage.getColumnBitSetWordsList());
+                protoMessage.getColumnBitSetWordsList(), protoMessage.getIsDeleted());
     }
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, null, null, null);
+        this(id, size, actualSize, blockSize, null, null, null, false);
     }
 
     private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo,
-                                   byte[] entries, List<Long> bitSetWords) {
+                                   byte[] entries, List<Long> bitSetWords, final boolean isDeleted) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
@@ -65,6 +66,7 @@ public class FDBLuceneFileReference {
         this.segmentInfo = segmentInfo;
         this.entries = entries;
         this.bitSetWords = bitSetWords;
+        this.isDeleted = isDeleted;
     }
 
     public long getId() {
@@ -126,6 +128,9 @@ public class FDBLuceneFileReference {
         if (this.bitSetWords != null) {
             builder.addAllColumnBitSetWords(bitSetWords);
         }
+        if (this.isDeleted) {
+            builder.setIsDeleted(true);
+        }
         return builder.build().toByteArray();
     }
 
@@ -141,5 +146,13 @@ public class FDBLuceneFileReference {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("Invalid bytes for parsing of lucene file reference", ex);
         }
+    }
+
+    public void markDeleted() {
+        isDeleted = true;
+    }
+
+    public boolean isDeleted() {
+        return isDeleted;
     }
 }
