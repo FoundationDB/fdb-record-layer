@@ -1561,6 +1561,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         return valueKey.addAll(primaryKey);
     }
 
+    @Nonnull
+    CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull Tuple primaryKey);
+
     /**
      * Async version of {@link #deleteRecord}.
      * @param primaryKey the primary key of the record to delete

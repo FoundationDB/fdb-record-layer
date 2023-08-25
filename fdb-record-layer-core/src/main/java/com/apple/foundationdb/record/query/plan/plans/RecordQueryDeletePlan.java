@@ -98,13 +98,23 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return RecordCursor.flatMapPipelined(
-                outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
-                (outerQueryResult, innerContinuation) ->
-                        RecordCursor.fromFuture(store.deleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
-                                .filter(isDeleted -> isDeleted)
-                                .map(ignored -> outerQueryResult),
-                continuation, store.getPipelineSize(PipelineOperation.DELETE));
+        if (executeProperties.isDryRun()) {
+            return RecordCursor.flatMapPipelined(
+                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
+                    (outerQueryResult, innerContinuation) ->
+                            RecordCursor.fromFuture(store.dryRunDeleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
+                                    .filter(isDeleted -> isDeleted)
+                                    .map(ignored -> outerQueryResult),
+                    continuation, store.getPipelineSize(PipelineOperation.DELETE));
+        } else {
+            return RecordCursor.flatMapPipelined(
+                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
+                    (outerQueryResult, innerContinuation) ->
+                            RecordCursor.fromFuture(store.deleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
+                                    .filter(isDeleted -> isDeleted)
+                                    .map(ignored -> outerQueryResult),
+                    continuation, store.getPipelineSize(PipelineOperation.DELETE));
+        }
     }
 
     @Override

@@ -152,6 +152,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                             typeFilterPlan(scanPlan()))
                             .where(deleteTarget(equalsObject("RestaurantRecord"))));
 
+            // dry run delete 1 record
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var restNo = recordDescriptor.findFieldByName("rest_no");
@@ -171,6 +172,39 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     IndexQueryabilityFilter.TRUE,
                     false,
                     EvaluationContext.empty()).getPlan();
+            // select returns 2 records
+            resultValues = fetchResultValues(context, selectPlan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                if ((int)(long)record.getField(rest_no) == 100) {
+                    Assertions.assertEquals("Burger King", record.getField(name));
+                } else if ((int)(long)record.getField(rest_no) == 200) {
+                    Assertions.assertEquals("Heirloom Cafe", record.getField(name)); // untouched record
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(2, resultValues.size());
+
+            // wet run delete 1 record
+            resultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var restNo = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                if ((long)record.getField(restNo) == 100L) {
+                    Assertions.assertEquals("Burger King", record.getField(name));
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(1, resultValues.size());
+
+            // select returns the untouched 1 record
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");

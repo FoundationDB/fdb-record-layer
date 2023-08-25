@@ -226,8 +226,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull Tuple primaryKey) {
+        return untypedStore.deleteTypedRecord(typedSerializer, primaryKey, true);
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey) {
-        return untypedStore.deleteTypedRecord(typedSerializer, primaryKey);
+        return untypedStore.deleteTypedRecord(typedSerializer, primaryKey, false);
     }
 
     @Override

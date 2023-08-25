@@ -1525,13 +1525,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
+    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull final Tuple primaryKey) {
+        return deleteTypedRecord(serializer, primaryKey, true);
+    }
+
+    @Override
+    @Nonnull
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey) {
-        return deleteTypedRecord(serializer, primaryKey);
+        return deleteTypedRecord(serializer, primaryKey, false);
     }
 
     @Nonnull
     protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                               @Nonnull Tuple primaryKey) {
+                                                                               @Nonnull Tuple primaryKey, boolean isDryRun) {
+        if (isDryRun) {
+            return loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
+        }
         preloadCache.invalidate(primaryKey);
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         CompletableFuture<Boolean> result = loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> {
