@@ -28,15 +28,17 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,13 +52,15 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
     @Nonnull
     private final List<LuceneQueryClause> negatedChildren;
 
-    public LuceneNotQuery(@Nonnull List<LuceneQueryClause> children, @Nonnull List<LuceneQueryClause> negatedChildren) {
-        super(children, BooleanClause.Occur.MUST);
+    public LuceneNotQuery(@Nonnull final LuceneQueryType queryType,
+                          @Nonnull final List<LuceneQueryClause> children,
+                          @Nonnull final List<LuceneQueryClause> negatedChildren) {
+        super(queryType, children, BooleanClause.Occur.MUST);
         this.negatedChildren = negatedChildren;
     }
 
-    public LuceneNotQuery(@Nonnull LuceneQueryClause negatedChild) {
-        this(Collections.emptyList(), Collections.singletonList(negatedChild));
+    public LuceneNotQuery(@Nonnull final LuceneQueryType queryType, @Nonnull final LuceneQueryClause negatedChild) {
+        this(queryType, Collections.emptyList(), Collections.singletonList(negatedChild));
     }
 
     @Nonnull
@@ -65,20 +69,41 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
     }
 
     @Override
-    public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        Map<String, Set<String>> highlightingTermsMap = null;
         if (getChildren().isEmpty()) {
             // Lucene cannot handle all negated clauses.
-            builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST);
+            final MatchAllDocsQuery matchAllDocsQuery = new MatchAllDocsQuery();
+            builder.add(matchAllDocsQuery, BooleanClause.Occur.MUST);
+            if (getQueryType() == LuceneQueryType.QUERY_HIGHLIGHT) {
+                highlightingTermsMap = toBoundQuery(matchAllDocsQuery).getHighlightingTermsMap();
+            }
         } else {
-            for (LuceneQueryClause child : getChildren()) {
-                builder.add(child.bind(store, index, context), BooleanClause.Occur.MUST);
+            for (final LuceneQueryClause child : getChildren()) {
+                final BoundQuery childBoundQuery = child.bind(store, index, context);
+                builder.add(childBoundQuery.getLuceneQuery(), BooleanClause.Occur.MUST);
+                final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
+                if (childHighlightingTermsMap != null) {
+                    if (highlightingTermsMap == null) {
+                        highlightingTermsMap = Maps.newHashMap();
+                    }
+                    combineHighlightingTermsMaps(highlightingTermsMap, childHighlightingTermsMap);
+                }
             }
         }
-        for (LuceneQueryClause child : negatedChildren) {
-            builder.add(child.bind(store, index, context), BooleanClause.Occur.MUST_NOT);
+        for (final LuceneQueryClause child : negatedChildren) {
+            final BoundQuery childBoundQuery = child.bind(store, index, context);
+            builder.add(childBoundQuery.getLuceneQuery(), BooleanClause.Occur.MUST_NOT);
+            final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
+            if (childHighlightingTermsMap != null) {
+                if (highlightingTermsMap == null) {
+                    highlightingTermsMap = Maps.newHashMap();
+                }
+                combineHighlightingTermsMaps(highlightingTermsMap, childHighlightingTermsMap);
+            }
         }
-        return builder.build();
+        return new BoundQuery(builder.build(), highlightingTermsMap);
     }
 
     @Override

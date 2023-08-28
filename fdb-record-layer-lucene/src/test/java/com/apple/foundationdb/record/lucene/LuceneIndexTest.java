@@ -436,14 +436,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private LuceneScanBounds specificFieldSearch(Index index, String search, String field) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
-                new LuceneQuerySearchClause(field, search, false));
+                new LuceneQuerySearchClause(LuceneQueryType.QUERY, field, search, false));
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
     private LuceneScanBounds groupedTextSearch(Index index, String search, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
-                new LuceneQuerySearchClause(search, false));
+                new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false));
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 

@@ -429,7 +429,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryType.QUERY,
                     "civil blood makes civil hands unclean", false, Lists.newArrayList(), true,
                     null, null);
             // Query for full records
@@ -600,9 +600,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"civil blood makes civil hands unclean\")", false, Lists.newArrayList("text"), true,
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryType.QUERY, "(\"civil blood makes civil hands unclean\")", false, Lists.newArrayList("text"), true,
                     null, null);
-            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY, "(\"was king from 966 to 1016\")", false, Lists.newArrayList(), true,
+            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryType.QUERY, "(\"was king from 966 to 1016\")", false, Lists.newArrayList(), true,
                     null, null);
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
@@ -658,10 +658,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
+            final QueryComponent filter1 = new LuceneQueryComponent(LuceneQueryType.QUERY,
                     "\"the continuance\"", false, Lists.newArrayList(), true,
                     null, null);
-            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY,
+            final QueryComponent filter2 = new LuceneQueryComponent(LuceneQueryType.QUERY,
                     "grudge", false, Lists.newArrayList(), true,
                     null, null);
             // Query for full records

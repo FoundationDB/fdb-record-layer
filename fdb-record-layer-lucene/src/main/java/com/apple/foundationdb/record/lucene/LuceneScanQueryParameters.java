@@ -116,12 +116,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     @Nonnull
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-        final Query luceneQuery = query.bind(store, index, context);
+        final LuceneQueryClause.BoundQuery boundQuery = query.bind(store, index, context);
         if (luceneQueryHighlightParameters != null) {
-            luceneQueryHighlightParameters.query = luceneQuery;
+            luceneQueryHighlightParameters.query = boundQuery.getLuceneQuery();
+            Objects.requireNonNull(boundQuery.getHighlightingTermsMap());
         }
-        return new LuceneScanQuery(scanType, getGroupKey(store, context), luceneQuery,
-                sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters);
+        return new LuceneScanQuery(scanType, getGroupKey(store, context), boundQuery.getLuceneQuery(),
+                sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters, boundQuery.getHighlightingTermsMap());
     }
 
     @Nonnull

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneQueryComponent;
+import com.apple.foundationdb.record.lucene.LuceneQueryType;
 import com.apple.foundationdb.record.lucene.LuceneScanBounds;
 import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
@@ -196,7 +197,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
             TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder().setDocId(0).setGroup(0).setText(text).build();
             recordStore.saveRecord(simpleDocument);
 
-            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
+            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryType.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
                     new LuceneScanQueryParameters.LuceneQueryHighlightParameters(4, 10), null);
             RecordQuery query = RecordQuery.newBuilder()
@@ -244,7 +245,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(document);
 
 
-            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryComponent.Type.QUERY_HIGHLIGHT,
+            final QueryComponent filter = new LuceneQueryComponent(LuceneQueryType.QUERY_HIGHLIGHT,
                     "layer", false, Lists.newArrayList(), true,
                     new LuceneScanQueryParameters.LuceneQueryHighlightParameters(2, 10), null);
             RecordQuery query = RecordQuery.newBuilder()
