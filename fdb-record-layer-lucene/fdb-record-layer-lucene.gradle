@@ -80,6 +80,8 @@ test {
         // uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
         // it might differ
         //systemProperty 'tests.directory', 'org.apache.lucene.store.RAMDirectory'
+        // Uncomment below line to run nightly tests
+        // systemProperty 'tests.nightly', 'true'
         if (skipFDB) {
             excludeTags 'RequiresFDB'
         }
