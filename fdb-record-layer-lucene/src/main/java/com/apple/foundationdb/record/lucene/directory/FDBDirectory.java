@@ -35,8 +35,6 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedIndexInput;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedIndexOutput;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -48,6 +46,10 @@ import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.store.ByteBuffersDataInput;
+import org.apache.lucene.store.ByteBuffersDataOutput;
+import org.apache.lucene.store.ByteBuffersIndexInput;
+import org.apache.lucene.store.ByteBuffersIndexOutput;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
@@ -78,6 +80,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
@@ -115,7 +118,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
-    private final Subspace schemaSubspace;
+    protected final Subspace schemaSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -303,51 +306,12 @@ public class FDBDirectory extends Directory  {
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
-    public static String convertToDataFile(String name) {
-        if (isSegmentInfo(name)) {
-            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (isEntriesFile(name) || isFieldInfoFile(name)) {
-            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
-        } else {
-            return name;
-        }
-    }
-
     /**
      * Puts a file reference in the meta subspace and in the cache under the given name.
      * @param name name for the file reference
      * @param reference the file reference being inserted
      */
     public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
-        if (isEntriesFile(name)) {
-            name = convertToDataFile(name);
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
-            if (storedRef != null) {
-                storedRef.setEntries(reference.getEntries());
-                reference = storedRef;
-            }
-        } else if (isSegmentInfo(name)) {
-            name = convertToDataFile(name);
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
-            if (storedRef != null) {
-                storedRef.setSegmentInfo(reference.getSegmentInfo());
-                reference = storedRef;
-            }
-        } else if (isFieldInfoFile(name)) {
-            name = convertToDataFile(name);
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
-            if (storedRef != null) {
-                storedRef.setBitSetWords(reference.getBitSetWords());
-                reference = storedRef;
-            }
-        } else if (isCompoundFile(name)) {
-            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name);
-            if (storedRef != null) {
-                reference.setSegmentInfo(storedRef.getSegmentInfo());
-                reference.setEntries(storedRef.getEntries());
-                reference.setBitSetWords(storedRef.getBitSetWords());
-            }
-        }
         final byte[] fileReferenceBytes = reference.getBytes();
         final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled));
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
@@ -392,10 +356,12 @@ public class FDBDirectory extends Directory  {
     public int writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("Write lucene data",
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(getLogMessage("Write lucene data",
                     LuceneLogMessageKeys.DATA_SIZE, value.length,
-                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length,
+                    "context", System.identityHashCode(context),
+                    "bits", bitSetWords));
         }
         context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
         return value.length;
@@ -478,6 +444,11 @@ public class FDBDirectory extends Directory  {
 
     public byte[] readSchema(List<Long> bitSetWords) throws IOException {
         BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(getLogMessage("Read Schema",
+                    "context", System.identityHashCode(context),
+                    "bits", bitSetWords));
+        }
         // In order to avoid a deadlock, and since the readSchema is idempotent, perform a non-blocking, non-atomic cache
         // population. There may be a few threads that make calls to FDB, but they should all be returning the same result
         byte[] value = fieldInfosDataMap.get(bitSet);
@@ -503,12 +474,7 @@ public class FDBDirectory extends Directory  {
     public String[] listAll() {
         long startTime = System.nanoTime();
         try {
-            return getFileReferenceCache()
-                    .entrySet()
-                    .stream()
-                    .filter(entry -> !entry.getValue().isDeleted())
-                    .map(Map.Entry::getKey)
-                    .toArray(String[]::new);
+            return getFileReferenceCache().keySet().toArray(String[]::new);
         } finally {
             context.record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
@@ -597,49 +563,16 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("deleteFile",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-
-        if (isEntriesFile(name)) {
-            final FDBLuceneFileReference reference = getFDBLuceneFileReference(convertToDataFile(name));
-            if (reference != null) {
-                reference.setEntries(null);
-            } else {
-                throw new NoSuchFileException(name);
-            }
-            writeFDBLuceneFileReference(name, reference);
-            // TODO do we need to update the cache?
-            return;
-        } else if (isSegmentInfo(name)) {
-            final FDBLuceneFileReference reference = getFDBLuceneFileReference(convertToDataFile(name));
-            if (reference != null) {
-                reference.setSegmentInfo(null);
-            } else {
-                throw new NoSuchFileException(name);
-            }
-            writeFDBLuceneFileReference(name, reference);
-            // TODO do we need to update the cache?
-            return;
-        }
         try {
             boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
                 FDBLuceneFileReference value = cache.get(name);
                 if (value == null) {
                     return false;
                 }
-                if (isCompoundFile(name)) {
-                    if (!value.isDeleted()) {
-                        value.markDeleted();
-                        writeFDBLuceneFileReference(name, value);
-                        context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    context.ensureActive().clear(metaSubspace.pack(name));
-                    context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-                    cache.remove(name);
-                    return true;
-                }
+                context.ensureActive().clear(metaSubspace.pack(name));
+                context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                cache.remove(name);
+                return true;
             })));
 
             if (!deleted) {
@@ -664,16 +597,9 @@ public class FDBDirectory extends Directory  {
         }
         long startTime = System.nanoTime();
         try {
-            name = convertToDataFile(name);
             FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReferenceAsync(name));
             if (reference == null) {
                 throw new NoSuchFileException(name);
-            }
-            if (isEntriesFile(name)) {
-                return reference.getEntries().length;
-            }
-            if (isSegmentInfo(name)) {
-                return reference.getSegmentInfo().length;
             }
             return reference.getSize();
         } finally {
@@ -699,24 +625,12 @@ public class FDBDirectory extends Directory  {
         // but a rollback could cause `.cfs` to get deleted. Since we store the `.si`, .cfe, .fdm on the reference itself
         // when we go to read the segments_N it will expect them to be there, but they will be missing....
         // perhaps a better answer would be to store them directly in the segments_N file
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name) {
-                @Override
-                public void close() throws IOException {
-                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                    reference.setSegmentInfo(outputStream.toByteArray());
-                    writeFDBLuceneFileReference(name, reference);
-                }
-            };
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexOutput(name) {
-                @Override
-                public void close() throws IOException {
-                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                    reference.setEntries(outputStream.toByteArray());
-                    writeFDBLuceneFileReference(name, reference);
-                }
-            };
+        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name) || FDBDirectory.isFieldInfoFile(name)) {
+            long id = getIncrement();
+            return new ByteBuffersIndexOutput(new ByteBuffersDataOutput(), name, name, new CRC32(), dataOutput -> {
+                final byte[] content = dataOutput.toArrayCopy();
+                writeFDBLuceneFileReference(name, new FDBLuceneFileReference(id, content));
+            });
         } else {
             long startTime = System.nanoTime();
             try {
@@ -807,29 +721,27 @@ public class FDBDirectory extends Directory  {
     }
 
     @Override
+    public void copyFrom(final Directory from, final String src, final String dest, final IOContext context) throws IOException {
+        // TODO there is no real reason to override this because MockDirectoryWrapper doesn't call in, but instead calls
+        //      super.copyFrom. I'm guessing this is either a mistake, or to ensure that all directories are replaceable
+        super.copyFrom(from, src, dest, context);
+    }
+
+    @Override
     @Nonnull
     public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        if (FDBDirectory.isSegmentInfo(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> Objects.requireNonNull(getFDBLuceneFileReference(convertToDataFile(name)), name).getSegmentInfo());
-        } else if (FDBDirectory.isEntriesFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> Objects.requireNonNull(getFDBLuceneFileReference(convertToDataFile(name)), name).getEntries());
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new LuceneOptimizedWrappedIndexInput(name,
-                    () -> {
-                        try {
-                            return readSchema(Objects.requireNonNull(getFDBLuceneFileReference(
-                                    convertToDataFile(name)), name).getBitSetWords());
-                        } catch (IOException e) {
-                            LOGGER.error(getLogMessage("Read schema failed"), e);
-                            throw new RuntimeException(e);
-                        }
-                    });
+        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name) || FDBDirectory.isFieldInfoFile(name)) {
+            final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
+            if (reference.getContent().isEmpty()) {
+                throw new RuntimeException("TODO handle empty content: " + reference);
+            } else {
+                return new ByteBuffersIndexInput(
+                        new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
+            }
         } else {
             // AFAICT this won't complain if a file doesn't exist
             return new FDBIndexInput(name, this);

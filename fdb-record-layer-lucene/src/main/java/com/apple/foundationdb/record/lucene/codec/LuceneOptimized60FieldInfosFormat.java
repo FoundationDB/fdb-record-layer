@@ -20,10 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.Map;
-
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.google.common.primitives.Longs;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FieldInfosFormat;
@@ -34,12 +32,28 @@ import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.store.BufferedChecksumIndexInput;
+import org.apache.lucene.store.ByteBuffersDataInput;
+import org.apache.lucene.store.ByteBuffersDataOutput;
+import org.apache.lucene.store.ByteBuffersIndexInput;
+import org.apache.lucene.store.ByteBuffersIndexOutput;
 import org.apache.lucene.store.ChecksumIndexInput;
+import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.DataOutput;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Lucene 6.0 Field Infos format.
@@ -121,6 +135,11 @@ public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
     static final int FORMAT_SELECTIVE_INDEXING = 2;
     static final int FORMAT_CURRENT = FORMAT_SELECTIVE_INDEXING;
 
+
+    static final String BITSET_CODEC_NAME = "LuceneFDBFieldInfosBitSet";
+    static final int BITSET_FORMAT_START = 0;
+    static final int BITSET_FORMAT_CURRENT = FORMAT_SELECTIVE_INDEXING;
+
     // Field flags
     static final byte STORE_TERMVECTOR = 0x1;
     static final byte OMIT_NORMS = 0x2;
@@ -135,73 +154,102 @@ public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
     @Override
     public FieldInfos read(Directory directory, SegmentInfo segmentInfo, String segmentSuffix, IOContext context) throws IOException {
         final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
-        try (ChecksumIndexInput input = directory.openChecksumInput(fileName, context)) {
-            Throwable priorE = null;
-            FieldInfo[] infos = null;
-            try {
-                // CUSTOMIZED FROM CodecUtil.checkIndexHeader()
-                int version = CodecUtil.checkHeader(input,
-                        CODEC_NAME,
-                        FORMAT_START,
-                        FORMAT_CURRENT);
-                // END CUSTOMIZED
+        try (IndexInput indexInput = directory.openInput(fileName, context)) {
+            final BitSet bitSet = readBitSet(indexInput, segmentInfo, segmentSuffix);
+            final byte[] bytes = unwrap(directory).readSchema(Longs.asList(bitSet.toLongArray()));
 
-                final int size = input.readVInt(); //read in the size
-                infos = new FieldInfo[size];
+            try (ChecksumIndexInput input = new BufferedChecksumIndexInput(new ByteBuffersIndexInput(new ByteBuffersDataInput(List.of(ByteBuffer.wrap(bytes))), fileName))) {
+                Throwable priorE = null;
+                FieldInfo[] infos = null;
+                try {
+                    // CUSTOMIZED FROM CodecUtil.checkIndexHeader()
+                    int version = CodecUtil.checkHeader(input,
+                            CODEC_NAME,
+                            FORMAT_START,
+                            FORMAT_CURRENT);
+                    // END CUSTOMIZED
 
-                // previous field's attribute map, we share when possible:
-                Map<String, String> lastAttributes = Collections.emptyMap();
+                    final int size = input.readVInt(); //read in the size
+                    infos = new FieldInfo[size];
 
-                for (int i = 0; i < size; i++) {
-                    String name = input.readString();
-                    final int fieldNumber = input.readVInt();
-                    if (fieldNumber < 0) {
-                        throw new CorruptIndexException("invalid field number for field: " + name + ", fieldNumber=" + fieldNumber, input);
-                    }
-                    byte bits = input.readByte();
-                    boolean storeTermVector = (bits & STORE_TERMVECTOR) != 0;
-                    boolean omitNorms = (bits & OMIT_NORMS) != 0;
-                    boolean storePayloads = (bits & STORE_PAYLOADS) != 0;
-                    boolean isSoftDeletesField = (bits & SOFT_DELETES_FIELD) != 0;
+                    // previous field's attribute map, we share when possible:
+                    Map<String, String> lastAttributes = Collections.emptyMap();
 
-                    final IndexOptions indexOptions = getIndexOptions(input, input.readByte());
-
-                    // DV Types are packed in one byte
-                    final DocValuesType docValuesType = getDocValuesType(input, input.readByte());
-                    final long dvGen = input.readLong();
-                    Map<String, String> attributes = input.readMapOfStrings();
-                    // just use the last field's map if its the same
-                    if (attributes.equals(lastAttributes)) {
-                        attributes = lastAttributes;
-                    }
-                    lastAttributes = attributes;
-                    int pointDataDimensionCount = input.readVInt();
-                    int pointNumBytes;
-                    int pointIndexDimensionCount = pointDataDimensionCount;
-                    if (pointDataDimensionCount != 0) {
-                        if (version >= FORMAT_SELECTIVE_INDEXING) {
-                            pointIndexDimensionCount = input.readVInt();
+                    for (int i = 0; i < size; i++) {
+                        String name = input.readString();
+                        final int fieldNumber = input.readVInt();
+                        if (fieldNumber < 0) {
+                            throw new CorruptIndexException("invalid field number for field: " + name + ", fieldNumber=" + fieldNumber, input);
                         }
-                        pointNumBytes = input.readVInt();
-                    } else {
-                        pointNumBytes = 0;
-                    }
+                        byte bits = input.readByte();
+                        boolean storeTermVector = (bits & STORE_TERMVECTOR) != 0;
+                        boolean omitNorms = (bits & OMIT_NORMS) != 0;
+                        boolean storePayloads = (bits & STORE_PAYLOADS) != 0;
+                        boolean isSoftDeletesField = (bits & SOFT_DELETES_FIELD) != 0;
 
-                    try {
-                        infos[i] = new FieldInfo(name, fieldNumber, storeTermVector, omitNorms, storePayloads,
-                                indexOptions, docValuesType, dvGen, attributes,
-                                pointDataDimensionCount, pointIndexDimensionCount, pointNumBytes, isSoftDeletesField);
-                    } catch (IllegalStateException e) {
-                        throw new CorruptIndexException("invalid fieldinfo for field: " + name + ", fieldNumber=" + fieldNumber, input, e);
+                        final IndexOptions indexOptions = getIndexOptions(input, input.readByte());
+
+                        // DV Types are packed in one byte
+                        final DocValuesType docValuesType = getDocValuesType(input, input.readByte());
+                        final long dvGen = input.readLong();
+                        Map<String, String> attributes = input.readMapOfStrings();
+                        // just use the last field's map if its the same
+                        if (attributes.equals(lastAttributes)) {
+                            attributes = lastAttributes;
+                        }
+                        lastAttributes = attributes;
+                        int pointDataDimensionCount = input.readVInt();
+                        int pointNumBytes;
+                        int pointIndexDimensionCount = pointDataDimensionCount;
+                        if (pointDataDimensionCount != 0) {
+                            if (version >= FORMAT_SELECTIVE_INDEXING) {
+                                pointIndexDimensionCount = input.readVInt();
+                            }
+                            pointNumBytes = input.readVInt();
+                        } else {
+                            pointNumBytes = 0;
+                        }
+
+                        try {
+                            infos[i] = new FieldInfo(name, fieldNumber, storeTermVector, omitNorms, storePayloads,
+                                    indexOptions, docValuesType, dvGen, attributes,
+                                    pointDataDimensionCount, pointIndexDimensionCount, pointNumBytes, isSoftDeletesField);
+                        } catch (IllegalStateException e) {
+                            throw new CorruptIndexException("invalid fieldinfo for field: " + name + ", fieldNumber=" + fieldNumber, input, e);
+                        }
                     }
+                } catch (RuntimeException exception) {
+                    priorE = exception;
+                } finally {
+                    CodecUtil.checkFooter(input, priorE);
                 }
-            } catch (RuntimeException exception) {
-                priorE = exception;
-            } finally {
-                CodecUtil.checkFooter(input, priorE);
+                return new FieldInfos(infos);
             }
-            return new FieldInfos(infos);
         }
+    }
+
+    public static BitSet readBitSet(final IndexInput indexInput) throws IOException {
+        CodecUtil.readIndexHeader(indexInput);
+        return readBitSetBody(indexInput);
+    }
+
+    @Nonnull
+    private static BitSet readBitSet(final IndexInput indexInput, final SegmentInfo segmentInfo, final String segmentSuffix) throws IOException {
+        CodecUtil.checkIndexHeader(indexInput,
+                BITSET_CODEC_NAME,
+                BITSET_FORMAT_START,
+                BITSET_FORMAT_CURRENT,
+                segmentInfo.getId(), segmentSuffix);
+        // TODO CodecUtil.checkFooter(indexInput) ?
+        return readBitSetBody(indexInput);
+    }
+
+    @Nonnull
+    public static BitSet readBitSetBody(final DataInput indexInput) throws IOException {
+        final int size = indexInput.readVInt();
+        final byte[] bitSetBytes = new byte[size];
+        indexInput.readBytes(bitSetBytes, 0, size);
+        return BitSet.valueOf(bitSetBytes);
     }
 
     static {
@@ -295,45 +343,78 @@ public final class LuceneOptimized60FieldInfosFormat extends FieldInfosFormat {
     public void write(Directory directory, SegmentInfo segmentInfo, String segmentSuffix, FieldInfos infos, IOContext context) throws IOException {
         final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
         try (IndexOutput output = directory.createOutput(fileName, context)) {
-            // CUSTOMIZED FROM CodecUtil.writeIndexHeader()
-            CodecUtil.writeHeader(output, CODEC_NAME, FORMAT_CURRENT);
-            // END CUSTOMIZED
-            output.writeVInt(infos.size());
-            for (FieldInfo fi : infos) {
-                fi.checkConsistency();
-
-                output.writeString(fi.name);
-                output.writeVInt(fi.number);
-
-                byte bits = 0x0;
-                if (fi.hasVectors()) {
-                    bits |= STORE_TERMVECTOR;
-                }
-                if (fi.omitsNorms()) {
-                    bits |= OMIT_NORMS;
-                }
-                if (fi.hasPayloads()) {
-                    bits |= STORE_PAYLOADS;
-                }
-                if (fi.isSoftDeletesField()) {
-                    bits |= SOFT_DELETES_FIELD;
-                }
-                output.writeByte(bits);
-
-                output.writeByte(indexOptionsByte(fi.getIndexOptions()));
-
-                // pack the DV type and hasNorms in one byte
-                output.writeByte(docValuesByte(fi.getDocValuesType()));
-                output.writeLong(fi.getDocValuesGen());
-                output.writeMapOfStrings(fi.attributes());
-                output.writeVInt(fi.getPointDimensionCount());
-                if (fi.getPointDimensionCount() != 0) {
-                    output.writeVInt(fi.getPointIndexDimensionCount());
-                    output.writeVInt(fi.getPointNumBytes());
-                }
+            final BitSet bitSetWords = getBitSetWords(infos);
+            final ByteBuffersDataOutput dataOutput = new ByteBuffersDataOutput();
+            try (ByteBuffersIndexOutput unsegmentedContent = new ByteBuffersIndexOutput(dataOutput, fileName, fileName)) {
+                writeSchema(infos, unsegmentedContent);
             }
+            unwrap(directory).writeSchema(Longs.asList(bitSetWords.toLongArray()), dataOutput.toArrayCopy());
+            final byte[] bitSetBytes = bitSetWords.toByteArray();
+            CodecUtil.writeIndexHeader(output, BITSET_CODEC_NAME, BITSET_FORMAT_CURRENT, segmentInfo.getId(), segmentSuffix);
+            output.writeVInt(bitSetBytes.length);
+            output.writeBytes(bitSetBytes, bitSetBytes.length);
             CodecUtil.writeFooter(output);
         }
+    }
+
+    @Nullable
+    private static FDBDirectory unwrap(final Directory directory) {
+        Directory unwrapped = FilterDirectory.unwrap(directory);
+        if (directory instanceof LuceneOptimizedCompoundReader) {
+            unwrapped = ((LuceneOptimizedCompoundReader)directory).getDirectory();
+            return (FDBDirectory)FilterDirectory.unwrap(unwrapped);
+        }
+        return (FDBDirectory)unwrapped;
+    }
+
+    private static void writeSchema(final FieldInfos infos, final IndexOutput output) throws IOException {
+        // CUSTOMIZED FROM CodecUtil.writeIndexHeader()
+        CodecUtil.writeHeader(output, CODEC_NAME, FORMAT_CURRENT);
+        // END CUSTOMIZED
+        output.writeVInt(infos.size());
+        for (FieldInfo fi : infos) {
+            fi.checkConsistency();
+
+            System.out.println(fi.name + " -> " + fi.number);
+            output.writeString(fi.name);
+            output.writeVInt(fi.number);
+
+            byte bits = 0x0;
+            if (fi.hasVectors()) {
+                bits |= STORE_TERMVECTOR;
+            }
+            if (fi.omitsNorms()) {
+                bits |= OMIT_NORMS;
+            }
+            if (fi.hasPayloads()) {
+                bits |= STORE_PAYLOADS;
+            }
+            if (fi.isSoftDeletesField()) {
+                bits |= SOFT_DELETES_FIELD;
+            }
+            output.writeByte(bits);
+
+            output.writeByte(indexOptionsByte(fi.getIndexOptions()));
+
+            // pack the DV type and hasNorms in one byte
+            output.writeByte(docValuesByte(fi.getDocValuesType()));
+            output.writeLong(fi.getDocValuesGen());
+            output.writeMapOfStrings(fi.attributes());
+            output.writeVInt(fi.getPointDimensionCount());
+            if (fi.getPointDimensionCount() != 0) {
+                output.writeVInt(fi.getPointIndexDimensionCount());
+                output.writeVInt(fi.getPointNumBytes());
+            }
+        }
+        CodecUtil.writeFooter(output);
+    }
+
+    public static BitSet getBitSetWords(final FieldInfos infos) {
+        BitSet bitSet = new BitSet(infos.size());
+        for (FieldInfo fi : infos) {
+            bitSet.set(fi.number);
+        }
+        return bitSet;
     }
 
 }

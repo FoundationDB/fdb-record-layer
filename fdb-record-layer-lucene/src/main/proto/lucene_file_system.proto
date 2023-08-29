@@ -31,8 +31,5 @@ message LuceneFileReference {
   optional bytes entries = 5;
   optional int64 actualSize = 6;
   repeated int64 columnBitSetWords = 7;
-  // We store some segment related files on the reference for the .cfs
-  // but sometimes lucene will delete the .cfs, and leave the other files around.
-  // TODO perhaps store segment_info, and entries differently.
-  optional bool isDeleted = 8;
+  optional bytes content = 9;
 }

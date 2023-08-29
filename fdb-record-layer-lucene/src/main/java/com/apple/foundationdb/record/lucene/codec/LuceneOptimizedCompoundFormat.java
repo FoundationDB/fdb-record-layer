@@ -56,7 +56,6 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
 
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
-        dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
         return new LuceneOptimizedCompoundReader(dir, si);
     }
 
@@ -69,7 +68,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             dir.openInput(s, IOContext.READONCE)
                     .close();
         }
-        compoundFormat.write(new LuceneOptimizedWrappedDirectory(dir), si, context);
+        compoundFormat.write(dir, si, context);
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
         si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
     }

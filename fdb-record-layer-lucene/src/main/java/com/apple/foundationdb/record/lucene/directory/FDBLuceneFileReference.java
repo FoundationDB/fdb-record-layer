@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFileSystemProto;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -44,21 +45,26 @@ public class FDBLuceneFileReference {
     private byte[] segmentInfo;
     private byte[] entries;
     private List<Long> bitSetWords;
-    private boolean isDeleted;
+    private ByteString content;
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
                 protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
                 protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null,
-                protoMessage.getColumnBitSetWordsList(), protoMessage.getIsDeleted());
+                protoMessage.getColumnBitSetWordsList(),
+                protoMessage.getContent());
     }
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, null, null, null, false);
+        this(id, size, actualSize, blockSize, null, null, null, ByteString.EMPTY);
+    }
+
+    public FDBLuceneFileReference(final long id, final byte[] content) {
+        this(id, content.length, 1, content.length, null, null, null, ByteString.copyFrom(content));
     }
 
     private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo,
-                                   byte[] entries, List<Long> bitSetWords, final boolean isDeleted) {
+                                   byte[] entries, List<Long> bitSetWords, final ByteString content) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
@@ -66,7 +72,7 @@ public class FDBLuceneFileReference {
         this.segmentInfo = segmentInfo;
         this.entries = entries;
         this.bitSetWords = bitSetWords;
-        this.isDeleted = isDeleted;
+        this.content = content;
     }
 
     public long getId() {
@@ -128,10 +134,14 @@ public class FDBLuceneFileReference {
         if (this.bitSetWords != null) {
             builder.addAllColumnBitSetWords(bitSetWords);
         }
-        if (this.isDeleted) {
-            builder.setIsDeleted(true);
+        if (!this.content.isEmpty()) {
+            builder.setContent(content);
         }
         return builder.build().toByteArray();
+    }
+
+    public ByteString getContent() {
+        return content;
     }
 
     @Override
@@ -148,11 +158,4 @@ public class FDBLuceneFileReference {
         }
     }
 
-    public void markDeleted() {
-        isDeleted = true;
-    }
-
-    public boolean isDeleted() {
-        return isDeleted;
-    }
 }

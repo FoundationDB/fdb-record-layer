@@ -28,6 +28,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOUtils;
@@ -72,10 +73,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         this.segmentName = si.name;
         String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        if ( !(directory instanceof LuceneOptimizedWrappedDirectory) ) {
-            throw new IOException("Directory Must Be Wrapped");
-        }
-        handle = ((LuceneOptimizedWrappedDirectory) directory).openLazyInput(dataFileName, 0, 0L); // attempting not to read
+        handle = ((FDBDirectory)FilterDirectory.unwrap(directory)).openLazyInput(dataFileName, 0, 0L); // attempting not to read
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 

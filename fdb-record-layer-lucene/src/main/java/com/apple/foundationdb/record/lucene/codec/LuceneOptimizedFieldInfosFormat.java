@@ -49,7 +49,7 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix,
                       final FieldInfos infos, final IOContext context) throws IOException {
-        fieldInfosFormat.write(new LuceneOptimizedWrappedDirectory(directory, infos), segmentInfo, segmentSuffix, infos, context);
+        fieldInfosFormat.write(directory, segmentInfo, segmentSuffix, infos, context);
     }
 
 }
