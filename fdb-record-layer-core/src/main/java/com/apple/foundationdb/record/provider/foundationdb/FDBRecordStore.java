@@ -482,7 +482,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             }
             if (isDryRun) {
-                final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData, oldRecord);
+                final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
                 return CompletableFuture.completedFuture(newRecord);
             } else {
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
@@ -536,7 +536,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private <M extends Message> FDBStoredRecord<M> dryRunSetSizeInfo(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
-                                                                          @Nonnull final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo) {
+                                                                          @Nonnull final RecordMetaData metaData) {
         final FDBRecordVersion version = recordBuilder.getVersion();
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
