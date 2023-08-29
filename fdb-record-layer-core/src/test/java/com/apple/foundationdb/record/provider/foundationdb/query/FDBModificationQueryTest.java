@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -284,14 +283,14 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
                 final var name = recordDescriptor.findFieldByName("name");
                 switch ((int)(long)record.getField(rest_no)) {
-                case 100:
-                    Assertions.assertEquals("Burger King", record.getField(name));
-                    break;
-                case 200:
-                    Assertions.assertEquals("Heirloom Cafe", record.getField(name));
-                    break;
-                default:
-                    Assertions.fail("unexpected record");
+                    case 100:
+                        Assertions.assertEquals("Burger King", record.getField(name));
+                        break;
+                    case 200:
+                        Assertions.assertEquals("Heirloom Cafe", record.getField(name));
+                        break;
+                    default:
+                        Assertions.fail("unexpected record");
                 }
                 return record;
             }, c -> {
