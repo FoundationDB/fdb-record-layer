@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -47,7 +48,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -55,7 +58,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -335,14 +341,17 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             fetchResultValues(context, plan, Function.identity(), c -> {
             });
             // after inserting, try inserting again, throws RecordAlreadyExistsException
-            final com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan finalPlan = plan;
-            RecordCoreException ex1 = Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(context, finalPlan, Function.identity(), c -> {
-            }));
-            Assertions.assertTrue(ex1.getMessage().contains("record already exists"));
+            final var usedTypes = UsedTypesProperty.evaluate(plan);
+            final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                RecordCoreException ex1 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
+                Assertions.assertTrue(ex1.getMessage().contains("record already exists"));
+            }
             // dry run insert again also throws RecordAlreadyExistsException
-            RecordCoreException ex2 = Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(context, finalPlan, Function.identity(), c -> {
-            }, ExecuteProperties.newBuilder().setDryRun(true).build()));
-            Assertions.assertTrue(ex2.getMessage().contains("record already exists"));
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.newBuilder().setDryRun(true).build()).asIterator()) {
+                RecordCoreException ex2 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
+                Assertions.assertTrue(ex2.getMessage().contains("record already exists"));
+            }
         }
     }
 
