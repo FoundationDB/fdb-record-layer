@@ -75,35 +75,6 @@ public class FDBIndexInput extends IndexInput {
     }
 
     /**
-     * Constructor to create and FDBIndexInput from a file referenced in the metadata keyspace.
-     *
-     * This constructor will <b>not</b> perform an asynchronous (lookahead) to the first block and will
-     * need to be <i>sliced</i> to provide correct results.
-     *
-     * This is currently used by the LuceneOptimizedCompoundReader to not have to read its first block unless needed.
-     *
-     * @param resourceDescription opaque description of file; used for logging
-     * @param fdbDirectory FDB directory mapping
-     * @param initialOffset initialOffset
-     * @throws IOException exception
-     */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory, long initialOffset) throws IOException {
-        super(resourceDescription);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.of("initWithoutInitialRead()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
-        }
-        this.resourceDescription = resourceDescription;
-        this.nestedResourceDescription = resourceDescription; // Not Nested
-        this.fdbDirectory = fdbDirectory;
-        this.reference = fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription);
-        this.position = 0L;
-        this.initialOffset = initialOffset;
-        this.currentBlock = -1;
-        this.currentData = CompletableFuture.completedFuture(new byte[0]);
-    }
-
-    /**
      * Constructor that is utilized by splice calls to take into account initial offsets and modifications to length.
      *
      * @param nestedResourceDescription opaque description of file; used for logging

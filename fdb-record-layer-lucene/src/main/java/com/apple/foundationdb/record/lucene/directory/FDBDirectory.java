@@ -708,14 +708,6 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    public IndexInput openLazyInput(@Nonnull final String name, long initialOffset) throws IOException {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("openInput",
-                    LuceneLogMessageKeys.FILE_NAME, name));
-        }
-        return new FDBIndexInput(name, this, initialOffset);
-    }
-
     @Override
     @Nonnull
     public Lock obtainLock(@Nonnull final String lockName) throws IOException {

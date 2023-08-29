@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -28,7 +27,6 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOUtils;
@@ -55,7 +53,8 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     private final Directory directory;
     private final String segmentName;
     private final Map<String, FileEntry> entries;
-    private final IndexInput handle;
+    private IndexInput handle;
+    private final String dataFileName;
 
     /** Offset/Length for a slice inside of a compound file. */
     public static final class FileEntry {
@@ -71,9 +70,8 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
-        String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
+        dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        handle = ((FDBDirectory)FilterDirectory.unwrap(directory)).openLazyInput(dataFileName, 0); // attempting not to read
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 
@@ -122,7 +120,15 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
             String datFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
             throw new FileNotFoundException("No sub-file with id " + id + " found in compound file \"" + datFileName + "\" (fileName=" + name + " files: " + entries.keySet() + ")");
         }
-        return handle.slice(name, entry.offset, entry.length);
+
+        return getHandle(context).slice(name, entry.offset, entry.length);
+    }
+
+    private IndexInput getHandle(final IOContext context) throws IOException {
+        if (handle == null) {
+            handle = directory.openInput(dataFileName, context);
+        }
+        return handle;
     }
 
     /** Returns an array of strings, one for each file in the directory. */
@@ -163,7 +169,8 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     @Override
     public void checkIntegrity() throws IOException {
         if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-            CodecUtil.checksumEntireFile(handle);
+            // TODO perhaps figure out how IOContext is used, and what it means. FDBDirectory does nothing with it
+            CodecUtil.checksumEntireFile(getHandle(IOContext.DEFAULT));
         }
     }
 
