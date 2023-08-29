@@ -43,7 +43,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
@@ -353,20 +352,6 @@ public class FDBDirectory extends Directory  {
         });
     }
 
-    public int writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
-        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
-        context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(getLogMessage("Write lucene data",
-                    LuceneLogMessageKeys.DATA_SIZE, value.length,
-                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length,
-                    "context", System.identityHashCode(context),
-                    "bits", bitSetWords));
-        }
-        context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
-        return value.length;
-    }
-
     /**
      * Reads known data from the directory.
      * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
@@ -435,31 +420,6 @@ public class FDBDirectory extends Directory  {
         return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
                 context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
                         .thenApply(LuceneSerializer::decode));
-    }
-
-    private CompletableFuture<byte[]> readSchemaAsync(List<Long> bitSetWords) {
-        return context.instrument(LuceneEvents.Events.LUCENE_READ_SCHEMA,
-                context.ensureActive().get(schemaSubspace.pack(Tuple.from(bitSetWords))));
-    }
-
-    public byte[] readSchema(List<Long> bitSetWords) throws IOException {
-        BitSet bitSet = BitSet.valueOf(ArrayUtils.toPrimitive(bitSetWords.toArray(new Long[0])));
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(getLogMessage("Read Schema",
-                    "context", System.identityHashCode(context),
-                    "bits", bitSetWords));
-        }
-        // In order to avoid a deadlock, and since the readSchema is idempotent, perform a non-blocking, non-atomic cache
-        // population. There may be a few threads that make calls to FDB, but they should all be returning the same result
-        byte[] value = fieldInfosDataMap.get(bitSet);
-        if (value == null) {
-            value = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_SCHEMA, readSchemaAsync(bitSetWords));
-            // don't populate if no values in DB
-            if (value != null) {
-                fieldInfosDataMap.put(bitSet, value);
-            }
-        }
-        return value;
     }
 
     /**
