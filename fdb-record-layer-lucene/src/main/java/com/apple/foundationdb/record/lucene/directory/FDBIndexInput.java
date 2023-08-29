@@ -85,10 +85,9 @@ public class FDBIndexInput extends IndexInput {
      * @param resourceDescription opaque description of file; used for logging
      * @param fdbDirectory FDB directory mapping
      * @param initialOffset initialOffset
-     * @param position currentBlockPosition
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory, long initialOffset, long position) throws IOException {
+    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory, long initialOffset) throws IOException {
         super(resourceDescription);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("initWithoutInitialRead()",
@@ -98,7 +97,7 @@ public class FDBIndexInput extends IndexInput {
         this.nestedResourceDescription = resourceDescription; // Not Nested
         this.fdbDirectory = fdbDirectory;
         this.reference = fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription);
-        this.position = position;
+        this.position = 0L;
         this.initialOffset = initialOffset;
         this.currentBlock = -1;
         this.currentData = CompletableFuture.completedFuture(new byte[0]);
