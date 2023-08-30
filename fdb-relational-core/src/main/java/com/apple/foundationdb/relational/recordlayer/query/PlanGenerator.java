@@ -41,6 +41,8 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEqu
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
+
 import com.google.common.base.VerifyException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -100,24 +102,7 @@ public final class PlanGenerator {
         KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         final var plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
                 getPlanInternal(query, context, message));
-        long totalTime = totalTimeMicros();
-        final boolean isSlow = totalTime > (long) options.getOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS);
-        final boolean logQuery = options.getOption(Options.Name.LOG_QUERY);
-
-        if (logQuery || logger.isDebugEnabled() || isSlow) {
-            if (plan instanceof QueryPlan.PhysicalQueryPlan) {
-                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash();
-                message.addKeyAndValue("planHash", planHash);
-            }
-            message.addKeyAndValue("plan", plan.explain());
-            message.addKeyAndValue("totalPlanTime", totalTime);
-            message.addKeyAndValue("query", plan.getQuery().trim());
-        }
-        if (logQuery || isSlow) {
-            logger.info(message);
-        } else if (logger.isDebugEnabled()) {
-            logger.debug(message);
-        }
+        RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, totalTimeMicros(), options);
         return plan;
     }
 
@@ -127,25 +112,19 @@ public final class PlanGenerator {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context, query);
-            message.addKeyAndValue("normalizeQueryTime", stepTimeMicros());
-            message.addKeyAndValue("queryHash", astHashResult.getQueryCacheKey().getHash());
+            RelationalLoggingUtil.publishNormalizeQueryLogs(logger, message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash());
             options = Options.combine(astHashResult.getQueryOptions(), options);
             boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
                 Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner);
-                if (logThatQuery || logger.isDebugEnabled()) {
-                    message.addKeyAndValue("planCache", "skip");
-                    message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
-                }
+                RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), logThatQuery);
                 return plan;
             }
 
             // Default is to cache hit. This is modified later if we cache miss
-            if (logThatQuery || logger.isDebugEnabled()) {
-                message.addKeyAndValue("planCache", "hit");
-            }
+            RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, logThatQuery);
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
@@ -154,8 +133,7 @@ public final class PlanGenerator {
                             planEquivalence,
                             () -> {
                                 final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner);
-                                message.addKeyAndValue("planCache", "miss");
-                                message.addKeyAndValue("generatePhysicalPlanTime", stepTimeMicros());
+                                RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), logThatQuery);
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),

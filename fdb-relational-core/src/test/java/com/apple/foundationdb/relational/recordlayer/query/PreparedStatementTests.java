@@ -430,7 +430,7 @@ public class PreparedStatementTests {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
-                final var arr = ddl.getConnection().createArrayOf("NULL", new Object[] {});
+                final var arr = ddl.getConnection().createArrayOf("NULL", new Object[]{});
                 ps.setArray(1, arr);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
