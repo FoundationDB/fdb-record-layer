@@ -95,7 +95,15 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
         @Override
         public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-            storedFieldsReader.get().visitDocument(docID, visitor);
+            getStoredFieldsReader().visitDocument(docID, visitor);
+        }
+
+        private StoredFieldsReader getStoredFieldsReader() throws IOException {
+            try {
+                return storedFieldsReader.get();
+            } catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
         }
 
         @Override
@@ -107,14 +115,14 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         @Override
         public void checkIntegrity() throws IOException {
             if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-                storedFieldsReader.get().checkIntegrity();
+                getStoredFieldsReader().checkIntegrity();
             }
         }
 
         @Override
         public void close() throws IOException {
             if (initialized.get()) { // Needed to not fetch data...
-                storedFieldsReader.get().close();
+                getStoredFieldsReader().close();
             }
         }
 
