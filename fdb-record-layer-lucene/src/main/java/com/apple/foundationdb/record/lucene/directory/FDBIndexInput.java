@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
@@ -243,6 +244,9 @@ public class FDBIndexInput extends IndexInput {
     @Override
     public byte readByte() throws IOException {
         final FDBLuceneFileReference fileReference = getFileReference();
+        if (fileReference == null) {
+            throw new FileNotFoundException("File reference does not exist");
+        }
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
             position++;
