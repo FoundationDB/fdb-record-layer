@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
@@ -1259,6 +1260,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Remove the local versions associated with a range of record version keys. These
+     * keys should be assumed to be in the same format as those set in {@link #addToLocalVersionCache(byte[], int)}
+     * and {@link #removeLocalVersion(byte[])}. This is called when clearing out ranges of
+     * records in {@link FDBRecordStore#deleteRecordsWhere(QueryComponent)}.
+     *
+     * @param range the {@link Range} of keys to clear associated version information for
+     * @see #addToLocalVersionCache(byte[], int)
+     * @see #removeLocalVersion(byte[])
+     */
+    @API(API.Status.INTERNAL)
+    void removeLocalVersionRange(Range range) {
+        localVersionCache.subMap(range.begin, range.end).clear();
+    }
+
+    /**
      * Get a local version assigned to some record used within this context.
      * The key provided should be the full key to where the version is stored, including any
      * subspace prefix bytes. If the key has not been associated with any version using
@@ -1309,6 +1325,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public byte[] removeVersionMutation(@Nonnull byte[] key) {
         NonnullPair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;
+    }
+
+    /**
+     * Remove a range of version mutations that are currently in the local cache. This
+     * can be used during {@link FDBRecordStore#deleteRecordsWhere(QueryComponent)} to
+     * remove any version mutations that would otherwise be flushed to the database at
+     * commit time.
+     *
+     * @param range the {@link Range} of keys to clear out from the mutation cache
+     */
+    @API(API.Status.INTERNAL)
+    public void removeVersionMutationRange(@Nonnull Range range) {
+        versionMutationCache.subMap(range.begin, range.end).clear();
     }
 
     @Nullable
