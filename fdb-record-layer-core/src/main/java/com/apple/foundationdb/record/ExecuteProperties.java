@@ -75,6 +75,7 @@ public class ExecuteProperties {
 
     private final CursorStreamingMode defaultCursorStreamingMode;
 
+    @SuppressWarnings("java:S107")
     private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
                               @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
         this.skip = skip;
@@ -329,6 +330,7 @@ public class ExecuteProperties {
      * @param isDryRun whether it is dry run
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
+    @SuppressWarnings("java:S107")
     @Nonnull
     protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
                                      @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
