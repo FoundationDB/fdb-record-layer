@@ -15,7 +15,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Remove uncommited version mutations during `deleteRecordsWhere` to avoid corrupting record stores if there are outstanding record saves when `deleteRecordsWhere` is called  [(Issue #2275)](https://github.com/FoundationDB/fdb-record-layer/issues/2275)
+* **Bug fix** Remove uncommitted version mutations during `deleteRecordsWhere` to avoid corrupting record stores if there are outstanding record saves when `deleteRecordsWhere` is called  [(Issue #2275)](https://github.com/FoundationDB/fdb-record-layer/issues/2275)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
