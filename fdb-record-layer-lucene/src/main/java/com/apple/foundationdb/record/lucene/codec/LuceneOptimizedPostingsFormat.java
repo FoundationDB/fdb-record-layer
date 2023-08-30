@@ -89,17 +89,26 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
             });
         }
 
+        private FieldsProducer getFieldsProducer() throws IOException {
+            try {
+                return fieldsProducer.get();
+            } catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
+        }
+
+
         @Override
         public void close() throws IOException {
             if (initialized) {
-                fieldsProducer.get().close();
+                getFieldsProducer().close();
             }
         }
 
         @Override
         public void checkIntegrity() throws IOException {
             if (allowCheckDataIntegrity) {
-                fieldsProducer.get().checkIntegrity();
+                getFieldsProducer().checkIntegrity();
             }
         }
 
@@ -110,7 +119,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         @Override
         public Terms terms(final String field) throws IOException {
-            return fieldsProducer.get().terms(field);
+            return getFieldsProducer().terms(field);
         }
 
         @Override
