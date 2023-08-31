@@ -412,6 +412,11 @@ public class MessageHelpers {
         } else {
             targetElementFieldDescriptor = null;
         }
+        Descriptors.Descriptor targetDescriptorForElementField = null;
+        if (targetElementFieldDescriptor != null) {
+            targetDescriptorForElementField = targetElementFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ?
+                                       targetElementFieldDescriptor.getMessageType() : null;
+        }
 
         final var currentObjects = (List<?>)current;
         final var coercedObjectsBuilder = ImmutableList.builder();
@@ -422,7 +427,7 @@ public class MessageHelpers {
             final var coercedObject =
                     Verify.verifyNotNull(coerceObject(elementsTrie,
                             targetElementType,
-                            targetElementFieldDescriptor == null ? targetDescriptor : targetElementFieldDescriptor.getMessageType(),
+                            targetElementFieldDescriptor == null ? targetDescriptor : targetDescriptorForElementField,
                             currentElementType,
                             currentObject));
             coercedObjectsBuilder.add(coercedObject);

@@ -38,12 +38,17 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Tests different aspects of functionality transforming a message through a multitude of replacements.
@@ -665,7 +670,10 @@ class MessageTransformationTest {
         Assertions.assertEquals(30, reviews.get(2).getRating());
         Assertions.assertFalse(typedResult.hasTags());
         Assertions.assertTrue(typedResult.hasCustomer());
-        Assertions.assertTrue(typedResult.getCustomer().getValuesList().isEmpty());
+        final var customers = typedResult.getCustomer().getValuesList();
+        Assertions.assertEquals("George", customers.get(0));
+        Assertions.assertEquals("Charles", customers.get(1));
+        Assertions.assertEquals("William", customers.get(2));
     }
 
     @Test
@@ -733,6 +741,84 @@ class MessageTransformationTest {
                         restaurantValue.getResultType(),
                         restaurantRecord.getDescriptorForType(),
                         restaurantRecord));
+    }
+
+    @Test
+    void testCoerceArrayNotNullableWithPrimitiveType() {
+        testCoerceArrayWithPrimitive(false);
+    }
+
+    @Test
+    void testCoerceArrayNullableWithPrimitiveType() {
+        testCoerceArrayWithPrimitive(true);
+    }
+
+    private void testCoerceArrayWithPrimitive(boolean nullable) {
+        final var objects = List.of("abc", "def", "ghi");
+        final var strArrayValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                objects.stream().map(LiteralValue::ofScalar).collect(Collectors.toList()));
+        final var targetType = new Type.Array(nullable, Type.primitiveType(Type.TypeCode.STRING));
+        Descriptors.Descriptor wrapperDescriptor = null;
+        if (nullable) {
+            final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(targetType).build();
+            wrapperDescriptor = typeRepository.getMessageDescriptor((String) typeRepository.getMessageTypes().toArray()[0]);
+            Assertions.assertTrue(NullableArrayTypeUtils.describesWrappedArray(wrapperDescriptor));
+        }
+        var msg = MessageHelpers.coerceArray(targetType, (Type.Array) strArrayValue.getResultType(),
+                wrapperDescriptor, null, objects);
+        msg = nullable ? NullableArrayTypeUtils.unwrapIfArray(msg, targetType) : msg;
+        final var actualList = (List) msg;
+        Assertions.assertTrue(actualList instanceof List);
+        Assertions.assertEquals(3, actualList.size());
+        Assertions.assertEquals("abc", actualList.get(0));
+        Assertions.assertEquals("def", actualList.get(1));
+        Assertions.assertEquals("ghi", actualList.get(2));
+    }
+
+    @Test
+    void testCoerceArrayNotNullableWithRecordType() {
+        testCoerceArrayWithRecordType(false);
+    }
+
+    @Test
+    void testCoerceArrayNullableWithRecordType() {
+        testCoerceArrayWithRecordType(true);
+    }
+
+    private void testCoerceArrayWithRecordType(boolean nullable) {
+        final var fields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("reviewer")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("rating")));
+        final var records = new ArrayList<Value>();
+        for (int i = 0; i < 3; i++) {
+            records.add(RecordConstructorValue.ofColumns(List.of(
+                    Column.of(fields.get(0), new LiteralValue<>((long)i)),
+                    Column.of(fields.get(1), new LiteralValue<>(i + 1)))));
+        }
+        final var arrayValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(records);
+        final var targetType = new Type.Array(nullable, Type.Record.fromFields(fields));
+        final var typeRepository = TypeRepository.newBuilder()
+                .addTypeIfNeeded(targetType)
+                .addTypeIfNeeded(records.get(0).getResultType()).build();
+        Descriptors.Descriptor wrapperDescriptor = null;
+        if (nullable) {
+            final var arrayWrappers = typeRepository.getMessageTypes().stream()
+                    .map(typeRepository::getMessageDescriptor)
+                    .filter(NullableArrayTypeUtils::describesWrappedArray)
+                    .collect(Collectors.toList());
+            Assertions.assertEquals(1, arrayWrappers.size());
+            wrapperDescriptor = arrayWrappers.get(0);
+        }
+        var msg = MessageHelpers.coerceArray(targetType, (Type.Array) arrayValue.getResultType(),
+                wrapperDescriptor, null, arrayValue.eval(null, EvaluationContext.forTypeRepository(typeRepository)));
+        msg = nullable ? NullableArrayTypeUtils.unwrapIfArray(msg, targetType) : msg;
+        final var actualList = (List) msg;
+        Assertions.assertEquals(3, actualList.size());
+        for (int i = 0; i < 3; i++) {
+            final var recordValues = ((DynamicMessage) actualList.get(i)).getAllFields().values();
+            Assertions.assertTrue(recordValues.contains((long)i));
+            Assertions.assertTrue(recordValues.contains(i + 1));
+        }
     }
 
     private static Type.Record someRecordType() {
@@ -1037,7 +1123,11 @@ class MessageTransformationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("weight"))));
 
         final var tags = new NullValue(new Type.Array(tagsType));
-        final var customer = AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(Type.primitiveType(Type.TypeCode.STRING, false));
+        final var customer = AbstractArrayConstructorValue.LightArrayConstructorValue.of(
+                LiteralValue.ofScalar("George"),
+                LiteralValue.ofScalar("Charles"),
+                LiteralValue.ofScalar("William")
+        );
 
         return RecordConstructorValue.ofColumns(
                 ImmutableList.of(
