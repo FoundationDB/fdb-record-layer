@@ -88,40 +88,48 @@ public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
 
         @Override
         public NumericDocValues getNumeric(final FieldInfo field) throws IOException {
-            return docValuesProducer.get().getNumeric(field);
+            return getDocValuesProducer().getNumeric(field);
+        }
+
+        private DocValuesProducer getDocValuesProducer() throws IOException {
+            try {
+                return docValuesProducer.get();
+            } catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
         }
 
         @Override
         public BinaryDocValues getBinary(final FieldInfo field) throws IOException {
-            return docValuesProducer.get().getBinary(field);
+            return getDocValuesProducer().getBinary(field);
         }
 
         @Override
         public SortedDocValues getSorted(final FieldInfo field) throws IOException {
-            return docValuesProducer.get().getSorted(field);
+            return getDocValuesProducer().getSorted(field);
         }
 
         @Override
         public SortedNumericDocValues getSortedNumeric(final FieldInfo field) throws IOException {
-            return docValuesProducer.get().getSortedNumeric(field);
+            return getDocValuesProducer().getSortedNumeric(field);
         }
 
         @Override
         public SortedSetDocValues getSortedSet(final FieldInfo field) throws IOException {
-            return docValuesProducer.get().getSortedSet(field);
+            return getDocValuesProducer().getSortedSet(field);
         }
 
         @Override
         public void checkIntegrity() throws IOException {
             if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-                docValuesProducer.get().checkIntegrity();
+                getDocValuesProducer().checkIntegrity();
             }
         }
 
         @Override
         public void close() throws IOException {
             if (initialized) { // Needed to not fetch data...
-                docValuesProducer.get().close();
+                getDocValuesProducer().close();
             }
         }
 
