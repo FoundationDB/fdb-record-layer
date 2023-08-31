@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
@@ -138,5 +139,10 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                                                              @Nonnull final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
+    }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
     }
 }

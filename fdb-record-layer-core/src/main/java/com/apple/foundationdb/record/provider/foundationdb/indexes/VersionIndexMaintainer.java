@@ -122,4 +122,9 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
                                                              int commonPrimaryKeyLength) {
         return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
 }

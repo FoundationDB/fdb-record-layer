@@ -569,6 +569,24 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * If applicable, merge the target indexes as a background maintenance. This experimental feature completes {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and
+     * {@link IndexDeferredMaintenancePolicy}.
+     * @return a future with the merge index operation
+     */
+    public CompletableFuture<Void> mergeIndexAsync() {
+        return indexingLauncher(() -> getIndexer().mergeIndexes());
+    }
+
+    /**
+     * If applicable, merge the target indexes as a background maintenance. This experimental feature completes {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and
+     * {@link IndexDeferredMaintenancePolicy}.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public void mergeIndex() {
+        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX, mergeIndexAsync());
+    }
+
+    /**
      * Builds (transactionally) the endpoints of an index. What this means is that builds everything from the beginning of
      * the key space to the first record and everything from the last record to the end of the key space.
      * There won't be any records within these ranges (except for the last record of the record store), but
@@ -2113,6 +2131,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final List<Tuple> mutualIndexingBoundaries;
         private final boolean allowUnblock;
         private final String allowUnblockId;
+        private final boolean deferLuceneMergeDuringIndexing;
 
         /**
          * Possible actions when an index is already partially built.
@@ -2143,7 +2162,7 @@ public class OnlineIndexer implements AutoCloseable {
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
                                boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
-                               boolean allowUnblock, String allowUnblockId) {
+                               boolean allowUnblock, String allowUnblockId, boolean deferLuceneMergeDuringIndexing) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2158,6 +2177,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
             this.allowUnblock = allowUnblock;
             this.allowUnblockId = allowUnblockId;
+            this.deferLuceneMergeDuringIndexing = deferLuceneMergeDuringIndexing;
         }
 
         /**
@@ -2322,6 +2342,16 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * If true, attempt to merge Lucene indexes in separate transactions. This feature may be used to avoid repeating
+         * transaction timeout (Lucene only).
+         * @return true if should defer Lucene index merge during indexing.
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public boolean shouldDeferLuceneMergeDuringIndexing() {
+            return this.deferLuceneMergeDuringIndexing;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -2350,6 +2380,7 @@ public class OnlineIndexer implements AutoCloseable {
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
             private String allowUnblockId = null;
+            private boolean deferLuceneMergeDuringIndexing = false;
 
             protected Builder() {
             }
@@ -2597,6 +2628,19 @@ public class OnlineIndexer implements AutoCloseable {
                 return setAllowUnblock(allowUnblock, null);
             }
 
+            /**
+             *  If set to true, attempt to merge Lucene indexes in separate transactions. This feature may be used to avoid
+             *  repeating transaction timeout, and only effects Lucene indexes.
+             * The default value is false.
+             * @param deferLuceneMergeDuringIndexing if true, attempt to merge in separate transactions.
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setDeferLuceneMergeDuringIndexing(boolean deferLuceneMergeDuringIndexing) {
+                this.deferLuceneMergeDuringIndexing = deferLuceneMergeDuringIndexing;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -2604,7 +2648,8 @@ public class OnlineIndexer implements AutoCloseable {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
-                        useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId);
+                        useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
+                        deferLuceneMergeDuringIndexing);
             }
         }
     }

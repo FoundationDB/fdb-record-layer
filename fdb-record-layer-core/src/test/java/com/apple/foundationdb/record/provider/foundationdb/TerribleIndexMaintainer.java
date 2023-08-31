@@ -178,4 +178,9 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
     public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
         throw new UnsupportedOperationException("TerribleIndexMaintainer does not implement filteredIndexEntries");
     }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
 }

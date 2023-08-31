@@ -301,4 +301,12 @@ public abstract class IndexMaintainer {
         // Not implemented by default - needs to be overridden by individual maintainers
         throw new UnsupportedRemoteFetchIndexException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());
     }
+
+    /**
+     * If the index is merge'Able, perform an index merge (within a single transaction limit).
+     * @return a future that completes the merge operation
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public abstract CompletableFuture<Void> mergeIndex();
+
 }

@@ -300,6 +300,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         state.context.increment(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY);
     }
 
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return directoryManager.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""));
+    }
+
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,

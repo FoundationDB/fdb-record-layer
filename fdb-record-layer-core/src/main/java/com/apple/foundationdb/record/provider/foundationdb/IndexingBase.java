@@ -105,6 +105,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private long lastTypeStampCheckMillis;
+    private List<Index> luceneIndexes;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
@@ -122,6 +123,14 @@ public abstract class IndexingBase {
         this.throttle = new IndexingThrottle(common, expectedIndexState);
         this.startingTimeMillis = System.currentTimeMillis();
         this.lastTypeStampCheckMillis = startingTimeMillis;
+        for (Index index: common.getTargetIndexes()) {
+            if (index.getType().contains("lucene")) { // Is there a better way to identify Lucene indexes without generating index maintainers?
+                if (luceneIndexes == null) {
+                    luceneIndexes = new ArrayList<>();
+                }
+                luceneIndexes.add(index);
+            }
+        }
     }
 
     // helper functions
@@ -596,7 +605,10 @@ public abstract class IndexingBase {
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+        if (done) {
+            return AsyncUtil.READY_FALSE;
+        }
         long toWait = throttle.waitTimeMilliseconds();
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
@@ -721,6 +733,7 @@ public abstract class IndexingBase {
         // Copying the state also guards against changes made by other online building from check version.
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
+        maybeDeferAutoMergeDuringCommit(store);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -921,11 +934,11 @@ public abstract class IndexingBase {
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
-                                    if (Boolean.FALSE.equals(hasMore)) {
-                                        // all done
-                                        return AsyncUtil.READY_FALSE;
+                                    if (throttle.isIndexMergeNeeded()) {
+                                        throttle.resetIndexMergeNeeded();
+                                        return mergeIndexes().thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
                                     }
-                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, additionalLogMessageKeyValues);
+                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
@@ -935,6 +948,20 @@ public abstract class IndexingBase {
                                 throw unwrappedEx;
                             }).thenCompose(Function.identity()),
                 getRunner().getExecutor());
+    }
+
+    public CompletableFuture<Void> mergeIndexes() {
+        return AsyncUtil.whenAll(luceneIndexes.stream()
+                .map(index2 -> getRunner().runAsync(context ->
+                        openRecordStore(context).thenCompose(store ->
+                    store.getIndexMaintainer(index2).mergeIndex()
+                ))).collect(Collectors.toList()));
+    }
+
+    private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
+        if (luceneIndexes != null && !luceneIndexes.isEmpty() && policy.shouldDeferLuceneMergeDuringIndexing()) {
+            store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+        }
     }
 
     protected static boolean allRangesExhausted(Tuple cont, Tuple end) {

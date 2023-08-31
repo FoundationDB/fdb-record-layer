@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.spatial.geophile;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -39,6 +40,7 @@ import com.geophile.z.Space;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * The index maintainer class for (geo-)spatial indexes.
@@ -92,6 +94,11 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
         } else {
             throw new RecordCoreException("This index can only be scanned by a spatial cursor");
         }
+    }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
     }
 
     // NOTE: does not use Geophile's own Index / SpatialIndex abstraction to get entries to store for evaluateIndex.

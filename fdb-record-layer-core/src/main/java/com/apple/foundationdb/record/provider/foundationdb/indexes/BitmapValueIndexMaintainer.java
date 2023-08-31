@@ -279,6 +279,11 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
                 .thenApply(combined -> Tuple.from(combined.asByteArray()));
     }
 
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
+
     private static class BitmapAggregator {
         private final long offset;
         private ByteBuffer buffer;

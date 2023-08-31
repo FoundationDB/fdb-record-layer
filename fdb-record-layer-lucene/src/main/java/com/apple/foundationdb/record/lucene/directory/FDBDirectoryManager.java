@@ -20,16 +20,27 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import org.apache.lucene.index.IndexReader;
@@ -42,6 +53,8 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -61,6 +74,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
+
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
     }
 
@@ -71,6 +85,82 @@ public class FDBDirectoryManager implements AutoCloseable {
             directory.close();
         }
         createdDirectories.clear();
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper) {
+        // This function will iterate the grouping keys and explicitly merge each
+
+        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
+                props -> props.clearState().setReturnedRowLimit(1));
+
+        final Range range = state.indexSubspace.range();
+        final KeyRange keyRange = new KeyRange(range.begin, range.end);
+        final Subspace subspace = state.indexSubspace;
+        final KeyExpression rootExpression = state.index.getRootExpression();
+
+        if (! (rootExpression instanceof GroupingKeyExpression)) {
+            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY);
+            return AsyncUtil.DONE;
+        }
+        GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
+        final int groupingCount = expression.getGroupingCount();
+
+        final RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                state.context,
+                lastKey -> nextTuple(state.context, subspace, keyRange, lastKey, scanProperties, groupingCount),
+                Tuple::pack,
+                Tuple::fromBytes,
+                null,
+                ScanProperties.FORWARD_SCAN);
+
+        return cursor
+                .map(tuple ->
+                        Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
+                .forEach(groupingKey ->
+                        mergeIndex(analyzerWrapper, groupingKey));
+    }
+
+    private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey) {
+        try {
+            getDirectoryWrapper(groupingKey).mergeIndex(analyzerWrapper);
+        } catch (IOException e) {
+            throw new RecordCoreStorageException("Lucene mergeIndex failed", e);
+        }
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private static CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
+                                                                @Nonnull Subspace subspace,
+                                                                @Nonnull KeyRange range,
+                                                                @Nonnull Optional<Tuple> lastTuple,
+                                                                @Nonnull ScanProperties scanProperties,
+                                                                int groupingCount) {
+        KeyValueCursor.Builder cursorBuilder =
+                KeyValueCursor.Builder.withSubspace(subspace)
+                        .setContext(context)
+                        .setContinuation(null)
+                        .setScanProperties(scanProperties);
+
+        if (lastTuple.isPresent()) {
+            final byte[] lowKey = subspace.pack(Tuple.fromItems(lastTuple.get().getItems().subList(0, groupingCount)));
+            cursorBuilder
+                    .setLow(lowKey, EndpointType.RANGE_EXCLUSIVE)
+                    .setHigh(range.getHighKey(), range.getHighEndpoint());
+        } else {
+            cursorBuilder.setContext(context)
+                    .setRange(range);
+        }
+
+        return cursorBuilder.build().onNext().thenApply(next -> {
+            if (next.hasNext()) {
+                KeyValue kv = next.get();
+                if (kv != null) {
+                    return Optional.of(subspace.unpack(kv.getKey()));
+                }
+            }
+            return Optional.empty();
+        });
     }
 
     /**

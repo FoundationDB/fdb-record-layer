@@ -323,4 +323,8 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         return function.apply(rankedSet, values);
     }
 
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
 }
