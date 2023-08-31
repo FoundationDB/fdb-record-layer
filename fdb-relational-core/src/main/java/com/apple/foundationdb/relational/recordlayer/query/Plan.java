@@ -69,6 +69,11 @@ public abstract class Plan<T> {
         }
 
         @Nonnull
+        public Options getOptions() {
+            return options;
+        }
+
+        @Nonnull
         public static ExecutionContext of(@Nonnull Transaction transaction,
                                           @Nonnull Options options,
                                           @Nonnull RelationalConnection connection,
@@ -91,7 +96,7 @@ public abstract class Plan<T> {
      * {@link com.apple.foundationdb.record.provider.common.StoreTimer.Event} in the {@link MetricCollector} to be
      * added to the observability of the system.
      *
-     * @param c           The execution context.
+     * @param c The execution context.
      * @return The result of the query execution, if there.
      * @throws RelationalException if something goes wrong.
      */

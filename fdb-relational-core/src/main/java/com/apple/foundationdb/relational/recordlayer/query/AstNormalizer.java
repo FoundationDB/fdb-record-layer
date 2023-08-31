@@ -72,17 +72,19 @@ import java.util.function.Supplier;
  *     <li>process in-predicate and generate array literal of the in-list contains simple constants.</li>
  *     <li>identify query caching flags that might influence its interaction with plan cache (see {@link Result.QueryCachingFlags}).</li>
  * </ul>
- *
+ * <p>
  * The visitor is designed to be very fast, it does not perform any semantic checks leaving that to {@link AstVisitor}.
  * Its main purpose is to lookup queries in the plan cache, and generate enough context to be able to execute a matching
  * physical plan.
  * <br>
+ *
  * @implNote this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
  * short-lived CPU-bound closure that visits a query's AST.
  * <br>
  * this does not support array literals yet, we have some ad-hoc support for flat literal arrays for handling in-predicate.
  */
-@SuppressWarnings({"UnstableApiUsage", "PMD.AvoidStringBufferField"}) // AstHasher is short-lived, therefore, using StringBuilder is ok.
+@SuppressWarnings({"UnstableApiUsage", "PMD.AvoidStringBufferField"})
+// AstHasher is short-lived, therefore, using StringBuilder is ok.
 @NotThreadSafe
 public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
@@ -272,6 +274,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             if (ctx.LOG() != null) {
                 queryOptions.withOption(Options.Name.LOG_QUERY, true);
             }
+            if (ctx.DRY() != null) {
+                queryOptions.withOption(Options.Name.DRY_RUN, true);
+            }
             return null;
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
@@ -455,10 +460,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     @VisibleForTesting
     public static Result normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
-                                       @Nonnull final RelationalParser.RootContext context,
-                                       @Nonnull final PreparedStatementParameters preparedStatementParameters,
-                                       int userVersion,
-                                       @Nonnull final BitSet readableIndexes) {
+                                      @Nonnull final RelationalParser.RootContext context,
+                                      @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                      int userVersion,
+                                      @Nonnull final BitSet readableIndexes) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters);
         astNormalizer.visit(context);
         return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),

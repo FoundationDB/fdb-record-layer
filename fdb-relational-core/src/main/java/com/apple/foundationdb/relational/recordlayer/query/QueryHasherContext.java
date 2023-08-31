@@ -47,12 +47,10 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     private final boolean isForExplain; // todo(yhatem) remove.
 
-    @Nonnull
     private final int limit;
 
     private final int parameterHash;
 
-    @Nonnull
     private final int offset;
 
     private QueryHasherContext(@Nonnull List<Object> literals,
@@ -138,7 +136,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         }
 
         @Nonnull
-        public Builder setLimit(@Nonnull final int limit) {
+        public Builder setLimit(final int limit) {
             Assert.thatUnchecked(this.limit.isEmpty(), "setting multiple limits is not supported");
             ParserUtils.verifyIntegerBounds(limit, 1, null);
             this.limit = Optional.of(limit);
@@ -165,7 +163,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             return this;
         }
 
-        @Nonnull
         public int addLiteral(@Nonnull final Object object) {
             return literals.addLiteral(object);
         }

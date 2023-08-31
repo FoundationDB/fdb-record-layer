@@ -45,14 +45,26 @@
             { A1: 2, A2: 11, A3: 20 },
             { A1: 3, A2: 12, A3: 30 } ]
 ---
+# update DRY RUN, assert that plan and returning result are the same, but nothing is updated
+- query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning A3 OPTIONS(DRY RUN);
+- explain: "map(map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q26.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[$q5.new])[($q7.A3 as A3)])"
+- result: [ { 44 }, { 44 } ]
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 10, A3: 10 },
+            { A1: 2, A2: 11, A3: 20 },
+            { A1: 3, A2: 12, A3: 30 } ]
+---
 - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning A3;
+- explain: "map(map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q26.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[$q5.new])[($q7.A3 as A3)])"
 - result: [ { 44 }, { 44 } ]
 ---
 - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning *;
 - result: [ { A1: 1, A2: 42, A3: 44 },
             { A1: 2, A2: 42, A3: 44 } ]
 ---
-- query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning A3 + A3;
+- query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning A3 + A3 OPTIONS(DRY RUN);
+- explain: "map(map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q26.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[$q5.new])[(add_ll($q7.A3, $q7.A3) as _0)])"
 - result: [ { 88 }, { 88 } ]
 ---
 - query: select * from A;
@@ -60,21 +72,46 @@
             { A1: 2, A2: 42, A3: 44 },
             { A1: 3, A2: 12, A3: 30 } ]
 ---
+- query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning A3 + A3;
+- explain: "map(map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q26.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[$q5.new])[(add_ll($q7.A3, $q7.A3) as _0)])"
+- result: [ { 88 }, { 88 } ]
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 42, A3: 44 },
+            { A1: 2, A2: 42, A3: 44 },
+            { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN);
+- explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@1 as LONG) | UPDATE A"
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 42, A3: 44 },
+            { A1: 2, A2: 42, A3: 44 },
+            { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: update A set A2 = 52 where A1 > 2;
+- explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@1 as LONG) | UPDATE A"
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 42, A3: 44 },
+            { A1: 2, A2: 42, A3: 44 },
+            { A1: 3, A2: 52, A3: 30 } ]
+---
 - query: delete from A where A1 <= 1 returning A2, A3;
 - result: [{ 42, 44 }]
 ---
 - query: select * from A;
 - result: [ { A1: 2, A2: 42, A3: 44 },
-            { A1: 3, A2: 12, A3: 30 } ]
+            { A1: 3, A2: 52, A3: 30 } ]
 ---
 - query: delete from A where A1 = 2 returning *;
 - result: [{ A1: 2, A2: 42, A3: 44 }]
 ---
 - query: select * from A;
-- result: [ { A1: 3, A2: 12, A3: 30 } ]
+- result: [ { A1: 3, A2: 52, A3: 30 } ]
 ---
 - query: delete from A where A1 = 3 returning A1 + A2 + A3;
-- result: [{ 45 }]
+- result: [{ 85 }]
 ---
 - query: select count(*) from A;
 - result: [ { 0 } ]

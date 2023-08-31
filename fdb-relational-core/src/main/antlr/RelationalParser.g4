@@ -365,6 +365,7 @@ queryOptions
 queryOption
     : NOCACHE
     | LOG QUERY
+    | DRY RUN
     ;
 
 // Transaction's Statements

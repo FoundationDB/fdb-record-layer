@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -215,10 +216,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
             final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
             final RecordCursor<QueryResult> cursor;
-
             final var executeProperties = connection.getExecuteProperties().toBuilder()
                     .setSkip(executionParameters.getExecutionPropertiesBuilder().getSkip())
                     .setReturnedRowLimit(executionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
+                    .setDryRun(executionContext.getOptions().getOption(Options.Name.DRY_RUN))
                     .build();
             cursor = executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> {
                 try {

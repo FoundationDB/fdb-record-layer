@@ -82,6 +82,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
                             store.getRecordMetaData(), store.getRecordStoreState(), options);
                     final Plan<?> plan = planGenerator.getPlan(sql, buildPlanContext(store));
+                    options = Options.combine(planGenerator.getOptions(), options);
                     final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
                     if (plan instanceof QueryPlan) {
                         currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));

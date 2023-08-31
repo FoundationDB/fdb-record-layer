@@ -616,6 +616,30 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDmlStatementWithDryRunSetDryRunFalse() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2"),
+                PreparedStatementParameters.empty(),
+                "update A set A2 = ? where A1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(52, 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT),
+                Map.of(Options.Name.DRY_RUN, false));
+    }
+
+    @Test
+    void parseDmlStatementWithDryRunSetDryRunTrue() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN)"),
+                PreparedStatementParameters.empty(),
+                "update A set A2 = ? where A1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(52, 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT),
+                Map.of(Options.Name.DRY_RUN, true));
+    }
+
+    @Test
     void queryHashWorksWithPreparedParameters() throws Exception {
         validate(List.of(
                         "select * from t1 where col1 = ? or col2 = ?NamedParam",

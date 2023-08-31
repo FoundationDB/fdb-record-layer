@@ -1563,7 +1563,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         scopes.pop();
-
         return new UpdateExpression(filterQun,
                 targetTypeName,
                 targetType,

@@ -160,6 +160,7 @@ public final class Options {
          * Scope: Connection
          */
         EXECUTION_SCANNED_ROWS_LIMIT,
+        DRY_RUN
     }
 
     public enum IndexFetchMethod {
@@ -190,6 +191,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, Long.MAX_VALUE);
         builder.put(Name.EXECUTION_TIME_LIMIT, 0L);
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
+        builder.put(Name.DRY_RUN, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
 
     }
@@ -317,6 +319,7 @@ public final class Options {
         data.put(Name.EXECUTION_TIME_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

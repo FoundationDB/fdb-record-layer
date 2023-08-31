@@ -107,6 +107,11 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    public Options getOptions() {
+        return options;
+    }
+
+    @Nonnull
     private Plan<?> getPlanInternal(@Nonnull final String query, @Nonnull final PlanContext context,
                                      @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
