@@ -77,8 +77,12 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message) {
-        return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
+    public <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final M message, final boolean isDryRun) {
+        if (isDryRun) {
+            return store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
+        } else {
+            return store.saveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
+        }
     }
 
     @Nonnull
@@ -123,9 +127,11 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     /**
      * Rewrite the planner graph for better visualization.
+     *
      * @param childGraphs planner graphs of children expression that already have been computed
+     *
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
-     *         to depict the record types this operator filters.
+     * to depict the record types this operator filters.
      */
     @Nonnull
     @Override
@@ -147,12 +153,14 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     /**
      * Factory method to create a {@link RecordQueryInsertPlan}.
+     *
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
      * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param computationValue a value to be computed based on the {@code inner} and
-     *        {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
+     * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
+     *
      * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull

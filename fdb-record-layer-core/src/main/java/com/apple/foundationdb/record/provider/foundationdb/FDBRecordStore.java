@@ -427,6 +427,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return saveTypedRecord(serializer, rec, existenceCheck, version, behavior);
     }
 
+    @Override
+    @Nonnull
+    public CompletableFuture<FDBStoredRecord<Message>> dryRunSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
+                                                                             @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+        return saveTypedRecord(serializer, rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT, true);
+    }
+
     @Nonnull
     @API(API.Status.INTERNAL)
     protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
@@ -434,6 +441,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                         @Nonnull RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
                                                                                         @Nonnull VersionstampSaveBehavior behavior) {
+        return saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, false);
+    }
+
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                        @Nonnull M rec,
+                                                                                        @Nonnull RecordExistenceCheck existenceCheck,
+                                                                                        @Nullable FDBRecordVersion version,
+                                                                                        @Nonnull VersionstampSaveBehavior behavior,
+                                                                                        boolean isDryRun) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Descriptors.Descriptor recordDescriptor = rec.getDescriptorForType();
         final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
@@ -463,15 +481,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             LogMessageKeys.EXPECTED_TYPE, recordType.getName());
                 }
             }
-            final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
-            if (oldRecord == null) {
-                addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+            if (isDryRun) {
+                final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
+                return CompletableFuture.completedFuture(newRecord);
             } else {
-                if (getTimer() != null) {
-                    getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
+                if (oldRecord == null) {
+                    addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+                } else {
+                    if (getTimer() != null) {
+                        getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                    }
                 }
+                return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
             }
-            return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
         });
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
@@ -509,6 +532,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // This would in turn require care with the type parameters to updateSecondaryIndexes.
         // In no case is an index maintainer called with incompatible record type, so its signature should still be valid.
         return loadTypedRecord(typedSerializer, primaryKey, false);
+    }
+
+    @Nonnull
+    private <M extends Message> FDBStoredRecord<M> dryRunSetSizeInfo(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
+                                                                          @Nonnull final RecordMetaData metaData) {
+        final FDBRecordVersion version = recordBuilder.getVersion();
+        final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
+        final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
+        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        SplitHelper.dryRunSaveWithSplitOnlySetSizeInfo(recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, sizeInfo);
+        recordBuilder.setSize(sizeInfo);
+        return recordBuilder.build();
     }
 
     @Nonnull
@@ -1490,13 +1525,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
+    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull final Tuple primaryKey) {
+        return deleteTypedRecord(serializer, primaryKey, true);
+    }
+
+    @Override
+    @Nonnull
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey) {
-        return deleteTypedRecord(serializer, primaryKey);
+        return deleteTypedRecord(serializer, primaryKey, false);
     }
 
     @Nonnull
     protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                               @Nonnull Tuple primaryKey) {
+                                                                               @Nonnull Tuple primaryKey, boolean isDryRun) {
+        if (isDryRun) {
+            return loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
+        }
         preloadCache.invalidate(primaryKey);
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         CompletableFuture<Boolean> result = loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> {

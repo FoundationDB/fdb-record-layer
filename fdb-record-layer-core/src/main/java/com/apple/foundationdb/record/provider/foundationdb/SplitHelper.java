@@ -221,6 +221,77 @@ public class SplitHelper {
         }
     }
 
+    public static void dryRunSaveWithSplitOnlySetSizeInfo(@Nonnull final Subspace subspace,
+                                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
+                                                          final boolean splitLongRecords, final boolean omitUnsplitSuffix,
+                                                          @Nullable SizeInfo sizeInfo) {
+        if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
+            dryRunWriteSplitRecordOnlySetSizeInfo(subspace, key, serialized, sizeInfo);
+        } else {
+            final Tuple recordKey;
+            if (splitLongRecords || !omitUnsplitSuffix) {
+                recordKey = key.add(SplitHelper.UNSPLIT_RECORD);
+            } else {
+                recordKey = key;
+            }
+            final byte[] keyBytes = subspace.pack(recordKey);
+            if (sizeInfo != null) {
+                sizeInfo.set(keyBytes, serialized);
+                sizeInfo.setSplit(false);
+            }
+        }
+        dryRunWriteVersionSizeInfo(subspace, key, version, sizeInfo);
+    }
+
+    private static void dryRunWriteSplitRecordOnlySetSizeInfo(@Nonnull final Subspace subspace,
+                                                              @Nonnull final Tuple key, @Nonnull final byte[] serialized,
+                                                              @Nullable SizeInfo sizeInfo) {
+        final Subspace keySplitSubspace = subspace.subspace(key);
+        long index = SplitHelper.START_SPLIT_RECORD;
+        int offset = 0;
+        while (offset < serialized.length) {
+            int nextOffset = offset + SplitHelper.SPLIT_RECORD_SIZE;
+            if (nextOffset > serialized.length) {
+                nextOffset = serialized.length;
+            }
+            final byte[] keyBytes = keySplitSubspace.pack(index);
+            final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
+            if (sizeInfo != null) {
+                if (offset == 0) {
+                    sizeInfo.set(keyBytes, valueBytes);
+                    sizeInfo.setSplit(true);
+                } else {
+                    sizeInfo.add(keyBytes, valueBytes);
+                }
+            }
+            index++;
+            offset = nextOffset;
+        }
+    }
+
+    private static void dryRunWriteVersionSizeInfo(@Nonnull final Subspace subspace, @Nonnull final Tuple key,
+                                                   @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
+        if (version == null) {
+            if (sizeInfo != null) {
+                sizeInfo.setVersionedInline(false);
+            }
+            return;
+        }
+        final byte[] keyBytes = subspace.pack(key.add(RECORD_VERSION));
+        final byte[] valueBytes = packVersion(version);
+        if (sizeInfo != null) {
+            sizeInfo.setVersionedInline(true);
+            sizeInfo.add(keyBytes, valueBytes);
+            if (!version.isComplete()) {
+                // If the version isn't complete, an offset gets added to the
+                // end of the value to indicate where the version should be
+                // written. This is not made durable, so remove it from the metric.
+                sizeInfo.valueSize -= Integer.BYTES;
+            }
+        }
+    }
+
+
     @Nonnull
     static byte[] packVersion(@Nonnull FDBRecordVersion version) {
         if (version.isComplete()) {
