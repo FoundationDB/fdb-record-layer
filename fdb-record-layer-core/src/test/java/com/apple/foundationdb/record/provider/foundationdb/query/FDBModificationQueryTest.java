@@ -329,7 +329,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             fetchResultValues(context, plan, Function.identity(), c -> {
             });
