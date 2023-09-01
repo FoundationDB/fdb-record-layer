@@ -26,11 +26,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFileSystemProto;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
 /**
  * A File Reference record laying out the id, size, and block size.
@@ -42,36 +40,27 @@ public class FDBLuceneFileReference {
     private final long size;
     private final long actualSize;
     private final long blockSize;
-    private byte[] segmentInfo;
-    private byte[] entries;
-    private List<Long> bitSetWords;
     private ByteString content;
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
-                protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
-                protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null,
-                protoMessage.getColumnBitSetWordsList(),
                 protoMessage.getContent());
     }
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, null, null, null, ByteString.EMPTY);
+        this(id, size, actualSize, blockSize, ByteString.EMPTY);
     }
 
     public FDBLuceneFileReference(final long id, final byte[] content) {
-        this(id, content.length, 1, content.length, null, null, null, ByteString.copyFrom(content));
+        this(id, content.length, 1, content.length, ByteString.copyFrom(content));
     }
 
-    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, byte[] segmentInfo,
-                                   byte[] entries, List<Long> bitSetWords, final ByteString content) {
+    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize,
+                                   final ByteString content) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
         this.blockSize = blockSize;
-        this.segmentInfo = segmentInfo;
-        this.entries = entries;
-        this.bitSetWords = bitSetWords;
         this.content = content;
     }
 
@@ -91,33 +80,6 @@ public class FDBLuceneFileReference {
         return blockSize;
     }
 
-    public void setSegmentInfo(byte[] segmentInfo) {
-        this.segmentInfo = segmentInfo;
-    }
-
-    public void setEntries(byte[] entries) {
-        this.entries = entries;
-    }
-
-    public void setBitSetWords(List<Long> bitSetWords) {
-        this.bitSetWords = bitSetWords;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public byte[] getSegmentInfo() {
-        return segmentInfo;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public byte[] getEntries() {
-        return entries;
-    }
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public List<Long> getBitSetWords() {
-        return bitSetWords;
-    }
-
     @Nonnull
     public byte[] getBytes() {
         final LuceneFileSystemProto.LuceneFileReference.Builder builder = LuceneFileSystemProto.LuceneFileReference.newBuilder();
@@ -125,15 +87,6 @@ public class FDBLuceneFileReference {
         builder.setSize(this.size);
         builder.setBlockSize(this.blockSize);
         builder.setActualSize(this.actualSize);
-        if (this.segmentInfo != null) {
-            builder.setSegmentInfo(ZeroCopyByteString.wrap(this.segmentInfo));
-        }
-        if (this.entries != null) {
-            builder.setEntries(ZeroCopyByteString.wrap(this.entries));
-        }
-        if (this.bitSetWords != null) {
-            builder.addAllColumnBitSetWords(bitSetWords);
-        }
         if (!this.content.isEmpty()) {
             builder.setContent(content);
         }
@@ -146,7 +99,11 @@ public class FDBLuceneFileReference {
 
     @Override
     public String toString() {
-        return "Reference [ id=" + id + ", size=" + size + ", actualSize=" + actualSize + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + ", bitSetWords=" + (getBitSetWords() == null ? 0 : getBitSetWords().size()) + "]";
+        return "Reference [ id=" + id +
+               ", size=" + size +
+               ", actualSize=" + actualSize +
+               ", blockSize=" + blockSize +
+               ", content=" + (getContent() == null ? 0 : getContent().size()) + "]";
     }
 
     @Nullable

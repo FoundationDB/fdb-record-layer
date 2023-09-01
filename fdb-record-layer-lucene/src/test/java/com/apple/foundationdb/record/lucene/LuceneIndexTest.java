@@ -2427,8 +2427,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context)) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
             assertNotNull(reference);
-            Assertions.assertTrue(reference.getEntries().length > 0);
-            Assertions.assertTrue(reference.getSegmentInfo().length > 0);
             assertOnlyCompoundFileExisting(subspace, context, directory, cleanFiles);
         }
     }
@@ -2437,7 +2435,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
-            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS));
+            if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)) {
+                assertFalse(directory.getFDBLuceneFileReference(file).getContent().isEmpty());
+            } else {
+                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),
+                        file);
+            }
             if (cleanFiles) {
                 try {
                     directory.deleteFile(file);
