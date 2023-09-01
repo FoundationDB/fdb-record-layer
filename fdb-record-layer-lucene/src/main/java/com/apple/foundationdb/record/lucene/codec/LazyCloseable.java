@@ -13,7 +13,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
     }
 
     public LazyCloseable(LazyOpener.Opener<T> opener) {
-        this.initialized = new AtomicBoolean(true);
+        this.initialized = new AtomicBoolean(false);
         this.opener = new LazyOpener<>(() -> {
             final T result = opener.open();
             initialized.set(true);
