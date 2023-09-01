@@ -63,7 +63,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         try {
             super.testRamBytesUsed();
         } finally {
-            TestFDBDirectory.setFullBufferToSurviveDeletes(true);
+            TestFDBDirectory.setFullBufferToSurviveDeletes(false);
             TestingCodec.setDisableLaziness(false);
         }
     }
