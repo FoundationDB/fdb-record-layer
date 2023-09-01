@@ -18,18 +18,6 @@
 package org.apache.lucene.codecs.lucene84;
 
 
-import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.DOC_CODEC;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.MAX_SKIP_LEVELS;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.TERMS_CODEC;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_COMPRESSED_TERMS_DICT_IDS;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_CURRENT;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Arrays;
-
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -51,6 +39,18 @@ import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BitUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.RamUsageEstimator;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Arrays;
+
+import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.DOC_CODEC;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.MAX_SKIP_LEVELS;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.TERMS_CODEC;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_COMPRESSED_TERMS_DICT_IDS;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_CURRENT;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
 
 /**
  * Concrete class that reads docId(maybe frq,pos,offset,payloads) list
@@ -100,7 +100,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         });
         version = Suppliers.memoize(() -> {
             try {
-                return CodecUtil.checkIndexHeader(docIn.get(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
+                return CodecUtil.checkIndexHeader(getDocInput(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
             } catch (IOException ioe) {
                 throw new UncheckedIOException(ioe);
             }
@@ -187,13 +187,13 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     @Override
     public void close() throws IOException {
         if (docInInitialized) {
-            docIn.get().close();
+            getDocInput().close();
         }
         if (posInInitialized) {
-            posIn.get().close();
+            getPosInput().close();
         }
         if (payInInitialized) {
-            payIn.get().close();
+            getPayIn().close();
         }
     }
 
@@ -266,7 +266,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             BlockDocsEnum docsEnum;
             if (reuse instanceof BlockDocsEnum) {
                 docsEnum = (BlockDocsEnum) reuse;
-                if (!docsEnum.canReuse(docIn.get(), fieldInfo)) {
+                if (!docsEnum.canReuse(getDocInput(), fieldInfo)) {
                     docsEnum = new BlockDocsEnum(fieldInfo);
                 }
             } else {
@@ -277,7 +277,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             EverythingEnum everythingEnum;
             if (reuse instanceof EverythingEnum) {
                 everythingEnum = (EverythingEnum) reuse;
-                if (!everythingEnum.canReuse(docIn.get(), fieldInfo)) {
+                if (!everythingEnum.canReuse(getDocInput(), fieldInfo)) {
                     everythingEnum = new EverythingEnum(fieldInfo);
                 }
             } else {
@@ -2018,13 +2018,37 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     public void checkIntegrity() throws IOException {
         // Should this checksum verification be skipped for fdb?
         if (docIn != null) {
-            CodecUtil.checksumEntireFile(docIn.get());
+            CodecUtil.checksumEntireFile(getDocInput());
         }
         if (posIn != null) {
-            CodecUtil.checksumEntireFile(posIn.get());
+            CodecUtil.checksumEntireFile(getPosInput());
         }
         if (payIn != null) {
-            CodecUtil.checksumEntireFile(payIn.get());
+            CodecUtil.checksumEntireFile(getPayIn());
+        }
+    }
+
+    private IndexInput getPayIn() throws IOException {
+        try {
+            return payIn.get();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
+    private IndexInput getPosInput() throws IOException {
+        try {
+            return posIn.get();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
+    private IndexInput getDocInput() throws IOException {
+        try {
+            return docIn.get();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
     }
 
