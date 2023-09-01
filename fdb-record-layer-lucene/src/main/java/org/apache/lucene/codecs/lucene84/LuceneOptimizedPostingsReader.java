@@ -19,8 +19,8 @@ package org.apache.lucene.codecs.lucene84;
 
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
+import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PostingsReaderBase;
@@ -41,7 +41,6 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.RamUsageEstimator;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 
 import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
@@ -67,14 +66,11 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     private static final long BASE_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(Lucene84PostingsReader.class);
 
-    private Supplier<IndexInput> docIn;
-    private boolean docInInitialized;
-    private Supplier<IndexInput> posIn;
-    private boolean posInInitialized;
-    private Supplier<IndexInput> payIn;
-    private boolean payInInitialized;
+    private LazyCloseable<IndexInput> docIn;
+    private LazyCloseable<IndexInput> posIn;
+    private LazyCloseable<IndexInput> payIn;
 
-    private Supplier<Integer> version;
+    private LazyOpener<Integer> version;
 
     /**
      * Sole  constructor.
@@ -90,42 +86,19 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         // such as file truncation.
 
         String docName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.DOC_EXTENSION);
-        docIn = Suppliers.memoize(() -> {
-            try {
-                docInInitialized = true;
-                return state.directory.openInput(docName, state.context);
-            } catch (IOException ioe) {
-                throw new UncheckedIOException(ioe);
-            }
-        });
-        version = Suppliers.memoize(() -> {
-            try {
-                return CodecUtil.checkIndexHeader(getDocInput(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
-            } catch (IOException ioe) {
-                throw new UncheckedIOException(ioe);
-            }
-        });
+        docIn = LazyCloseable.supply(() -> state.directory.openInput(docName, state.context));
+        version = LazyOpener.supply(() -> CodecUtil.checkIndexHeader(docIn.get(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix));
 
         if (state.fieldInfos.hasProx()) {
-            posIn = Suppliers.memoize(() -> {
-                try {
-                    posInInitialized = true;
-                    String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
-                    return state.directory.openInput(proxName, state.context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                }
+            posIn = LazyCloseable.supply(() -> {
+                String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
+                return state.directory.openInput(proxName, state.context);
             });
 
             if (state.fieldInfos.hasPayloads() || state.fieldInfos.hasOffsets()) {
-                payIn = Suppliers.memoize(() -> {
-                    try {
-                        payInInitialized = true;
-                        String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
-                        return state.directory.openInput(payName, state.context);
-                    } catch (IOException ioe) {
-                        throw new UncheckedIOException(ioe);
-                    }
+                payIn = LazyCloseable.supply(() -> {
+                    String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
+                    return state.directory.openInput(payName, state.context);
                 });
             }
         }
@@ -186,14 +159,12 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void close() throws IOException {
-        if (docInInitialized) {
-            getDocInput().close();
+        docIn.close();
+        if (posIn != null) {
+            posIn.close();
         }
-        if (posInInitialized) {
-            getPosInput().close();
-        }
-        if (payInInitialized) {
-            getPayIn().close();
+        if (payIn != null) {
+            payIn.close();
         }
     }
 
@@ -266,7 +237,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             BlockDocsEnum docsEnum;
             if (reuse instanceof BlockDocsEnum) {
                 docsEnum = (BlockDocsEnum) reuse;
-                if (!docsEnum.canReuse(getDocInput(), fieldInfo)) {
+                if (!docsEnum.canReuse(docIn.get(), fieldInfo)) {
                     docsEnum = new BlockDocsEnum(fieldInfo);
                 }
             } else {
@@ -277,7 +248,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             EverythingEnum everythingEnum;
             if (reuse instanceof EverythingEnum) {
                 everythingEnum = (EverythingEnum) reuse;
-                if (!everythingEnum.canReuse(getDocInput(), fieldInfo)) {
+                if (!everythingEnum.canReuse(docIn.get(), fieldInfo)) {
                     everythingEnum = new EverythingEnum(fieldInfo);
                 }
             } else {
@@ -2018,37 +1989,13 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     public void checkIntegrity() throws IOException {
         // Should this checksum verification be skipped for fdb?
         if (docIn != null) {
-            CodecUtil.checksumEntireFile(getDocInput());
+            CodecUtil.checksumEntireFile(docIn.get());
         }
         if (posIn != null) {
-            CodecUtil.checksumEntireFile(getPosInput());
+            CodecUtil.checksumEntireFile(posIn.get());
         }
         if (payIn != null) {
-            CodecUtil.checksumEntireFile(getPayIn());
-        }
-    }
-
-    private IndexInput getPayIn() throws IOException {
-        try {
-            return payIn.get();
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
-        }
-    }
-
-    private IndexInput getPosInput() throws IOException {
-        try {
-            return posIn.get();
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
-        }
-    }
-
-    private IndexInput getDocInput() throws IOException {
-        try {
-            return docIn.get();
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
+            CodecUtil.checksumEntireFile(payIn.get());
         }
     }
 

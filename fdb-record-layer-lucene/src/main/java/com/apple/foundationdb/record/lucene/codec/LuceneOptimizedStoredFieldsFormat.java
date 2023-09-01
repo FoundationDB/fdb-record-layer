@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -32,7 +30,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,7 +56,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     }
 
     private class LazyStoredFieldsReader extends StoredFieldsReader {
-        private Supplier<StoredFieldsReader> storedFieldsReader;
+        private LazyCloseable<StoredFieldsReader> storedFieldsReader;
         private AtomicBoolean initialized = new AtomicBoolean(false);
         private Directory directory;
         private SegmentInfo si;
@@ -71,11 +68,9 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
             this.si = si;
             this.fn = fn;
             this.context = context;
-            storedFieldsReader = Suppliers.memoize(() -> {
+            storedFieldsReader = LazyCloseable.supply(() -> {
                 try {
                     return storedFieldsFormat.fieldsReader(directory, si, fn, context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
                 } finally {
                     initialized.set(true);
                 }
@@ -89,21 +84,13 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
             this.context = other.context;
             // TODO this makes this less lazy, but if we don't do this the tests fail because we don't close
             //      the underlying handles. There is almost certainly a way to fix both
-            this.storedFieldsReader = Suppliers.memoize(() -> other.storedFieldsReader.get().clone());
+            this.storedFieldsReader = LazyCloseable.supply(() -> other.storedFieldsReader.get().clone());
             initialized.set(true);
         }
 
         @Override
         public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-            getStoredFieldsReader().visitDocument(docID, visitor);
-        }
-
-        private StoredFieldsReader getStoredFieldsReader() throws IOException {
-            try {
-                return storedFieldsReader.get();
-            } catch (UncheckedIOException e) {
-                throw e.getCause();
-            }
+            storedFieldsReader.get().visitDocument(docID, visitor);
         }
 
         @Override
@@ -115,20 +102,20 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         @Override
         public void checkIntegrity() throws IOException {
             if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-                getStoredFieldsReader().checkIntegrity();
+                storedFieldsReader.get().checkIntegrity();
             }
         }
 
         @Override
         public void close() throws IOException {
             if (initialized.get()) { // Needed to not fetch data...
-                getStoredFieldsReader().close();
+                storedFieldsReader.get().close();
             }
         }
 
         @Override
         public long ramBytesUsed() {
-            return storedFieldsReader.get().ramBytesUsed();
+            return storedFieldsReader.getUnchecked().ramBytesUsed();
         }
     }
 }

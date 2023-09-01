@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
@@ -34,9 +33,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Terms;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Iterator;
-import java.util.function.Supplier;
 
 /**
  * {@code PostingsFormat} optimized for FDB storage.
@@ -72,64 +69,52 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
     private static class LazyFieldsProducer extends FieldsProducer {
 
-        private final Supplier<FieldsProducer> fieldsProducer;
+        private final LazyCloseable<FieldsProducer> fieldsProducer;
 
         private boolean initialized;
 
         private LazyFieldsProducer(final SegmentReadState state) {
-            fieldsProducer = Suppliers.memoize(() -> {
-                try {
-                    PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
-                    BlockTreeTermsReader blockTreeTermsReader = new BlockTreeTermsReader(postingsReader, state);
-                    initialized = true;
-                    return blockTreeTermsReader;
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                }
+            fieldsProducer = LazyCloseable.supply(() -> {
+                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
+                BlockTreeTermsReader blockTreeTermsReader = new BlockTreeTermsReader(postingsReader, state);
+                initialized = true;
+                return blockTreeTermsReader;
             });
-        }
-
-        private FieldsProducer getFieldsProducer() throws IOException {
-            try {
-                return fieldsProducer.get();
-            } catch (UncheckedIOException e) {
-                throw e.getCause();
-            }
         }
 
 
         @Override
         public void close() throws IOException {
             if (initialized) {
-                getFieldsProducer().close();
+                fieldsProducer.get().close();
             }
         }
 
         @Override
         public void checkIntegrity() throws IOException {
             if (allowCheckDataIntegrity) {
-                getFieldsProducer().checkIntegrity();
+                fieldsProducer.get().checkIntegrity();
             }
         }
 
         @Override
         public Iterator<String> iterator() {
-            return fieldsProducer.get().iterator();
+            return fieldsProducer.getUnchecked().iterator();
         }
 
         @Override
         public Terms terms(final String field) throws IOException {
-            return getFieldsProducer().terms(field);
+            return fieldsProducer.get().terms(field);
         }
 
         @Override
         public int size() {
-            return fieldsProducer.get().size();
+            return fieldsProducer.getUnchecked().size();
         }
 
         @Override
         public long ramBytesUsed() {
-            return fieldsProducer.get().ramBytesUsed();
+            return fieldsProducer.getUnchecked().ramBytesUsed();
         }
     }
 

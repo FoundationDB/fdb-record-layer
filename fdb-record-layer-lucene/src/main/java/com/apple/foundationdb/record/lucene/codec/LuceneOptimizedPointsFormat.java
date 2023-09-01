@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.PointsFormat;
 import org.apache.lucene.codecs.PointsReader;
 import org.apache.lucene.codecs.PointsWriter;
@@ -30,7 +28,6 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 /**
  * Lazy Reads the PointsFormat to limit the amount of bytes returned
@@ -57,16 +54,14 @@ public class LuceneOptimizedPointsFormat extends PointsFormat {
 
     private class LazyPointsReader extends PointsReader {
 
-        private Supplier<PointsReader> pointsReader;
+        private LazyCloseable<PointsReader> pointsReader;
 
         private boolean initialized;
 
         private LazyPointsReader(final SegmentReadState state) {
-            pointsReader = Suppliers.memoize(() -> {
+            pointsReader = LazyCloseable.supply(() -> {
                 try {
                     return pointsFormat.fieldsReader(state);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
                 } finally {
                     initialized = true;
                 }
@@ -94,7 +89,7 @@ public class LuceneOptimizedPointsFormat extends PointsFormat {
 
         @Override
         public long ramBytesUsed() {
-            return pointsReader.get().ramBytesUsed();
+            return pointsReader.getUnchecked().ramBytesUsed();
         }
     }
 
