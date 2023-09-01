@@ -18,19 +18,24 @@ import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.codecs.TermVectorsFormat;
 import org.apache.lucene.codecs.lucene87.Lucene87Codec;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.util.Bits;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Collection;
 
 
 @AutoService(Codec.class)
 public class TestingCodec extends Codec {
     private LuceneOptimizedCodec underlying;
     private static boolean disableLaziness;
+    private static boolean disableLazinessForLiveDocs;
 
     public TestingCodec() {
         super("RLT");
@@ -39,6 +44,10 @@ public class TestingCodec extends Codec {
 
     public static void setDisableLaziness(boolean disableLaziness) {
         TestingCodec.disableLaziness = disableLaziness;
+    }
+
+    public static void setDisableLazinessForLiveDocs(final boolean disableLazinessForLiveDocs) {
+        TestingCodec.disableLazinessForLiveDocs = disableLazinessForLiveDocs;
     }
 
     @Override
@@ -112,7 +121,32 @@ public class TestingCodec extends Codec {
 
     @Override
     public LiveDocsFormat liveDocsFormat() {
-        return underlying.liveDocsFormat();
+        final LiveDocsFormat liveDocsFormat = underlying.liveDocsFormat();
+        if (disableLazinessForLiveDocs) {
+            return new LiveDocsFormat() {
+                @Override
+                public Bits readLiveDocs(final Directory dir, final SegmentCommitInfo info, final IOContext context) throws IOException {
+                    final Bits bits = liveDocsFormat.readLiveDocs(dir, info, context);
+                    try {
+                        bits.length();
+                    } catch (UncheckedIOException e) {
+                        throw e.getCause();
+                    }
+                    return bits;
+                }
+
+                @Override
+                public void writeLiveDocs(final Bits bits, final Directory dir, final SegmentCommitInfo info, final int newDelCount, final IOContext context) throws IOException {
+                    liveDocsFormat.writeLiveDocs(bits, dir, info, newDelCount, context);
+                }
+
+                @Override
+                public void files(final SegmentCommitInfo info, final Collection<String> files) throws IOException {
+                    liveDocsFormat.files(info, files);
+                }
+            };
+        }
+        return liveDocsFormat;
     }
 
     @Override

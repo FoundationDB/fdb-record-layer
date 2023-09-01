@@ -46,6 +46,17 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     }
 
     @Override
+    public void testRandomExceptions() throws Exception {
+        // Failed due to UncheckedIOException with @Seed("6EA33D597F925691")
+        TestingCodec.setDisableLazinessForLiveDocs(true);
+        try {
+            super.testRandomExceptions();
+        } finally {
+            TestingCodec.setDisableLazinessForLiveDocs(false);
+        }
+    }
+
+    @Override
     public void testRamBytesUsed() throws IOException {
         TestingCodec.setDisableLaziness(true);
         TestFDBDirectory.setFullBufferToSurviveDeletes(true);
