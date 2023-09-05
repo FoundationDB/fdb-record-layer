@@ -117,7 +117,7 @@ public final class PlanGenerator {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final var astHashResult = AstNormalizer.normalizeQuery(context, query);
-            RelationalLoggingUtil.publishNormalizeQueryLogs(logger, message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash());
+            RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash());
             options = Options.combine(astHashResult.getQueryOptions(), options);
             boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 

@@ -48,8 +48,8 @@ public class RelationalLoggingUtil {
         }
     }
 
-    public static void publishNormalizeQueryLogs(Logger logger, KeyValueLogMessage message, long stepTime, int queryHash) {
-        message.addKeyAndValue("normalizeQueryTime", stepTime);
+    public static void publishNormalizeQueryLogs(KeyValueLogMessage message, long stepTime, int queryHash) {
+        message.addKeyAndValue("normalizeQueryTimeMicros", stepTime);
         message.addKeyAndValue("queryHash", queryHash);
     }
 
@@ -58,7 +58,7 @@ public class RelationalLoggingUtil {
             case SKIP:
                 if (logQuery || logger.isDebugEnabled()) {
                     message.addKeyAndValue("planCache", "skip");
-                    message.addKeyAndValue("generatePhysicalPlanTime", stepTime);
+                    message.addKeyAndValue("generatePhysicalPlanTimeMicros", stepTime);
                 }
                 break;
             case HIT:
@@ -68,7 +68,7 @@ public class RelationalLoggingUtil {
                 break;
             case MISS:
                 message.addKeyAndValue("planCache", "miss");
-                message.addKeyAndValue("generatePhysicalPlanTime", stepTime);
+                message.addKeyAndValue("generatePhysicalPlanTimeMicros", stepTime);
                 break;
             default:
                 break;
