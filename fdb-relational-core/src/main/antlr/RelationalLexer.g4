@@ -1226,10 +1226,12 @@ BIT_XOR_OP:                          '^';
 // Constructors symbols
 
 DOT:                                 '.';
-LR_BRACKET:                          '(';
-RR_BRACKET:                          ')';
-LR_CURLY:                            '{';
-RR_CURLY:                            '}';
+LEFT_ROUND_BRACKET:                  '(';
+RIGHT_ROUND_BRACKET:                 ')';
+LEFT_CURLY_BRACKET:                  '{';
+RIGHT_CURLY_BRACKET:                 '}';
+LEFT_SQUARE_BRACKET:                 '[';
+RIGHT_SQUARE_BRACKET:                ']';
 COMMA:                               ',';
 SEMI:                                ';';
 AT_SIGN:                             '@';

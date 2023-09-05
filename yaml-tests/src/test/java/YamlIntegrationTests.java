@@ -177,4 +177,9 @@ public class YamlIntegrationTests extends YamlTestBase {
     void createDrop() throws Exception {
         doRun("create-drop.yaml");
     }
+
+    @Test
+    void arrays() throws Exception {
+        doRun("arrays.yaml");
+    }
 }

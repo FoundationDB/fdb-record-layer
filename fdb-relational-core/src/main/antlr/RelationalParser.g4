@@ -708,11 +708,15 @@ expressionsWithDefaults
     ;
 
 recordConstructorForInsert
-    : LR_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RR_BRACKET
+    : LEFT_ROUND_BRACKET expressionWithOptionalName (',' expressionWithOptionalName)* RIGHT_ROUND_BRACKET
     ;
 
 recordConstructor
-    : LR_BRACKET (expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RR_BRACKET
+    : LEFT_ROUND_BRACKET (expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    ;
+
+arrayConstructor
+    : LEFT_SQUARE_BRACKET expression (',' expression)* RIGHT_SQUARE_BRACKET
     ;
 
 userVariables
@@ -981,6 +985,7 @@ expressionAtom
     | functionCall                                                  #functionCallExpressionAtom // done
     | preparedStatementParameter                                    #preparedStatementParameterAtom // done
     | recordConstructor                                             #recordConstructorExpressionAtom // done
+    | arrayConstructor                                              #arrayConstructorExpressionAtom // done
     | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)

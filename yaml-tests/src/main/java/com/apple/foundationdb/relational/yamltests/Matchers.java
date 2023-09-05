@@ -573,12 +573,21 @@ public class Matchers {
                     return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
                             printer.getRowCount(), expectedArray.size(), i, expected, actual), printer);
                 }
-                final var actualObject = actualArrayContent.getObject(i);
-                final var matchResult = matchField(expectedArray.get(i), actualObject, printer);
-                if (!matchResult.equals(ResultSetMatchResult.success())) {
-                    return matchResult; // propagate failure.
+                if (isMap(expectedArray.get(i))) {
+                    final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getColumnCount(),
+                            valueByName(actualArrayContent), valueByIndex(actualArrayContent), printer, false);
+                    if (!matchResult.equals(ResultSetMatchResult.success())) {
+                        return matchResult; // propagate failure.
+                    }
+                } else {
+                    final var actualObject = actualArrayContent.getObject(1);
+                    final var matchResult = matchField(expectedArray.get(i), actualObject, printer);
+                    if (!matchResult.equals(ResultSetMatchResult.success())) {
+                        return matchResult; // propagate failure.
+                    }
                 }
             }
+            return ResultSetMatchResult.success();
         }
 
         // integer comparison (with possible promotion)

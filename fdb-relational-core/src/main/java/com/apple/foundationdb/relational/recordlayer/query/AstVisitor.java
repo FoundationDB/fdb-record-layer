@@ -68,7 +68,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -943,6 +942,28 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             columns = visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
         }
         return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Override
+    public Object visitArrayConstructor(RelationalParser.ArrayConstructorContext ctx) {
+        if (context.isDql() || context.isDml() && !context.asDml().hasTargetType()) {
+            return handleArray(ctx);
+        }
+        final var dmlContext = context.asDml();
+        final var targetType = (Type.Array) dmlContext.getTargetType();
+        final var nestedContext = context.pushDmlContext();
+        nestedContext.setTargetType(targetType.getElementType());
+        final var result = handleArray(ctx);
+        context.pop();
+        return result;
+    }
+
+    private Object handleArray(RelationalParser.ArrayConstructorContext ctx) {
+        List<Value> columns = new ArrayList<>();
+        for (final var expression : ctx.expression()) {
+            columns.add((Value) visit(expression));
+        }
+        return AbstractArrayConstructorValue.LightArrayConstructorValue.of(columns);
     }
 
     @Nonnull
