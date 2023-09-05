@@ -210,28 +210,25 @@ public final class ParserUtils {
      * @return The corresponding typed and literal {@link Value} object
      */
     @Nonnull
-    public static LiteralValue<?> parseDecimal(@Nonnull final String valueAsString) {
+    public static Object parseDecimal(@Nonnull final String valueAsString) {
         if (valueAsString.contains(".")) {
             final var lastCharacter = valueAsString.charAt(valueAsString.length() - 1);
             switch (lastCharacter) {
                 case 'f':
                 case 'F':
-                    float floatValue = Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT, false), floatValue);
+                    return Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
                 case 'd':
                 case 'D':
-                    double doubleValue = Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE, false), doubleValue);
+                    return Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
                 default:
-                    doubleValue = Double.parseDouble(valueAsString);
-                    return new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE, false), doubleValue);
+                    return Double.parseDouble(valueAsString);
             }
         } else {
             long result = Long.parseLong(valueAsString);
             if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
-                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), Math.toIntExact(result));
+                return Math.toIntExact(result);
             } else {
-                return new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, false), result);
+                return result;
             }
         }
     }

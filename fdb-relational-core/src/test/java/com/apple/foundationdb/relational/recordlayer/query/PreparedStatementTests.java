@@ -21,8 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -32,20 +38,31 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
+import org.junit.Assert;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class PreparedStatementTests {
 
     private static final String schemaTemplate =
-            "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
+            "CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)" +
+                    "CREATE TYPE AS STRUCT Location (address string, pin bigint, coords LatLong)" +
                     " CREATE TYPE AS STRUCT \"ReviewerEndorsements\" (\"endorsementId\" bigint, \"endorsementText\" string)" +
                     " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array)" +
                     " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
@@ -390,6 +407,141 @@ public class PreparedStatementTests {
                 }
             }
             Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
+    void prepareUpdateWithStruct() throws Exception {
+        final var statsAttributes = new Object[]{ 3L, "c", "d"};
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantReviewer(id, stats) VALUES (1, (2, 'a', 'b')), (2, (3, 'b', 'c')), (3, (4, 'c', 'd')), (4, (5, 'd', 'e')), (5, (6, 'e', 'f'))");
+            }
+            final var query = "UPDATE RestaurantReviewer SET stats = ?param WHERE id = 1 RETURNING stats";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                ps.setObject("param", ddl.getConnection().createStruct("blah", statsAttributes));
+                final var expectedStats = new ImmutableRowStruct(new ArrayRow(statsAttributes), new RelationalStructMetaData(
+                        FieldDescription.primitive("START_DATE", SqlTypeNamesSupport.getSqlTypeCode("BIGINT"), DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("SCHOOL_NAME", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("HOMETOWN", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls)
+                ));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("STATS", expectedStats)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    static Stream<Object> prepareUpdateWithNestedStructMethodSource() {
+        return Stream.of(
+                Arguments.of(new Object[]{100.0, 200.0}, true),
+                // All the ones below require casting the relevant struct
+                Arguments.of(new Object[]{100, 200}, true),
+                Arguments.of(new Object[]{100L, 200L}, true),
+                Arguments.of(new Object[]{100.0f, 200.0f}, true),
+                Arguments.of(new Object[]{"100", "200"}, false),
+                Arguments.of(new Object[]{100.0, 200.0, 300.0}, false)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("prepareUpdateWithNestedStructMethodSource")
+    void prepareUpdateWithNestedStruct(Object[] attributes, boolean succeed) throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
+            }
+            final var query = "UPDATE RestaurantComplexRecord SET location = ?param WHERE rest_no = 1 RETURNING location";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                final var latLong = ddl.getConnection().createStruct("LATLONG", attributes);
+                final var location = ddl.getConnection().createStruct("LOCATION", new Object[] {"next door", 217, latLong});
+                ps.setObject("param", location);
+                if (succeed) {
+                    final var expectedLatLong = new ImmutableRowStruct(new ArrayRow(100.00, 200.00), new RelationalStructMetaData(
+                            FieldDescription.primitive("LATITUDE", SqlTypeNamesSupport.getSqlTypeCode("DOUBLE"), DatabaseMetaData.columnNoNulls),
+                            FieldDescription.primitive("LONGITUDE", SqlTypeNamesSupport.getSqlTypeCode("DOUBLE"), DatabaseMetaData.columnNoNulls)
+                    ));
+                    final var expectedLocation = new ImmutableRowStruct(new ArrayRow("next door", 217, expectedLatLong), new RelationalStructMetaData(
+                            FieldDescription.primitive("ADDRESS", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls),
+                            FieldDescription.primitive("PIN", SqlTypeNamesSupport.getSqlTypeCode("BIGINT"), DatabaseMetaData.columnNoNulls),
+                            FieldDescription.primitive("COORDS", SqlTypeNamesSupport.getSqlTypeCode("STRUCT"), DatabaseMetaData.columnNoNulls)
+                    ));
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("LOCATION", expectedLocation)
+                                .hasNoNextRow();
+                    }
+                } else {
+                    Assert.assertThrows(SQLException.class, ps::executeQuery);
+                }
+            }
+        }
+    }
+
+    @Disabled
+    // owing to: TODO (Fix coerceArray for primitive element type arrays)
+    @Test
+    void prepareUpdateWithArrayOfPrimitives() throws Exception {
+        final var customerAttributes = new Object[] {"george", "adam", "billy"};
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
+            }
+            final var query = "UPDATE RestaurantComplexRecord SET customer = ?param WHERE rest_no = 1 RETURNING customer";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+
+                final var customer = ddl.getConnection().createArrayOf("STRING", customerAttributes);
+                ps.setArray("param", customer);
+                final var expectedCustomer = new RowArray(
+                        Arrays.stream(customerAttributes).map(ArrayRow::new).collect(Collectors.toList()),
+                        new RelationalStructMetaData(
+                                FieldDescription.primitive("CUSTOMER", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+                        )
+                );
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("CUSTOMER", expectedCustomer)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Disabled
+    // owing to: TODO (Array parameter in Relational does not work with nested types)
+    @Test
+    void prepareUpdateWithArrayOfStructs() throws Exception {
+        final var restaurantTagAttributes = new Object[][] {{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
+            }
+            final var query = "UPDATE RestaurantComplexRecord SET customer = ?param WHERE rest_no = 1 RETURNING customer";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                final var restaurantTags = ddl.getConnection().createArrayOf("STRUCT",
+                        Arrays.stream(restaurantTagAttributes)
+                                .map(o -> {
+                                    try {
+                                        return ddl.getConnection().createStruct("RESTAURANTTAG", o);
+                                    } catch (SQLException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }).toArray());
+                ps.setArray("param", restaurantTags);
+                final var expectedRestaurantTags = new RowArray(
+                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
+                        new RelationalStructMetaData(
+                                FieldDescription.primitive("RESTAURANTTAG", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+                        )
+                );
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("TAGS", expectedRestaurantTags)
+                            .hasNoNextRow();
+                }
+            }
         }
     }
 

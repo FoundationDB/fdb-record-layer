@@ -149,6 +149,17 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
      */
     void setArray(String parameterName, Array x) throws SQLException;
 
+    /**
+     * Sets the designated parameter to the given Object.
+     *
+     * @param parameterName the name of the parameter
+     * @param x the parameter value
+     * @exception SQLException if parameterName does not correspond to a parameter
+     * marker in the SQL statement; if a database access error occurs or
+     * this method is called on a closed <code>PreparedStatement</code>
+     */
+    void setObject(String parameterName, Object x) throws SQLException;
+
     @Override
     @ExcludeFromJacocoGeneratedReport
     default int executeUpdate() throws SQLException {
@@ -224,12 +235,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     @ExcludeFromJacocoGeneratedReport
     default void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setObject(int parameterIndex, Object x) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

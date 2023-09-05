@@ -131,6 +131,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
+    public void setObject(int parameterIndex, Object x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer " +
+                Thread.currentThread().getStackTrace()[1].getMethodName(),
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
         throw new SQLException("Not implemented in the relational layer " +
                 Thread.currentThread().getStackTrace()[1].getMethodName(),
@@ -195,6 +202,13 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     @Override
     public void setArray(String parameterName, Array x) throws SQLException {
+        throw new SQLException("Not implemented in the relational layer " +
+                Thread.currentThread().getStackTrace()[1].getMethodName(),
+                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
+    public void setObject(String parameterName, Object x) throws SQLException {
         throw new SQLException("Not implemented in the relational layer " +
                 Thread.currentThread().getStackTrace()[1].getMethodName(),
                 ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

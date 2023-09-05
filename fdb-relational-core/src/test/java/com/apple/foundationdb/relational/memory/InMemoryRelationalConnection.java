@@ -43,6 +43,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.SQLException;
+import java.sql.Struct;
 
 public class InMemoryRelationalConnection implements RelationalConnection {
     final InMemoryCatalog catalog;
@@ -115,6 +116,11 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         throw new RelationalException("InMemoryRelationalConnection does not support createArrayOf", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+    }
+
+    @Override
+    public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+        throw new RelationalException("InMemoryRelationalConnection does not support createStruct", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
     }
 
     @Override

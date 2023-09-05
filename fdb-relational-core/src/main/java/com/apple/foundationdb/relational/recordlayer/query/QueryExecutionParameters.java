@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
@@ -59,9 +60,10 @@ public interface QueryExecutionParameters {
         private final List<Object> literals;
 
         @Nonnull
-        private Stack<List<Object>> current;
+        private final Stack<List<Object>> current;
 
-        private boolean isAddingArrayLiteral;
+        private int arrayLiteralScopeCount;
+        private int structLiteralScopeCount;
 
         private LiteralsBuilder() {
             this.literals = new LinkedList<>();
@@ -75,22 +77,52 @@ public interface QueryExecutionParameters {
         }
 
         int startArrayLiteral() {
-            final List<Object> array = new LinkedList<>();
-            current.peek().add(array);
-            final var index = current.peek().size() - 1;
-            current.push(array);
-            isAddingArrayLiteral = true;
+            arrayLiteralScopeCount++;
+            return startComplexLiteral();
+        }
+
+        int startStructLiteral() {
+            structLiteralScopeCount++;
+            return startComplexLiteral();
+        }
+
+        private int startComplexLiteral() {
+            final var index = current.peek().size();
+            current.push(new LinkedList<>());
             return index;
         }
 
         void finishArrayLiteral() {
             Assert.thatUnchecked(!current.empty());
-            current.pop();
-            isAddingArrayLiteral = current.size() > 1;
+            Assert.thatUnchecked(arrayLiteralScopeCount > 0);
+            final var array = current.pop();
+            current.peek().add(array);
+            arrayLiteralScopeCount--;
         }
 
-        boolean isAddingArrayLiteral() {
-            return isAddingArrayLiteral;
+        void finishStructLiteral(@Nullable Type.Record type) {
+            Assert.thatUnchecked(!current.empty());
+            Assert.thatUnchecked(structLiteralScopeCount > 0);
+            final var array = current.pop();
+            if (type != null) {
+                // TODO: Consider creating the TypeRepository in the beginning and reusing throughout the lifetime of the builder.
+                final var builder = TypeRepository.newBuilder();
+                type.defineProtoType(builder);
+                final var messageBuilder = builder.build().newMessageBuilder(type);
+                final var fieldDescriptors = messageBuilder.getDescriptorForType().getFields();
+                for (int i = 0; i < array.size(); i++) {
+                    final var value = array.get(i);
+                    messageBuilder.setField(fieldDescriptors.get(i), value);
+                }
+                current.peek().add(messageBuilder.build());
+            } else {
+                current.peek().add(array);
+            }
+            structLiteralScopeCount--;
+        }
+
+        boolean isAddingComplexLiteral() {
+            return arrayLiteralScopeCount + structLiteralScopeCount != 0;
         }
 
         @Nonnull

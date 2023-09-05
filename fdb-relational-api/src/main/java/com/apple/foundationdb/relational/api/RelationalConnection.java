@@ -37,7 +37,6 @@ import java.sql.SQLWarning;
 import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -334,12 +333,6 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default Properties getClientInfo() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default Struct createStruct(String typeName, Object[] attributes) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

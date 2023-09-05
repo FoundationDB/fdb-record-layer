@@ -156,19 +156,31 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    public void setArray(int parameterIndex, Array x) throws SQLException {
-        checkOpen();
-        parameters.put(parameterIndex, x);
-    }
-
-    @Override
     public void setBytes(String parameterName, byte[] x) throws SQLException {
         checkOpen();
         namedParameters.put(parameterName, x);
     }
 
     @Override
+    public void setArray(int parameterIndex, Array x) throws SQLException {
+        checkOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
     public void setArray(String parameterName, Array x) throws SQLException {
+        checkOpen();
+        namedParameters.put(parameterName, x);
+    }
+
+    @Override
+    public void setObject(int parameterIndex, Object x) throws SQLException {
+        checkOpen();
+        parameters.put(parameterIndex, x);
+    }
+
+    @Override
+    public void setObject(String parameterName, Object x) throws SQLException {
         checkOpen();
         namedParameters.put(parameterName, x);
     }

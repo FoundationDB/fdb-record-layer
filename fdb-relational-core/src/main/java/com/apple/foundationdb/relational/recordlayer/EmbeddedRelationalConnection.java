@@ -24,12 +24,14 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.RowStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -40,6 +42,7 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -50,6 +53,9 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.Struct;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -250,6 +256,28 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 Arrays.stream(elements).map(ArrayRow::new).collect(Collectors.toList()),
                 new RelationalStructMetaData(
                         FieldDescription.primitive("na", typeCode, DatabaseMetaData.columnNoNulls)));
+    }
+
+    @Override
+    public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+        int nextFieldIndex = 0;
+        final var fieldDescriptions = new ArrayList<FieldDescription>();
+        for (var atr: attributes) {
+            final var fieldName = "f" + nextFieldIndex++;
+            final int typeCode = SqlTypeSupport.getSqlTypeCodeFromObject(atr);
+            switch (typeCode) {
+                case Types.ARRAY:
+                    fieldDescriptions.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, ((RowArray) atr).getMetaData()));
+                    break;
+                case Types.STRUCT:
+                    fieldDescriptions.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, ((RowStruct) atr).getMetaData()));
+                    break;
+                default:
+                    fieldDescriptions.add(FieldDescription.primitive(fieldName, typeCode, DatabaseMetaData.columnNoNulls));
+                    break;
+            }
+        }
+        return new ImmutableRowStruct(new ArrayRow(attributes), new RelationalStructMetaData(fieldDescriptions.toArray(FieldDescription[]::new)));
     }
 
     @Override

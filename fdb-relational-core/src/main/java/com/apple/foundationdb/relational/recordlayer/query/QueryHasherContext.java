@@ -24,6 +24,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
@@ -173,6 +174,14 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
         public void finishArrayLiteral() {
             literals.finishArrayLiteral();
+        }
+
+        public int startStructLiteral() {
+            return literals.startStructLiteral();
+        }
+
+        public void finishStructLiteral(@Nullable Type.Record type) {
+            literals.finishStructLiteral(type);
         }
 
         // todo (yhatem) remove.

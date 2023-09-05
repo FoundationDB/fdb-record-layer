@@ -125,6 +125,11 @@ public class RowArray extends RelationalArray {
         return new IteratorResultSet(arrayMetaData, dataStream.iterator(), 0);
     }
 
+    @Nonnull
+    public StructMetaData getMetaData() {
+        return arrayMetaData;
+    }
+
     @Override
     public String toString() {
         return StreamSupport.stream(rows.spliterator(), false).map(Objects::toString).collect(Collectors.joining(",", "[", "]"));

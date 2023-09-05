@@ -26,10 +26,14 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 
 import javax.annotation.Nonnull;
+import java.sql.Array;
 import java.sql.DatabaseMetaData;
+import java.sql.Struct;
 import java.sql.Types;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class SqlTypeSupport {
     //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now
@@ -42,6 +46,30 @@ public final class SqlTypeSupport {
 
     public static String getSqlTypeName(int sqlTypeCode) {
         return SqlTypeNamesSupport.getSqlTypeName(sqlTypeCode);
+    }
+
+    public static int getSqlTypeCodeFromObject(Object obj) {
+        if (obj instanceof Long) {
+            return Types.BIGINT;
+        } else if (obj instanceof Integer) {
+            return Types.INTEGER;
+        } else if (obj instanceof Boolean) {
+            return Types.BOOLEAN;
+        } else if (obj instanceof byte[]) {
+            return Types.BINARY;
+        } else if (obj instanceof Float) {
+            return Types.FLOAT;
+        } else if (obj instanceof Double) {
+            return Types.DOUBLE;
+        } else if (obj instanceof String) {
+            return Types.VARCHAR;
+        } else if (obj instanceof Array) {
+            return Types.ARRAY;
+        } else if (obj instanceof Struct) {
+            return Types.STRUCT;
+        } else {
+            throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
+        }
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch") //intentional duplicates for readability
@@ -81,6 +109,29 @@ public final class SqlTypeSupport {
         }
     }
 
+    public static Type.TypeCode sqlTypeToRecordType(int sqlTypeCode) {
+        switch (sqlTypeCode) {
+            case Types.FLOAT:
+                return Type.TypeCode.FLOAT;
+            case Types.VARCHAR:
+                return Type.TypeCode.STRING;
+            case Types.DOUBLE:
+                return Type.TypeCode.DOUBLE;
+            case Types.BIGINT:
+                return Type.TypeCode.LONG;
+            case Types.INTEGER:
+                return Type.TypeCode.INT;
+            case Types.BOOLEAN:
+                return Type.TypeCode.BOOLEAN;
+            case Types.STRUCT:
+                return Type.TypeCode.RECORD;
+            case Types.ARRAY:
+                return Type.TypeCode.ARRAY;
+            default:
+                throw new IllegalStateException("No conversion for SQL type " + getSqlTypeName(sqlTypeCode));
+        }
+    }
+
     @Nonnull
     public static StructMetaData recordToMetaData(@Nonnull Type.Record record) throws RelationalException {
         // Make sure that fields are already sorted
@@ -96,7 +147,38 @@ public final class SqlTypeSupport {
         return new RelationalStructMetaData(fields);
     }
 
-    private static FieldDescription fieldToDescription(Type.Record.Field field) throws RelationalException {
+    @Nonnull
+    public static Type.Record structMetadataToRecordType(@Nonnull StructMetaData metaData, boolean isNullable) {
+        final var fields = ((RelationalStructMetaData) metaData)
+                        .getFields().stream()
+                .map(SqlTypeSupport::descriptionToField)
+                .collect(Collectors.toList());
+        return Type.Record.fromFields(isNullable, fields);
+    }
+
+    @Nonnull
+    public static Type.Array arrayMetadataToArrayType(@Nonnull StructMetaData metaData, boolean isNullable) {
+        final var field = descriptionToField(((RelationalStructMetaData) metaData).getFields().get(0));
+        return new Type.Array(isNullable, field.getFieldType());
+    }
+
+    @Nonnull
+    private static Type.Record.Field descriptionToField(@Nonnull FieldDescription description) {
+        final Type.TypeCode recordTypeCode = sqlTypeToRecordType(description.getSqlTypeCode());
+        final var isNullable = description.isNullable() == DatabaseMetaData.columnNullable;
+        Type type;
+        if (recordTypeCode.equals(Type.TypeCode.RECORD)) {
+            type = structMetadataToRecordType(description.getFieldMetaData(), isNullable);
+        } else if (recordTypeCode.equals(Type.TypeCode.ARRAY)) {
+            type = arrayMetadataToArrayType(description.getFieldMetaData(), isNullable);
+        } else {
+            type = Type.primitiveType(recordTypeCode, isNullable);
+        }
+        return Type.Record.Field.of(type, Optional.of(description.getName()));
+    }
+
+    @Nonnull
+    private static FieldDescription fieldToDescription(@Nonnull Type.Record.Field field) throws RelationalException {
         final Type fieldType = field.getFieldType();
         if (fieldType.isPrimitive() || fieldType instanceof Type.Enum) {
             return FieldDescription.primitive(field.getFieldName(),
@@ -132,7 +214,8 @@ public final class SqlTypeSupport {
         }
     }
 
-    public static StructMetaData typeToMetaData(Type type) throws RelationalException {
+    @Nonnull
+    public static StructMetaData typeToMetaData(@Nonnull Type type) throws RelationalException {
         if (type instanceof Type.Record) {
             return recordToMetaData((Type.Record) type);
         } else if (type instanceof Type.Relation) {

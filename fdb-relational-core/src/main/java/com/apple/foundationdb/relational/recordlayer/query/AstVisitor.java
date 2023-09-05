@@ -80,9 +80,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.net.URI;
-import java.sql.Array;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -733,8 +730,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(escapeChar.length() == 1);
         }
         final var pattern = Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.pattern.getText()));
-        final var patternValue = new LiteralValue<>(pattern);
-        final var patternValueBinding = LiteralsUtils.processLiteral(patternValue, patternValue.getLiteralValue(), context);
+        final var patternValueBinding = LiteralsUtils.processLiteral(pattern, context);
         final var likeFn = new LikeOperatorValue.LikeFn();
         final var patternFn = new PatternForLikeValue.PatternForLikeFn();
         var result = (Value) ParserUtils.encapsulate(likeFn,
@@ -765,7 +761,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
                 context.finishArrayLiteral();
                 ParserUtils.validateInValuesList(values);
-                typedList = LiteralsUtils.processArrayLiteral(values, index, context);
+                typedList = LiteralsUtils.processComplexLiteral(index, LiteralsUtils.resolveArrayTypeFromValues(values), context);
             } else {
                 final List<Value> values = new ArrayList<>();
                 ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
@@ -799,28 +795,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
         }
-        if (param instanceof Array) {
-            try {
-                final int index = context.startArrayLiteral();
-                final List<Value> values = new ArrayList<>();
-                try (ResultSet rs = ((Array) param).getResultSet()) {
-                    while (rs.next()) {
-                        final var arrayParam = rs.getObject(1);
-                        Value literal = new LiteralValue<>(arrayParam);
-                        LiteralsUtils.processLiteral(literal, arrayParam, context);
-                        values.add(literal);
-                    }
-                }
-                context.finishArrayLiteral();
-                //ParserUtils.validateInValuesList(values);
-                return LiteralsUtils.processArrayLiteral(values, index, context);
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        }  else {
-            final var literal = new LiteralValue<>(param);
-            return LiteralsUtils.processLiteral(literal, param, context);
-        }
+        return LiteralsUtils.processPreparedStatementParameter(param, null, context);
     }
 
     @Override
@@ -1097,12 +1072,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitBooleanLiteral(RelationalParser.BooleanLiteralContext ctx) {
         if (ctx.FALSE() != null) {
-            final var literal = new LiteralValue<>(false);
-            return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+            return LiteralsUtils.processLiteral(Boolean.FALSE, context);
         } else {
             Assert.notNullUnchecked(ctx.TRUE(), String.format("unexpected boolean value %s", ctx.getText()));
-            final var literal = new LiteralValue<>(true);
-            return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+            return LiteralsUtils.processLiteral(Boolean.TRUE, context);
         }
     }
 
@@ -1111,8 +1084,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.HEXADECIMAL_LITERAL(), UNSUPPORTED_QUERY);
         // todo (yhatem) test this.
-        final var literal = new LiteralValue<>(new BigInteger(ctx.HEXADECIMAL_LITERAL().getText().substring(2), 16).longValue());
-        return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+        final var val = new BigInteger(ctx.HEXADECIMAL_LITERAL().getText().substring(2), 16).longValue();
+        return LiteralsUtils.processLiteral(val, context);
     }
 
     @Override
@@ -1120,20 +1093,17 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.COLLATE(), UNSUPPORTED_QUERY);
-        final var literal = new LiteralValue<>(ParserUtils.normalizeString(ctx.getText()));
-        return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+        return LiteralsUtils.processLiteral(ParserUtils.normalizeString(ctx.getText()), context);
     }
 
     @Override
     public Value visitDecimalLiteral(RelationalParser.DecimalLiteralContext ctx) {
-        final var literal = ParserUtils.parseDecimal(ctx.getText());
-        return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+        return LiteralsUtils.processLiteral(ParserUtils.parseDecimal(ctx.getText()), context);
     }
 
     @Override
     public Value visitNegativeDecimalConstant(RelationalParser.NegativeDecimalConstantContext ctx) {
-        final var literal = ParserUtils.parseDecimal(ctx.getText());
-        return LiteralsUtils.processLiteral(literal, literal.getLiteralValue(), context);
+        return LiteralsUtils.processLiteral(ParserUtils.parseDecimal(ctx.getText()), context);
     }
 
     @Override

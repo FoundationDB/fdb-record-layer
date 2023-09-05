@@ -22,9 +22,12 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
 
 public class RelationalStructMetaData implements StructMetaData {
     private final FieldDescription[] columns;
@@ -115,6 +118,11 @@ public class RelationalStructMetaData implements StructMetaData {
     @Override
     public boolean isWrapperFor(Class<?> iface) {
         return iface.isAssignableFrom(this.getClass());
+    }
+
+    @Nonnull
+    public List<FieldDescription> getFields() {
+        return ImmutableList.copyOf(columns);
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace")

@@ -105,18 +105,26 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         literals.finishArrayLiteral();
     }
 
+    public int startStructLiteral() {
+        return literals.startStructLiteral();
+    }
+
+    public void finishStructLiteral(Type.Record type) {
+        literals.finishStructLiteral(type);
+    }
+
     public int addStrippedLiteral(@Nullable final Object literal) {
         return literals.addLiteral(literal);
     }
 
     public void addLiteralReference(@Nonnull final ConstantObjectValue constantObjectValue) {
-        if (!literals.isAddingArrayLiteral()) {
+        if (!literals.isAddingComplexLiteral()) {
             constantObjectValues.add(constantObjectValue);
         }
     }
 
     @Nonnull
-    public List<Object> getLiterals() {
+    private List<Object> getLiterals() {
         return literals.getLiterals();
     }
 

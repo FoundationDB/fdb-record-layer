@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -50,6 +51,8 @@ import java.math.BigInteger;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Struct;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -134,8 +137,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         });
         literalNodes.put(RelationalParser.HexadecimalConstantContext.class, context -> new BigInteger(context.getText().substring(2, context.getText().length() - 1), 16).longValue());
         literalNodes.put(RelationalParser.StringConstantContext.class, context -> ParserUtils.normalizeString(context.getText()));
-        literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()).getLiteralValue());
-        literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()).getLiteralValue());
+        literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
+        literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
     }
 
     private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters) {
@@ -234,7 +237,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked((Integer) parameter > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
             context.setLimit((Integer) parameter);
         } else {
-            final var limit = ParserUtils.parseDecimal(ctx.getText());
+            final var limit = new LiteralValue<>(ParserUtils.parseDecimal(ctx.getText()));
             Assert.thatUnchecked(limit.getLiteralValue() instanceof Integer, "argument for LIMIT must be integer", ErrorCode.DATATYPE_MISMATCH);
             final var limitAsInteger = (Integer) limit.getLiteralValue();
             Assert.thatUnchecked(limitAsInteger > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
@@ -345,11 +348,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         Object param;
         if (ctx.QUESTION() != null) {
             param = preparedStatementParameters.getNextParameter();
-            if (param instanceof Array) {
+            if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
             processLiteral(param);
-            if (param instanceof Array) {
+            if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = true;
             }
         } else {
@@ -358,36 +361,23 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
             param = preparedStatementParameters.getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
-            if (param instanceof Array) {
+            if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
             processLiteral(param, ctx.NAMED_PARAMETER().getText());
-            if (param instanceof Array) {
+            if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = true;
             }
         }
-
         if (param instanceof Array) {
-            try {
-                context.startArrayLiteral();
-                allowTokenAddition = false;
-                try (ResultSet rs = ((Array) param).getResultSet()) {
-                    while (rs.next()) {
-                        final var arrayParam = rs.getObject(1);
-                        Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
-                        Assert.thatUnchecked(SqlTypeSupport.recordTypeToSqlType(literalType.getTypeCode()) == rs.getMetaData().getColumnType(1),
-                                "Cannot convert literal to " + rs.getMetaData().getColumnType(1),
-                                ErrorCode.CANNOT_CONVERT_TYPE);
-                        processLiteral(arrayParam);
-                    }
-                }
-                context.finishArrayLiteral();
-                allowTokenAddition = true;
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
+            allowTokenAddition = false;
+            processArrayParameter((Array) param);
+            allowTokenAddition = true;
+        } else if (param instanceof Struct) {
+            allowTokenAddition = false;
+            processStructParameter((Struct) param);
+            allowTokenAddition = true;
         }
-
         return param;
     }
 
@@ -397,11 +387,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         ctx.IN().accept(this);
 
         if (ctx.inList().preparedStatementParameter() != null) {
-            //context.startArrayLiteral();
-            //allowTokenAddition = false;
             visit(ctx.inList().preparedStatementParameter());
-            //context.finishArrayLiteral();
-            //allowTokenAddition = true;
         } else {
             sqlCanonicalizer.append("( ");
             if (ParserUtils.isConstant(ctx.inList().expressions())) {
@@ -429,6 +415,44 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         return null;
+    }
+
+    private void processArrayParameter(Array param) {
+        try {
+            context.startArrayLiteral();
+            try (ResultSet rs = param.getResultSet()) {
+                while (rs.next()) {
+                    final var arrayParam = rs.getObject(1);
+                    // Mixed and nested lists are not allowed.
+                    Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
+                    Assert.thatUnchecked(SqlTypeSupport.recordTypeToSqlType(literalType.getTypeCode()) == rs.getMetaData().getColumnType(1),
+                            "Cannot convert literal to " + rs.getMetaData().getColumnType(1),
+                            ErrorCode.CANNOT_CONVERT_TYPE);
+                    processLiteral(arrayParam);
+                }
+            }
+            context.finishArrayLiteral();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void processStructParameter(Struct param) {
+        try {
+            context.startStructLiteral();
+            Arrays.stream(param.getAttributes()).forEach(o -> {
+                if (o instanceof Array) {
+                    processArrayParameter((Array) o);
+                } else if (o instanceof Struct) {
+                    processStructParameter((Struct) o);
+                } else {
+                    processLiteral(o);
+                }
+            });
+            context.finishStructLiteral(null);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void processLiteral(@Nonnull final Object literal) {

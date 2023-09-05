@@ -47,6 +47,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
+import java.sql.Struct;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -240,6 +241,12 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        // TODO: Implement
+        return null;
+    }
+
+    @Override
+    public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
         // TODO: Implement
         return null;
     }
