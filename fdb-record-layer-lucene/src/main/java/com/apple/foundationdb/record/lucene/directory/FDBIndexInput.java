@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -141,9 +142,14 @@ public class FDBIndexInput extends IndexInput {
         }
     }
 
+    @Nonnull
     private FDBLuceneFileReference getFileReference() {
         if (actualReference == null) {
             actualReference = fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
+            if (actualReference == null) {
+                throw new RecordCoreException("File Reference missing for open IndexInput")
+                        .addLogInfo(LuceneLogMessageKeys.RESOURCE, resourceDescription);
+            }
         }
         return actualReference;
     }
