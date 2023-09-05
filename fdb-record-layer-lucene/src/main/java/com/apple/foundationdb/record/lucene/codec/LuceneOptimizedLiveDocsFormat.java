@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.LiveDocsFormat;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.store.Directory;
@@ -29,7 +27,6 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Bits;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Collection;
 
 /**
@@ -62,26 +59,20 @@ public class LuceneOptimizedLiveDocsFormat extends LiveDocsFormat {
 
     private class LazyBits implements Bits {
 
-        private final Supplier<Bits> bits;
+        private final LazyOpener<Bits> bits;
 
         public LazyBits(final Directory dir, final SegmentCommitInfo info, final IOContext context) {
-            bits = Suppliers.memoize(() -> {
-                try {
-                    return liveDocsFormat.readLiveDocs(dir, info, context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                }
-            });
+            bits = LazyOpener.supply(() -> liveDocsFormat.readLiveDocs(dir, info, context));
         }
 
         @Override
         public boolean get(final int index) {
-            return bits.get().get(index);
+            return bits.getUnchecked().get(index);
         }
 
         @Override
         public int length() {
-            return bits.get().length();
+            return bits.getUnchecked().length();
         }
     }
 

@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -36,7 +34,6 @@ import org.apache.lucene.store.IOContext;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 /**
  * This class provides a Lazy reader implementation to limit the amount of
@@ -65,8 +62,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     }
 
     private class LazyStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
-        private Supplier<StoredFieldsReader> storedFieldsReader;
-        private boolean initialized;
+        private LazyCloseable<StoredFieldsReader> storedFieldsReader;
         private Directory directory;
         private SegmentInfo si;
         private FieldInfos fn;
@@ -77,15 +73,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
             this.si = si;
             this.fn = fn;
             this.context = context;
-            storedFieldsReader = Suppliers.memoize(() -> {
-                try {
-                    return storedFieldsFormat.fieldsReader(directory, si, fn, context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                } finally {
-                    initialized = true;
-                }
-            });
+            storedFieldsReader = LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context));
         }
 
         public LazyStoredFieldsReader(LazyStoredFieldsReader lazyStoredFieldsReader) {
@@ -113,14 +101,12 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
         @Override
         public void close() throws IOException {
-            if (initialized) { // Needed to not fetch data...
-                storedFieldsReader.get().close();
-            }
+            storedFieldsReader.close();
         }
 
         @Override
         public long ramBytesUsed() {
-            return storedFieldsReader.get().ramBytesUsed();
+            return storedFieldsReader.getUnchecked().ramBytesUsed();
         }
 
         @Override
