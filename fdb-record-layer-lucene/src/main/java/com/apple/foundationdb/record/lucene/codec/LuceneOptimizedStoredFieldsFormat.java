@@ -69,16 +69,18 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         private IOContext context;
 
         public LazyStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) {
+            this(directory, si, fn, context,
+                    LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context)));
+        }
+
+        private LazyStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context,
+                                       LazyCloseable<StoredFieldsReader> storedFieldsReader) {
+
             this.directory = directory;
             this.si = si;
             this.fn = fn;
             this.context = context;
-            storedFieldsReader = LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context));
-        }
-
-        public LazyStoredFieldsReader(LazyStoredFieldsReader lazyStoredFieldsReader) {
-            this(lazyStoredFieldsReader.directory, lazyStoredFieldsReader.si, lazyStoredFieldsReader.fn,
-                    lazyStoredFieldsReader.context);
+            this.storedFieldsReader = storedFieldsReader;
         }
 
         @Override
@@ -87,9 +89,9 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         }
 
         @Override
-        @SuppressWarnings({"java:S1182", "java:S2975", "PMD.ProperCloneImplementation"})
         public LazyStoredFieldsReader clone() {
-            return new LazyStoredFieldsReader(this);
+            return new LazyStoredFieldsReader(directory, si, fn, context,
+                    LazyCloseable.supply(() -> storedFieldsReader.get().clone()));
         }
 
         @Override
