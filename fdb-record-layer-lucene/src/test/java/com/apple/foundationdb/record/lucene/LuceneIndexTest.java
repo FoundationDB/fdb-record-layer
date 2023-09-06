@@ -1208,11 +1208,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .getDirectory(Tuple.from())
                         .getPrimaryKeySegmentIndex();
                 assertEquals(List.of(
-                                List.of(1000L, "_p", 2),
-                                List.of(1001L, "_p", 0),
-                                List.of(1002L, "_n", 0),
-                                List.of(1003L, "_p", 3),
-                                List.of(1004L, "_q", 0)
+                                List.of(1000L, "_q", 2),
+                                List.of(1001L, "_q", 0),
+                                List.of(1002L, "_o", 0),
+                                List.of(1003L, "_q", 1),
+                                List.of(1004L, "_r", 0)
                         ),
                         primaryKeySegmentIndex.readAllEntries());
             }
@@ -2617,7 +2617,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(20,
                     recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
             try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, primaryKeySegmentIndexEnabled)) {
-                assertEquals(21, directory.listAll().length);
+                assertEquals(61, directory.listAll().length);
             }
         }
     }
@@ -2630,8 +2630,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context, false)) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
             assertNotNull(reference);
-            Assertions.assertTrue(reference.getEntries().length > 0);
-            Assertions.assertTrue(reference.getSegmentInfo().length > 0);
             assertOnlyCompoundFileExisting(subspace, context, directory, cleanFiles);
         }
     }
@@ -2640,7 +2638,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, false) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
-            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"), "fileName=" + file);
+            if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)
+                || file.endsWith(".pky")) {
+                assertFalse(directory.getFDBLuceneFileReference(file).getContent().isEmpty(), "fileName=" + file);
+            } else {
+                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),
+                        "fileName=" + file);
+                assertTrue(directory.getFDBLuceneFileReference(file).getContent().isEmpty(), "fileName=" + file);
+            }
             if (cleanFiles) {
                 try {
                     directory.deleteFile(file);
