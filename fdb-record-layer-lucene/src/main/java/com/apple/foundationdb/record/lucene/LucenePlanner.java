@@ -133,7 +133,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         LuceneScanParameters scanParameters = getSpecialScan(state, filterMask, queryComponent);
         if (scanParameters == null) {
             // Scan by means of normal Lucene search API.
-            LuceneQueryClause query = getQueryForFilter(state, filter, new ArrayList<>(), filterMask);
+            LuceneQueryClause query = getQueryForFilter(LuceneQueryType.QUERY, state, filter, new ArrayList<>(), filterMask);
             if (query == null) {
                 return null;
             }
@@ -228,7 +228,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 return null;
             }
         }
-        if (luceneQueryComponent.getType() != LuceneQueryComponent.Type.SPELL_CHECK) {
+        if (luceneQueryComponent.getType() != LuceneQueryType.SPELL_CHECK) {
             return null;
         }
 
@@ -256,20 +256,23 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForFilter(@Nonnull LucenePlanState state, @Nonnull QueryComponent filter,
-                                                @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+    private LuceneQueryClause getQueryForFilter(@Nonnull final LuceneQueryType queryType,
+                                                @Nonnull final LucenePlanState state,
+                                                @Nonnull final QueryComponent filter,
+                                                @Nonnull final List<String> parentFieldPath,
+                                                @Nullable final FilterSatisfiedMask filterMask) {
         if (filter instanceof LuceneQueryComponent) {
             return getQueryForLuceneComponent(state, (LuceneQueryComponent)filter, parentFieldPath, filterMask);
         } else if (filter instanceof AndOrComponent) {
-            return getQueryForAndOr(state, (AndOrComponent) filter, parentFieldPath, filterMask);
+            return getQueryForAndOr(queryType, state, (AndOrComponent) filter, parentFieldPath, filterMask);
         } else if (filter instanceof NotComponent) {
-            return getQueryForNot(state, (NotComponent) filter, parentFieldPath, filterMask);
+            return getQueryForNot(queryType, state, (NotComponent) filter, parentFieldPath, filterMask);
         } else if (filter instanceof FieldWithComparison) {
-            return getQueryForFieldWithComparison(state, (FieldWithComparison) filter, parentFieldPath, filterMask);
+            return getQueryForFieldWithComparison(queryType, state, (FieldWithComparison) filter, parentFieldPath, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
-            return getQueryForNestedField(state, (OneOfThemWithComponent)filter, true, parentFieldPath, filterMask);
+            return getQueryForNestedField(queryType, state, (OneOfThemWithComponent)filter, true, parentFieldPath, filterMask);
         } else if (filter instanceof NestedField) {
-            return getQueryForNestedField(state, (NestedField) filter, false, parentFieldPath, filterMask);
+            return getQueryForNestedField(queryType, state, (NestedField) filter, false, parentFieldPath, filterMask);
         }
         return null;
     }
@@ -298,9 +301,9 @@ public class LucenePlanner extends RecordQueryPlanner {
             case QUERY_HIGHLIGHT:
             case SPELL_CHECK:
                 if (filter.isMultiFieldSearch()) {
-                    return new LuceneQueryMultiFieldSearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                    return new LuceneQueryMultiFieldSearchClause(filter.getType(), filter.getQuery(), filter.isQueryIsParameter());
                 } else {
-                    return new LuceneQuerySearchClause(filter.getQuery(), filter.isQueryIsParameter());
+                    return new LuceneQuerySearchClause(filter.getType(), filter.getQuery(), filter.isQueryIsParameter());
                 }
             default:
                 throw new RecordCoreException("unknown type of lucene query component");
@@ -309,8 +312,9 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     @SuppressWarnings({"java:S3776", "PMD.CompareObjectsWithEquals"})
-    private LuceneQueryClause getQueryForAndOr(@Nonnull LucenePlanState state, @Nonnull AndOrComponent filter,
-                                               @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+    private LuceneQueryClause getQueryForAndOr(@Nonnull final LuceneQueryType queryType, @Nonnull final LucenePlanState state,
+                                               @Nonnull final AndOrComponent filter, @Nonnull final List<String> parentFieldPath,
+                                               @Nullable final FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
         final List<QueryComponent> filters = filter.getChildren();
         final List<LuceneQueryClause> childClauses = new ArrayList<>(filters.size());
@@ -318,7 +322,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         final BooleanClause.Occur occur = filter instanceof OrComponent ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST;
         for (QueryComponent subFilter : filters) {
             final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
-            LuceneQueryClause childClause = getQueryForFilter(state, subFilter, parentFieldPath, childMask);
+            LuceneQueryClause childClause = getQueryForFilter(queryType, state, subFilter, parentFieldPath, childMask);
             if (childClause == null) {
                 if (filter == state.filter && filter instanceof AndComponent) {
                     continue;    // Partially unsatisfied at top-level is okay.
@@ -341,19 +345,23 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterMask.setSatisfied(true);
         }
         if (!negatedChildren.isEmpty()) {
-            return new LuceneNotQuery(childClauses, negatedChildren);
+            return new LuceneNotQuery(queryType, childClauses, negatedChildren);
         }
         // Don't do Lucene scan if none are satisfied, though.
         if (childClauses.isEmpty()) {
             return null;
         }
-        return new LuceneBooleanQuery(childClauses, occur);
+        return new LuceneBooleanQuery(queryType, childClauses, occur);
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForNot(@Nonnull LucenePlanState state, @Nonnull NotComponent filter,
-                                             @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
-        final LuceneQueryClause childClause = getQueryForFilter(state, filter.getChild(), parentFieldPath, filterMask == null ? null : filterMask.getChildren().get(0));
+    private LuceneQueryClause getQueryForNot(@Nonnull final LuceneQueryType queryType,
+                                             @Nonnull final LucenePlanState state,
+                                             @Nonnull final NotComponent filter,
+                                             @Nonnull final List<String> parentFieldPath,
+                                             @Nullable final FilterSatisfiedMask filterMask) {
+        final LuceneQueryClause childClause = getQueryForFilter(queryType, state, filter.getChild(), parentFieldPath,
+                filterMask == null ? null : filterMask.getChildren().get(0));
         if (childClause == null) {
             return null;
         }
@@ -380,7 +388,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                         }
                         clauses.addAll(notQuery.getNegatedChildren());
                     }
-                    return new LuceneBooleanQuery(clauses, BooleanClause.Occur.SHOULD);
+                    return new LuceneBooleanQuery(clause.getQueryType(), clauses, BooleanClause.Occur.SHOULD);
                 case SHOULD:
                     List<LuceneQueryClause> positive = new ArrayList<>();
                     List<LuceneQueryClause> negative = new ArrayList<>();
@@ -392,20 +400,23 @@ public class LucenePlanner extends RecordQueryPlanner {
                         }
                     }
                     if (negative.isEmpty()) {
-                        return new LuceneBooleanQuery(positive, BooleanClause.Occur.MUST);
+                        return new LuceneBooleanQuery(clause.getQueryType(), positive, BooleanClause.Occur.MUST);
                     } else {
-                        return new LuceneNotQuery(positive, negative);
+                        return new LuceneNotQuery(clause.getQueryType(), positive, negative);
                     }
                 default:
                     throw new RecordCoreException("Unsupported boolean query occur: " + booleanQuery);
             }
         }
-        return new LuceneNotQuery(clause);
+        return new LuceneNotQuery(clause.getQueryType(), clause);
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForFieldWithComparison(@Nonnull LucenePlanState state, @Nonnull FieldWithComparison filter,
-                                                             @Nonnull List<String> fieldPath, @Nullable FilterSatisfiedMask filterSatisfiedMask) {
+    private LuceneQueryClause getQueryForFieldWithComparison(@Nonnull final LuceneQueryType queryType,
+                                                             @Nonnull final LucenePlanState state,
+                                                             @Nonnull final FieldWithComparison filter,
+                                                             @Nonnull final List<String> fieldPath,
+                                                             @Nullable final FilterSatisfiedMask filterSatisfiedMask) {
         if (filterSatisfiedMask != null && filterSatisfiedMask.isSatisfied()) {
             return null;        // Already done as part of group comparisons
         }
@@ -419,7 +430,8 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterSatisfiedMask.setSatisfied(true);
         }
         try {
-            return LuceneQueryFieldComparisonClause.create(fieldDerivation.getDocumentField(), fieldDerivation.getType(), filter.getComparison());
+            return LuceneQueryFieldComparisonClause.create(queryType, fieldDerivation.getDocumentField(),
+                    fieldDerivation.getType(), filter.getComparison());
         } catch (RecordCoreException ex) {
             if (logger.isDebugEnabled()) {
                 logger.debug("no query for comparison " + filter, ex);
@@ -429,11 +441,15 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForNestedField(@Nonnull LucenePlanState state, @Nonnull BaseField filter, boolean repeated,
-                                                     @Nonnull List<String> fieldPath, @Nullable FilterSatisfiedMask mask) {
+    private LuceneQueryClause getQueryForNestedField(@Nonnull final LuceneQueryType queryType,
+                                                     @Nonnull final LucenePlanState state,
+                                                     @Nonnull final BaseField filter,
+                                                     final boolean repeated,
+                                                     @Nonnull final List<String> fieldPath,
+                                                     @Nullable final FilterSatisfiedMask mask) {
         QueryComponent child = ((ComponentWithSingleChild)filter).getChild();
         fieldPath.add(filter.getFieldName());
-        LuceneQueryClause comparison = getQueryForFilter(state, child, fieldPath, (mask != null) ? mask.getChild(child) : null);
+        LuceneQueryClause comparison = getQueryForFilter(queryType, state, child, fieldPath, (mask != null) ? mask.getChild(child) : null);
         fieldPath.remove(fieldPath.size() - 1);
         if (comparison != null ) {
             if (mask != null) {

@@ -60,7 +60,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     @Nonnull
     protected final Comparisons.Comparison comparison;
 
-    protected LuceneQueryFieldComparisonClause(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+    protected LuceneQueryFieldComparisonClause(@Nonnull LuceneQueryType querType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        super(querType);
         this.field = field;
         this.fieldType = fieldType;
         this.comparison = comparison;
@@ -133,11 +134,14 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     @Nonnull
     @SuppressWarnings("fallthrough")
-    public static LuceneQueryFieldComparisonClause create(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+    public static LuceneQueryFieldComparisonClause create(@Nonnull final LuceneQueryType queryType,
+                                                          @Nonnull final String field,
+                                                          @Nonnull final LuceneIndexExpressions.DocumentFieldType fieldType,
+                                                          @Nonnull final Comparisons.Comparison comparison) {
         switch (comparison.getType()) {
             case NOT_NULL:
             case IS_NULL:
-                return new NullQuery(field, fieldType, comparison);
+                return new NullQuery(queryType, field, fieldType, comparison);
             case EQUALS:
             case NOT_EQUALS:
             case LESS_THAN:
@@ -167,13 +171,13 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         switch (fieldType) {
             case STRING:
             case TEXT:
-                return new StringQuery(field, fieldType, comparison);
+                return new StringQuery(queryType, field, fieldType, comparison);
             case INT:
-                return new IntQuery(field, fieldType, comparison);
+                return new IntQuery(queryType, field, fieldType, comparison);
             case LONG:
-                return new LongQuery(field, fieldType, comparison);
+                return new LongQuery(queryType, field, fieldType, comparison);
             case DOUBLE:
-                return new DoubleQuery(field, fieldType, comparison);
+                return new DoubleQuery(queryType, field, fieldType, comparison);
             default:
                 throw new RecordCoreException("unsupported Lucene index field type: " + fieldType);
         }
@@ -187,61 +191,62 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class NullQuery extends LuceneQueryFieldComparisonClause {
-        public NullQuery(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
-            super(field, fieldType, comparison);
+        public NullQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+            super(queryType, field, fieldType, comparison);
         }
 
         @Override
-        public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Query allValues = new TermRangeQuery(field, null, null, true, true);
             if (comparison.getType() == Comparisons.Type.NOT_NULL) {
-                return allValues;
+                return toBoundQuery(allValues);
             } else {
                 // *:* -f[* TO *]
-                return negate(allValues);
+                final Query negatedQuery = negate(allValues);
+                return toBoundQuery(negatedQuery);
             }
         }
     }
 
     static class StringQuery extends LuceneQueryFieldComparisonClause {
-        public StringQuery(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
-            super(field, fieldType, comparison);
+        public StringQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+            super(queryType, field, fieldType, comparison);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
-                return new MatchNoDocsQuery();
+                return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
                 case EQUALS:
-                    return new TermQuery(new Term(field, (String)comparand));
+                    return toBoundQuery(new TermQuery(new Term(field, (String)comparand)));
                 case NOT_EQUALS: {
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     builder.add(TermRangeQuery.newStringRange(field, null, (String)comparand, true, false), BooleanClause.Occur.SHOULD);
                     builder.add(TermRangeQuery.newStringRange(field, (String)comparand, null, false, true), BooleanClause.Occur.SHOULD);
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return TermRangeQuery.newStringRange(field, null, (String)comparand, true, false);
+                    return toBoundQuery(TermRangeQuery.newStringRange(field, null, (String)comparand, true, false));
                 case LESS_THAN_OR_EQUALS:
-                    return TermRangeQuery.newStringRange(field, null, (String)comparand, true, true);
+                    return toBoundQuery(TermRangeQuery.newStringRange(field, null, (String)comparand, true, true));
                 case GREATER_THAN:
-                    return TermRangeQuery.newStringRange(field, (String)comparand, null, false, true);
+                    return toBoundQuery(TermRangeQuery.newStringRange(field, (String)comparand, null, false, true));
                 case GREATER_THAN_OR_EQUALS:
-                    return TermRangeQuery.newStringRange(field, (String)comparand, null, true, true);
+                    return toBoundQuery(TermRangeQuery.newStringRange(field, (String)comparand, null, true, true));
                 case STARTS_WITH:
                 case TEXT_CONTAINS_PREFIX:
-                    return new PrefixQuery(new Term(field, (String)comparand));
+                    return toBoundQuery(new PrefixQuery(new Term(field, (String)comparand)));
                 case TEXT_CONTAINS_PHRASE:
                     // PhraseQuery will require tokenizing, so may as well just use parser.
                     try {
                         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
                         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
                         final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer((String) comparand).getAnalyzer());
-                        return parser.parse("\"" + comparand + "\"");
+                        return toBoundQuery(parser.parse("\"" + comparand + "\""));
                     } catch (Exception ex) {
                         throw new RecordCoreArgumentException("Unable to parse phrase for query", ex);
                     }
@@ -251,28 +256,28 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     for (String value : ((List<String>)comparand)) {
                         builder.add(new TermQuery(new Term(field, value)), BooleanClause.Occur.SHOULD);
                     }
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case TEXT_CONTAINS_ALL: {
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     for (String value : ((List<String>)comparand)) {
                         builder.add(new TermQuery(new Term(field, value)), BooleanClause.Occur.MUST);
                     }
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case TEXT_CONTAINS_ALL_PREFIXES: {
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     for (String value : ((List<String>)comparand)) {
                         builder.add(new PrefixQuery(new Term(field, value)), BooleanClause.Occur.MUST);
                     }
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case TEXT_CONTAINS_ANY_PREFIX: {
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     for (String value : ((List<String>)comparand)) {
                         builder.add(new PrefixQuery(new Term(field, value)), BooleanClause.Occur.SHOULD);
                     }
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 default:
                     throw new RecordCoreException("comparison type not supported for String: " + comparison.getType());
@@ -281,37 +286,37 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class IntQuery extends LuceneQueryFieldComparisonClause {
-        public IntQuery(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
-            super(field, fieldType, comparison);
+        public IntQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+            super(queryType, field, fieldType, comparison);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
-                return new MatchNoDocsQuery();
+                return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
                 case EQUALS:
-                    return IntPoint.newExactQuery(field, (Integer)comparand);
+                    return toBoundQuery(IntPoint.newExactQuery(field, (Integer)comparand));
                 case NOT_EQUALS: {
                     int value = (Integer)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     builder.add(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
                     builder.add(IntPoint.newRangeQuery(field, value + 1, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand - 1);
+                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand);
+                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand));
                 case GREATER_THAN:
-                    return IntPoint.newRangeQuery(field, (Integer)comparand + 1, Integer.MAX_VALUE);
+                    return toBoundQuery(IntPoint.newRangeQuery(field, (Integer)comparand + 1, Integer.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return IntPoint.newRangeQuery(field, (Integer)comparand, Integer.MAX_VALUE);
+                    return toBoundQuery(IntPoint.newRangeQuery(field, (Integer)comparand, Integer.MAX_VALUE));
                 case IN:
-                    return IntPoint.newSetQuery(field, ((List<Integer>)comparand));
+                    return toBoundQuery(IntPoint.newSetQuery(field, ((List<Integer>)comparand)));
                 default:
                     throw new RecordCoreException("comparison type not supported for Integer: " + comparison.getType());
             }
@@ -319,37 +324,37 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class LongQuery extends LuceneQueryFieldComparisonClause {
-        public LongQuery(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
-            super(field, fieldType, comparison);
+        public LongQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+            super(queryType, field, fieldType, comparison);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
-                return new MatchNoDocsQuery();
+                return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
                 case EQUALS:
-                    return LongPoint.newExactQuery(field, (Long)comparand);
+                    return toBoundQuery(LongPoint.newExactQuery(field, (Long)comparand));
                 case NOT_EQUALS: {
                     long value = (Long)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     builder.add(LongPoint.newRangeQuery(field, Long.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
                     builder.add(LongPoint.newRangeQuery(field, value + 1, Long.MAX_VALUE), BooleanClause.Occur.SHOULD);
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand - 1);
+                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand);
+                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand));
                 case GREATER_THAN:
-                    return LongPoint.newRangeQuery(field, (Long)comparand + 1, Long.MAX_VALUE);
+                    return toBoundQuery(LongPoint.newRangeQuery(field, (Long)comparand + 1, Long.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return LongPoint.newRangeQuery(field, (Long)comparand, Long.MAX_VALUE);
+                    return toBoundQuery(LongPoint.newRangeQuery(field, (Long)comparand, Long.MAX_VALUE));
                 case IN:
-                    return LongPoint.newSetQuery(field, ((List<Long>)comparand));
+                    return toBoundQuery(LongPoint.newSetQuery(field, ((List<Long>)comparand)));
                 default:
                     throw new RecordCoreException("comparison type not supported for Long: " + comparison.getType());
             }
@@ -357,37 +362,37 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class DoubleQuery extends LuceneQueryFieldComparisonClause {
-        public DoubleQuery(@Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
-            super(field, fieldType, comparison);
+        public DoubleQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+            super(queryType, field, fieldType, comparison);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
-                return new MatchNoDocsQuery();
+                return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
                 case EQUALS:
-                    return DoublePoint.newExactQuery(field, (Double)comparand);
+                    return toBoundQuery(DoublePoint.newExactQuery(field, (Double)comparand));
                 case NOT_EQUALS: {
                     double value = (Double)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
                     builder.add(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
                     builder.add(DoublePoint.newRangeQuery(field, value + 1, Double.MAX_VALUE), BooleanClause.Occur.SHOULD);
-                    return builder.build();
+                    return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand - 1);
+                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand);
+                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand));
                 case GREATER_THAN:
-                    return DoublePoint.newRangeQuery(field, (Double)comparand + 1, Double.MAX_VALUE);
+                    return toBoundQuery(DoublePoint.newRangeQuery(field, (Double)comparand + 1, Double.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return DoublePoint.newRangeQuery(field, (Double)comparand, Double.MAX_VALUE);
+                    return toBoundQuery(DoublePoint.newRangeQuery(field, (Double)comparand, Double.MAX_VALUE));
                 case IN:
-                    return DoublePoint.newSetQuery(field, ((List<Double>)comparand));
+                    return toBoundQuery(DoublePoint.newSetQuery(field, ((List<Double>)comparand)));
                 default:
                     throw new RecordCoreException("comparison type not supported for Double: " + comparison.getType());
             }

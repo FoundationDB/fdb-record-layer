@@ -28,13 +28,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -47,7 +49,8 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     @Nonnull
     private final BooleanClause.Occur occur;
 
-    public LuceneBooleanQuery(@Nonnull List<LuceneQueryClause> children, @Nonnull BooleanClause.Occur occur) {
+    public LuceneBooleanQuery(@Nonnull LuceneQueryType queryType, @Nonnull List<LuceneQueryClause> children, @Nonnull BooleanClause.Occur occur) {
+        super(queryType);
         this.children = children;
         this.occur = occur;
     }
@@ -63,12 +66,21 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     }
 
     @Override
-    public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        Map<String, Set<String>> highlightingTermsMap = null;
         for (LuceneQueryClause child : children) {
-            builder.add(child.bind(store, index, context), occur);
+            final BoundQuery childBoundQuery = child.bind(store, index, context);
+            builder.add(childBoundQuery.getLuceneQuery(), occur);
+            final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
+            if (childHighlightingTermsMap != null) {
+                if (highlightingTermsMap == null) {
+                    highlightingTermsMap = Maps.newHashMap();
+                }
+                combineHighlightingTermsMaps(highlightingTermsMap, childHighlightingTermsMap);
+            }
         }
-        return builder.build();
+        return new BoundQuery(builder.build(), highlightingTermsMap);
     }
 
     @Override

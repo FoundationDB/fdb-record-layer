@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
-import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -48,7 +47,8 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
     private final String search;
     private final boolean isParameter;
 
-    public LuceneQueryMultiFieldSearchClause(@Nonnull final String search, final boolean isParameter) {
+    public LuceneQueryMultiFieldSearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String search, final boolean isParameter) {
+        super(queryType);
         this.search = search;
         this.isParameter = isParameter;
     }
@@ -63,17 +63,19 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
-        final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+        final LuceneAnalyzerCombinationProvider analyzerSelector =
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         final String[] fieldNames = LuceneScanParameters.indexTextFields(index, store.getRecordMetaData()).toArray(new String[0]);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
-        final QueryParser parser = parserFactory.createMultiFieldQueryParser(fieldNames, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
+        final QueryParser parser = parserFactory.createMultiFieldQueryParser(fieldNames,
+                analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         try {
-            return parser.parse(searchString);
-        } catch (Exception ioe) {
+            return toBoundQuery(parser.parse(searchString));
+        } catch (final Exception ioe) {
             throw new RecordCoreException("Unable to parse search given for query", ioe);
         }
     }

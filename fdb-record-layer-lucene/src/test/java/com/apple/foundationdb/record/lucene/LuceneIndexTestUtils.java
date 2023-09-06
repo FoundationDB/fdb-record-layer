@@ -172,7 +172,9 @@ public class LuceneIndexTestUtils {
     public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
-                new LuceneQueryMultiFieldSearchClause(search, false),
+                new LuceneQueryMultiFieldSearchClause(highlight
+                                                      ? LuceneQueryType.QUERY_HIGHLIGHT
+                                                      : LuceneQueryType.QUERY, search, false),
                 null, null, null,
                 highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(-1, 10) : null);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
@@ -181,7 +183,9 @@ public class LuceneIndexTestUtils {
     public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight, int snippetSize) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
-                new LuceneQueryMultiFieldSearchClause(search, false),
+                new LuceneQueryMultiFieldSearchClause(highlight
+                                                      ? LuceneQueryType.QUERY_HIGHLIGHT
+                                                      : LuceneQueryType.QUERY, search, false),
                 null, null, null,
                 highlight ? new LuceneScanQueryParameters.LuceneQueryHighlightParameters(snippetSize, 10) : null);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);

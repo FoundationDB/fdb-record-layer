@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
-import org.apache.lucene.search.Query;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -50,11 +49,12 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     private final boolean isParameter;
 
     // TODO: Need better predicates for controlling field.
-    public LuceneQuerySearchClause(@Nonnull final String search, final boolean isParameter) {
-        this(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, search, isParameter);
+    public LuceneQuerySearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String search, final boolean isParameter) {
+        this(queryType, LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, search, isParameter);
     }
 
-    public LuceneQuerySearchClause(@Nonnull final String defaultField, @Nonnull final String search, final boolean isParameter) {
+    public LuceneQuerySearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String defaultField, @Nonnull final String search, final boolean isParameter) {
+        super(queryType);
         this.defaultField = defaultField;
         this.search = search;
         this.isParameter = isParameter;
@@ -75,7 +75,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
@@ -84,7 +84,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
         try {
-            return parser.parse(searchString);
+            return toBoundQuery(parser.parse(searchString));
         } catch (Exception ioe) {
             throw new RecordCoreException("Unable to parse search given for query", ioe);
         }

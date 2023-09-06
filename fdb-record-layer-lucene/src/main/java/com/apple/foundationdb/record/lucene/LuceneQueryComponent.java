@@ -53,19 +53,8 @@ import java.util.function.Supplier;
 public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
-    /**
-     * The type of component.
-     * Includes special types for auto-complete and spell-check.
-     */
-    public enum Type {
-        QUERY,
-        QUERY_HIGHLIGHT,
-        AUTO_COMPLETE,
-        SPELL_CHECK,
-    }
-
     @Nonnull
-    private final Type type;
+    private final LuceneQueryType type;
     @Nonnull
     private final String query;
     private final boolean queryIsParameter;
@@ -93,14 +82,14 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     public LuceneQueryComponent(String query, List<String> fields, boolean multiField) {
-        this(Type.QUERY, query, false, fields, multiField);
+        this(LuceneQueryType.QUERY, query, false, fields, multiField);
     }
 
-    public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch) {
+    public LuceneQueryComponent(LuceneQueryType type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch) {
         this(type, query, queryIsParameter, fields, multiFieldSearch, null, null);
     }
 
-    public LuceneQueryComponent(Type type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch,
+    public LuceneQueryComponent(LuceneQueryType type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch,
                                 @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                 @Nullable Set<String> explicitFieldNames) {
         this.type = type;
@@ -140,7 +129,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     @Nonnull
-    public Type getType() {
+    public LuceneQueryType getType() {
         return type;
     }
 

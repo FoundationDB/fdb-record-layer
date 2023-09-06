@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
-import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -48,24 +47,11 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MultiPhraseQuery;
-import org.apache.lucene.search.PhraseQuery;
-import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SynonymQuery;
-import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.spans.SpanNearQuery;
-import org.apache.lucene.search.spans.SpanOrQuery;
-import org.apache.lucene.search.spans.SpanQuery;
-import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
@@ -75,10 +61,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -138,6 +121,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     @Nullable
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    @Nullable
+    private final Map<String, Set<String>> termMap;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
     @Nonnull
@@ -157,6 +142,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
                        @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                       @Nullable Map<String, Set<String>> termMap,
                        @Nullable final List<String> storedFields,
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
                        @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
@@ -189,6 +175,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+        this.termMap = termMap;
         this.analyzerSelector = analyzerSelector;
         this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
         closed = false;
@@ -400,75 +387,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                 }
 
-                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, query, analyzerSelector, autoCompleteAnalyzerSelector);
+                return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
+                        analyzerSelector, autoCompleteAnalyzerSelector);
             } catch (Exception e) {
                 throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
             }
         }, executor);
-    }
-
-    // Parse the Lucene query to get all the mapping from field to terms
-    private static void getTerms(Query query, Map<String, Set<String>> map) {
-        if (query instanceof BooleanQuery) {
-            BooleanQuery booleanQuery = (BooleanQuery) query;
-            for (BooleanClause clause : booleanQuery.clauses()) {
-                getTerms(clause.getQuery(), map);
-            }
-        } else if (query instanceof TermQuery) {
-            TermQuery termQuery = (TermQuery) query;
-            Term term = termQuery.getTerm();
-            map.putIfAbsent(term.field(), new HashSet<>());
-            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
-        } else if (query instanceof PhraseQuery) {
-            PhraseQuery phraseQuery = (PhraseQuery) query;
-            for (Term term : phraseQuery.getTerms()) {
-                map.putIfAbsent(term.field(), new HashSet<>());
-                map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
-            }
-        } else if (query instanceof MultiPhraseQuery) {
-            MultiPhraseQuery multiPhraseQuery = (MultiPhraseQuery) query;
-            for (Term[] termArray : multiPhraseQuery.getTermArrays()) {
-                for (Term term : termArray) {
-                    map.putIfAbsent(term.field(), new HashSet<>());
-                    map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
-                }
-            }
-        } else if (query instanceof BoostQuery) {
-            BoostQuery boostQuery = (BoostQuery) query;
-            getTerms(boostQuery.getQuery(), map);
-        } else if (query instanceof SynonymQuery) {
-            SynonymQuery synonymQuery = (SynonymQuery)query;
-            for (Term term : synonymQuery.getTerms()) {
-                map.putIfAbsent(term.field(), new HashSet<>());
-                map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
-            }
-        } else if (query instanceof SpanOrQuery) {
-            SpanOrQuery spanOrQuery = (SpanOrQuery)query;
-            for (SpanQuery clause : spanOrQuery.getClauses()) {
-                getTerms(clause, map);
-            }
-        } else if (query instanceof SpanNearQuery) {
-            SpanNearQuery spanNearQuery = (SpanNearQuery)query;
-            for (SpanQuery clause : spanNearQuery.getClauses()) {
-                getTerms(clause, map);
-            }
-        } else if (query instanceof SpanTermQuery) {
-            SpanTermQuery spanTermQuery = (SpanTermQuery)query;
-            Term term = spanTermQuery.getTerm();
-            map.putIfAbsent(term.field(), new HashSet<>());
-            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT));
-        } else if (query instanceof PrefixQuery) {
-            PrefixQuery termQuery = (PrefixQuery) query;
-            Term term = termQuery.getPrefix();
-            map.putIfAbsent(term.field(), new HashSet<>());
-            map.get(term.field()).add(term.text().toLowerCase(Locale.ROOT) + "*");
-        } else if (query instanceof BitSetQuery) {
-            BitSetQuery bitsetQuery = (BitSetQuery)query;
-            String field = bitsetQuery.getField();
-            map.computeIfAbsent(field, key -> new HashSet<>()).add(field.toLowerCase(Locale.ROOT));
-        } else {
-            throw new RecordCoreException("This lucene query is not supported for highlighting");
-        }
     }
 
     /**
@@ -508,19 +432,17 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
 
         private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
-                                   @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters, @Nonnull Query query,
+                                   @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                   @Nullable final Map<String, Set<String>> termMap,
                                    @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
                                    @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
-            this.termMap = new HashMap<>();
+            this.termMap = termMap;
             this.analyzerSelector = analyzerSelector;
             this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
             this.indexKey = index.getRootExpression();
-            if (luceneQueryHighlightParameters != null) {
-                getTerms(query, this.termMap);
-            }
         }
 
         @Override
