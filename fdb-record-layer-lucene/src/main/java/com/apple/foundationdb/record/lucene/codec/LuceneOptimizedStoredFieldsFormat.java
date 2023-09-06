@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -29,7 +31,10 @@ import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
@@ -52,11 +57,14 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
-        return storedFieldsFormat.fieldsWriter(directory, si, context);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = ((FDBDirectory)FilterDirectory.unwrap(directory)).getPrimaryKeySegmentIndex();
+        final StoredFieldsWriter storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+        return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
     }
 
-    private class LazyStoredFieldsReader extends StoredFieldsReader {
+    private class LazyStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
         private Supplier<StoredFieldsReader> storedFieldsReader;
         private boolean initialized;
         private Directory directory;
@@ -113,6 +121,11 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         @Override
         public long ramBytesUsed() {
             return storedFieldsReader.get().ramBytesUsed();
+        }
+
+        @Override
+        public SegmentInfo getSegmentInfo() {
+            return si;
         }
     }
 }

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
@@ -62,6 +64,7 @@ import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
@@ -264,6 +267,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("PMD.CloseResource")
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
+        final DirectoryReader directoryReader = DirectoryReader.open(oldWriter);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey).getPrimaryKeySegmentIndex();
+        if (segmentIndex != null) {
+            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
+            if (documentIndexEntry != null) {
+                state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
+                long valid = oldWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
+                if (valid > 0) {
+                    state.context.increment(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY);
+                    return;
+                }
+            }
+        }
         Query query;
         // null format means don't use BinaryPoint for the index primary key
         if (keySerializer.hasFormat()) {
@@ -281,6 +297,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
         }
         oldWriter.deleteDocuments(query);
+        state.context.increment(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY);
     }
 
     @Nonnull
@@ -435,6 +452,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LOG.trace("performOperation operation={}", operation);
         return CompletableFuture.completedFuture(new IndexOperationResult() {
         });
+    }
+
+    @VisibleForTesting
+    protected FDBDirectory getDirectory(@Nonnull Tuple groupingKey) {
+        return directoryManager.getDirectory(groupingKey);
     }
 
     /**

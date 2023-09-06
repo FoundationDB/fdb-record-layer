@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -66,6 +67,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -100,6 +102,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
@@ -128,6 +131,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -322,6 +326,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS =
             getMapOnValueIndexWithOption("Map_with_auto_complete_excluded_fields$entry-value", ImmutableMap.of());
+
+    private static final Index SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX = new Index("Simple$text_suffixes_pky",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
@@ -1165,6 +1175,63 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
         }
         context.close();
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testSimpleUpdate(boolean primaryKeySegmentIndexEnabled) {
+        final Index index = primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX : SIMPLE_TEXT_SUFFIXES;
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
+                .build();
+        final String[] nums = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
+        for (int i = 0; i < 20; i++) {
+            final int ii = i + 1;
+            try (FDBRecordContext context = openContext(contextProps)) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                final String factors = IntStream.range(1, nums.length)
+                        .filter(n -> ii % n == 0)
+                        .mapToObj(n -> nums[n])
+                        .collect(Collectors.joining(" "));
+                recordStore.saveRecord(createSimpleDocument(1000L + i % 5, factors, null),
+                        i < 5 ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS);
+                context.commit();
+            }
+        }
+
+        if (primaryKeySegmentIndexEnabled) {
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), greaterThan(10));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
+        } else {
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertIndexEntryPrimaryKeys(List.of(1002L), // 18
+                    recordStore.scanIndex(index, fullTextSearch(index, "three"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(1000L, 1004L),  // 16,20
+                    recordStore.scanIndex(index, fullTextSearch(index, "four"), null, ScanProperties.FORWARD_SCAN));
+            assertIndexEntryPrimaryKeys(List.of(),
+                    recordStore.scanIndex(index, fullTextSearch(index, "seven"), null, ScanProperties.FORWARD_SCAN));
+
+            if (primaryKeySegmentIndexEnabled) {
+                // TODO: Is there a more stable way to check this?
+                final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = ((LuceneIndexMaintainer)recordStore.getIndexMaintainer(index))
+                        .getDirectory(Tuple.from())
+                        .getPrimaryKeySegmentIndex();
+                assertEquals(List.of(
+                                List.of(1000L, "_p", 2),
+                                List.of(1001L, "_p", 0),
+                                List.of(1002L, "_n", 0),
+                                List.of(1003L, "_p", 3),
+                                List.of(1004L, "_q", 0)
+                        ),
+                        primaryKeySegmentIndex.readAllEntries());
+            }
+        }
     }
 
     private String matchAll(String... words) {
@@ -2460,7 +2527,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
-            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS));
+            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"));
             if (cleanFiles) {
                 try {
                     directory.deleteFile(file);

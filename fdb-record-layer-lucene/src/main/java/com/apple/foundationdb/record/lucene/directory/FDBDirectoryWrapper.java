@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
@@ -72,7 +73,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey);
+        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey,
+                state.index.getBooleanOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false));
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -145,7 +147,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
-                            .setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
+                            .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
+                            .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(true)
