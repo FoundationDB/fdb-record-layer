@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -65,6 +66,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
     @Test
     void updateProfile() throws IOException {
+        // similar to `update` but for running with the profiler
         DataModel dataModel = new DataModel();
         dataModel.prep();
         final int updatesPerContext = 10;
@@ -94,8 +96,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         final String recordCount = "recordCount";
         final String updateTime = "updateTime";
 
-        try (var csv = new PrintStream(new FileOutputStream(".out/results.csv", true), true);
-             var blockReads = new PrintStream(new FileOutputStream(".out/blockReads.txt", false), true)) {
+        try (var csv = new PrintStream(new FileOutputStream(".out/results.csv", true), true)) {
             List<String> keys = null;
             for (int i = 0; i < 1000; i++) {
                 dataModel.saveNewRecords(100);
@@ -105,7 +106,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     FDBDirectory.blocksRead.clear();
                     FDBDirectory.readStacks.clear();
                     dataModel.updateRecords(updatesPerContext);
-                    dumpBlockReads(dataModel, blockReads);
+                    dumpBlockReads(dataModel);
                 }
                 final Map<String, Number> keysAndValues = timer.getKeysAndValues();
                 logger.info(KeyValueLogMessage.build("Did updates")
@@ -137,23 +138,31 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void dumpBlockReads(final DataModel dataModel, final PrintStream blockReads) {
-        blockReads.println("=====================");
-        blockReads.println("recordCount: " + dataModel.maxDocId);
-        blockReads.println("OutsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
-        blockReads.println("InsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
-        FDBDirectory.blocksRead.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
-                .forEach(entry -> {
-            blockReads.println(entry.getKey() + ": " + entry.getValue());
-        });
-        blockReads.println("OutsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
-        blockReads.println("InsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
-        FDBDirectory.readStacks.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getValue().getInsideCache()))
-                .forEach(entry -> {
-                    blockReads.println("Count: " + entry.getValue());
-                    blockReads.println(entry.getKey());
-                });
+    private static void dumpBlockReads(final DataModel dataModel) throws FileNotFoundException {
+        final int maxDocId = dataModel.maxDocId;
+        if (maxDocId < 10 ||
+            (maxDocId < 100 && maxDocId % 10 == 0) ||
+            (maxDocId < 1000 && maxDocId % 100 == 0) ||
+            (maxDocId % 1000 == 0)) {
+            try (var blockReads = new PrintStream(new FileOutputStream(String.format(".out/blockReads-%06d.txt", maxDocId), false), true)) {
+                blockReads.println("=====================");
+                blockReads.println("recordCount: " + maxDocId);
+                blockReads.println("OutsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
+                blockReads.println("InsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
+                FDBDirectory.blocksRead.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+                        .forEach(entry -> {
+                            blockReads.println(entry.getKey() + ": " + entry.getValue());
+                        });
+                blockReads.println("OutsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
+                blockReads.println("InsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
+                FDBDirectory.readStacks.entrySet().stream()
+                        .sorted(Comparator.comparing(entry -> entry.getValue().getInsideCache()))
+                        .forEach(entry -> {
+                            blockReads.println("Count: " + entry.getValue());
+                            blockReads.println(entry.getKey());
+                        });
+            }
+        }
     }
 
     private class DataModel {
