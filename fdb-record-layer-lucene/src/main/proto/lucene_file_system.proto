@@ -27,8 +27,9 @@ message LuceneFileReference {
   required int64 id = 1;
   required int64 size = 2;
   required int64 block_size = 3;
-  optional bytes segment_info = 4;
-  optional bytes entries = 5;
+  optional bytes segment_info = 4 [deprecated = true];
+  optional bytes entries = 5 [deprecated = true];
   optional int64 actualSize = 6;
-  repeated int64 columnBitSetWords = 7;
+  repeated int64 columnBitSetWords = 7 [deprecated = true];
+  optional bytes content = 9;
 }

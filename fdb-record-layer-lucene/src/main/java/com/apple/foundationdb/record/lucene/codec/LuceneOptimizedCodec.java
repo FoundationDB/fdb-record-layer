@@ -32,8 +32,10 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.SegmentInfoFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.TermVectorsFormat;
+import org.apache.lucene.codecs.lucene60.Lucene60FieldInfosFormat;
 import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
+import org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat;
 import org.apache.lucene.codecs.lucene87.Lucene87Codec;
 import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
@@ -100,13 +102,13 @@ public class LuceneOptimizedCodec extends Codec {
         super("RL");
         baseCodec = new Lucene87Codec(mode);
         compoundFormat = new LuceneOptimizedCompoundFormat();
-        segmentInfoFormat = new LuceneOptimizedSegmentInfoFormat();
+        segmentInfoFormat = new Lucene86SegmentInfoFormat();
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
         defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
-        fieldInfosFormat = new LuceneOptimizedFieldInfosFormat(new LuceneOptimized60FieldInfosFormat());
+        fieldInfosFormat = new Lucene60FieldInfosFormat();
     }
 
 
