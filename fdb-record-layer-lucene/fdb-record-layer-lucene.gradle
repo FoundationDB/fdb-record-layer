@@ -40,7 +40,9 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:${junitVersion}")
     testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
+    testImplementation "org.apache.lucene:lucene-test-framework:${luceneVersion}"
     testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testCompileOnly "com.google.auto.service:auto-service:undefined"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
@@ -73,6 +75,13 @@ def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB
 def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 test {
     useJUnitPlatform {
+        // Used by lucene tests to create Directory objects for testing our codecs
+        systemProperty 'tests.directory', 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
+        // uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
+        // it might differ
+        //systemProperty 'tests.directory', 'org.apache.lucene.store.RAMDirectory'
+        // Uncomment below line to run nightly tests
+        // systemProperty 'tests.nightly', 'true'
         if (skipFDB) {
             excludeTags 'RequiresFDB'
         }
