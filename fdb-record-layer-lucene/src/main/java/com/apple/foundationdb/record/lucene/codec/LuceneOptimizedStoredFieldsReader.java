@@ -61,8 +61,9 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
 
     @Override
     public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
+        final byte[] rawStoredFields = directory.readStoredFields(segmentName, docID);
         List<LuceneStoredFieldsProto.StoredField> storedFieldList =
-                LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(directory.readStoredFields(segmentName, docID)).getStoredFieldsList();
+                LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredFields).getStoredFieldsList();
         for (LuceneStoredFieldsProto.StoredField storedField: storedFieldList) {
             FieldInfo info = fieldInfos.fieldInfo(storedField.getFieldNumber());
             switch (visitor.needsField(info)) {

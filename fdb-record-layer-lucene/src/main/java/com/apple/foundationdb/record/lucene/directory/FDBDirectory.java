@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFor
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -123,14 +125,14 @@ public class FDBDirectory extends Directory  {
     private static final int FIELD_INFOS_SUBSPACE = 5;
     private static final int STORED_FIELDS_SUBSPACE = 6;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
-    private final FDBRecordContext context;
+    protected final FDBRecordContext context;
     @Nonnull
     private final Map<String, String> indexOptions;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
     private final Subspace fieldInfosSubspace;
-    private final Subspace storedFieldsSubspace;
+    protected final Subspace storedFieldsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -518,13 +520,19 @@ public class FDBDirectory extends Directory  {
                         .thenApply(LuceneSerializer::decode));
     }
 
+    @Nonnull
     public byte[] readStoredFields(String segmentName, int docId) throws IOException {
-        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS, readStoredFieldsAsync(segmentName, docId));
-    }
-
-    private CompletableFuture<byte[]> readStoredFieldsAsync(String segmentName, int docID) {
-        return context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
-                context.ensureActive().get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
+        final byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docId));
+        final byte[] rawBytes = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
+                context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
+                        context.ensureActive().get(key)));
+        if (rawBytes == null) {
+            throw new RecordCoreStorageException("Could not find stored fields")
+                    .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
+                    .addLogInfo(LuceneLogMessageKeys.DOC_ID, docId)
+                    .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
+        }
+        return rawBytes;
     }
 
     /**
