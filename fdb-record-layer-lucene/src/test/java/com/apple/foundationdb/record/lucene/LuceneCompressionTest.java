@@ -36,14 +36,12 @@ import org.junit.jupiter.api.Test;
 public class LuceneCompressionTest {
     @Test
     void testEncodingWithoutCompression() throws InvalidProtocolBufferException {
-        final ByteString segmentInfo = ByteString.copyFrom(RandomUtils.nextBytes(100));
-        final ByteString entries = ByteString.copyFrom(RandomUtils.nextBytes(100));
+        final ByteString content = ByteString.copyFrom(RandomUtils.nextBytes(100));
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
                 .setSize(20L)
                 .setBlockSize(10L)
-                .setSegmentInfo(segmentInfo)
-                .setEntries(entries)
+                .setContent(content)
                 .build();
         final byte[] originalValue = reference.toByteArray();
         final byte[] encodedValue = LuceneSerializer.encode(originalValue, true, false);
@@ -62,19 +60,18 @@ public class LuceneCompressionTest {
         Assertions.assertEquals(1, decompressedReference.getId());
         Assertions.assertEquals(20L, decompressedReference.getSize());
         Assertions.assertEquals(10L, decompressedReference.getBlockSize());
-        Assertions.assertEquals(segmentInfo, decompressedReference.getSegmentInfo());
-        Assertions.assertEquals(entries, decompressedReference.getEntries());
+        Assertions.assertEquals(content, decompressedReference.getContent());
     }
 
     @Test
     void testEncodingWithCompression() throws InvalidProtocolBufferException {
         final String duplicateMsg = "abcdefghijklmnopqrstuvwxyz";
+        final String content = "content_" + duplicateMsg + "_" + duplicateMsg;
         final LuceneFileSystemProto.LuceneFileReference reference = LuceneFileSystemProto.LuceneFileReference.newBuilder()
                 .setId(1)
                 .setSize(20L)
                 .setBlockSize(10L)
-                .setSegmentInfo(ByteString.copyFromUtf8("segmentInfo_" + duplicateMsg))
-                .setEntries(ByteString.copyFromUtf8("entries" + duplicateMsg))
+                .setContent(ByteString.copyFromUtf8(content))
                 .build();
         final byte[] value = reference.toByteArray();
         final byte[] encodedValue = LuceneSerializer.encode(value, true, false);
@@ -90,7 +87,6 @@ public class LuceneCompressionTest {
         Assertions.assertEquals(1, decompressedReference.getId());
         Assertions.assertEquals(20L, decompressedReference.getSize());
         Assertions.assertEquals(10L, decompressedReference.getBlockSize());
-        Assertions.assertEquals(ByteString.copyFromUtf8("segmentInfo_" + duplicateMsg), decompressedReference.getSegmentInfo());
-        Assertions.assertEquals(ByteString.copyFromUtf8("entries" + duplicateMsg), decompressedReference.getEntries());
+        Assertions.assertEquals(ByteString.copyFromUtf8(content), decompressedReference.getContent());
     }
 }
