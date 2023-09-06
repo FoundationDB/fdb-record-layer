@@ -6,6 +6,7 @@ import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.compressing.CompressingCodec;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
+import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.BeforeClass;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ import java.util.Random;
 @ThreadLeakFilters(defaultFilters = true, filters = {
         FDBThreadFilter.class
 })
+@TestRuleLimitSysouts.Limit(bytes = 50_000L) // 50k assuming debug logging
 public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
 
     public LuceneOptimizedStoredFieldsFormatTest() {
@@ -67,6 +69,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     }
 
     @Override
+    @Nightly // copied from base implementation, it doesn't appear to be inherited
     public void testRamBytesUsed() throws IOException {
         TestingCodec.setDisableLaziness(true);
         TestFDBDirectory.setFullBufferToSurviveDeletes(true);
