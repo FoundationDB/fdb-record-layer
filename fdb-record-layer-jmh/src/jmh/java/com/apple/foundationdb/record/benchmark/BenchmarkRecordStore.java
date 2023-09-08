@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -164,14 +163,10 @@ public class BenchmarkRecordStore {
         });
     }
 
-    public QueryPlanner planner(@Nonnull BenchmarkTimer timer, boolean cascades) {
+    public QueryPlanner planner(@Nonnull BenchmarkTimer timer) {
         final RecordMetaData recordMetaData = recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
         final RecordStoreState recordStoreState = new RecordStoreState(null, null);
-        if (cascades) {
-            return new CascadesPlanner(recordMetaData, recordStoreState);
-        } else {
-            return new RecordQueryPlanner(recordMetaData, recordStoreState, timer.getTimer());
-        }
+        return new RecordQueryPlanner(recordMetaData, recordStoreState, timer.getTimer());
     }
 
 }

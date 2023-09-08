@@ -27,7 +27,6 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
@@ -43,8 +42,6 @@ import java.util.concurrent.TimeUnit;
  */
 @State(Scope.Benchmark)
 public class PlannerBenchmark {
-    @Param({"false", "true"})
-    public boolean cascades;
 
     @Benchmark
     @BenchmarkMode(Mode.AverageTime)
@@ -54,7 +51,7 @@ public class PlannerBenchmark {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("odd"))
                 .build();
-        final RecordQueryPlan plan = fdb.planner(timer, cascades).plan(query);
+        final RecordQueryPlan plan = fdb.planner(timer).plan(query);
         blackhole.consume(plan);
     }
 

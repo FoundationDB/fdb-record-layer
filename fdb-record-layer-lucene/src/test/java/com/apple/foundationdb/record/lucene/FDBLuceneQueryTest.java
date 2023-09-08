@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -205,19 +204,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useRewritePlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        } else {
-            if (indexTypes == null) {
-                indexTypes = new PlannableIndexTypes(
-                        Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
-                        Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
-                        Sets.newHashSet(IndexTypes.TEXT),
-                        Sets.newHashSet(LuceneIndexTypes.LUCENE)
-                );
-            }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        if (indexTypes == null) {
+            indexTypes = new PlannableIndexTypes(
+                    Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                    Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                    Sets.newHashSet(IndexTypes.TEXT),
+                    Sets.newHashSet(LuceneIndexTypes.LUCENE)
+            );
         }
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
     }
 
     @Override

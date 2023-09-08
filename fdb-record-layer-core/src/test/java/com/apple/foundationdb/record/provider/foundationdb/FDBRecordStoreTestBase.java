@@ -38,9 +38,6 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -72,7 +69,6 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
     protected FDBStoreTimer timer = new FDBStoreTimer();
-    protected boolean useRewritePlanner = false;
     protected QueryPlanner planner;
     protected final KeySpacePath path;
 
@@ -181,22 +177,13 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public void setUseRewritePlanner(boolean useRewritePlanner) {
-        this.useRewritePlanner = useRewritePlanner;
     }
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useRewritePlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-            if (Debugger.getDebugger() == null) {
-                Debugger.setDebugger(new DebuggerWithSymbolTables());
-            }
-            Debugger.setup();
-        } else {
-            if (indexTypes == null) {
-                indexTypes = PlannableIndexTypes.DEFAULT;
-            }
-            planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        if (indexTypes == null) {
+            indexTypes = PlannableIndexTypes.DEFAULT;
         }
+        planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
     }
 
     public void commit(FDBRecordContext context) {

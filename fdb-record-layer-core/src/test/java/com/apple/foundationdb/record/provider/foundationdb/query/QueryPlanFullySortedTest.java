@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 
@@ -57,9 +56,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
             hook.apply(builder);
         }
         metaData = builder.getRecordMetaData();
-        planner = useRewritePlanner ?
-                  new CascadesPlanner(metaData, new RecordStoreState(null, null)) :
-                  new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
+        planner = new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
     }
 
     @DualPlannerTest

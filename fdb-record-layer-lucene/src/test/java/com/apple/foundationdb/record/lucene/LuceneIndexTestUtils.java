@@ -39,15 +39,11 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.Random;
@@ -103,23 +99,16 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
-    static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
-                                                                   final KeySpacePath path,
-                                                                   final String document,
-                                                                   final Index index) {
-        return rebuildIndexMetaData(context, path, document, index, false);
-    }
-
     public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
                                                                           final KeySpacePath path,
                                                                           final String document,
-                                                                          final Index index, boolean useRewritePlanner) {
+                                                                          final Index index) {
         FDBRecordStore store = openRecordStore(context, path, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
 
-        QueryPlanner planner = setupPlanner(store, null, useRewritePlanner);
+        QueryPlanner planner = setupPlanner(store);
         return Pair.of(store, planner);
     }
 
@@ -146,26 +135,15 @@ public class LuceneIndexTestUtils {
                 .setMetaDataProvider(metaData);
     }
 
-    static QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore,
-                                     @Nullable PlannableIndexTypes indexTypes, boolean useRewritePlanner) {
+    static QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore) {
         QueryPlanner planner;
-        if (useRewritePlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-            if (Debugger.getDebugger() == null) {
-                Debugger.setDebugger(new DebuggerWithSymbolTables());
-            }
-            Debugger.setup();
-        } else {
-            if (indexTypes == null) {
-                indexTypes = new PlannableIndexTypes(
-                        Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
-                        Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
-                        Sets.newHashSet(IndexTypes.TEXT),
-                        Sets.newHashSet(LuceneIndexTypes.LUCENE)
-                );
-            }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
-        }
+        PlannableIndexTypes indexTypes = new PlannableIndexTypes(
+                Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                Sets.newHashSet(IndexTypes.TEXT),
+                Sets.newHashSet(LuceneIndexTypes.LUCENE)
+        );
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         return planner;
     }
 

@@ -28,13 +28,11 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
-import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
-import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
@@ -194,7 +192,7 @@ import java.util.function.Supplier;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public class CascadesPlanner implements QueryPlanner {
+public class CascadesPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
 
@@ -233,22 +231,13 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
 
     @Nonnull
-    @Override
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
-    }
-
-    @Override
-    public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
-        configuration = this.configuration.asBuilder()
-                .setIndexScanPreference(indexScanPreference)
-                .build();
     }
 
     /**
@@ -287,12 +276,10 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
     }
 
-    @Override
     public void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }
@@ -307,33 +294,6 @@ public class CascadesPlanner implements QueryPlanner {
 
     private boolean isMaxNumMatchesPerRuleCallExceeded(final RecordQueryPlannerConfiguration configuration, final int numMatches) {
         return ((configuration.getMaxNumMatchesPerRuleCall() > 0) && (numMatches > configuration.getMaxNumMatchesPerRuleCall()));
-    }
-
-    @Nonnull
-    @Override
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        RecordQueryPlan plan = plan(query, parameterRelationshipGraph);
-        final var constraints = QueryPlanConstraint.collectConstraints(plan);
-        QueryPlanInfo info = QueryPlanInfo.newBuilder()
-                .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
-                .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
-                .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
-                .build();
-        return new QueryPlanResult(plan, info);
-    }
-
-    @Nonnull
-    @Override
-    public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        try {
-            planPartial(() -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(metaData, query)),
-                    rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query),
-                    EvaluationContext.empty());
-            return resultOrFail();
-        } finally {
-            Debugger.withDebugger(Debugger::onDone);
-        }
-
     }
 
     @Nonnull
