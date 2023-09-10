@@ -217,9 +217,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 .addKeysAndValues(additionalKeysAndValues)
                 .addKeyAndValue(RECORD_COUNT_COLUMN, dataModel.maxDocId)
                 .toString());
-        if (!dataModel.continuing) {
-            csvPrintStream.println(String.join(",", CSV_COLUMNS));
-        }
 
         for (final String key : CSV_COLUMNS) {
             if (Objects.equals(key, RECORD_COUNT_COLUMN)) {
@@ -236,7 +233,20 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private static PrintStream createPrintStream(final String name, final boolean append) throws FileNotFoundException {
-        return new PrintStream(new FileOutputStream(name, append), true);
+        final PrintStream printStream = new PrintStream(new FileOutputStream(name, append), true);
+
+        boolean success = false;
+        try {
+            if (!append) {
+                printStream.println(String.join(",", CSV_COLUMNS));
+            }
+            success = true;
+        } finally {
+            if (!success) {
+                printStream.close();
+            }
+        }
+        return printStream;
     }
 
     private static void dumpBlockReads(final DataModel dataModel) throws FileNotFoundException {
