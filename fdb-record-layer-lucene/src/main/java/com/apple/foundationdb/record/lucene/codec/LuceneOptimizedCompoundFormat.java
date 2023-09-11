@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
@@ -35,7 +33,7 @@ import java.util.stream.Collectors;
 
 /**
  * Wrapper for the {@link Lucene50CompoundFormat} to optimize compound files for sitting on FoundationDB.
- * In contrast to {@link Lucene50CompoundFormat}, this wrapper uses {@link LuceneOptimizedWrappedDirectory}
+ * In contrast to {@link Lucene50CompoundFormat}, this wrapper strips the .si from the list of files (?)
  * as the {@link Directory} for read/write of compound file.
  */
 public class LuceneOptimizedCompoundFormat extends CompoundFormat {
@@ -58,22 +56,18 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
 
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
-        dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
-        return new LuceneOptimizedCompoundReader(dir, si);
+        return new LuceneOptimizedCompoundReader(dir, si, context);
     }
 
     @Override
     public void write(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
-        si.files().stream().forEach(file -> {
-            try {
-                dir.openInput(file, IOContext.READONCE);
-            } catch (IOException ioe) {
-                throw new RecordCoreArgumentException("Cannot open input for file", ioe)
-                        .addLogInfo(LogMessageKeys.SOURCE_FILE, file);
-            }
-        });
-        compoundFormat.write(new LuceneOptimizedWrappedDirectory(dir), si, context);
+        for (String s : si.files()) {
+            dir.openInput(s, IOContext.READONCE)
+                    // even though we're not interacting with them, make sure we close the file
+                    .close();
+        }
+        compoundFormat.write(dir, si, context);
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
         si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
     }
