@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
@@ -37,7 +35,6 @@ import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 /**
  * This class provides a Lazy reader implementation to limit the amount of
@@ -70,20 +67,11 @@ public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
     }
 
     private class LazyDocValuesProducer extends DocValuesProducer {
-        private Supplier<DocValuesProducer> docValuesProducer;
+        private final LazyCloseable<DocValuesProducer> docValuesProducer;
 
-        private boolean initialized;
 
         public LazyDocValuesProducer(SegmentReadState state) {
-            docValuesProducer = Suppliers.memoize(() -> {
-                try {
-                    return docValuesFormat.fieldsProducer(state);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                } finally {
-                    initialized = true;
-                }
-            });
+            docValuesProducer = LazyCloseable.supply(() -> docValuesFormat.fieldsProducer(state));
         }
 
         @Override
@@ -120,14 +108,12 @@ public class LuceneOptimizedDocValuesFormat extends DocValuesFormat {
 
         @Override
         public void close() throws IOException {
-            if (initialized) { // Needed to not fetch data...
-                docValuesProducer.get().close();
-            }
+            docValuesProducer.close();
         }
 
         @Override
         public long ramBytesUsed() {
-            return docValuesProducer.get().ramBytesUsed();
+            return docValuesProducer.getUnchecked().ramBytesUsed();
         }
     }
 
