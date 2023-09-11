@@ -1,0 +1,83 @@
+package com.apple.foundationdb.record.lucene.codec;
+
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
+import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.compressing.CompressingCodec;
+import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
+import org.apache.lucene.util.TestRuleLimitSysouts;
+import org.junit.BeforeClass;
+
+import java.io.IOException;
+import java.util.Random;
+
+// Tip: if you see a failure that has something like:
+// 	at __randomizedtesting.SeedInfo.seed([C185081D42F0F43C]:0)
+// or
+// 	at __randomizedtesting.SeedInfo.seed([C185081D42F0F43C:33261A5D888FEB6A]:0)
+// You can add
+// @Seed("C185081D42F0F43C")
+// to rerun the test class with the same seed. That will work even if you then only run one of the tests
+@ThreadLeakFilters(defaultFilters = true, filters = {
+        FDBThreadFilter.class
+})
+@TestRuleLimitSysouts.Limit(bytes = 50_000L) // 50k assuming debug logging
+public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
+
+    public LuceneOptimizedStoredFieldsFormatTest() {
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.getDatabase();
+    }
+
+    @BeforeClass
+    public static void beforeClass() throws Exception {
+        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
+        // but that class is JUnit4
+        FDBTestBase.initFDB();
+        FDBTestBase.setupBlockingInAsyncDetection();
+    }
+
+    @Override
+    protected Codec getCodec() {
+        if (System.getProperty("tests.directory", "random").equals(TestFDBDirectory.class.getName())) {
+            return new TestingCodec();
+        } else {
+            return CompressingCodec.randomInstance(new Random());
+        }
+    }
+
+    @Override
+    public void testNumericField() throws Exception {
+        TestingCodec.setDisableLaziness(true);
+        try {
+            super.testNumericField();
+        } finally {
+            TestingCodec.setDisableLaziness(false);
+        }
+    }
+
+    @Override
+    public void testRandomExceptions() throws Exception {
+        // Failed due to UncheckedIOException with @Seed("6EA33D597F925691")
+        TestingCodec.setDisableLazinessForLiveDocs(true);
+        try {
+            super.testRandomExceptions();
+        } finally {
+            TestingCodec.setDisableLazinessForLiveDocs(false);
+        }
+    }
+
+    @Override
+    @Nightly // copied from base implementation, it doesn't appear to be inherited
+    public void testRamBytesUsed() throws IOException {
+        TestingCodec.setDisableLaziness(true);
+        TestFDBDirectory.setFullBufferToSurviveDeletes(true);
+        try {
+            super.testRamBytesUsed();
+        } finally {
+            TestFDBDirectory.setFullBufferToSurviveDeletes(false);
+            TestingCodec.setDisableLaziness(false);
+        }
+    }
+}
