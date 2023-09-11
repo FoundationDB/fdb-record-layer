@@ -390,7 +390,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
                         analyzerSelector, autoCompleteAnalyzerSelector);
             } catch (Exception e) {
-                throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
+                throw new RecordCoreException("Failed to get document", e)
+                        .addLogInfo("currentPosition", currentPosition);
             }
         }, executor);
     }
