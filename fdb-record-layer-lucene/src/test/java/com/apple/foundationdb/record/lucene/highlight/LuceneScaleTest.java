@@ -97,6 +97,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
     }
 
+    @Override
+    protected void clear() {
+//        super.clear();
+    }
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -136,6 +140,13 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 .addKeyAndValue("updateBatches", updateBatches)
                 .addKeyAndValue(recordCount, dataModel.maxDocId)
                 .toString());
+    }
+
+    @Test
+    void runOneInsert() {
+        DataModel dataModel = new DataModel();
+        dataModel.prep();
+        dataModel.saveNewRecords(1);
     }
 
     @Test

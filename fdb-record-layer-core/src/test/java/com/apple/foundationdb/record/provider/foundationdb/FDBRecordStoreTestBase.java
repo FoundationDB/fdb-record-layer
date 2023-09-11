@@ -148,7 +148,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         COUNT_UPDATES_INDEX.setLastModifiedVersion(0);
     }
 
-    private void clear() {
+    protected void clear() {
         fdb.run(timer, null, context -> {
             path.deleteAllData(context);
             return null;
