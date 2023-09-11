@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.411.0
+
+
 ### 3.3.410.0
 
 * **Bug fix** segregate different types of lucene querying [(Issue #2276)](https://github.com/FoundationDB/fdb-record-layer/issues/2276)
