@@ -189,7 +189,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
         @Nonnull
         @Override
-        public boolean canBePromotedToType(@Nonnull final Type type) {
+        public boolean canResultInType(@Nonnull final Type type) {
             if (!getChildren().isEmpty()) {
                 return false;
             }
@@ -198,7 +198,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
         @Nonnull
         @Override
-        public Value promoteToType(@Nonnull final Type type) {
+        public Value with(@Nonnull final Type type) {
             Verify.verify(getChildren().isEmpty());
             return emptyArray(type); // only empty arrays are currently promotable
         }

@@ -143,7 +143,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
-    public Value promoteToType(@Nonnull final Type type) {
+    public Value with(@Nonnull final Type type) {
         return QuantifiedObjectValue.of(getAlias(), type);
     }
 

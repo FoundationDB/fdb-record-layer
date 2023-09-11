@@ -116,7 +116,7 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public boolean canBePromotedToType(@Nonnull final Type type) {
+    public boolean canResultInType(@Nonnull final Type type) {
         if (!type.isNullable()) {
             return false;
         }
@@ -125,7 +125,7 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public Value promoteToType(@Nonnull final Type type) {
+    public Value with(@Nonnull final Type type) {
         Verify.verify(type.isNullable());
         return new NullValue(type);
     }

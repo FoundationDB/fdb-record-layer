@@ -249,6 +249,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         if (inType.equals(promoteToType)) {
             return inValue;
         }
+        if (inValue.canResultInType(promoteToType)) {
+            return inValue.with(promoteToType);
+        }
         final var promotionTrie = computePromotionsTrie(promoteToType, inType, null);
         return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
