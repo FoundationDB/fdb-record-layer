@@ -143,16 +143,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         DataModel dataModel = new DataModel();
         dataModel.prep();
         final int updatesPerContext = 10;
-        final int updateBatches = 100;
+        final int operationCount = 10;
 
-        // TODO do all three operations:
-        // 1. at prep get a handful of random words from the existing dataset and maintain them
-        // 2. After every 100 records: do
-        //    a) save 10 records
-        //    b) update 10 records
-        //    c) do 10 searhes for words in the existing records
-        // 3. When saving records update list of existing words
-        // 4. record stats in 3 different csv files
         try (var updatesCsv = createPrintStream(".out/LuceneScaleTest.updates.csv", dataModel.continuing);
              var insertsCsv = createPrintStream(".out/LuceneScaleTest.inserts.csv", dataModel.continuing);
              var searchesCsv = createPrintStream(".out/LuceneScaleTest.searches.csv", dataModel.continuing)) {
@@ -169,29 +161,29 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 if (doInsert) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
-                    for (int j = 0; j < 10; j++) {
+                    for (int j = 0; j < operationCount; j++) {
                         clearBlockReads();
                         dataModel.saveNewRecord();
-                        // TODO dumpBlockReads
+                        dumpBlockReads(dataModel);
                     }
                     updateCsv("Did insert", dataModel, insertsCsv, startMillis, Map.of());
                 }
                 if (doUpdate) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
-                    for (int j = 0; j < updateBatches; j++) {
+                    for (int j = 0; j < operationCount; j++) {
                         clearBlockReads();
                         dataModel.updateRecords(updatesPerContext);
-                        dumpBlockReads(dataModel);
+                        //dumpBlockReads(dataModel);
                     }
                     updateCsv("Did updates", dataModel, updatesCsv, startMillis,
                             Map.of("updatesPerContext", updatesPerContext,
-                                    "updateBatches", updateBatches));
+                                    "updateBatches", operationCount));
                 }
                 if (doSearch) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
-                    for (int j = 0; j < 10; j++) {
+                    for (int j = 0; j < operationCount; j++) {
                         clearBlockReads();
                         dataModel.search();
                         // TODO dump block reads
