@@ -694,4 +694,38 @@ public class PreparedStatementTests {
             }
         }
     }
+
+    @Test
+    void setNull() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, ?), (11, ?named), (12, ?)")) {
+                statement.setNull(1, Types.NULL);
+                statement.setNull("named", Types.NULL);
+                statement.setString(2, "not null");
+                Assertions.assertThat(statement.executeUpdate()).isEqualTo(3);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT rest_no, name FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("name", null)
+                            .hasNextRow().hasColumn("name", null)
+                            .hasNextRow().hasColumn("name", "not null")
+                            .hasNoNextRow();
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantComplexRecord set name = ? where name is not null")) {
+                statement.setNull(1, Types.NULL);
+                Assertions.assertThat(statement.executeUpdate()).isEqualTo(1);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT rest_no, name FROM RestaurantComplexRecord")) {
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("name", null)
+                            .hasNextRow().hasColumn("name", null)
+                            .hasNextRow().hasColumn("name", null)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
 }

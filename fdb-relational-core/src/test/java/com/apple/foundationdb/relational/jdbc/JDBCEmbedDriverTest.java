@@ -104,12 +104,13 @@ public class JDBCEmbedDriverTest {
                         "/test_schema\" with template test_template"));
                 // Call some of the statement methods for the sake of exercising coverage.
                 Assertions.assertNull(statement.getWarnings());
-                try (RelationalResultSet resultSet = statement.executeQuery("select * from databases;")
+                try (RelationalResultSet resultSet = statement.executeQuery("select * from databases where database_id = '" + TESTDB + "'")
                         .unwrap(RelationalResultSet.class)) {
                     checkSelectStarFromDatabasesResultSet(resultSet);
                 }
                 try (RelationalPreparedStatement preparedStatement = connection
-                        .prepareStatement("select * from databases;").unwrap(RelationalPreparedStatement.class)) {
+                        .prepareStatement("select * from databases where database_id = ?;").unwrap(RelationalPreparedStatement.class)) {
+                    preparedStatement.setString(1, TESTDB);
                     try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         checkSelectStarFromDatabasesResultSet(resultSet);
                     }
@@ -150,9 +151,6 @@ public class JDBCEmbedDriverTest {
         Assertions.assertTrue(resultSet.next());
         Assertions.assertEquals(TESTDB, resultSet.getString(1));
         Assertions.assertEquals(TESTDB, resultSet.getString(columnName));
-        Assertions.assertTrue(resultSet.next());
-        Assertions.assertEquals(SYSDBPATH, resultSet.getString(1));
-        Assertions.assertEquals(SYSDBPATH, resultSet.getString(columnName));
         Assertions.assertFalse(resultSet.next());
     }
 }

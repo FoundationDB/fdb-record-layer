@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
@@ -69,7 +70,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -947,8 +947,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final Value value = column.getValue();
         final var resultType = value.getResultType();
         if (resultType.isUnresolved()) {
-            Preconditions.checkArgument(value.canBePromotedToType(targetType));
-            return Column.of(Type.Record.Field.of(targetType, column.getField().getFieldNameOptional()), value.promoteToType(targetType));
+            return Column.of(Type.Record.Field.of(targetType, column.getField().getFieldNameOptional()), PromoteValue.inject(value, targetType));
         }
         return column;
     }

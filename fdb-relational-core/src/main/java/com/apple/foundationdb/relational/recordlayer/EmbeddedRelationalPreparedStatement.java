@@ -186,6 +186,18 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
+    public void setNull(int parameterIndex, int sqlType) throws SQLException {
+        checkOpen();
+        parameters.put(parameterIndex, null);
+    }
+
+    @Override
+    public void setNull(String parameterName, int sqlType) throws SQLException {
+        checkOpen();
+        namedParameters.put(parameterName, null);
+    }
+
+    @Override
     PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException {
         return PlanContext.Builder.create()
                 .fromRecordStore(store)
