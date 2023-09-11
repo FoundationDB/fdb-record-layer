@@ -38,6 +38,7 @@ dependencies {
     testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     testRuntimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 
+    testImplementation("com.sun.mail:javax.mail:${javaxMail}")
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:${junitVersion}")
@@ -89,6 +90,27 @@ test {
             excludeTags 'Slow'
         }
     }
+}
+
+def mail_files = ['mail_test_data.zip']
+
+task downloadEmail(type: de.undercouch.gradle.tasks.download.Download) {
+    src mail_files.collect { file -> "https://fdb-record-layer.s3.amazonaws.com/email/${file}" }
+    dest "${buildDir}/resources"
+    overwrite false         // Don't need the very latest.
+}
+
+task unzipEmail(dependsOn: downloadEmail, type: Copy) {
+    into "${buildDir}/resources"
+    mail_files.each { file ->
+        if (file.endsWith('.zip')) {
+            from zipTree(new File("${buildDir}/resources", file))
+        }
+    }
+}
+
+if (!skipSlow) {
+    test.dependsOn unzipEmail
 }
 
 publishing {

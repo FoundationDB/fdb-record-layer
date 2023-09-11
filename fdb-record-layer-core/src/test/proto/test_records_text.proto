@@ -71,6 +71,7 @@ message RecordTypeUnion {
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
     optional ManyFieldsDocument _ManyFieldsDocument = 5;
+    optional Email _Email = 6;
 }
 
 message NestedMapDocument {
@@ -121,4 +122,22 @@ message ManyFieldsDocument {
     optional bool bool7 = 29;
     optional bool bool8 = 30;
     optional bool bool9 = 31;
+}
+
+message Email {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    message MailHeader {
+        required string key = 1;
+        required string value = 2;
+    }
+    repeated MailHeader header = 2;
+    required string mailbox = 3;
+    required string flags = 4;
+    required string body = 5;
+    required int64 sequence = 6;
+    required bool isSeen = 7;
+    required bool isDeleted = 8;
+    required bool isExpunged = 9;
+    required int64 date = 10;
+    required string headerAsBlob = 11;
 }
