@@ -89,7 +89,7 @@ public class LiteralsUtils {
         if (type != null) {
             Assert.thatUnchecked(type.equals(resolvedType));
         }
-        for (final Object o: arrayElements) {
+        for (final Object o : arrayElements) {
             processPreparedStatementParameter(o, resolvedType.getElementType(), context);
         }
         context.finishArrayLiteral();

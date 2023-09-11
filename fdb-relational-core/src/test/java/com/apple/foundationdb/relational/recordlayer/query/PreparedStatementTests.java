@@ -412,7 +412,7 @@ public class PreparedStatementTests {
 
     @Test
     void prepareUpdateWithStruct() throws Exception {
-        final var statsAttributes = new Object[]{ 3L, "c", "d"};
+        final var statsAttributes = new Object[]{3L, "c", "d"};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantReviewer(id, stats) VALUES (1, (2, 'a', 'b')), (2, (3, 'b', 'c')), (3, (4, 'c', 'd')), (4, (5, 'd', 'e')), (5, (6, 'e', 'f'))");
@@ -456,7 +456,7 @@ public class PreparedStatementTests {
             final var query = "UPDATE RestaurantComplexRecord SET location = ?param WHERE rest_no = 1 RETURNING location";
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
                 final var latLong = ddl.getConnection().createStruct("LATLONG", attributes);
-                final var location = ddl.getConnection().createStruct("LOCATION", new Object[] {"next door", 217, latLong});
+                final var location = ddl.getConnection().createStruct("LOCATION", new Object[]{"next door", 217, latLong});
                 ps.setObject("param", location);
                 if (succeed) {
                     final var expectedLatLong = new ImmutableRowStruct(new ArrayRow(100.00, 200.00), new RelationalStructMetaData(
@@ -484,7 +484,7 @@ public class PreparedStatementTests {
     // owing to: TODO (Fix coerceArray for primitive element type arrays)
     @Test
     void prepareUpdateWithArrayOfPrimitives() throws Exception {
-        final var customerAttributes = new Object[] {"george", "adam", "billy"};
+        final var customerAttributes = new Object[]{"george", "adam", "billy"};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
@@ -513,7 +513,7 @@ public class PreparedStatementTests {
     // owing to: TODO (Array parameter in Relational does not work with nested types)
     @Test
     void prepareUpdateWithArrayOfStructs() throws Exception {
-        final var restaurantTagAttributes = new Object[][] {{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
+        final var restaurantTagAttributes = new Object[][]{{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");

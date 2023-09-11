@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -42,7 +43,6 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
@@ -261,8 +261,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
         int nextFieldIndex = 0;
-        final var fieldDescriptions = new ArrayList<FieldDescription>();
-        for (var atr: attributes) {
+        final var fieldDescriptions = new ArrayList<>();
+        for (var atr : attributes) {
             final var fieldName = "f" + nextFieldIndex++;
             final int typeCode = SqlTypeSupport.getSqlTypeCodeFromObject(atr);
             switch (typeCode) {

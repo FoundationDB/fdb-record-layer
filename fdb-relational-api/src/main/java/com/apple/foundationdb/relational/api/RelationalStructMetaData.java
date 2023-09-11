@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;

@@ -150,7 +150,7 @@ public final class SqlTypeSupport {
     @Nonnull
     public static Type.Record structMetadataToRecordType(@Nonnull StructMetaData metaData, boolean isNullable) {
         final var fields = ((RelationalStructMetaData) metaData)
-                        .getFields().stream()
+                .getFields().stream()
                 .map(SqlTypeSupport::descriptionToField)
                 .collect(Collectors.toList());
         return Type.Record.fromFields(isNullable, fields);
