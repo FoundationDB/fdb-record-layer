@@ -70,7 +70,8 @@ public enum LuceneLogMessageKeys {
     SEEK_NUM,
 
     //Lucene component
-    COMPONENT;
+    COMPONENT,
+    NAME;
 
     private final String logKey;
 

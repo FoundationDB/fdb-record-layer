@@ -20,15 +20,23 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -67,9 +75,27 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     // even though we're not interacting with them, make sure we close the file
                     .close();
         }
-        compoundFormat.write(dir, si, context);
+        // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
+        // everything to be a "proper" index format, but for FieldInfos it is just a long.
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
-        si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
+        // TODO confirm whether we even need to strip out the .cfs from the SI
+        final Set<String> filesForAfter = si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet());
+        final Map<Boolean, Set<String>> files = si.files().stream()
+                .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
+        si.setFiles(files.getOrDefault(false, Set.of()));
+        if (files.getOrDefault(true, Set.of()).size() != 1) {
+            throw new RecordCoreException("Segment has wrong number of FieldInfos")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
+        }
+        final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
+        compoundFormat.write(dir, si, context);
+        si.setFiles(filesForAfter);
+        try (IndexInput fieldInfosInput = dir.openInput(List.copyOf(files.get(true)).get(0), context)) {
+            final long fieldInfosId = fieldInfosInput.readLong();
+            String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+            directory.setFieldInfoId(entriesFile, fieldInfosId);
+        }
+
     }
 
 }
