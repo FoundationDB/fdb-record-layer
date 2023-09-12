@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -44,6 +45,9 @@ public class FDBDirectorySharedCache {
     private final long sequenceNumber;
     @Nonnull
     private final AtomicReference<Map<String, FDBLuceneFileReference>> fileReferences;
+
+    @Nonnull
+    private AtomicReference<Map<Long, AtomicInteger>> fieldInfosReferenceCount = new AtomicReference<>();
     @Nonnull
     private final Cache<Pair<Long, Integer>, byte[]> blocks;
 
@@ -115,5 +119,13 @@ public class FDBDirectorySharedCache {
      */
     public void putBlockIfAbsent(long id, int blockNumber, @Nonnull byte[] block) {
         blocks.asMap().putIfAbsent(Pair.of(id, blockNumber), block);
+    }
+
+    public void setFieldInfosReferenceCount(final Map<Long, AtomicInteger> fieldInfosReferenceCount) {
+        this.fieldInfosReferenceCount.compareAndSet(null, fieldInfosReferenceCount);
+    }
+
+    public Map<Long, AtomicInteger> getFieldInfosReferenceCount() {
+        return this.fieldInfosReferenceCount.get();
     }
 }
