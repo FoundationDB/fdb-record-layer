@@ -134,13 +134,16 @@ public class FDBDirectory extends Directory  {
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
+    @SuppressWarnings("Unused") // preserved to document that this is reserved
     private static final int SCHEMA_SUBSPACE = 3;
+    private static final int FIELD_INFO_SUBSPACE = 4;
     public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
+    private final Subspace fieldInfosSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -208,6 +211,7 @@ public class FDBDirectory extends Directory  {
         this.sequenceSubspaceKey = sequenceSubspace.pack();
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
+        this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFO_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -302,6 +306,25 @@ public class FDBDirectory extends Directory  {
     public FDBLuceneFileReference getFDBLuceneFileReference(@Nonnull final String name) {
         return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
+
+    public void writeFieldInfo(String segment_name, byte[] value) {
+        byte[] key = fieldInfosSubspace.pack(segment_name);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene stored fields data",
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+        }
+        context.ensureActive().set(key, value);
+    }
+
+    public byte[] readFieldInfo(String segment_name) {
+        return context.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                context.ensureActive().get(fieldInfosSubspace.pack(segment_name)));
+    }
+
 
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)

@@ -139,8 +139,8 @@ public class LuceneEvents {
         /** Wait for lucene to load the file cache. */
         WAIT_LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
         /** Create a file from FDBDirectory. */
-        WAIT_LUCENE_CREATE_OUTPUT("lucene create output")
-        ;
+        WAIT_LUCENE_CREATE_OUTPUT("lucene create output"),
+        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos");
 
         private final String title;
         private final String logKey;

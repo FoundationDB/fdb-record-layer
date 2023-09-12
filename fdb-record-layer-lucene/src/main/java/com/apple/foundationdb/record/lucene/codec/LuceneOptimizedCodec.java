@@ -32,7 +32,6 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.SegmentInfoFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.TermVectorsFormat;
-import org.apache.lucene.codecs.lucene60.Lucene60FieldInfosFormat;
 import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
 import org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat;
@@ -108,7 +107,7 @@ public class LuceneOptimizedCodec extends Codec {
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
         storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
-        fieldInfosFormat = new Lucene60FieldInfosFormat();
+        fieldInfosFormat = new LuceneOptimizedFieldInfosFormat();
     }
 
 
