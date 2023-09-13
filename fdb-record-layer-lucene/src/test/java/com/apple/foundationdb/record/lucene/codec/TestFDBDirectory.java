@@ -4,10 +4,11 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.ByteBuffersDataInput;
+import org.apache.lucene.store.ByteBuffersDataOutput;
 import org.apache.lucene.store.ByteBuffersIndexInput;
+import org.apache.lucene.store.ByteBuffersIndexOutput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -93,48 +94,46 @@ public class TestFDBDirectory extends FDBDirectory {
     @Nonnull
     @Override
     public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
-        final IndexInput indexInput = super.openInput(name, ioContext);
         if (fullBufferToSurviveDeletes) {
-            assertThat("Avoid buffering more than 10MB",
-                    indexInput.length(), Matchers.lessThan(10_000_000L));
-            final byte[] bytes = new byte[(int)indexInput.length()];
-            indexInput.readBytes(bytes, 0, (int)indexInput.length());
-            indexInput.close();
-            return new ByteBuffersIndexInput(new ByteBuffersDataInput(List.of(ByteBuffer.wrap(bytes))), name);
+            try (IndexInput indexInput = super.openInput(name, ioContext)) {
+                assertThat("Avoid buffering more than 10MB",
+                        indexInput.length(), Matchers.lessThan(10_000_000L));
+                final byte[] bytes = new byte[(int)indexInput.length()];
+                indexInput.readBytes(bytes, 0, (int)indexInput.length());
+                return new ByteBuffersIndexInput(new ByteBuffersDataInput(List.of(ByteBuffer.wrap(bytes))), name);
+            }
         }
         if (allowAddIndexes) {
-            if (FDBDirectory.isSegmentInfo(name)) {
+            if (FDBDirectory.isFieldInfoFile(name)) {
                 if (isInIndexWriterAddIndexes()) {
-                    // Note: this assumes there is no segmentSuffix, that might not work
-                    fieldInfosToCopy = readFieldInfo(getFieldInfosName(name));
-                    MatcherAssert.assertThat(fieldInfosToCopy, Matchers.notNullValue());
+                    try (IndexInput fieldInfoInput = super.openInput(name, ioContext)) {
+                        fieldInfosToCopy = readFieldInfo(fieldInfoInput.readLong());
+                        MatcherAssert.assertThat(fieldInfosToCopy, Matchers.notNullValue());
+                    }
                 }
             }
         }
-        return indexInput;
+        return super.openInput(name, ioContext);
     }
 
     @Nonnull
     @Override
-    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
-        final IndexOutput indexOutput = super.createOutput(name, ioContext);
+    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) throws IOException {
         if (allowAddIndexes) {
-            if (FDBDirectory.isSegmentInfo(name)) {
+            if (FDBDirectory.isFieldInfoFile(name)) {
                 if (isInIndexWriterAddIndexes()) {
                     MatcherAssert.assertThat(fieldInfosToCopy, Matchers.notNullValue());
-                    writeFieldInfo(getFieldInfosName(name), fieldInfosToCopy);
+                    try (IndexOutput indexOutput = super.createOutput(name, ioContext)) {
+                        final long id = writeFieldInfo(fieldInfosToCopy);
+                        indexOutput.writeLong(id);
+                    }
                     fieldInfosToCopy = null;
+                    return new ByteBuffersIndexOutput(new ByteBuffersDataOutput(8), name, name);
                 }
             }
 
         }
-        return indexOutput;
-    }
-
-    @Nonnull
-    private static String getFieldInfosName(final @Nonnull String segmentInfoName) {
-        return IndexFileNames.segmentFileName(IndexFileNames.parseSegmentName(segmentInfoName),
-                "", LuceneOptimizedFieldInfosFormat.EXTENSION);
+        return super.createOutput(name, ioContext);
     }
 
     private static boolean isInIndexWriterAddIndexes() {

@@ -20,15 +20,22 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -67,9 +74,27 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     // even though we're not interacting with them, make sure we close the file
                     .close();
         }
-        compoundFormat.write(dir, si, context);
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
-        si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
+        final Set<String> filesForAfter = si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet());
+        final Map<Boolean, Set<String>> files = si.files().stream()
+                .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
+        si.setFiles(files.getOrDefault(false, Set.of()));
+        if (files.getOrDefault(true, Set.of()).size() != 1) {
+            throw new RecordCoreException("Segment has wrong number of FieldInfos")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
+        }
+        compoundFormat.write(dir, si, context);
+        si.setFiles(filesForAfter);
+        for (final String name : si.files()) {
+            if (FDBDirectory.isFieldInfoFile(name)) {
+                try (IndexInput fieldInfosInput = dir.openInput(name, context)) {
+                    final long fieldInfosId = fieldInfosInput.readLong();
+                    String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+                    ((FDBDirectory)FilterDirectory.unwrap(dir)).setFieldInfoId(entriesFile, fieldInfosId);
+                }
+            }
+
+        }
     }
 
 }

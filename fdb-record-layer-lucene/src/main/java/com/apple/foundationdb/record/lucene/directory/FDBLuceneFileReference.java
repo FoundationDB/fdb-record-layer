@@ -43,6 +43,8 @@ public class FDBLuceneFileReference {
     @Nonnull
     private final ByteString content;
 
+    private long fieldInfosId;
+
     @SuppressWarnings("deprecation")
     private static ByteString getContentFromProto(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         if (protoMessage.getColumnBitSetWordsCount() != 0 || protoMessage.hasEntries() || protoMessage.hasSegmentInfo()) {
@@ -54,24 +56,26 @@ public class FDBLuceneFileReference {
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
-                getContentFromProto(protoMessage));
+                getContentFromProto(protoMessage), protoMessage.getFieldInfosId());
     }
 
     public FDBLuceneFileReference(final long id, final byte[] content) {
-        this(id, content.length, 1, content.length, ByteString.copyFrom(content));
+        this(id, content.length, 1, content.length, ByteString.copyFrom(content), 0);
     }
 
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, ByteString.EMPTY);
+        this(id, size, actualSize, blockSize, ByteString.EMPTY, 0);
     }
 
-    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize, @Nonnull ByteString content) {
+    private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize,
+                                   @Nonnull ByteString content, final long fieldInfosId) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
         this.blockSize = blockSize;
         this.content = content;
+        this.fieldInfosId = fieldInfosId;
     }
 
     public long getId() {
@@ -119,5 +123,13 @@ public class FDBLuceneFileReference {
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("Invalid bytes for parsing of lucene file reference", ex);
         }
+    }
+
+    public void setFieldInfosId(long fieldInfosId) {
+        this.fieldInfosId = fieldInfosId;
+    }
+
+    public long getFieldInfosId() {
+        return fieldInfosId;
     }
 }

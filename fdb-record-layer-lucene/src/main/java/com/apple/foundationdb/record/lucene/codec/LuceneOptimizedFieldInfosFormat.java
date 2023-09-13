@@ -14,6 +14,8 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
 
 import javax.annotation.Nonnull;
 import java.io.FileNotFoundException;
@@ -28,30 +30,33 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
         final String segmentName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
-        final byte[] rawBytes = getFdbDirectory(directory).readFieldInfo(segmentName);
-        if (rawBytes == null) {
-            throw new FileNotFoundException("Could not find field info");
+        try (IndexInput indexInput = directory.openInput(segmentName, iocontext)) {
+            final long id = indexInput.readLong();
+            final byte[] rawBytes = getFdbDirectory(directory).readFieldInfo(id);
+            if (rawBytes == null) {
+                throw new FileNotFoundException("Could not find field info");
+            }
+            final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
+            FieldInfo[] fieldInfos = new FieldInfo[protobuf.getFieldInfoCount()];
+            int i = 0;
+            for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
+                fieldInfos[i] = new FieldInfo(fieldInfo.getName(),
+                        fieldInfo.getNumber(),
+                        fieldInfo.getStoreTermVectors(),
+                        fieldInfo.getOmitsNorms(),
+                        fieldInfo.getStorePayloads(),
+                        protoToLucene(fieldInfo.getIndexOptions()),
+                        protoToLucene(fieldInfo.getDocValues()),
+                        fieldInfo.getDocValuesGen(),
+                        protoToLucene(fieldInfo.getAttributesList()),
+                        fieldInfo.getPointDimensionCount(),
+                        fieldInfo.getPointIndexDimensionCount(),
+                        fieldInfo.getPointNumBytes(),
+                        fieldInfo.getSoftDeletesField());
+                i++;
+            }
+            return new FieldInfos(fieldInfos);
         }
-        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
-        FieldInfo[] fieldInfos = new FieldInfo[protobuf.getFieldInfoCount()];
-        int i=0;
-        for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
-            fieldInfos[i] = new FieldInfo(fieldInfo.getName(),
-                    fieldInfo.getNumber(),
-                    fieldInfo.getStoreTermVectors(),
-                    fieldInfo.getOmitsNorms(),
-                    fieldInfo.getStorePayloads(),
-                    protoToLucene(fieldInfo.getIndexOptions()),
-                    protoToLucene(fieldInfo.getDocValues()),
-                    fieldInfo.getDocValuesGen(),
-                    protoToLucene(fieldInfo.getAttributesList()),
-                    fieldInfo.getPointDimensionCount(),
-                    fieldInfo.getPointIndexDimensionCount(),
-                    fieldInfo.getPointNumBytes(),
-                    fieldInfo.getSoftDeletesField());
-            i++;
-        }
-        return new FieldInfos(fieldInfos);
     }
 
     @Override
@@ -77,9 +82,10 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                         .setValue(attribute.getValue());
             }
         }
-        getFdbDirectory(directory).writeFieldInfo(
-                IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION),
-                protobuf.build().toByteArray());
+        try (IndexOutput indexOutput = directory.createOutput(IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION), context)) {
+            long id = getFdbDirectory(directory).writeFieldInfo(protobuf.build().toByteArray());
+            indexOutput.writeLong(id);
+        }
     }
 
     @Nonnull

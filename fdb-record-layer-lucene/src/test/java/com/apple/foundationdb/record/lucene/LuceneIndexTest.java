@@ -2435,7 +2435,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
-            if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)) {
+            if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file)) {
                 assertFalse(directory.getFDBLuceneFileReference(file).getContent().isEmpty());
             } else {
                 assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),

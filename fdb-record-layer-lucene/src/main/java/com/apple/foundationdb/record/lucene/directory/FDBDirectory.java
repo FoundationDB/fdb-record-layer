@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -85,7 +86,6 @@ import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.FIELD_INFO_EXTENSION;
 import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
@@ -307,8 +307,37 @@ public class FDBDirectory extends Directory  {
         return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
 
-    public void writeFieldInfo(String segment_name, byte[] value) {
-        byte[] key = fieldInfosSubspace.pack(segment_name);
+    public long getFieldInfoId(final String entriesFile) {
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
+                getFDBLuceneFileReferenceAsync(entriesFile).thenApply(reference -> {
+                    if (reference == null) {
+                        throw new RecordCoreException("Reference not found")
+                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
+                    }
+                    long id = reference.getFieldInfosId();
+                    if (id == 0) {
+                        throw new RecordCoreException("Reference does not have FieldInfosId")
+                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
+                    }
+                    return id;
+                }));
+    }
+
+    public void setFieldInfoId(final String entriesFile, final long id) {
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
+                getFDBLuceneFileReferenceAsync(entriesFile).thenAccept(reference -> {
+                    if (reference == null) {
+                        throw new RecordCoreException("Reference not found")
+                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
+                    }
+                    reference.setFieldInfosId(id);
+                    writeFDBLuceneFileReference(entriesFile, reference);
+                }));
+    }
+
+    public long writeFieldInfo(byte[] value) {
+        final long id = getIncrement();
+        byte[] key = fieldInfosSubspace.pack(id);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
         if (LOGGER.isTraceEnabled()) {
@@ -317,15 +346,15 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
         context.ensureActive().set(key, value);
-        // TODO figure out how to clean up this data after merges.
+        return id;
     }
 
-    public byte[] readFieldInfo(String segment_name) {
+    public byte[] readFieldInfo(long id) {
         // TODO when doing listAllFiles, queue work (but don't join) to get all this data too (as a range scan),
         //     and put it in a map
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                context.ensureActive().get(fieldInfosSubspace.pack(segment_name)));
+                context.ensureActive().get(fieldInfosSubspace.pack(id)));
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -347,7 +376,7 @@ public class FDBDirectory extends Directory  {
     }
 
     public static boolean isFieldInfoFile(String name) {
-        return name.endsWith(FIELD_INFO_EXTENSION)
+        return name.endsWith(LuceneOptimizedFieldInfosFormat.EXTENSION)
                && !name.startsWith(IndexFileNames.SEGMENTS)
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
@@ -639,7 +668,7 @@ public class FDBDirectory extends Directory  {
     @Override
     @Nonnull
     @SuppressWarnings("java:S2093")
-    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
+    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -650,12 +679,15 @@ public class FDBDirectory extends Directory  {
         // we store them as bytes on the FileReference itself.
         // This approach means that we have a single range-read to do listAll, but won't have to additional point-reads
         // for these files.
-        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name) || FDBDirectory.isFieldInfoFile(name)) {
+        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
             long id = getIncrement();
             return new ByteBuffersIndexOutput(new ByteBuffersDataOutput(), name, name, new CRC32(), dataOutput -> {
                 final byte[] content = dataOutput.toArrayCopy();
                 writeFDBLuceneFileReference(name, new FDBLuceneFileReference(id, content));
             });
+        } else if (FDBDirectory.isFieldInfoFile(name)) {
+            return new LongIndexOutput(name, name, longValue ->
+                    writeFDBLuceneFileReference(name, new FDBLuceneFileReference(longValue, new byte[0])));
         } else {
             long startTime = System.nanoTime();
             try {
@@ -677,7 +709,7 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     @Nonnull
-    public IndexOutput createTempOutput(@Nonnull final String prefix, @Nonnull final String suffix, @Nonnull final IOContext ioContext) {
+    public IndexOutput createTempOutput(@Nonnull final String prefix, @Nonnull final String suffix, @Nonnull final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createTempOutput",
                     LuceneLogMessageKeys.FILE_PREFIX, prefix,
@@ -752,7 +784,7 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name) || FDBDirectory.isFieldInfoFile(name)) {
+        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
             final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
             if (reference.getContent().isEmpty()) {
                 throw new RecordCoreException("File content is not stored in reference")
@@ -761,19 +793,13 @@ public class FDBDirectory extends Directory  {
                 return new ByteBuffersIndexInput(
                         new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
             }
+        } else if (FDBDirectory.isFieldInfoFile(name)) {
+            final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
+            return new LongIndexInput(name, reference.getId());
         } else {
             // TODO the contract is that this should throw an exception, but we don't
             return new FDBIndexInput(name, this);
         }
-    }
-
-    public IndexInput openLazyInput(@Nonnull final String name, long initialOffset, long position) throws IOException {
-        // TODO can I remove this now?
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("openInput",
-                    LuceneLogMessageKeys.FILE_NAME, name));
-        }
-        return new FDBIndexInput(name, this, initialOffset, position);
     }
 
     @Override

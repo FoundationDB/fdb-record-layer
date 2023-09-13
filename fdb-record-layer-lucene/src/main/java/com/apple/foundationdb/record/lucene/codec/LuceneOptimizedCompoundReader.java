@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.LongIndexInput;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -27,6 +29,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOUtils;
@@ -124,6 +127,11 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     @Override
     public IndexInput openInput(String name, IOContext context) throws IOException {
         ensureOpen();
+        if (FDBDirectory.isFieldInfoFile(name)) {
+            final String entriesFile = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
+            final long fieldInfoId = ((FDBDirectory)FilterDirectory.unwrap(directory)).getFieldInfoId(entriesFile);
+            return new LongIndexInput(name, fieldInfoId);
+        }
         final String id = IndexFileNames.stripSegmentName(name);
         final FileEntry entry = entries.get(id);
         if (entry == null) {
