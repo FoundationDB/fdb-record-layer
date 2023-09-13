@@ -586,9 +586,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final var literalValue = visitChildren(ctx);
             Assert.thatUnchecked(literalValue instanceof LiteralValue);
             final var limit = ((LiteralValue<?>) literalValue).getLiteralValue();
-            Assert.thatUnchecked(limit instanceof Integer, "argument for LIMIT must be integer", ErrorCode.DATATYPE_MISMATCH);
-            Assert.thatUnchecked((Integer) limit > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
-            return (Integer) limit;
+            Assert.thatUnchecked(limit instanceof Integer || limit instanceof Long, "argument for LIMIT must be integer or long", ErrorCode.DATATYPE_MISMATCH);
+            if (limit instanceof Long) {
+                Assert.thatUnchecked((Long) limit <= Integer.MAX_VALUE, "LIMIT must be smaller than Integer.MAX_VALUE", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+                Assert.thatUnchecked((Long) limit > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            } else {
+                Assert.thatUnchecked((Integer) limit > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            }
+            return ((Number) limit).intValue();
         });
     }
 

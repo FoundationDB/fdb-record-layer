@@ -285,6 +285,35 @@ public class PreparedStatementTests {
     }
 
     @Test
+    void longTypeLimitParameter() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14), (15)");
+            }
+            // setLong
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
+                ps.setLong("limit", 2);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNoNextRow();
+                }
+            }
+            // setLong > Integer.MAX_VALUE
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
+                ps.setLong("limit", 3147483647L);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery).hasErrorCode(ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            }
+            // setLong = 0
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
+                ps.setLong("limit", 0);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery).hasErrorCode(ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            }
+        }
+    }
+
+    @Test
     void continuation() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

@@ -55,7 +55,7 @@
 ---
 # limit value > MAX_INTEGER
 - query: select ta.* from ta LIMIT 2325325245245;
-- error: "42804"
+- error: "2201W"
 ---
 # limit value is negative
 - query: select ta.* from ta LIMIT -27525;
