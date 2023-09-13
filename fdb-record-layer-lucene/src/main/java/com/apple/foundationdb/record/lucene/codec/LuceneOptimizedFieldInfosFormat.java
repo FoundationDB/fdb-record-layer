@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
-    private static final String EXTENSION = "fip";
+    public static final String EXTENSION = "fip";
 
     @Override
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {

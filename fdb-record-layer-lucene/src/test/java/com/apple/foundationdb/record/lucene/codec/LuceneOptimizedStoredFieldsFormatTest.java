@@ -2,6 +2,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.carrotsearch.randomizedtesting.annotations.Seed;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.compressing.CompressingCodec;
@@ -17,8 +18,9 @@ import java.util.Random;
 // or
 // 	at __randomizedtesting.SeedInfo.seed([C185081D42F0F43C:33261A5D888FEB6A]:0)
 // You can add
-// @Seed("C185081D42F0F43C")
+@Seed("C185081D42F0F43C")
 // to rerun the test class with the same seed. That will work even if you then only run one of the tests
+//@Seed("DF296C22D3A9B1F1")
 @ThreadLeakFilters(defaultFilters = true, filters = {
         FDBThreadFilter.class
 })
@@ -78,6 +80,16 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         } finally {
             TestFDBDirectory.setFullBufferToSurviveDeletes(false);
             TestingCodec.setDisableLaziness(false);
+        }
+    }
+
+    @Override
+    public void testMismatchedFields() throws Exception {
+        TestFDBDirectory.setAllowAddIndexes(true);
+        try {
+            super.testMismatchedFields();
+        } finally {
+            TestFDBDirectory.setAllowAddIndexes(false);
         }
     }
 }

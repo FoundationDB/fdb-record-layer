@@ -317,14 +317,16 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
         context.ensureActive().set(key, value);
+        // TODO figure out how to clean up this data after merges.
     }
 
     public byte[] readFieldInfo(String segment_name) {
+        // TODO when doing listAllFiles, queue work (but don't join) to get all this data too (as a range scan),
+        //     and put it in a map
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
                 context.ensureActive().get(fieldInfosSubspace.pack(segment_name)));
     }
-
 
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)

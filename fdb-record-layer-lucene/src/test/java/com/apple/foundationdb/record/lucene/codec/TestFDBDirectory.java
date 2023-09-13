@@ -4,13 +4,19 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.ByteBuffersDataInput;
 import org.apache.lucene.store.ByteBuffersIndexInput;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -19,6 +25,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestFDBDirectory extends FDBDirectory {
     private static boolean fullBufferToSurviveDeletes;
+    private static boolean allowAddIndexes;
+    private static byte[] fieldInfosToCopy;
 
     public TestFDBDirectory() {
         super(new Subspace(Tuple.from("record-test", "unit", "lucene")),
@@ -56,6 +64,32 @@ public class TestFDBDirectory extends FDBDirectory {
         TestFDBDirectory.fullBufferToSurviveDeletes = newValue;
     }
 
+    /**
+     * Allow {@link IndexWriter#addIndexes} to copy indexes from one Directory to another, successfully.
+     * <p>
+     *     This uses {@link org.apache.lucene.store.Directory#copyFrom}, but {@link org.apache.lucene.store.MockDirectoryWrapper}
+     *     does not pass through to the underlying object, so it just does a raw copy of bytes from one directory to another.
+     *     This means that it won't copy anything that we have that is not listed as a file.
+     *     Setting this to {@code true} puts in a hack that will copy the key-value pairs between directories when the
+     *     segment is copied.
+     * </p>
+     * <p>
+     *     Note: the fact that {@link org.apache.lucene.store.MockDirectoryWrapper} does not pass through to the
+     *     underlying directory seems intentional, see
+     *     <a href="https://issues.apache.org/jira/browse/LUCENE-6299">LUCENE-6299</a> and
+     *     <a href="https://github.com/apache/lucene/commit/4e53fae38e993fad0c8a5466e1e0c6121d49ad5f#diff-6c29e90918d4bab6eab63cb94f9c0ae55fb14bbbb07446ee0568bb33343947f7">
+     *         commit</a>
+     * </p>
+     * <p>
+     *     If you set this to {@code true} make sure to set it back to {@code false} in a {@code finally} block.
+     * </p>
+     * @param newValue {@code true} to allow adding indexes.
+     */
+    public static void setAllowAddIndexes(final boolean newValue) {
+        allowAddIndexes = newValue;
+        fieldInfosToCopy = null;
+    }
+
     @Nonnull
     @Override
     public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
@@ -68,7 +102,60 @@ public class TestFDBDirectory extends FDBDirectory {
             indexInput.close();
             return new ByteBuffersIndexInput(new ByteBuffersDataInput(List.of(ByteBuffer.wrap(bytes))), name);
         }
+        if (allowAddIndexes) {
+            if (FDBDirectory.isSegmentInfo(name)) {
+                if (isInIndexWriterAddIndexes()) {
+                    // Note: this assumes there is no segmentSuffix, that might not work
+                    fieldInfosToCopy = readFieldInfo(getFieldInfosName(name));
+                    MatcherAssert.assertThat(fieldInfosToCopy, Matchers.notNullValue());
+                }
+            }
+        }
         return indexInput;
     }
 
+    @Nonnull
+    @Override
+    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) {
+        final IndexOutput indexOutput = super.createOutput(name, ioContext);
+        if (allowAddIndexes) {
+            if (FDBDirectory.isSegmentInfo(name)) {
+                if (isInIndexWriterAddIndexes()) {
+                    MatcherAssert.assertThat(fieldInfosToCopy, Matchers.notNullValue());
+                    writeFieldInfo(getFieldInfosName(name), fieldInfosToCopy);
+                    fieldInfosToCopy = null;
+                }
+            }
+
+        }
+        return indexOutput;
+    }
+
+    @Nonnull
+    private static String getFieldInfosName(final @Nonnull String segmentInfoName) {
+        return IndexFileNames.segmentFileName(IndexFileNames.parseSegmentName(segmentInfoName),
+                "", LuceneOptimizedFieldInfosFormat.EXTENSION);
+    }
+
+    private static boolean isInIndexWriterAddIndexes() {
+        boolean foundAddIndexes = false;
+        boolean foundCopyFrom = false;
+        for (final StackTraceElement stackTraceElement : Thread.currentThread().getStackTrace()) {
+            if (stackTraceElement.getClassName().equals(IndexWriter.class.getName()) &&
+                stackTraceElement.getMethodName().equals("addIndexes")) {
+                foundAddIndexes = true;
+                if (foundCopyFrom) {
+                    return true;
+                }
+            }
+            if (stackTraceElement.getClassName().equals(Directory.class.getName()) &&
+                stackTraceElement.getMethodName().equals("copyFrom")) {
+                foundCopyFrom = true;
+                if (foundAddIndexes) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
