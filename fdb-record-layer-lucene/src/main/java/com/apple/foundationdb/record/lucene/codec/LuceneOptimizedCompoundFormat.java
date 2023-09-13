@@ -34,6 +34,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -74,7 +75,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     // even though we're not interacting with them, make sure we close the file
                     .close();
         }
+        // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
+        // everything to be a "proper" index format, but for FieldInfos it is just a long.
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
+        // TODO confirm whether we even need to strip out the .cfs from the SI
         final Set<String> filesForAfter = si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet());
         final Map<Boolean, Set<String>> files = si.files().stream()
                 .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
@@ -83,18 +87,15 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
         }
+        final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);
-        for (final String name : si.files()) {
-            if (FDBDirectory.isFieldInfoFile(name)) {
-                try (IndexInput fieldInfosInput = dir.openInput(name, context)) {
-                    final long fieldInfosId = fieldInfosInput.readLong();
-                    String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
-                    ((FDBDirectory)FilterDirectory.unwrap(dir)).setFieldInfoId(entriesFile, fieldInfosId);
-                }
-            }
-
+        try (IndexInput fieldInfosInput = dir.openInput(List.copyOf(files.get(true)).get(0), context)) {
+            final long fieldInfosId = fieldInfosInput.readLong();
+            String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+            directory.setFieldInfoId(entriesFile, fieldInfosId);
         }
+
     }
 
 }
