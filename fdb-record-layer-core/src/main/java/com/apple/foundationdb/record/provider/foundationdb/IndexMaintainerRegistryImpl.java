@@ -45,7 +45,7 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
     protected static final IndexMaintainerRegistryImpl INSTANCE = new IndexMaintainerRegistryImpl();
 
     @Nonnull
-    private final Map<String, IndexMaintainerFactory> registry;
+    private Map<String, IndexMaintainerFactory> registry;
 
     @Nonnull
     public static IndexMaintainerRegistry instance() {
@@ -70,6 +70,10 @@ public class IndexMaintainerRegistryImpl implements IndexMaintainerRegistry {
     }
 
     protected IndexMaintainerRegistryImpl() {
+        registry = initRegistry();
+    }
+
+    public final void reset() {
         registry = initRegistry();
     }
 
