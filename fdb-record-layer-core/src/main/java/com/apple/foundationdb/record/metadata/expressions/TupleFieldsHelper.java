@@ -172,7 +172,7 @@ public class TupleFieldsHelper {
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Message toProto(@Nonnull Object value, @Nonnull Descriptors.Descriptor descriptor) {
+    public static Message toProto(@Nonnull Object value, @Nonnull final Descriptors.Descriptor descriptor) {
         if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
             return toProto((UUID)value);
         } else if (descriptor == TupleFieldsProto.NullableDouble.getDescriptor()) {

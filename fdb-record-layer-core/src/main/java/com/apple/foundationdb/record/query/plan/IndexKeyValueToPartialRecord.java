@@ -157,8 +157,7 @@ public class IndexKeyValueToPartialRecord {
         private final Predicate<Tuple> copyIfPredicate;
         @Nonnull
         private final ImmutableIntArray ordinalPath;
-        private Descriptors.FieldDescriptor fieldDescriptor;
-        private Descriptors.Descriptor containingType;
+        private final Descriptors.FieldDescriptor fieldDescriptor;
 
         private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
                             @Nonnull final String field,
@@ -170,11 +169,10 @@ public class IndexKeyValueToPartialRecord {
             this.copyIfPredicate = copyIfPredicate;
             this.ordinalPath = ordinalPath;
             this.fieldDescriptor = fieldDescriptor;
-            this.containingType = fieldDescriptor.getContainingType();
         }
 
         @Override
-        public synchronized boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                             @Nonnull IndexEntry kv) {
             final Tuple tuple = (source == TupleSource.KEY ? kv.getKey() : kv.getValue());
             if (!copyIfPredicate.test(tuple)) {
@@ -185,11 +183,11 @@ public class IndexKeyValueToPartialRecord {
             if (value == null) {
                 return true;
             }
-            if (!containingType.equals(recordDescriptor)) {
-                containingType = recordDescriptor;
-                fieldDescriptor = recordDescriptor.findFieldByName(field);
+            Descriptors.FieldDescriptor mutableFieldDescriptor = this.fieldDescriptor;
+            if (!fieldDescriptor.getContainingType().equals(recordDescriptor)) {
+                mutableFieldDescriptor = recordDescriptor.findFieldByName(field);
             }
-            switch (fieldDescriptor.getType()) {
+            switch (mutableFieldDescriptor.getType()) {
                 case INT32:
                     value = ((Long)value).intValue();
                     break;
@@ -197,15 +195,15 @@ public class IndexKeyValueToPartialRecord {
                     value = ZeroCopyByteString.wrap((byte[])value);
                     break;
                 case MESSAGE:
-                    value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
+                    value = TupleFieldsHelper.toProto(value, mutableFieldDescriptor.getMessageType());
                     break;
                 case ENUM:
-                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    value = mutableFieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
                     break;
                 default:
                     break;
             }
-            recordBuilder.setField(fieldDescriptor, value);
+            recordBuilder.setField(mutableFieldDescriptor, value);
             return true;
         }
 
