@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 
@@ -176,18 +177,32 @@ public class IndexKeyValueToPartialRecord {
         @Override
         public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                             @Nonnull IndexEntry kv) {
+            System.out.println("field name:" + fieldDescriptor.getName());
             final Tuple tuple = (source == TupleSource.KEY ? kv.getKey() : kv.getValue());
             if (!copyIfPredicate.test(tuple)) {
                 return false;
             }
-
+            Object value = kv.getValue().get(0);
+            /*
             Object value = getForOrdinalPath(tuple, ordinalPath);
             if (value == null) {
                 return true;
             }
+
+             */
+
             if (!containingType.equals(recordDescriptor)) {
                 containingType = recordDescriptor;
                 fieldDescriptor = recordDescriptor.findFieldByName(field);
+            }
+            Random r = new Random();
+            try {
+                long s = r.nextInt(1000);
+                System.out.println("recordDescriptor name:" + recordDescriptor.getName());
+                System.out.println("sleep for:" + s);
+                Thread.sleep(s);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
             switch (fieldDescriptor.getType()) {
                 case INT32:

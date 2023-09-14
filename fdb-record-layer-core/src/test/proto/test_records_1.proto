@@ -38,7 +38,7 @@ message MySimpleRecord {
 }
 
 message MyOtherRecord {
-  required int64 rec_no = 1 [(field).primary_key = true];
+  optional int64 rec_no = 1 [(field).primary_key = true];
   optional int32 num_value_2 = 4;
   optional int32 num_value_3_indexed = 5;
 }

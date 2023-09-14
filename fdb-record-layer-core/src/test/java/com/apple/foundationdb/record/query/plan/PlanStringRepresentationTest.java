@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -502,6 +503,37 @@ public class PlanStringRepresentationTest {
             String abbreviatedString = PlanStringRepresentation.toString(plan, i);
             assertEquals(i < planString.length() ? (planString.substring(0, i) + "...") : planString, abbreviatedString);
         }
+    }
+
+    @Test
+    void twoThreads() throws InterruptedException {
+        Random r = new Random();
+        // MySimpleRecord
+        IndexKeyValueToPartialRecord mySimpleRecord = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
+                //.addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, tuple -> true, ImmutableIntArray.builder().add(r.nextInt(10)).build())
+                .addField("num_value_3_indexed", IndexKeyValueToPartialRecord.TupleSource.VALUE, tuple -> true, ImmutableIntArray.builder().add(r.nextInt(10)).build())
+                .build();
+        // MyOtherRecord
+        IndexKeyValueToPartialRecord myOtherRecord = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MyOtherRecord.getDescriptor())
+                .addField("num_value_3_indexed", IndexKeyValueToPartialRecord.TupleSource.VALUE, tuple -> true, ImmutableIntArray.builder().add(r.nextInt(10)).build())
+                .build();
+
+        // IndexEntry
+        IndexEntry indexEntry = new IndexEntry(new Index("num_value_3_indexed", "num_value_3_indexed"), Tuple.from("num_value_3_indexed"), Tuple.from(1L));
+
+        // this works, because of the if (!containingType.equals(recordDescriptor)) block
+        mySimpleRecord.toRecord(TestRecords1Proto.MyOtherRecord.getDescriptor(), indexEntry);
+
+        // Create two threads:
+        Thread thread1 = new Thread(() -> mySimpleRecord.toRecord(TestRecords1Proto.MySimpleRecord.getDescriptor(), indexEntry));
+        Thread thread2 = new Thread(() -> mySimpleRecord.toRecord(TestRecords1Proto.MyOtherRecord.getDescriptor(), indexEntry));
+
+        thread1.start();
+        thread2.start();
+
+        // Wait for them both to finish
+        thread1.join();
+        thread2.join();
     }
 
     @Test
