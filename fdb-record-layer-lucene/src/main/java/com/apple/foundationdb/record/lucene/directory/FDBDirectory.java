@@ -545,8 +545,8 @@ public class FDBDirectory extends Directory  {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
             outMap.put(name, fileReference);
-            if (fileReference.getId() != 0) {
-                fieldInfosCount.computeIfAbsent(fileReference.getId(), key -> new AtomicInteger(0))
+            if (fileReference.getFieldInfosId() != 0) {
+                fieldInfosCount.computeIfAbsent(fileReference.getFieldInfosId(), key -> new AtomicInteger(0))
                         .incrementAndGet();
             }
         }, context.getExecutor()).thenAccept(ignore -> {
@@ -590,12 +590,14 @@ public class FDBDirectory extends Directory  {
                 if (fromShared != null) {
                     ConcurrentSkipListMap<String, FDBLuceneFileReference> copy = new ConcurrentSkipListMap<>(fromShared);
                     fileReferenceCache.compareAndSet(null, copy);
+                    fieldInfoReferenceCount.compareAndSet(null, sharedCache.getFieldInfosReferenceCount());
                     sharedCachePending = false;
                     return CompletableFuture.completedFuture(fromShared);
                 }
                 return fileReferenceMapSupplier.get().thenApply(ignore -> {
                     final ConcurrentSkipListMap<String, FDBLuceneFileReference> fromSupplier = fileReferenceCache.get();
                     sharedCache.setFileReferencesIfAbsent(fromSupplier);
+                    sharedCache.setFieldInfosReferenceCount(fieldInfoReferenceCount.get());
                     sharedCachePending = false;
                     return fromSupplier;
                 });
@@ -630,7 +632,8 @@ public class FDBDirectory extends Directory  {
                 }
                 context.ensureActive().clear(metaSubspace.pack(name));
                 if (value.getFieldInfosId() != 0) {
-                    if (fieldInfoReferenceCount.get().get(value.getFieldInfosId()).decrementAndGet() == 0) {
+                    if (Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldIinfosReferenceCache")
+                                .get(value.getFieldInfosId()).decrementAndGet() == 0) {
                         context.ensureActive().clear(fieldInfosSubspace.pack(value.getId()));
                     }
                 }

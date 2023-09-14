@@ -108,6 +108,9 @@ public class FDBLuceneFileReference {
         if (!this.content.isEmpty()) {
             builder.setContent(this.content);
         }
+        if (this.fieldInfosId != 0) {
+            builder.setFieldInfosId(this.fieldInfosId);
+        }
         return builder.build().toByteArray();
     }
 
