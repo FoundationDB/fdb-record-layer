@@ -115,6 +115,8 @@ public final class SqlTypeSupport {
                 return Type.TypeCode.FLOAT;
             case Types.VARCHAR:
                 return Type.TypeCode.STRING;
+            case Types.BINARY:
+                return Type.TypeCode.BYTES;
             case Types.DOUBLE:
                 return Type.TypeCode.DOUBLE;
             case Types.BIGINT:
@@ -127,6 +129,8 @@ public final class SqlTypeSupport {
                 return Type.TypeCode.RECORD;
             case Types.ARRAY:
                 return Type.TypeCode.ARRAY;
+            case Types.NULL:
+                return Type.TypeCode.NULL;
             default:
                 throw new IllegalStateException("No conversion for SQL type " + getSqlTypeName(sqlTypeCode));
         }
@@ -170,7 +174,9 @@ public final class SqlTypeSupport {
         if (recordTypeCode.equals(Type.TypeCode.RECORD)) {
             type = structMetadataToRecordType(description.getFieldMetaData(), isNullable);
         } else if (recordTypeCode.equals(Type.TypeCode.ARRAY)) {
-            type = arrayMetadataToArrayType(description.getFieldMetaData(), isNullable);
+            type = arrayMetadataToArrayType(description.getArrayMetaData(), isNullable);
+        } else if (recordTypeCode == Type.TypeCode.NULL) {
+            type = Type.nullType();
         } else {
             type = Type.primitiveType(recordTypeCode, isNullable);
         }

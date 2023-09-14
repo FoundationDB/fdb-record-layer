@@ -55,6 +55,8 @@ public final class SqlTypeNamesSupport {
                 return "ARRAY";
             case Types.BINARY:
                 return "BINARY";
+            case Types.NULL:
+                return "NULL";
             default:
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }
@@ -64,6 +66,8 @@ public final class SqlTypeNamesSupport {
         switch (sqlTypeName) {
             case "INTEGER":
                 return Types.INTEGER;
+            case "BINARY":
+                return Types.BINARY;
             case "BIGINT":
                 return Types.BIGINT;
             case "FLOAT":

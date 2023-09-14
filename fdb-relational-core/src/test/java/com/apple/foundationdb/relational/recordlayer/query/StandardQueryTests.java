@@ -272,10 +272,6 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).describedAs("where (44-2) = rest_no")
                             .containsRowsExactly(l42);
                 }
-                try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 0X2A = rest_no")) {
-                    ResultSetAssert.assertThat(resultSet).describedAs("where 0X2A = rest_no")
-                            .containsRowsExactly(l42);
-                }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no < -1")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where rest_no < -1").isEmpty();
                 }

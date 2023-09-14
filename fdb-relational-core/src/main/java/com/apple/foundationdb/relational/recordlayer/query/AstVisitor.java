@@ -74,6 +74,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -211,10 +213,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 Assert.thatUnchecked(literal instanceof LiteralValue<?>);
                 final var continuationBytes = ((LiteralValue<?>) literal).getLiteralValue();
                 Assert.notNullUnchecked(continuationBytes);
-                Assert.thatUnchecked(continuationBytes instanceof byte[],
+                Assert.thatUnchecked(continuationBytes instanceof ByteString,
                         String.format("Unexpected prepared continuation parameter of type %s", continuationBytes.getClass().getSimpleName()),
                         ErrorCode.INVALID_CONTINUATION);
-                return (byte[]) continuationBytes;
+                return ((ByteString) continuationBytes).toByteArray();
             });
         }
     }
@@ -1089,8 +1091,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.HEXADECIMAL_LITERAL(), UNSUPPORTED_QUERY);
         // todo (yhatem) test this.
-        final var val = new BigInteger(ctx.HEXADECIMAL_LITERAL().getText().substring(2), 16).longValue();
-        return LiteralsUtils.processLiteral(val, context);
+        final var literal = ctx.HEXADECIMAL_LITERAL().getText();
+        final var byteArray = new BigInteger(literal.substring(2, literal.length() - 1), 16).toByteArray(); // of the form: X'CAFE'
+        return LiteralsUtils.processLiteral(ZeroCopyByteString.wrap(byteArray), context);
     }
 
     @Override

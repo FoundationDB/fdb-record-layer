@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -417,13 +415,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             context.startArrayLiteral();
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {
-                    final var arrayParam = rs.getObject(1);
-                    // Mixed and nested lists are not allowed.
-                    Type literalType = Type.primitiveType(Type.typeCodeFromPrimitive(arrayParam), true);
-                    Assert.thatUnchecked(SqlTypeSupport.recordTypeToSqlType(literalType.getTypeCode()) == rs.getMetaData().getColumnType(1),
-                            "Cannot convert literal to " + rs.getMetaData().getColumnType(1),
-                            ErrorCode.CANNOT_CONVERT_TYPE);
-                    processLiteral(arrayParam);
+                    processLiteral(rs.getObject(1));
                 }
             }
             context.finishArrayLiteral();

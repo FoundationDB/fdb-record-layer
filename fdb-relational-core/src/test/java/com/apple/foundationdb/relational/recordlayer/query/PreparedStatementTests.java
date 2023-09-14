@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -55,6 +57,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -67,8 +70,8 @@ public class PreparedStatementTests {
                     " CREATE TYPE AS STRUCT RestaurantComplexReview (reviewer bigint, rating bigint, endorsements \"ReviewerEndorsements\" array)" +
                     " CREATE TYPE AS STRUCT RestaurantTag (tag string, weight bigint)" +
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
-                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
+                    " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, key bytes, PRIMARY KEY(rest_no))" +
+                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))" +
                     " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
                     " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
@@ -379,6 +382,47 @@ public class PreparedStatementTests {
     }
 
     @Test
+    void setArrayTypeOfByte() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final var count = statement.executeUpdate("INSERT INTO RestaurantReviewer(id) VALUES (1)");
+                Assertions.assertThat(count).isEqualTo(1);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantReviewer SET secrets = ?param WHERE id = 1 RETURNING *")) {
+                final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
+                final var arrayObject = ddl.getConnection().createArrayOf("BINARY", array.toArray());
+                ps.setArray("param", arrayObject);
+                try (final var resultSet = ps.executeQuery()) {
+                    final var expected = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), new RelationalStructMetaData(
+                            FieldDescription.primitive("SECRETS", SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls)
+                    ));
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("ID", 1L).hasColumn("SECRETS", expected)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void setByteType() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final var count = statement.executeUpdate("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (1)");
+                Assertions.assertThat(count).isEqualTo(1);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantComplexRecord SET key = ?param WHERE rest_no = 1 RETURNING *")) {
+                ps.setBytes("param", new byte[] {1, 2, 3, 4});
+                try (final var resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 1L).hasColumn("key", new byte[]{1, 2, 3, 4})
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void prepareInList() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -401,7 +445,7 @@ public class PreparedStatementTests {
             }
 
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
-                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10, 11}));
+                ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, 11L}));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
@@ -509,8 +553,6 @@ public class PreparedStatementTests {
         }
     }
 
-    @Disabled
-    // owing to: TODO (Fix coerceArray for primitive element type arrays)
     @Test
     void prepareUpdateWithArrayOfPrimitives() throws Exception {
         final var customerAttributes = new Object[]{"george", "adam", "billy"};
@@ -580,12 +622,12 @@ public class PreparedStatementTests {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
                 ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, "FOO"}));
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
-                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+                        .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
             }
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
                 ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{"FOO", "BAR"}));
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
-                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+                        .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
             }
         }
     }

@@ -28,11 +28,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,6 +44,9 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.CANNOT_CONVERT_TYPE;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
 public class LiteralsUtils {
 
@@ -74,8 +78,13 @@ public class LiteralsUtils {
     public static ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull final Array param,
                                                                              Type.Array type,
                                                                              @Nonnull final PlanGenerationContext context) {
+        Type.Array resolvedType = type;
+        final int index = context.startArrayLiteral();
         final var arrayElements = new ArrayList<>();
         try {
+            if (type == null) {
+                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RowArray) param).getMetaData(), false);
+            }
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {
                     arrayElements.add(rs.getObject(1));
@@ -84,16 +93,27 @@ public class LiteralsUtils {
         } catch (SQLException e) {
             throw new RelationalException(e).toUncheckedWrappedException();
         }
-        final int index = context.startArrayLiteral();
-        final var resolvedType = resolveArrayTypeFromElementTypes(arrayElements.stream().map(Type::fromObject).collect(Collectors.toList()));
-        if (type != null) {
-            Assert.thatUnchecked(type.equals(resolvedType));
-        }
-        for (final Object o : arrayElements) {
+        Assert.thatUnchecked(resolvedType.equals(resolveArrayTypeFromObjectsList(arrayElements)),
+                "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
+        for (final Object o: arrayElements) {
             processPreparedStatementParameter(o, resolvedType.getElementType(), context);
         }
         context.finishArrayLiteral();
         return LiteralsUtils.processComplexLiteral(index, resolvedType, context);
+    }
+
+    private static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
+        return resolveArrayTypeFromElementTypes(
+                objects.stream().map(o -> {
+                    if (o instanceof byte[]) {
+                        return Type.fromObject(ZeroCopyByteString.wrap((byte[]) o));
+                    } else if (o instanceof Struct || o instanceof Array) {
+                        throw new RelationalException("Array of complex types are not yet supported", CANNOT_CONVERT_TYPE)
+                                .toUncheckedWrappedException();
+                    } else {
+                        return Type.fromObject(o);
+                    }
+                }).collect(Collectors.toList()));
     }
 
     public static Type.Array resolveArrayTypeFromValues(List<Value> values) {
@@ -107,7 +127,7 @@ public class LiteralsUtils {
         } else {
             // all values must have the same type.
             final var distinctTypes = types.stream().filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
-            Assert.thatUnchecked(distinctTypes.size() == 1, "could not determine type of array literal", ErrorCode.DATATYPE_MISMATCH);
+            Assert.thatUnchecked(distinctTypes.size() == 1, "could not determine type of array literal", DATATYPE_MISMATCH);
             elementType = distinctTypes.get(0);
         }
         return new Type.Array(elementType);
@@ -139,11 +159,13 @@ public class LiteralsUtils {
                                                           final Type type,
                                                           @Nonnull final PlanGenerationContext context) {
         if (param instanceof Array) {
-            Assert.thatUnchecked(type == null || type.isArray(), "Array type field required as prepared statement parameter", ErrorCode.DATATYPE_MISMATCH);
+            Assert.thatUnchecked(type == null || type.isArray(), "Array type field required as prepared statement parameter", DATATYPE_MISMATCH);
             return LiteralsUtils.processPreparedStatementArrayParameter((Array) param, (Type.Array) type, context);
         } else if (param instanceof Struct) {
-            Assert.thatUnchecked(type == null || type.isRecord(), "Required type field required as prepared statement parameter", ErrorCode.DATATYPE_MISMATCH);
+            Assert.thatUnchecked(type == null || type.isRecord(), "Required type field required as prepared statement parameter", DATATYPE_MISMATCH);
             return LiteralsUtils.processPreparedStatementStructParameter((Struct) param, (Type.Record) type, context);
+        } else if (param instanceof byte[]) {
+            return LiteralsUtils.processLiteral(ZeroCopyByteString.wrap((byte[]) param), context);
         } else {
             return LiteralsUtils.processLiteral(param, context);
         }

@@ -1256,8 +1256,7 @@ FILESIZE_LITERAL:                    DEC_DIGIT+ ('K'|'M'|'G'|'T');
 START_NATIONAL_STRING_LITERAL:       'N' SQUOTA_STRING;
 STRING_LITERAL:                      SQUOTA_STRING;
 DECIMAL_LITERAL:                     DEC_DIGIT+;
-HEXADECIMAL_LITERAL:                 'X' '\'' (HEX_DIGIT HEX_DIGIT)+ '\''
-                                     | '0X' HEX_DIGIT+;
+HEXADECIMAL_LITERAL:                 'X' '\'' (HEX_DIGIT HEX_DIGIT)+ '\'';
 
 REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ TYPE_MODIFIER?
                                      | DEC_DIGIT+ '.' EXPONENT_NUM_PART TYPE_MODIFIER?
