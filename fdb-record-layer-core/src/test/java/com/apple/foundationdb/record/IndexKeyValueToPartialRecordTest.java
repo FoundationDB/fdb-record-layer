@@ -85,7 +85,7 @@ class IndexKeyValueToPartialRecordTest {
     }
 
     @Test
-    void race() throws InterruptedException {
+    void convertIndexToPartialRecordConcurrently() throws InterruptedException {
         ExecutorService service = Executors.newFixedThreadPool(3);
         int numTasks = 1000;
         CountDownLatch latch = new CountDownLatch(numTasks);
