@@ -174,7 +174,7 @@ public class IndexKeyValueToPartialRecord {
         }
 
         @Override
-        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+        public synchronized boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                             @Nonnull IndexEntry kv) {
             final Tuple tuple = (source == TupleSource.KEY ? kv.getKey() : kv.getValue());
             if (!copyIfPredicate.test(tuple)) {
