@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
@@ -37,11 +38,26 @@ import java.util.Set;
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
 
     default boolean hasComparisons() {
-        return hasScanComparisons();
+        return hasComparisonRanges() || hasScanComparisons();
     }
 
     default Set<Comparisons.Comparison> getComparisons() {
-        Preconditions.checkArgument(hasScanComparisons());
+        Preconditions.checkArgument(hasComparisonRanges() || hasScanComparisons());
+
+        if (hasComparisonRanges()) {
+            final ComparisonRanges comparisonRanges = getComparisonRanges();
+            final ImmutableSet.Builder<Comparisons.Comparison> resultBuilder = ImmutableSet.builder();
+            comparisonRanges.getRanges()
+                    .forEach(comparisonRange -> {
+                        if (comparisonRange.isEquality()) {
+                            resultBuilder.add(comparisonRange.getEqualityComparison());
+                        } else if (comparisonRange.isInequality()) {
+                            resultBuilder.addAll(comparisonRange.getInequalityComparisons());
+                        }
+                    });
+            return resultBuilder.build();
+        }
+
         final var scanComparisons = getScanComparisons();
         return ImmutableSet.<Comparisons.Comparison>builder()
                 .addAll(scanComparisons.getEqualityComparisons())
@@ -53,6 +69,13 @@ public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
     ScanComparisons getScanComparisons();
 
     default boolean hasScanComparisons() {
+        return true;
+    }
+
+    @Nonnull
+    ComparisonRanges getComparisonRanges();
+
+    default boolean hasComparisonRanges() {
         return true;
     }
 }

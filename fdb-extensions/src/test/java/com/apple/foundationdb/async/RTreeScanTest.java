@@ -161,7 +161,7 @@ public class RTreeScanTest extends FDBTestBase {
 
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
-            AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate), itemSlot -> {
+            AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate, (s, l) -> true), itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
                     nresults.incrementAndGet();
                 }
@@ -208,7 +208,8 @@ public class RTreeScanTest extends FDBTestBase {
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
-            AsyncUtil.forEachRemaining(rt.scan(tr, topNTraversal), itemSlot -> {
+            final AsyncIterator<RTree.ItemSlot> scan = rt.scan(tr, topNTraversal, (s, l) -> true);
+            AsyncUtil.forEachRemaining(scan, itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
                     topNTraversal.addItemSlot(itemSlot);
                     nresults.incrementAndGet();
@@ -338,7 +339,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Override
-        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
             return future;
         }
 

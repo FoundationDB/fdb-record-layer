@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -43,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -111,7 +113,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
         final AtomicLong nresults = new AtomicLong(0);
         db.run(tr -> {
-            AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true), itemSlot -> nresults.incrementAndGet()).join();
+            AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true, (l, h) -> true), itemSlot -> nresults.incrementAndGet()).join();
             return null;
         });
 
@@ -156,13 +158,47 @@ public class RTreeModificationTest extends FDBTestBase {
 
         final AtomicLong nresults = new AtomicLong(0);
         db.run(tr -> {
-            AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true), itemSlot -> nresults.incrementAndGet()).join();
+            AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true, (l, h) -> true), itemSlot -> nresults.incrementAndGet()).join();
             return null;
         });
         Assertions.assertEquals(numSamples - numDeletes, nresults.get());
 
         validateRTree(db, rt);
         onReadCounters.resetCounters();
+    }
+
+    @Test
+    void dumpRTree() {
+        bitemporalInserts(db, rtSubspace, 1, 100000);
+        final RTree.OnReadListener onReadListener = new RTree.OnReadListener() {
+            @Override
+            public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+                return future.thenApply(node -> {
+                    if (node instanceof RTree.IntermediateNode) {
+                        final RTree.IntermediateNode intermediateNode = (RTree.IntermediateNode)node;
+                        RTree.IntermediateNode parentNode = intermediateNode.getParentNode();
+                        int depth = 0;
+                        while (parentNode != null) {
+                            depth ++;
+                            parentNode = parentNode.getParentNode();
+                        }
+                        parentNode = intermediateNode.getParentNode();
+                        if (parentNode != null) {
+                            final RTree.ChildSlot childSlot = parentNode.getSlots().get(intermediateNode.getSlotIndexInParent());
+                            System.out.println(depth + "," + childSlot.getMbr().toPlotString());
+                        } else {
+                            System.out.println(depth + "," + "everything");
+                        }
+                    }
+                    return node;
+                });
+            }
+        };
+        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(),
+                new RTree.ConfigBuilder().setMinM(4).setMaxM(8).build(),
+                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                onReadListener);
+        validateRTree(db, rt);
     }
 
     //
@@ -246,7 +282,13 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTreeHilbertCurveHelpers::hilbertValue);
+        final RTree rt = new RTree(rtSubspace,
+                ForkJoinPool.commonPool(),
+                new RTree.ConfigBuilder().setMinM(4).setMaxM(8).build(),
+                RTreeHilbertCurveHelpers::hilbertValue,
+                RTree::newRandomNodeId,
+                RTree.OnWriteListener.NOOP,
+                RTree.OnReadListener.NOOP);
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas
@@ -266,10 +308,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static void validateRTree(@Nonnull final Database db, @Nonnull final RTree rt) {
-        db.run(tr -> {
-            rt.validate(tr).join();
-            return null;
-        });
+        rt.validate(db);
     }
 
     static class Item {

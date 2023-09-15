@@ -31,6 +31,9 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -39,7 +42,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -72,8 +74,7 @@ import java.util.stream.Collectors;
  *
  * <p>
  * A {@code ComparisonRange} is an immutable object that provides a variety of methods for producing new range from the
- * current one and some {@link Comparisons.Comparison} objects. For example, see {@link #tryToAdd(Comparisons.Comparison)}
- * and {@link #from(Comparisons.Comparison)}.
+ * current one and some {@link Comparisons.Comparison} objects.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -87,7 +88,6 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      *     <li>Equality ranges, to which only the same (equality) comparison can be added.</li>
      *     <li>Inequality ranges, to which any other comparison can be added.</li>
      * </ul>
-     * This behavior is defined in {@link #tryToAdd(Comparisons.Comparison)}.
      *
      * <p>
      * Furthermore, the planner uses this trichotomy of range types to determine other planning behavior. For example,
@@ -111,14 +111,14 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         this.inequalityComparisons = null;
     }
 
-    private ComparisonRange(@Nonnull Comparisons.Comparison equalityComparison) {
+    private ComparisonRange(@Nonnull final Comparisons.Comparison equalityComparison) {
         this.equalityComparison = equalityComparison;
         this.inequalityComparisons = null;
     }
 
-    private ComparisonRange(@Nonnull List<Comparisons.Comparison> inequalityComparisons) {
+    private ComparisonRange(@Nonnull final Iterable<Comparisons.Comparison> inequalityComparisons) {
         this.equalityComparison = null;
-        this.inequalityComparisons = inequalityComparisons;
+        this.inequalityComparisons = Lists.newArrayList(inequalityComparisons);
     }
 
     public boolean isEmpty() {
@@ -152,7 +152,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return equalityComparison;
     }
 
-    @Nullable
+    @Nonnull
     public List<Comparisons.Comparison> getInequalityComparisons() {
         if (inequalityComparisons == null) {
             throw new RecordCoreException("tried to get non-existent inequality comparisons from ComparisonRange");
@@ -177,7 +177,6 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ComparisonRange rebase(@Nonnull final AliasMap aliasMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
     }
@@ -222,7 +221,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Override
-    @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -313,33 +312,21 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Nonnull
-    public Optional<ComparisonRange> tryToAdd(@Nonnull Comparisons.Comparison comparison) {
+    public ScanComparisons toScanComparisons() {
         if (isEmpty()) {
-            return from(comparison);
-        } else if (isEquality() && getEqualityComparison().equals(comparison)) {
-            return Optional.of(this);
-        } else if (isInequality()) {
-            Objects.requireNonNull(inequalityComparisons);
-            switch (ScanComparisons.getComparisonType(comparison)) {
-                case INEQUALITY:
-                    if (inequalityComparisons.contains(comparison)) {
-                        return Optional.of(this);
-                    } else {
-                        return Optional.of(new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
-                                .addAll(inequalityComparisons)
-                                .add(comparison)
-                                .build()));
-                    }
-                case EQUALITY:
-                    // TODO normalize in this case
-                    break;
-                case NONE:
-                default:
-                    break;
-            }
+            return ScanComparisons.EMPTY;
         }
-        // TODO there are some subtle cases to handle. For example, != 3 and >= 3 is the same as > 3.
-        return Optional.empty();
+
+        final List<Comparisons.Comparison> equalityComparisons = Lists.newArrayList();
+        final Set<Comparisons.Comparison> inequalityComparisons = Sets.newHashSet();
+
+        if (isEquality()) {
+            equalityComparisons.add(getEqualityComparison());
+        } else {
+            inequalityComparisons.addAll(getInequalityComparisons());
+        }
+
+        return new ScanComparisons(equalityComparisons, inequalityComparisons);
     }
 
     /**
@@ -358,7 +345,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
 
         if (isEmpty()) {
-            return MergeResult.of(from(comparison).orElseThrow(() -> new RecordCoreException("expected non-empty comparison")));
+            return MergeResult.of(from(comparison));
         } else if (isEquality()) {
             switch (comparisonType) {
                 case INEQUALITY:
@@ -386,8 +373,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
                                         .build()));
                     }
                 case EQUALITY:
-                    return MergeResult.of(from(comparison).orElseThrow(() -> new RecordCoreException("expected non-empty comparison")),
-                            inequalityComparisons);
+                    return MergeResult.of(from(comparison), inequalityComparisons);
                 default:
                     break;
             }
@@ -450,17 +436,23 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Nonnull
-    public static Optional<ComparisonRange> from(@Nonnull Comparisons.Comparison comparison) {
+    public static ComparisonRange from(@Nonnull Comparisons.Comparison comparison) {
         switch (ScanComparisons.getComparisonType(comparison)) {
             case EQUALITY:
-                return Optional.of(new ComparisonRange(comparison));
+                return new ComparisonRange(comparison);
             case INEQUALITY:
-                return Optional.of(new ComparisonRange(Collections.singletonList(comparison)));
+                return ComparisonRange.fromInequalities(Collections.singletonList(comparison));
             case NONE:
-                return Optional.empty();
             default:
                 throw new RecordCoreException("unexpected comparison type");
         }
+    }
+
+    @Nonnull
+    public static ComparisonRange fromInequalities(@Nonnull Iterable<Comparisons.Comparison> comparisons) {
+        Verify.verify(Streams.stream(comparisons)
+                .allMatch(comparison -> ScanComparisons.getComparisonType(comparison) == ScanComparisons.ComparisonType.INEQUALITY));
+        return new ComparisonRange(comparisons);
     }
 
     /**
