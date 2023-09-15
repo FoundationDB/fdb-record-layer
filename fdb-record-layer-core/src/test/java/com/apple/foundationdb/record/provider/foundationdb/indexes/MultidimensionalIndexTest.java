@@ -580,7 +580,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new CompositeScanParameters(
-                                new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds)),
+                                new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds, TupleRange.ALL)),
                         false);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
@@ -933,7 +933,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new CompositeScanParameters(
-                                new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(null, "business")), bounds)),
+                                new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(null, "business")), bounds, TupleRange.ALL)),
                         false);
 
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
@@ -1009,7 +1009,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             }
 
             return new MultidimensionalIndexScanBounds(TupleRange.betweenInclusive(Tuple.from(minCalendarName), Tuple.from(maxCalendarName)),
-                    new MultidimensionalIndexScanBounds.Hypercube(tupleRangesBuilder.build()));
+                    new MultidimensionalIndexScanBounds.Hypercube(tupleRangesBuilder.build()), TupleRange.ALL);
         }
 
         @Override

@@ -243,13 +243,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple dimensionLow = Objects.requireNonNull(getLow());
+                final Tuple low = Objects.requireNonNull(getLow());
                 if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(highTuple, dimensionLow) < 0) {
+                        TupleHelpers.compare(highTuple, low) < 0) {
                     return false;
                 }
                 if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(highTuple, dimensionLow) <= 0) {
+                        TupleHelpers.compare(highTuple, low) <= 0) {
                     return false;
                 }
                 break;
@@ -265,13 +265,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple dimensionHigh = Objects.requireNonNull(getHigh());
+                final Tuple high = Objects.requireNonNull(getHigh());
                 if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(lowTuple, dimensionHigh) > 0) {
+                        TupleHelpers.compare(lowTuple, high) > 0) {
                     return false;
                 }
                 if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(highTuple, dimensionHigh) >= 0) {
+                        TupleHelpers.compare(highTuple, high) >= 0) {
                     return false;
                 }
                 break;
@@ -295,13 +295,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple dimensionLow = Objects.requireNonNull(getLow());
+                final Tuple low = Objects.requireNonNull(getLow());
                 if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(tuple, dimensionLow) < 0) {
+                        TupleHelpers.compare(tuple, low) < 0) {
                     return false;
                 }
                 if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(tuple, dimensionLow) <= 0) {
+                        TupleHelpers.compare(tuple, low) <= 0) {
                     return false;
                 }
                 break;
@@ -317,13 +317,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple dimensionHigh = Objects.requireNonNull(getHigh());
+                final Tuple high = Objects.requireNonNull(getHigh());
                 if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(tuple, dimensionHigh) > 0) {
+                        TupleHelpers.compare(tuple, high) > 0) {
                     return false;
                 }
                 if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(tuple, dimensionHigh) >= 0) {
+                        TupleHelpers.compare(tuple, high) >= 0) {
                     return false;
                 }
                 break;

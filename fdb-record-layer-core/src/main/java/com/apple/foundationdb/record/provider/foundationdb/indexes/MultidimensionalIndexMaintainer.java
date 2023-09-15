@@ -138,12 +138,15 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTree.OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
                             final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                                    rTree.scan(transaction, lastHilbertValue, lastKey, mDScanBounds::overlapsMbrApproximately),
+                                    rTree.scan(transaction, lastHilbertValue, lastKey,
+                                            mDScanBounds::overlapsMbrApproximately,
+                                            (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),
                                     cursorLimitManager, timer);
                             return itemSlotCursor
                                     .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                         itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) > 0)
                                     .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
+                                    .filter(itemSlot -> mDScanBounds.getSuffixRange().contains(itemSlot.getKeySuffix()))
                                     .map(itemSlot -> {
                                         final List<Object> keyItems = Lists.newArrayList();
                                         if (prefixTuple != null) {
@@ -225,14 +228,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    @Nonnull
-    private DimensionsKeyExpression getDimensionsKeyExpression(@Nonnull final KeyExpression root) {
-        if (root instanceof KeyWithValueExpression) {
-            return (DimensionsKeyExpression)((KeyWithValueExpression)root).getInnerKey();
-        }
-        return (DimensionsKeyExpression)root;
-    }
-
     @Override
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
@@ -288,15 +283,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.whenAll(rankFutures.values());
     }
 
-    private RTree.Point validatePoint(@Nonnull RTree.Point point) {
-        for (int d = 0; d < point.getNumDimensions(); d ++) {
-            Object coordinate = point.getCoordinate(d);
-            Preconditions.checkArgument(coordinate == null || coordinate instanceof Long,
-                    "dimension coordinates must be of type long");
-        }
-        return point;
-    }
-
     @Override
     public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
         if (!super.canDeleteWhere(matcher, evaluated)) {
@@ -309,6 +295,29 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         Verify.verify(getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize() >= prefix.size());
         return super.deleteWhere(tr, prefix);
+    }
+
+    /**
+     * Traverse from the root of a key expression of a multidimensional index to the {@link DimensionsKeyExpression}.
+     * @param root the root {@link KeyExpression} of the index definition
+     * @return a {@link DimensionsKeyExpression}
+     */
+    @Nonnull
+    public static DimensionsKeyExpression getDimensionsKeyExpression(@Nonnull final KeyExpression root) {
+        if (root instanceof KeyWithValueExpression) {
+            return (DimensionsKeyExpression)((KeyWithValueExpression)root).getInnerKey();
+        }
+        return (DimensionsKeyExpression)root;
+    }
+
+    @Nonnull
+    private static RTree.Point validatePoint(@Nonnull RTree.Point point) {
+        for (int d = 0; d < point.getNumDimensions(); d ++) {
+            Object coordinate = point.getCoordinate(d);
+            Preconditions.checkArgument(coordinate == null || coordinate instanceof Long,
+                    "dimension coordinates must be of type long");
+        }
+        return point;
     }
 
     static class OnRead implements RTree.OnReadListener {
@@ -324,7 +333,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SCAN, future);
         }
 
@@ -376,7 +385,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
+        public <T extends RTree.Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_MODIFICATION, future);
         }
 

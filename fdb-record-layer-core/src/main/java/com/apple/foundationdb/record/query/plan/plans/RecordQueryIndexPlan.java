@@ -53,12 +53,15 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -549,6 +552,42 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         } else {
             throw new RecordCoreException("this plan does not use ScanComparisons");
         }
+    }
+
+    @Nonnull
+    @Override
+    public ComparisonRanges getComparisonRanges() {
+        if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
+            final MultidimensionalIndexScanComparisons mdIndexScanComparisons =
+                    (MultidimensionalIndexScanComparisons)scanParameters;
+            final ImmutableList.Builder<ComparisonRange> comparisonRangeBuilder = ImmutableList.builder();
+            final ComparisonRanges prefixComparisonRanges =
+                    ComparisonRanges.fromScanComparisons(mdIndexScanComparisons.getPrefixScanComparisons());
+            comparisonRangeBuilder.addAll(prefixComparisonRanges.getRanges());
+            final List<ComparisonRange> dimensionComparisonRanges =
+                    mdIndexScanComparisons.getDimensionsScanComparisons()
+                            .stream()
+                            .flatMap(dimensionScanComparisons -> ComparisonRanges.fromScanComparisons(dimensionScanComparisons)
+                                    .getRanges().stream())
+                            .collect(ImmutableList.toImmutableList());
+            final ComparisonRanges suffixComparisonRanges =
+                    ComparisonRanges.fromScanComparisons(mdIndexScanComparisons.getSuffixScanComparisons());
+            return new ComparisonRanges(ImmutableList.<ComparisonRange>builder()
+                    .addAll(prefixComparisonRanges.getRanges())
+                    .addAll(dimensionComparisonRanges)
+                    .addAll(suffixComparisonRanges.getRanges())
+                    .build());
+        }
+
+        return ComparisonRanges.fromScanComparisons(getScanComparisons());
+    }
+
+    @Override
+    public boolean hasComparisonRanges() {
+        if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
+            return true;
+        }
+        return hasScanComparisons();
     }
 
     @Override
