@@ -154,7 +154,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask.allSatisfied()) {
             filterMask.setSatisfied(true);
         }
-        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(),
+        return new ScoredPlan(plan, null, filterMask.getUnsatisfiedFilters(), Collections.emptyList(),
                 computeSargedComparisons(plan),  11 - filterMask.getUnsatisfiedFilters().size(),
                 state.repeated, false, false, null);
     }

@@ -460,6 +460,13 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return new ComparisonRange(comparisons);
     }
 
+    @Nonnull
+    public static ComparisonRange fromInequalities(@Nonnull Iterable<Comparisons.Comparison> comparisons) {
+        Verify.verify(Streams.stream(comparisons)
+                .allMatch(comparison -> ScanComparisons.getComparisonType(comparison) == ScanComparisons.ComparisonType.INEQUALITY));
+        return new ComparisonRange(comparisons);
+    }
+
     /**
      * Class to represent the outcome of a merge operation.
      */

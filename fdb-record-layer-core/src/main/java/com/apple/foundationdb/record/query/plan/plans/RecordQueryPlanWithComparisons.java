@@ -58,7 +58,6 @@ public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
                     });
             return resultBuilder.build();
         }
-
         final var scanComparisons = getScanComparisons();
         return ImmutableSet.<Comparisons.Comparison>builder()
                 .addAll(scanComparisons.getEqualityComparisons())
