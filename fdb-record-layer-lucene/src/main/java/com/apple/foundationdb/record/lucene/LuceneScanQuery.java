@@ -29,6 +29,8 @@ import org.apache.lucene.search.Sort;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Scan a {@code LUCENE} index using a Lucene {@link Query}.
@@ -47,16 +49,21 @@ public class LuceneScanQuery extends LuceneScanBounds {
     @Nullable
     private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
-    public LuceneScanQuery(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey,
-                           @Nonnull Query query, @Nullable Sort sort, @Nullable List<String> storedFields,
-                           @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                           @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+    @Nullable
+    private final Map<String, Set<String>> termMap;
+
+    public LuceneScanQuery(@Nonnull final IndexScanType scanType, @Nonnull final Tuple groupKey,
+                           @Nonnull final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
+                           @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
+                           @Nullable final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                           @Nullable final Map<String, Set<String>> termMap) {
         super(scanType, groupKey);
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;
         this.storedFieldTypes = storedFieldTypes;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
+        this.termMap = termMap;
     }
 
     @Nonnull
@@ -79,9 +86,14 @@ public class LuceneScanQuery extends LuceneScanBounds {
         return storedFieldTypes;
     }
 
-    @Nonnull
+    @Nullable
     public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
         return luceneQueryHighlightParameters;
+    }
+
+    @Nullable
+    public Map<String, Set<String>> getTermMap() {
+        return termMap;
     }
 
     @Override

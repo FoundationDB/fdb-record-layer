@@ -221,7 +221,6 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
                 () -> constructQueryWithPredicate(planner.getRecordMetaData(), addQueryPredicate),
                 allowedIndexes,
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
     }
 }

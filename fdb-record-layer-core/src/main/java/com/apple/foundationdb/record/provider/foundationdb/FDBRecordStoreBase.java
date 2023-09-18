@@ -540,6 +540,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
                                                           @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
 
+    @Nonnull
+    CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
+                                                          @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
+
+    @Nonnull
+    default CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+        return dryRunSaveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
+    }
+
     /**
      * Save the given record.
      * @param rec the record to be saved
@@ -1551,6 +1560,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     static Tuple uniquenessViolationKey(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
         return valueKey.addAll(primaryKey);
     }
+
+    @Nonnull
+    CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull Tuple primaryKey);
 
     /**
      * Async version of {@link #deleteRecord}.

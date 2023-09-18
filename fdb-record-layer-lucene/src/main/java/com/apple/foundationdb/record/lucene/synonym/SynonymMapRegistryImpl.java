@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -41,7 +42,6 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ServiceLoader;
 
 /**
  * Registry for {@link SynonymMap}s.
@@ -76,7 +76,7 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
     @Nonnull
     private static Map<String, SynonymMap> initRegistry() {
         final Map<String, SynonymMap> registry = new HashMap<>();
-        for (SynonymMapConfig config : ServiceLoader.load(SynonymMapConfig.class)) {
+        for (SynonymMapConfig config : ServiceLoaderProvider.load(SynonymMapConfig.class)) {
             if (registry.containsKey(config.getName())) {
                 if (LOGGER.isWarnEnabled()) {
                     LOGGER.warn(KeyValueLogMessage.of("duplicate synonym map", LogMessageKeys.SYNONYM_NAME, config.getName()));

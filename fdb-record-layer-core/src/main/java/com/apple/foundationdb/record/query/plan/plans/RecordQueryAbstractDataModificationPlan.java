@@ -197,7 +197,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult)))
-                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight())
+                .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
@@ -227,7 +227,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message);
+    public abstract <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {

@@ -21,7 +21,11 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ExecuteState;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -44,7 +48,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue.LightArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -52,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -100,9 +107,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> { });
+            fetchResultValues(context, plan, Function.identity(), c -> {
+            });
 
             plan = cascadesPlanner.planGraph(
                     () -> {
@@ -139,7 +146,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -147,6 +153,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                             typeFilterPlan(scanPlan()))
                             .where(deleteTarget(equalsObject("RestaurantRecord"))));
 
+            // dry run delete 1 record
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var restNo = recordDescriptor.findFieldByName("rest_no");
@@ -157,14 +164,47 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            }, ExecuteProperties.newBuilder().setDryRun(true).build());
             Assertions.assertEquals(1, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
+            // select returns 2 records
+            resultValues = fetchResultValues(context, selectPlan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                if ((int)(long)record.getField(rest_no) == 100) {
+                    Assertions.assertEquals("Burger King", record.getField(name));
+                } else if ((int)(long)record.getField(rest_no) == 200) {
+                    Assertions.assertEquals("Heirloom Cafe", record.getField(name)); // untouched record
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(2, resultValues.size());
+
+            // wet run delete 1 record
+            resultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var restNo = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                if ((long)record.getField(restNo) == 100L) {
+                    Assertions.assertEquals("Burger King", record.getField(name));
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(1, resultValues.size());
+
+            // select returns the untouched 1 record
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -175,7 +215,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(1, resultValues.size());
         }
     }
@@ -203,11 +244,10 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, insertPlan(explodePlan()).where(target(equalsObject("RestaurantRecord"))));
-
+            // dry run insert 2 records
             var resultValues = fetchResultValues(context, plan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -223,14 +263,39 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            }, ExecuteProperties.newBuilder().setDryRun(true).build());
             Assertions.assertEquals(2, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
+            // select returns 0 record
+            resultValues = fetchResultValues(context, selectPlan, record -> record, c -> {
+            });
+            Assertions.assertEquals(0, resultValues.size());
+
+            // wet run insert 2 records
+            resultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var rest_no = recordDescriptor.findFieldByName("rest_no");
+                final var name = recordDescriptor.findFieldByName("name");
+                switch ((int)(long)record.getField(rest_no)) {
+                    case 100:
+                        Assertions.assertEquals("Burger King", record.getField(name));
+                        break;
+                    case 200:
+                        Assertions.assertEquals("Heirloom Cafe", record.getField(name));
+                        break;
+                    default:
+                        Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            });
+            Assertions.assertEquals(2, resultValues.size());
+            // select returns 2 records
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
                 final var rest_no = recordDescriptor.findFieldByName("rest_no");
@@ -246,8 +311,39 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(2, resultValues.size());
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testInsertExistingRecordThrowsException() throws Exception {
+        final var cascadesPlanner = setUp();
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            // insert 2 records
+            var plan = cascadesPlanner.planGraph(
+                    FDBModificationQueryTest::insertGraph,
+                    Optional.empty(),
+                    IndexQueryabilityFilter.TRUE,
+                    EvaluationContext.empty()).getPlan();
+            fetchResultValues(context, plan, Function.identity(), c -> {
+            });
+            // after inserting, try inserting again, throws RecordAlreadyExistsException
+            final var usedTypes = UsedTypesProperty.evaluate(plan);
+            final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                RecordCoreException ex1 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
+                Assertions.assertTrue(ex1.getMessage().contains("record already exists"));
+            }
+            // dry run insert again also throws RecordAlreadyExistsException
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.newBuilder().setDryRun(true).build()).asIterator()) {
+                RecordCoreException ex2 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
+                Assertions.assertTrue(ex2.getMessage().contains("record already exists"));
+            }
         }
     }
 
@@ -324,7 +420,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(plan, this::openNestedRecordStore, Function.identity()));
@@ -390,9 +485,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> { });
+            fetchResultValues(context, plan, Function.identity(), c -> {
+            });
 
             plan = cascadesPlanner.planGraph(
                     () -> {
@@ -433,7 +528,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -461,13 +555,44 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(1, resultValues.size());
+            // dryRun update plan
+            ExecuteProperties dryRunExecuteProperties = ExecuteProperties.newBuilder()
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .setState(ExecuteState.NO_LIMITS)
+                    .setDryRun(true)
+                    .build();
+            var dryRunResultValues = fetchResultValues(context, plan, record -> {
+                final var recordDescriptor = record.getDescriptorForType();
+                final var oldRecordField = recordDescriptor.findFieldByName("old");
+                final var oldRecordDescriptor = oldRecordField.getMessageType();
+                final var oldRecord = (Message)record.getField(oldRecordField);
+                final var oldRestNo = oldRecordDescriptor.findFieldByName("rest_no");
+                final var oldName = oldRecordDescriptor.findFieldByName("name");
+                final var newRecordField = recordDescriptor.findFieldByName("new");
+                final var newRecordDescriptor = newRecordField.getMessageType();
+                final var newRecord = (Message)record.getField(newRecordField);
+                final var newRestNo = newRecordDescriptor.findFieldByName("rest_no");
+                final var newName = newRecordDescriptor.findFieldByName("name");
+                if ((long)newRecord.getField(newRestNo) == 100L) {
+                    Assertions.assertEquals(100L, (long)oldRecord.getField(oldRestNo));
+                    Assertions.assertEquals("Burger King McDonald's", oldRecord.getField(oldName));
+                    // resultValue returns the new value, but new value shouldn't be written to database
+                    // the selectPlan below should still returns Burger King McDonald's
+                    Assertions.assertEquals("Burger King McDonald's McDonald's", newRecord.getField(newName));
+                } else {
+                    Assertions.fail("unexpected record");
+                }
+                return record;
+            }, c -> {
+            }, dryRunExecuteProperties);
+            Assertions.assertEquals(1, dryRunResultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -475,6 +600,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 final var name = recordDescriptor.findFieldByName("name");
                 switch ((int)(long)record.getField(rest_no)) {
                     case 100:
+                        // did 1 update and 1 dry Run update, changed the value from Burger King to Burger King McDonald's
                         Assertions.assertEquals("Burger King McDonald's", record.getField(name)); //updated record because of conflict on name
                         break;
                     case 200:
@@ -484,7 +610,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(2, resultValues.size());
         }
     }
@@ -500,7 +627,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *          (200, 'Heirloom Cafe');
      * }
      * </pre>
-     *  and subsequently:
+     * and subsequently:
      * <pre>
      * {@code
      *   INSERT INTO Restaurants(rec_no, name)
@@ -534,9 +661,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     FDBModificationQueryTest::insertGraph,
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> { });
+            fetchResultValues(context, plan, Function.identity(), c -> {
+            });
 
             plan = cascadesPlanner.planGraph(
                     () -> {
@@ -607,7 +734,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
@@ -631,13 +757,13 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(1, resultValues.size());
 
             final var selectPlan = cascadesPlanner.planGraph(() -> selectRecordsGraph(cascadesPlanner.getRecordMetaData(), FDBModificationQueryTest::whereReviewsIsEmptyGraph),
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    false,
                     EvaluationContext.empty()).getPlan();
             resultValues = fetchResultValues(context, selectPlan, record -> {
                 final var recordDescriptor = record.getDescriptorForType();
@@ -657,7 +783,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         Assertions.fail("unexpected record");
                 }
                 return record;
-            }, c -> { });
+            }, c -> {
+            });
             Assertions.assertEquals(3, resultValues.size());
         }
     }

@@ -78,6 +78,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
 
     public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter,
                                          @Nonnull final Iterable<String> fields) {
+        super(LuceneQueryType.AUTO_COMPLETE);
         this.search = search;
         this.isParameter = isParameter;
         this.fields = ImmutableSet.copyOf(fields);
@@ -93,7 +94,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     }
 
     @Override
-    public Query bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
         final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
@@ -124,7 +125,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
                     .toString());
         }
 
-        return finalQuery;
+        return new BoundQuery(finalQuery);
     }
 
     @Override

@@ -186,7 +186,8 @@ public interface MatchCandidate {
     @SuppressWarnings("java:S135")
     default RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                              @Nonnull final PlanContext planContext,
-                                             @Nonnull final Memoizer memoizer) {
+                                             @Nonnull final Memoizer memoizer,
+                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -204,7 +205,7 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentPlan(partialMatch, planContext, memoizer, comparisonRangesForScanBuilder.build());
+        return toEquivalentPlan(partialMatch, planContext, memoizer, comparisonRangesForScanBuilder.build(), reverseScanOrder);
     }
 
     /**
@@ -220,7 +221,8 @@ public interface MatchCandidate {
     RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
                                      @Nonnull PlanContext planContext,
                                      @Nonnull Memoizer memoizer,
-                                     @Nonnull List<ComparisonRange> comparisonRanges);
+                                     @Nonnull List<ComparisonRange> comparisonRanges,
+                                     boolean reverseScanOrder);
 
     @Nonnull
     @SuppressWarnings("java:S1452")

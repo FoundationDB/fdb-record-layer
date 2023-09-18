@@ -16,9 +16,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Throw RecordCoreException when missing FileReference [(Issue #2291)](https://github.com/FoundationDB/fdb-record-layer/issues/2291)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Add cause to LuceneRecordCursor "Failed to get document" exception [(Issue #2283)](https://github.com/FoundationDB/fdb-record-layer/issues/2283)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,25 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.411.0
+
+
+### 3.3.410.0
+
+* **Bug fix** segregate different types of lucene querying [(Issue #2276)](https://github.com/FoundationDB/fdb-record-layer/issues/2276)
+
+### 3.3.409.0
+
+* **Bug fix** Fix coerceArray to work with list of primitives [(Issue #2274)](https://github.com/FoundationDB/fdb-record-layer/issues/2274)
+
+### 3.3.407.0
+
+* **Feature** Provide support for empty list in InOpValue [(Issue #2270)](https://github.com/FoundationDB/fdb-record-layer/issues/2270)
+
+### 3.3.406.0
+
+* **Performance** Remove unnecessary supplyAsync from FDBDirectory.writeSchema [(Issue #2237)](https://github.com/FoundationDB/fdb-record-layer/issues/2237)
 
 ### 3.3.405.0
 

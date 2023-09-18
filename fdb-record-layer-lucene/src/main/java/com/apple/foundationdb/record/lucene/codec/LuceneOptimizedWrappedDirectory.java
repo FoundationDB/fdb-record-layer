@@ -42,7 +42,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 
@@ -108,21 +107,14 @@ class LuceneOptimizedWrappedDirectory extends Directory {
             return new LuceneOptimizedWrappedIndexOutput(name) {
                 @Override
                 public void close() throws IOException {
-                    try {
-                        FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
-                        List<Long> words = getBitSetWords(fieldInfos);
-                        reference.setBitSetWords(words);
-                        byte[] schema = fdbDirectory.readSchema(words);
-                        if (schema == null) {
-                            fdbDirectory.writeSchema(words, outputStream.toByteArray()).get();
-                        }
-                        ((FDBDirectory)FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
-                    } catch (InterruptedException ie) {
-                        LOG.error("interrupted exception during close", ie);
-                        Thread.currentThread().interrupt();
-                    } catch (ExecutionException e) {
-                        throw new IOException(e);
+                    FDBLuceneFileReference reference = new FDBLuceneFileReference(-1, -1, -1, -1);
+                    List<Long> words = getBitSetWords(fieldInfos);
+                    reference.setBitSetWords(words);
+                    byte[] schema = fdbDirectory.readSchema(words);
+                    if (schema == null) {
+                        fdbDirectory.writeSchema(words, outputStream.toByteArray());
                     }
+                    ((FDBDirectory)FilterDirectory.unwrap(fdbDirectory)).writeFDBLuceneFileReference(name, reference);
                 }
             };
         } else {

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
 import java.util.function.BiFunction;
 
 /**
@@ -421,7 +421,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         private static Map<String, Builder> initRegistry() {
             try {
                 Map<String, Builder> functions = new HashMap<>();
-                for (Factory factory : ServiceLoader.load(Factory.class)) {
+                for (Factory factory : ServiceLoaderProvider.load(Factory.class)) {
                     for (Builder function : factory.getBuilders()) {
                         if (functions.containsKey(function.getName())) {
                             throw new RecordCoreException("Function already defined").addLogInfo(

@@ -154,34 +154,6 @@ public class MatchInfo {
         return remainingComputationValueOptional;
     }
 
-    /**
-     * Derive if a scan is reverse by looking at all the bound key parts in this match info. The planner structures
-     * are laid out in a way that they could theoretically support a scan direction by key part. In reality, we only
-     * support a direction for a scan. Consequently, we only allow that either none or all of the key parts indicate
-     * {@link OrderingPart#isReverse()}.
-     * @return {@code Optional.of(false)} if all bound key parts indicate a forward ordering,
-     *         {@code Optional.of(true)} if all bound key parts indicate a reverse ordering,
-     *         {@code Optional.empty()} otherwise. The caller should deal with that result accordingly.
-     *         Note that if there are no bound key parts at all, this method will return {@code Optional.of(false)}.
-     */
-    @Nonnull
-    public Optional<Boolean> deriveReverseScanOrder() {
-        var numReverse  = 0;
-        for (var orderingPart : matchedOrderingParts) {
-            if (orderingPart.isReverse()) {
-                numReverse ++;
-            }
-        }
-
-        if (numReverse == 0) {
-            return Optional.of(false); // forward
-        } else if (numReverse == matchedOrderingParts.size()) {
-            return Optional.of(true); // reverse
-        } else {
-            return Optional.empty();
-        }
-    }
-
     @Nonnull
     public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,

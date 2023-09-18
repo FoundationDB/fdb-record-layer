@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -68,6 +69,7 @@ import org.junit.jupiter.api.Tag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -83,6 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.isReverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapResult;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
@@ -189,13 +192,49 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,
                 mapPlan(
                         typeFilterPlan(
                                 scanPlan()
+                                        .where(scanComparisons(range("([1],>")))))
+                        .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testSimplePlanGraphReversed() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+        // no index hints, plan a query
+        final var plan = cascadesPlanner.planGraph(
+                () -> {
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    final var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var nameValue =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
+                    final var restNoValue =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
+                    graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
+                    graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+                    final var aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                    final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
+                    return GroupExpressionRef.of(new LogicalSortExpression(orderByValues, true, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+
+        assertMatchesExactly(plan,
+                mapPlan(
+                        typeFilterPlan(
+                                scanPlan()
+                                        .where(isReverse())
                                         .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(ValueMatchers.fieldValueWithFieldNames("name"), ValueMatchers.fieldValueWithFieldNames("rest_no"))))));
     }
@@ -223,7 +262,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan,
                 mapPlan(
@@ -262,7 +300,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
-                false,
                 parameterRelationshipGraph));
     }
 
@@ -292,7 +329,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -346,7 +382,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -408,7 +443,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -494,7 +528,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty());
 
         // TODO write a matcher when this plan becomes more stable
@@ -572,7 +605,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         // TODO write a matcher when this plan becomes more stable
@@ -604,7 +636,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                false,
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan,

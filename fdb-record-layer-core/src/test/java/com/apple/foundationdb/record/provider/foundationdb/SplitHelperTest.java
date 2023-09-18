@@ -84,9 +84,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     // From the traditional nursery rhyme
     private static final byte[] HUMPTY_DUMPTY =
             ("Humpty Dumpty sat on a wall,\n"
-            + "Humpty Dumpty had a great fall\n"
-            + "All the king's horses and all the king's men\n"
-            + "Couldn't put Humpty Dumpty together again.\n").getBytes(Charsets.UTF_8);
+             + "Humpty Dumpty had a great fall\n"
+             + "All the king's horses and all the king's men\n"
+             + "Couldn't put Humpty Dumpty together again.\n").getBytes(Charsets.UTF_8);
 
     private static final int MEDIUM_COPIES = 5;
     private static final int MEDIUM_LEGNTH = HUMPTY_DUMPTY.length * MEDIUM_COPIES;
@@ -130,12 +130,14 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         private final boolean omitUnsplitSuffix;
         private final boolean unrollRecordDeletes;
         private final boolean loadViaGets;
+        private final boolean isDryRun;
 
-        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes, boolean loadViaGets) {
+        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes, boolean loadViaGets, boolean isDryRun) {
             this.splitLongRecords = splitLongRecords;
             this.omitUnsplitSuffix = omitUnsplitSuffix;
             this.unrollRecordDeletes = unrollRecordDeletes;
             this.loadViaGets = loadViaGets;
+            this.isDryRun = isDryRun;
         }
 
         @Nonnull
@@ -156,6 +158,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                    ", omitUnsplitSuffix=" + omitUnsplitSuffix +
                    ", unrollRecordDeletes=" + unrollRecordDeletes +
                    ", loadViaGets=" + loadViaGets +
+                   ", isDryRun=" + isDryRun +
                    '}';
         }
 
@@ -168,7 +171,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 return false;
             }
             final SplitHelperTestConfig that = (SplitHelperTestConfig)o;
-            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix && unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets;
+            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix && unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets && isDryRun == that.isDryRun;
         }
 
         @Override
@@ -181,14 +184,15 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             return Stream.of(false, true).flatMap(splitLongRecords ->
                     (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
                             Stream.of(false, true).flatMap(unrollRecordDeletes ->
-                                    Stream.of(false, true).map(loadViaGets ->
-                                            new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets)))));
+                                    Stream.of(false, true).flatMap(loadViaGets ->
+                                            Stream.of(false, true).map(isDryRun ->
+                                                    new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun))))));
         }
 
         public static SplitHelperTestConfig getDefault() {
             return new SplitHelperTestConfig(true, false,
                     FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue());
+                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false);
         }
     }
 
@@ -241,7 +245,6 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                                                   @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
-
         int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
         boolean isSplit = dataKeyCount > 1;
         int keyCount = dataKeyCount;
@@ -330,6 +333,49 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return sizeInfo;
     }
 
+    private SplitHelper.SizeInfo dryRunSetSizeInfo(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+                                                   @Nullable FDBRecordVersion version,
+                                                   @Nonnull SplitHelperTestConfig testConfig,
+                                                   @Nullable FDBStoredSizes previousSizeInfo) {
+        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        SplitHelper.dryRunSaveWithSplitOnlySetSizeInfo(subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, sizeInfo);
+
+        int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
+        boolean isSplit = dataKeyCount > 1;
+        int keyCount = dataKeyCount;
+        if (version != null) {
+            keyCount += 1;
+        }
+        int keySize = (subspace.pack().length + key.pack().length) * keyCount;
+        assertEquals(isSplit, sizeInfo.isSplit());
+        assertEquals(keyCount, sizeInfo.getKeyCount());
+        if (testConfig.hasSplitPoints()) {
+            // Add in the the counters the split points.
+            if (!isSplit) {
+                keySize += 1; // As 0 requires 1 byte when Tuple packed
+            } else {
+                keySize += dataKeyCount * 2; // As each split point is two bytes when tuple packed
+            }
+        }
+        if (version != null) {
+            keySize += 2;
+        }
+        int valueSize = serialized.length + (version != null ? 1 + FDBRecordVersion.VERSION_LENGTH : 0);
+        assertEquals(keySize, sizeInfo.getKeySize());
+        assertEquals(valueSize, sizeInfo.getValueSize());
+        assertEquals(version != null, sizeInfo.isVersionedInline());
+        // assert nothing is written
+        int count = KeyValueCursor.Builder.withSubspace(subspace.subspace(key))
+                .setContext(context)
+                .setScanProperties(ScanProperties.FORWARD_SCAN)
+                .build()
+                .getCount()
+                .join();
+        assertEquals(0, previousSizeInfo == null ? count : previousSizeInfo.getKeyCount() + count);
+        sizeInfo.reset();
+        return sizeInfo;
+    }
+
     private SplitHelper.SizeInfo saveWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
                                                @Nullable FDBRecordVersion version,
                                                @Nonnull SplitHelperTestConfig testConfig,
@@ -340,6 +386,8 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         } else if (!testConfig.splitLongRecords && serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
                     RecordCoreException.class, "Record is too long");
+        } else if (testConfig.isDryRun) {
+            return dryRunSetSizeInfo(context, key, serialized, version, testConfig, previousSizeInfo);
         } else {
             return saveSuccessfully(context, key, serialized, version, testConfig, previousSizeInfo);
         }
@@ -361,7 +409,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @MethodSource("testConfigs")
     @ParameterizedTest(name = "saveWithSplit[{0}]")
-    public void saveWithSplit(@Nonnull SplitHelperTestConfig testConfig)  {
+    public void saveWithSplit(@Nonnull SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         try (FDBRecordContext context = openContext()) {
             // No version
@@ -393,13 +441,13 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
             commit(context);
             versionstamp = context.getVersionStamp();
-            if (!testConfig.omitUnsplitSuffix) {
+            if (!testConfig.omitUnsplitSuffix && !testConfig.isDryRun) {
                 assertNotNull(versionstamp);
             } else {
                 assertNull(versionstamp);
             }
         }
-        if (!testConfig.omitUnsplitSuffix) {
+        if (!testConfig.omitUnsplitSuffix && !testConfig.isDryRun) {
             try (FDBRecordContext context = openContext()) {
                 List<Pair<Tuple, FDBRecordVersion>> keys = Arrays.asList(
                         Pair.of(Tuple.from(962L), FDBRecordVersion.complete(versionstamp, 0)),
@@ -775,7 +823,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "scan[reverse = {0}]")
     @BooleanSource
     public void scanSingleRecords(boolean reverse) {
-        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false),
+        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false),
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
 
@@ -893,7 +941,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                         // as we needed to do another speculative read to determine if a split record
                         // continues or not.
                         assertEquals(readLimit, rowsScanned);
-                        assertThat(recordCursor.getNoNextReason(), is(oneOf(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED , RecordCursor.NoNextReason.SOURCE_EXHAUSTED)));
+                        assertThat(recordCursor.getNoNextReason(), is(oneOf(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, RecordCursor.NoNextReason.SOURCE_EXHAUSTED)));
                         if (!recordCursor.getNoNextReason().isSourceExhausted()) {
                             assertNotNull(recordCursor.getContinuation());
                         }

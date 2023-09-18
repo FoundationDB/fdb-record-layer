@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.base.Suppliers;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
@@ -30,7 +31,6 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.function.Supplier;
 
 /**
@@ -64,7 +64,7 @@ public class LuceneQueryParserFactoryProvider {
     @Nonnull
     private static LuceneQueryParserFactory initRegistry() {
         LuceneQueryParserFactory first = null;
-        for (LuceneQueryParserFactory factory : ServiceLoader.load(LuceneQueryParserFactory.class)) {
+        for (LuceneQueryParserFactory factory : ServiceLoaderProvider.load(LuceneQueryParserFactory.class)) {
             if (first == null) {
                 first = factory;
             } else {

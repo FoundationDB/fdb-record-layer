@@ -1177,6 +1177,55 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void testDryRunSaveRecord() throws Exception {
+        TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+        TestRecords1Proto.MySimpleRecord record1 = recBuilder.setRecNo(1).setStrValueIndexed("abc").build();
+        FDBStoredRecord<Message> result1;
+        FDBStoredRecord<Message> result2;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            result1 = recordStore.dryRunSaveRecordAsync(record1, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS).get();
+            // assert returns the message to be saved
+            assertEquals(record1, result1.getRecord());
+            commit(context);
+        }
+        // assert dryRun doesn't save the record and doesn't save the index
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.updateRecords(TestRecords1Proto.getDescriptor()));
+            assertNull(recordStore.loadRecord(Tuple.from(1)));
+            assertEquals(Collections.emptyList(),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+            commit(context);
+        }
+        // assert normal save returns same sizeInfo
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.updateRecords(TestRecords1Proto.getDescriptor()));
+            result2 = recordStore.saveRecordAsync(record1, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS).get();
+            // assert returns the message to be saved
+            assertEquals(record1, result2.getRecord());
+            // assert dry run and normal save returns same sizeInfo
+            assertEquals(result1.getKeyCount(), result2.getKeyCount());
+            assertEquals(result1.getKeySize(), result2.getKeySize());
+            assertEquals(result1.getValueSize(), result2.getValueSize());
+            assertEquals(result1.isSplit(), result2.isSplit());
+            assertEquals(result1.isVersionedInline(), result2.isVersionedInline());
+            commit(context);
+        }
+        // assert normal save does save the record and change index
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.updateRecords(TestRecords1Proto.getDescriptor()));
+            assertNotNull(result2.getRecord(), "record2 was missing");
+            assertEquals(record1, result2.getRecord());
+            assertEquals(Collections.singletonList(Tuple.from("abc", 1)),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed"),
+                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+
+            commit(context);
+        }
+    }
+
     private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {
         long updateTime;
         try (FDBRecordContext context = openContext()) {
