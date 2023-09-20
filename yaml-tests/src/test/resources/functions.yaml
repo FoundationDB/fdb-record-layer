@@ -145,11 +145,13 @@
     {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
     {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
 ---
-- query: update C set st = coalesce(st, null) where c1 = 4 returning st
+# "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
+- query: update C set st = coalesce(st, null) where c1 = 4 returning "new".st
 - unorderedResult: [
     {!null _}]
 ---
-- query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning st
+# "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
+- query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning "new".st
 - unorderedResult: [
       {{ T1: 5, A: 'e', B: 5.0}}]
 ---

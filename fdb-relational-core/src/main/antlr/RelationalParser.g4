@@ -317,12 +317,13 @@ unionStatement
 // details
 
 selectElements // done
-    : (STAR | selectElement ) (',' selectElement)*
+    : selectElement (',' selectElement)*
     ;
 
 // done
 selectElement
-    : uid DOT STAR              #selectStarElement // done
+    : STAR                      #selectStarElement // done
+    | uid DOT STAR              #selectQualifierStarElement // done
     | expression (AS? uid)?     #selectExpressionElement // done
     ;
 
@@ -712,7 +713,7 @@ recordConstructorForInsert
     ;
 
 recordConstructor
-    : LEFT_ROUND_BRACKET (expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    : LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
     ;
 
 arrayConstructor

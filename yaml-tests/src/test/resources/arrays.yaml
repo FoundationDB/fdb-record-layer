@@ -65,10 +65,12 @@
         (3, [(3, 3.0, [1, 1, 1]), (4, 4.0, [1, 1, 1]), (5, 5.0, [1, 1, 1])])
 - count: 3
 ---
-- query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING X
+# "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
+- query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
 - result: [{[11, 12, 13]}]
 ---
-- query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING X
+# "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
+- query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
 - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"

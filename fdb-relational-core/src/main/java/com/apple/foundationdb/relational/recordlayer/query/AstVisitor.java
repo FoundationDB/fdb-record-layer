@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -69,7 +68,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -442,7 +440,29 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else {
             List<Column<? extends Value>> columns = new ArrayList<>();
             for (Quantifier quantifier : scope.getForEachQuantifiers()) {
-                if (id == null || quantifier.getAlias().getId().equals(ParserUtils.toString(id))) {
+                if (id != null) {
+                    final var idName = ParserUtils.normalizeString(ParserUtils.toString(id));
+                    if (quantifier.getAlias().getId().equals(ParserUtils.toString(id))) {
+                        for (var column : quantifier.getFlowedColumns()) {
+                            var field = column.getField();
+                            // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
+                            columns.add(Column.of(
+                                    Type.Record.Field.of(field.getFieldType(), field.getFieldNameOptional(), Optional.empty()),
+                                    column.getValue())
+                            );
+                        }
+                    } else {
+                        for (var column : quantifier.getFlowedColumns()) {
+                            if (ParserUtils.normalizeString(column.getField().getFieldName()).equals(idName) && column.getValue().getResultType().isRecord()) {
+                                for (final var field : ((Type.Record)column.getValue().getResultType()).getFields()) {
+                                    final var subField = FieldValue.ofFieldNameAndFuseIfPossible(column.getValue(), field.getFieldName());
+                                    // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
+                                    columns.add(Column.of(field, subField));
+                                }
+                            }
+                        }
+                    }
+                } else {
                     for (var column : quantifier.getFlowedColumns()) {
                         var field = column.getField();
                         // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
@@ -459,25 +479,32 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx) {
-        if (ctx.STAR() != null) {
-            final var cols = expandStarColumns(null);
-            final var scope = Assert.notNullUnchecked(scopes.getCurrentScope());
-            cols.forEach(scope::addProjectionColumn);
-        } else {
-            for (var selectElement : ctx.selectElement()) {
-                visit(selectElement);
-            }
+        for (var selectElement : ctx.selectElement()) {
+            visit(selectElement);
         }
         return null;
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public Void visitSelectStarElement(RelationalParser.SelectStarElementContext ctx) {
-        final var cols = expandStarColumns((Value) visit(ctx.uid()));
-        final var scope = Assert.notNullUnchecked(scopes.getCurrentScope());
+        final var cols = handleStar(null);
+        final var scope = scopes.getCurrentScope();
         cols.forEach(scope::addProjectionColumn);
         return null;
+    }
+
+    @Override
+    public Object visitSelectQualifierStarElement(RelationalParser.SelectQualifierStarElementContext ctx) {
+        final var cols = handleStar((Value)visit(ctx.uid()));
+        final var scope = scopes.getCurrentScope();
+        cols.forEach(scope::addProjectionColumn);
+        return null;
+    }
+
+    // todo remove.
+    @Nonnull
+    private List<Column<? extends Value>> handleStar(@Nullable final Value uid) {
+        return expandStarColumns(uid);
     }
 
     @Override
@@ -918,8 +945,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitRecordConstructor(RelationalParser.RecordConstructorContext ctx) {
-        List<Column<? extends Value>> columns;
-        if (ctx.expressionWithName() != null) {
+        final List<Column<? extends Value>> columns;
+        if (ctx.uid() != null) {
+            columns = handleStar((Value) visit(ctx.uid()));
+        } else if (ctx.STAR() != null) {
+            columns = handleStar(null);
+        } else if (ctx.expressionWithName() != null) {
             columns = visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()));
         } else {
             columns = visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
@@ -1473,10 +1504,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.RETURNING() != null) {
             final var qun = Quantifier.forEach(GroupExpressionRef.of(expression));
             final var scope = scopes.push();
-            final var newFieldsSelector = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun), 1);
-            expression = new SelectExpression(newFieldsSelector, List.of(qun), List.of());
-            final var selectQun = Quantifier.forEach(GroupExpressionRef.of(expression));
-            scope.addQuantifier(selectQun);
+            scope.addQuantifier(qun);
             visit(ctx.selectElements());
             return QueryPlan.LogicalQueryPlan.of(scopes.pop().convertToRelationalExpression(), context, query);
         }
