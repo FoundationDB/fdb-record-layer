@@ -218,6 +218,8 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                         break;
                     case Types.SMALLINT:
                     case Types.INTEGER:
+                        assertions.assertThat(actual.getInt(i)).isEqualTo(expected.getInt(i));
+                        break;
                     case Types.BIGINT:
                         assertions.assertThat(actual.getLong(i)).isEqualTo(expected.getLong(i));
                         break;

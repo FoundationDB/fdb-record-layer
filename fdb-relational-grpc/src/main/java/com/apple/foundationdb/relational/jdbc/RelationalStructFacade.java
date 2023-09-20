@@ -199,6 +199,9 @@ class RelationalStructFacade implements RelationalStruct {
             case Types.BOOLEAN:
                 obj = getBoolean(oneBasedColumn);
                 break;
+            case Types.INTEGER:
+                obj = getInt(oneBasedColumn);
+                break;
             default:
                 throw new SQLException("Unsupported object type: " + type);
         }

@@ -253,6 +253,11 @@ public class TypeConversion {
                 column = toColumn(relationalStruct.wasNull() ? null : l,
                         (a, b) -> a == null ? b.clearLong() : b.setLong((Long) a));
                 break;
+            case Types.INTEGER:
+                int i = relationalStruct.getInt(oneBasedIndex);
+                column = toColumn(relationalStruct.wasNull() ? null : i,
+                        (a, b) -> a == null ? b.clearInteger() : b.setInteger((Integer) a));
+                break;
             case Types.BOOLEAN:
                 boolean bool = relationalStruct.getBoolean(oneBasedIndex);
                 column = toColumn(relationalStruct.wasNull() ? null : bool,

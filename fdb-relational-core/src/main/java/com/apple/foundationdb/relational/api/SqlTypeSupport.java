@@ -88,6 +88,7 @@ public final class SqlTypeSupport {
             case FLOAT:
                 return Types.FLOAT;
             case INT:
+                return Types.INTEGER;
             case LONG:
                 return Types.BIGINT;
             case STRING:
