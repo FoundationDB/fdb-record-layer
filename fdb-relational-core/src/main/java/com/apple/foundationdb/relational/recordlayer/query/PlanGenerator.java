@@ -116,14 +116,15 @@ public final class PlanGenerator {
                                      @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
-            final var astHashResult = AstNormalizer.normalizeQuery(context, query);
+            final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
+            final var astHashResult = AstNormalizer.normalizeQuery(context, query, caseSensitive);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash());
             options = Options.combine(astHashResult.getQueryOptions(), options);
             boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
                 RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), logThatQuery);
                 return plan;
             }
@@ -137,7 +138,7 @@ public final class PlanGenerator {
                     cache.get().reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
-                                final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner);
+                                final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
                                 RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), logThatQuery);
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
@@ -191,7 +192,8 @@ public final class PlanGenerator {
     @Nonnull
     private static Plan<?> generatePhysicalPlan(@Nonnull final AstNormalizer.Result ast,
                                                 @Nonnull final PlanContext planContext,
-                                                @Nonnull final CascadesPlanner planner) {
+                                                @Nonnull final CascadesPlanner planner,
+                                                final boolean caseSensitive) {
         // todo (yhatem) rewrite this.
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
@@ -204,7 +206,7 @@ public final class PlanGenerator {
         // literal and parameter values without LIMIT and CONTINUATION)
         context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
         try {
-            final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri());
+            final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri(), caseSensitive);
             Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString()));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
             return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
@@ -220,9 +222,12 @@ public final class PlanGenerator {
 
     private static Object generateLogicalPlan(@Nonnull PlanGenerationContext planGenerationContext,
                                               @Nonnull AstNormalizer.Result ast,
-                                              @Nonnull DdlQueryFactory ddlQueryFactory, @Nonnull URI dbUri) throws RelationalException {
+                                              @Nonnull DdlQueryFactory ddlQueryFactory,
+                                              @Nonnull URI dbUri,
+                                              final boolean caseSensitive) throws RelationalException {
         return planGenerationContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
-                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri, ast.getQueryCacheKey().getCanonicalQueryString()).visit(ast.getParseTree()));
+                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri, ast.getQueryCacheKey().getCanonicalQueryString(), caseSensitive)
+                        .visit(ast.getParseTree()));
     }
 
     @Nonnull

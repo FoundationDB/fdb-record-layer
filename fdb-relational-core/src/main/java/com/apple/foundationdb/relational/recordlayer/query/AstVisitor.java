@@ -68,6 +68,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -127,6 +128,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     private final String query;
 
+    private final boolean caseSensitive;
+
     /**
      * Creates a new instance of {@link AstVisitor}.
      *
@@ -137,13 +140,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public AstVisitor(@Nonnull final PlanGenerationContext context,
                       @Nonnull final DdlQueryFactory ddlQueryFactory,
                       @Nonnull final URI dbUri,
-                      @Nonnull final String query) {
+                      @Nonnull final String query,
+                      final boolean caseSensitive) {
         this.context = context;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
         this.containsNonNullableArray = false;
         this.scopes = new Scopes();
         this.query = query;
+        this.caseSensitive = caseSensitive;
     }
 
     @Override
@@ -441,7 +446,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             List<Column<? extends Value>> columns = new ArrayList<>();
             for (Quantifier quantifier : scope.getForEachQuantifiers()) {
                 if (id != null) {
-                    final var idName = ParserUtils.normalizeString(ParserUtils.toString(id));
+                    final var idName = ParserUtils.normalizeString(ParserUtils.toString(id), caseSensitive);
                     if (quantifier.getAlias().getId().equals(ParserUtils.toString(id))) {
                         for (var column : quantifier.getFlowedColumns()) {
                             var field = column.getField();
@@ -453,8 +458,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                         }
                     } else {
                         for (var column : quantifier.getFlowedColumns()) {
-                            if (ParserUtils.normalizeString(column.getField().getFieldName()).equals(idName) && column.getValue().getResultType().isRecord()) {
-                                for (final var field : ((Type.Record)column.getValue().getResultType()).getFields()) {
+                            if (ParserUtils.normalizeString(column.getField().getFieldName(), caseSensitive).equals(idName) && column.getValue().getResultType().isRecord()) {
+                                for (final var field : ((Type.Record) column.getValue().getResultType()).getFields()) {
                                     final var subField = FieldValue.ofFieldNameAndFuseIfPossible(column.getValue(), field.getFieldName());
                                     // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
                                     columns.add(Column.of(field, subField));
@@ -495,7 +500,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitSelectQualifierStarElement(RelationalParser.SelectQualifierStarElementContext ctx) {
-        final var cols = handleStar((Value)visit(ctx.uid()));
+        final var cols = handleStar((Value) visit(ctx.uid()));
         final var scope = scopes.getCurrentScope();
         cols.forEach(scope::addProjectionColumn);
         return null;
@@ -760,11 +765,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitLikePredicate(RelationalParser.LikePredicateContext ctx) {
         @Nullable String escapeChar = null;
         if (ctx.escape != null) {
-            escapeChar = ParserUtils.normalizeString(ctx.escape.getText());
+            escapeChar = ParserUtils.normalizeString(ctx.escape.getText(), caseSensitive);
             Assert.thatUnchecked(escapeChar != null);
             Assert.thatUnchecked(escapeChar.length() == 1);
         }
-        final var pattern = Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.pattern.getText()));
+        final var pattern = Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.pattern.getText(), caseSensitive));
         final var patternValueBinding = LiteralsUtils.processLiteral(pattern, context);
         final var likeFn = new LikeOperatorValue.LikeFn();
         final var patternFn = new PatternForLikeValue.PatternForLikeFn();
@@ -928,13 +933,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.simpleId() != null) {
             return LiteralValue.ofScalar(ParserUtils.safeCastLiteral(visit(ctx.simpleId()), String.class));
         } else {
-            return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText()));
+            return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText(), caseSensitive));
         }
     }
 
     @Override
     public Value visitSimpleId(RelationalParser.SimpleIdContext ctx) {
-        return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText()));
+        return LiteralValue.ofScalar(ParserUtils.normalizeString(ctx.getText(), caseSensitive));
     }
 
     @Override
@@ -1132,7 +1137,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.COLLATE(), UNSUPPORTED_QUERY);
-        return LiteralsUtils.processLiteral(ParserUtils.normalizeString(ctx.getText()), context);
+        return LiteralsUtils.processLiteral(ParserUtils.normalizeString(ctx.getText(), caseSensitive), context);
     }
 
     @Override
@@ -1265,7 +1270,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
         final String schemaId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.schemaId()), String.class));
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId, caseSensitive);
         final String templateId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class));
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
                 dbAndSchema.getRight(), templateId, Options.NONE));
@@ -1310,7 +1315,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
         final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
         Assert.notNullUnchecked(dbName);
-        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateDatabaseConstantAction(URI.create(dbName), Options.NONE));
     }
 
@@ -1398,7 +1403,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // (yhatem) we have control over the ENUM values' numbers.
         final List<DataType.EnumType.EnumValue> enumValues = new ArrayList<>(ctx.STRING_LITERAL().size());
         for (int i = 0; i < ctx.STRING_LITERAL().size(); i++) {
-            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.STRING_LITERAL(i).getText())), i));
+            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.STRING_LITERAL(i).getText(), caseSensitive)), i));
         }
         final var enumType = DataType.EnumType.from(name, enumValues, false); // (yhatem) we should make it possible to have nullable enums maybe?
         context.asDdl().getMetadataBuilder().addAuxiliaryType(enumType);
@@ -1678,7 +1683,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
         final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
         Assert.notNullUnchecked(dbName);
-        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return  ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropDatabaseConstantAction(URI.create(dbName), throwIfDoesNotExist, Options.NONE));
     }
@@ -1693,7 +1698,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         final String schemaId = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class));
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId);
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId, caseSensitive);
         Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), String.format("invalid database identifier in '%s'", ctx.uid().getText()));
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
@@ -1706,7 +1711,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.path() != null) {
             final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
             Assert.notNullUnchecked(dbName);
-            Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+            Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
             return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(URI.create(dbName)));
         }
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(dbUri));
@@ -1722,7 +1727,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public QueryPlan visitSimpleDescribeSchemaStatement(RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
         final String schemaId = ParserUtils.safeCastLiteral(visit(ctx.schemaId()), String.class);
-        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(Assert.notNullUnchecked(schemaId));
+        final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(Assert.notNullUnchecked(schemaId), caseSensitive);
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getDescribeSchemaQueryAction(dbAndSchema.getLeft().orElse(dbUri), dbAndSchema.getRight()));
     }
 

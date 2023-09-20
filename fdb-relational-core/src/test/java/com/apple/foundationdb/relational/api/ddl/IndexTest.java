@@ -96,13 +96,13 @@ public class IndexTest {
                                        @Nonnull final String errorMessage,
                                        @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build()));
+                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format("expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build());
+        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false);
     }
 
     private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {

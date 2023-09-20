@@ -149,16 +149,20 @@ public final class ParserUtils {
 
     /**
      * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
-     * @param string The input string
+     *
+     * @param string                       The input string
+     * @param caseSensitive String is taken as is if true, upper-cased otherwise
      * @return the normalized string
      */
     @Nullable
-    public static String normalizeString(@Nullable final String string) {
+    public static String normalizeString(@Nullable final String string, boolean caseSensitive) {
         if (string == null) {
             return null;
         }
         if (isQuoted(string, "'") || isQuoted(string, "\"")) {
             return string.substring(1, string.length() - 1);
+        } else if (caseSensitive) {
+            return string;
         } else {
             return string.toUpperCase(Locale.ROOT);
         }
@@ -528,10 +532,10 @@ public final class ParserUtils {
     }
 
     @Nonnull
-    public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String id) {
+    public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String id, boolean caseSensitive) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            Assert.thatUnchecked(isProperDbUri(id), String.format("invalid database path '%s'", id), ErrorCode.INVALID_PATH);
+            Assert.thatUnchecked(isProperDbUri(id, caseSensitive), String.format("invalid database path '%s'", id), ErrorCode.INVALID_PATH);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return Pair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
@@ -608,8 +612,8 @@ public final class ParserUtils {
 
     }
 
-    public static boolean isProperDbUri(@Nonnull final String path) {
-        return normalizeString(path).matches("/\\w[a-zA-Z0-9_/]*\\w");
+    public static boolean isProperDbUri(@Nonnull final String path, final boolean caseSensitive) {
+        return Objects.requireNonNull(normalizeString(path, caseSensitive)).matches("/\\w[a-zA-Z0-9_/]*\\w");
     }
 
     @Nonnull

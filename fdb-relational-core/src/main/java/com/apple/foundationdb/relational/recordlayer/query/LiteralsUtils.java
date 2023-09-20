@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.Assert;
+
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -95,7 +96,7 @@ public class LiteralsUtils {
         }
         Assert.thatUnchecked(resolvedType.equals(resolveArrayTypeFromObjectsList(arrayElements)),
                 "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
-        for (final Object o: arrayElements) {
+        for (final Object o : arrayElements) {
             processPreparedStatementParameter(o, resolvedType.getElementType(), context);
         }
         context.finishArrayLiteral();

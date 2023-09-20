@@ -113,22 +113,22 @@ public class DdlStatementParsingTest {
 
     void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build()));
+                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build());
+        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false);
     }
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build()));
+                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build(), false));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build());
+        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build(), false);
     }
 
     @Nonnull

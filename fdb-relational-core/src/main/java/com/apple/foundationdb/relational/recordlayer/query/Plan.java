@@ -123,21 +123,22 @@ public abstract class Plan<T> {
     /**
      * Parses a query and generates an equivalent logical plan.
      *
-     * @param query       The query string, required for logging.
-     * @param planContext The plan context.
+     * @param query         The query string, required for logging.
+     * @param planContext   The plan context.
+     * @param caseSensitive use database-object text representation as-is if true, uppercase non-quoted ones otherwise
      * @return The logical plan of the query.
      * @throws RelationalException if something goes wrong.
      */
     @Nonnull
     @VisibleForTesting
-    public static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext) throws RelationalException {
+    public static Plan<?> generate(@Nonnull final String query, @Nonnull PlanContext planContext, final boolean caseSensitive) throws RelationalException {
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
                 .build();
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
         final var ast = QueryParser.parse(query);
-        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri(), query);
+        final var astWalker = new AstVisitor(context, planContext.getDdlQueryFactory(), planContext.getDbUri(), query, caseSensitive);
         long start = System.nanoTime();
         try {
 

@@ -175,16 +175,16 @@ public class PlanGenerationStackTest {
                 .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                 .build();
         if (error == null) {
-            final Plan<?> generatedPlan1 = Plan.generate(query, planContext);
+            final Plan<?> generatedPlan1 = Plan.generate(query, planContext, false);
             final var topExpression1 = ((QueryPlan.LogicalQueryPlan) generatedPlan1).getRelationalExpression();
             final var queryHash1 = topExpression1.semanticHashCode();
-            final Plan<?> generatedPlan2 = Plan.generate(query, planContext);
+            final Plan<?> generatedPlan2 = Plan.generate(query, planContext, false);
             final var topExpression2 = ((QueryPlan.LogicalQueryPlan) generatedPlan2).getRelationalExpression();
             final var queryHash2 = topExpression2.semanticHashCode();
             Assertions.assertEquals(queryHash1, queryHash2);
         } else {
             try {
-                Plan.generate(query, planContext);
+                Plan.generate(query, planContext, false);
                 Assertions.fail("expected an exception to be thrown");
             } catch (RelationalException e) {
                 // there is probably a more intelligent way to do this e.g. via Regex.

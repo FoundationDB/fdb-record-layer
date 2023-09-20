@@ -228,7 +228,7 @@ public class AstNormalizerTests {
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query), PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet);
+            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query), PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet, false);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
@@ -276,7 +276,7 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query), PreparedStatementParameters.empty(), 0, emptyBitSet);
+            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query), PreparedStatementParameters.empty(), 0, emptyBitSet, false);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -293,9 +293,9 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -308,9 +308,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -359,13 +359,13 @@ public class AstNormalizerTests {
                         "select * from t1 where col1 = col2",
                         "select * from      t1 where col1     = col2",
                         "select * from \n\n\n\t t1 where \n  col1 = col2"),
-                "select * from t1 where col1 = col2 ");
+                "select * from \"T1\" where \"COL1\" = \"COL2\" ");
     }
 
     @Test
     void queryHashIsCaseSensitive() throws Exception {
-        validate("seleCt * fROm t1 whEre col1 = cOl2",
-                "seleCt * fROm t1 whEre col1 = cOl2 ");
+        validate("seleCt * fROm t1 whEre col1 = \"cOl2\"",
+                "seleCt * fROm \"T1\" whEre \"COL1\" = \"cOl2\" ");
     }
 
     @Test
@@ -373,7 +373,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select * from t1 where col1 = 30 and col3 = 90",
                         "select * from      t1 where col1     = 60 and col3 = -4556"),
-                "select * from t1 where col1 = ? and col3 = ? ",
+                "select * from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
                 List.of(List.of(30, 90),
                         List.of(60, -4556)));
     }
@@ -383,7 +383,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select a, 40 from t1 where col1 = 30 and col3 = 90",
                         "select a, 'hello' from      t1 where col1     = 60 and col3 = -4556"),
-                "select a , ? from t1 where col1 = ? and col3 = ? ",
+                "select \"A\" , ? from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
                 List.of(List.of(40, 30, 90),
                         List.of("hello", 60, -4556)));
     }
@@ -393,7 +393,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select 3 + 40 from t1",
                         "select 'hello' + 'world' from      t1"),
-                "select ? + ? from t1 ",
+                "select ? + ? from \"T1\" ",
                 List.of(List.of(3, 40),
                         List.of("hello", "world")));
     }
@@ -401,28 +401,28 @@ public class AstNormalizerTests {
     @Test
     void stripBooleanLiteral() throws RelationalException {
         validate("select false, true from t1 where false",
-                "select ? , ? from t1 where ? ",
+                "select ? , ? from \"T1\" where ? ",
                 List.of(false, true, false));
     }
 
     @Test
     void stripStringLiteral() throws RelationalException {
         validate("select 'hello', 'wOrLd' from t1 where col1 in ('foo', 'bar')",
-                "select ? , ? from t1 where col1 in ( [ ] ) ",
+                "select ? , ? from \"T1\" where \"COL1\" in ( [ ] ) ",
                 List.of("hello", "wOrLd", List.of("foo", "bar")));
     }
 
     @Test
     void stripDecimalLiteral() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f from t1",
-                "select ? , ? , ? , ? , ? , ? from t1 ",
+                "select ? , ? , ? , ? , ? , ? from \"T1\" ",
                 List.of(1, 2.3, 4.5f, -8, -9.1, -2.3f));
     }
 
     @Test
     void stripHexadecimalLiteral() throws RelationalException {
         validate("select X'0A0B' from t1",
-                "select ? from t1 ",
+                "select ? from \"T1\" ",
                 List.of(new BigInteger("0A0B", 16).longValue()));
     }
 
@@ -430,7 +430,7 @@ public class AstNormalizerTests {
     void parseLimit() throws Exception {
         validate(List.of("select * from t1 limit 100",
                         "select * from t1 limit             100   "),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 100);
     }
@@ -441,7 +441,7 @@ public class AstNormalizerTests {
                         "select * from   t1 limit     200",
                         "select * from   t1 lIMIt     200",
                         "select * from t1"),
-                "select * from t1 ");
+                "select * from \"T1\" ");
     }
 
     @Test
@@ -450,7 +450,7 @@ public class AstNormalizerTests {
                         "select * from   t1 with      continuation 'foo'",
                         "select * from   t1 lIMIt     200   with conTINUation 'bar'",
                         "select * from t1"),
-                "select * from t1 ");
+                "select * from \"T1\" ");
     }
 
     @Test
@@ -459,7 +459,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 limit 100 with continuation '" + expectedContinuationStr + "'",
                         "select * from t1 limit             100   with  continuation    '" + expectedContinuationStr + "'"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 expectedContinuationStr,
                 100);
@@ -474,7 +474,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 in (10, 100, 1000)",
                         "select * from t1 where col1 in (20,   200)",
                         "select * from t1 where col1 in (30,   300.0,    3000.1)"),
-                "select * from t1 where col1 in ( [ ] ) ",
+                "select * from \"T1\" where \"COL1\" in ( [ ] ) ",
                 List.of(List.of(List.of(10, 100, 1000)),
                         List.of(List.of(20, 200)),
                         List.of(List.of(30, 300.0, 3000.1))));
@@ -485,7 +485,7 @@ public class AstNormalizerTests {
         // if the in predicate LHS is not composed of simple constants, then we generate a strip
         // the literals and add them _individually_ to the literals array.
         validate("select * from t1 where col1 in (10, col2, 1000)",
-                "select * from t1 where col1 in ( ? , col2 , ? ) ",
+                "select * from \"T1\" where \"COL1\" in ( ? , \"COL2\" , ? ) ",
                 List.of(10, 1000));
     }
 
@@ -509,20 +509,20 @@ public class AstNormalizerTests {
     @Test
     void parseInPredicateWithConstantExpressions() throws Exception {
         validate("select * from t1 where col1 in ( 3 + 4 , 5 - 6 )",
-                "select * from t1 where col1 in ( ? + ? , ? - ? ) ",
+                "select * from \"T1\" where \"COL1\" in ( ? + ? , ? - ? ) ",
                 List.of(3, 4, 5, 6));
     }
 
     @Test
     void nullIsExcludedFromNormalisation() throws Exception {
         validate("select * from t1 where col1 is null",
-                "select * from t1 where col1 is null ");
+                "select * from \"T1\" where \"COL1\" is null ");
     }
 
     @Test
     void isNotNullIsExcludedFromNormalisation() throws Exception {
         validate("select * from t1 where col1 is not null",
-                "select * from t1 where col1 is not null ");
+                "select * from \"T1\" where \"COL1\" is not null ");
     }
 
     @Test
@@ -532,9 +532,9 @@ public class AstNormalizerTests {
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > 42 group by col1"),
                 PreparedStatementParameters.empty(),
-                "create schema template aggregate_index_tests_template" +
-                        " create table t1 ( id bigint , col1 bigint , col2 bigint , primary key ( id ) )" +
-                        " create index mv1 as select sum ( col2 ) from t1 where col1 > ? group by col1 ",
+                "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
+                        " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
+                        " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ? group by \"COL1\" ",
                 List.of(List.of(42)),
                 null,
                 -1,
@@ -546,7 +546,7 @@ public class AstNormalizerTests {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 where col1 > ? ",
+                "select * from \"T1\" where \"COL1\" > ? ",
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -558,7 +558,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (nocache)", "  select * from t1   where   col1 > 42 options (  nocache    )"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 where col1 > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -571,7 +571,7 @@ public class AstNormalizerTests {
         // (yhatem) 'show databases' is _not_ using a string literal in the path prefix, that's why we don't pick it up, we should fix that.
         validate(List.of("show databases with prefix /a/b/c", "  show databases   with prefix \n\n\n /a/b/c\t"),
                 PreparedStatementParameters.empty(),
-                "show databases with prefix /a/b/c ", // note: this is irrelevant as the query will be recompiled anyway.
+                "show databases with prefix \"/A/B/C\" ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(), List.of()),
                 null,
                 -1,
@@ -582,7 +582,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedStatementParameters.empty(),
-                "explain select * from t1 where col1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "explain select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -594,7 +594,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 where col1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -607,7 +607,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (log query)", "  select * from t1   where   col1 > 42 options (  log    query)"),
                 PreparedStatementParameters.empty(),
-                "select * from t1 where col1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(42), List.of(42)),
                 null,
                 -1,
@@ -619,7 +619,7 @@ public class AstNormalizerTests {
     void parseDmlStatementWithDryRunSetDryRunFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedStatementParameters.empty(),
-                "update A set A2 = ? where A1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(52, 2)),
                 null,
                 -1,
@@ -631,7 +631,7 @@ public class AstNormalizerTests {
     void parseDmlStatementWithDryRunSetDryRunTrue() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN)"),
                 PreparedStatementParameters.empty(),
-                "update A set A2 = ? where A1 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(52, 2)),
                 null,
                 -1,
@@ -646,7 +646,7 @@ public class AstNormalizerTests {
                         "select * from      t1 where col1 = ? or col2 = ?NamedParam",
                         "select * from \n\n\n\t t1 where \n  col1 = ? or col2 = ?NamedParam"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("NamedParam", "foo")),
-                "select * from t1 where col1 = ? or col2 = ?NamedParam ",
+                "select * from \"T1\" where \"COL1\" = ? or \"COL2\" = ?NamedParam ",
                 List.of(List.of(42, "foo"), List.of(42, "foo"), List.of(42, "foo")));
     }
 
@@ -656,7 +656,7 @@ public class AstNormalizerTests {
                         "select * from t1 where col1 = 30 and col3 = 90 and col4 = ?",
                         "select * from      t1 where col1     = 60 and col3 = -4556 and    col4 = ?"),
                 PreparedStatementParameters.ofUnnamed(Map.of(1, 42)),
-                "select * from t1 where col1 = ? and col3 = ? and col4 = ? ",
+                "select * from \"T1\" where \"COL1\" = ? and \"COL3\" = ? and \"COL4\" = ? ",
                 List.of(List.of(30, 90, 42),
                         List.of(60, -4556, 42)));
     }
@@ -667,7 +667,7 @@ public class AstNormalizerTests {
                         "select a, 40, ? from t1 where col1 = 30 and col3 = 90",
                         "select a, 'hello', ? from      t1 where col1     = 60 and col3 = -4556"),
                 PreparedStatementParameters.ofUnnamed(Map.of(1, 42)),
-                "select a , ? , ? from t1 where col1 = ? and col3 = ? ",
+                "select \"A\" , ? , ? from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
                 List.of(List.of(40, 42, 30, 90),
                         List.of("hello", 42, 60, -4556)));
     }
@@ -678,7 +678,7 @@ public class AstNormalizerTests {
                         "select 3 + 40 + ?NamedParam1 + ?NamedParam2 from t1",
                         "select 'hello' + 'world' + ?NamedParam1 +    ?NamedParam2 from      t1"),
                 PreparedStatementParameters.ofNamed(Map.of("NamedParam1", 42, "NamedParam2", 100)),
-                "select ? + ? + ?NamedParam1 + ?NamedParam2 from t1 ",
+                "select ? + ? + ?NamedParam1 + ?NamedParam2 from \"T1\" ",
                 List.of(List.of(3, 40, 42, 100),
                         List.of("hello", "world", 42, 100)));
     }
@@ -687,7 +687,7 @@ public class AstNormalizerTests {
     void stripBooleanLiteralWithPreparedParameters() throws RelationalException {
         validate("select false, true, ?, ?Param from t1 where false",
                 PreparedStatementParameters.of(Map.of(1, false), Map.of("Param", true)),
-                "select ? , ? , ? , ?Param from t1 where ? ",
+                "select ? , ? , ? , ?Param from \"T1\" where ? ",
                 List.of(false, true, false, true, false));
     }
 
@@ -695,7 +695,7 @@ public class AstNormalizerTests {
     void stripStringLiteralWithPreparedParameters() throws RelationalException {
         validate("select 'hello', ?, 'wOrLd', ?Param from t1 where col1 in ('foo', 'bar')",
                 PreparedStatementParameters.of(Map.of(1, "preparedValue1"), Map.of("Param", "preparedValue2")),
-                "select ? , ? , ? , ?Param from t1 where col1 in ( [ ] ) ",
+                "select ? , ? , ? , ?Param from \"T1\" where \"COL1\" in ( [ ] ) ",
                 List.of("hello", "preparedValue1", "wOrLd", "preparedValue2", List.of("foo", "bar")));
     }
 
@@ -707,7 +707,7 @@ public class AstNormalizerTests {
                 PreparedStatementParameters.of(
                         Map.of(1, param),
                         Map.of("param", namedParam)),
-                "select ? , ? from t1 where col1 in ? and col2 in ?param ",
+                "select ? , ? from \"T1\" where \"COL1\" in ? and \"COL2\" in ?param ",
                 List.of("hello", "wOrLd", List.of("preparedValue1", "preparedValue2"), List.of("preparedValue3", "preparedValue4")));
     }
 
@@ -715,7 +715,7 @@ public class AstNormalizerTests {
     void stripDecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f, ?, ?, ?param1, ?param2 from t1",
                 PreparedStatementParameters.of(Map.of(1, 1000, 2, -1000), Map.of("param1", 5000, "param2", -5000)),
-                "select ? , ? , ? , ? , ? , ? , ? , ? , ?param1 , ?param2 from t1 ",
+                "select ? , ? , ? , ? , ? , ? , ? , ? , ?param1 , ?param2 from \"T1\" ",
                 List.of(1, 2.3, 4.5f, -8, -9.1, -2.3f, 1000, -1000, 5000, -5000));
     }
 
@@ -723,7 +723,7 @@ public class AstNormalizerTests {
     void stripHexadecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select X'0A0B', ?, ?param from t1",
                 PreparedStatementParameters.of(Map.of(1, new BigInteger("0A0C", 16)), Map.of("param", new BigInteger("0B0C", 16))),
-                "select ? , ? , ?param from t1 ",
+                "select ? , ? , ?param from \"T1\" ",
                 List.of(new BigInteger("0A0B", 16).longValue(), new BigInteger("0A0C", 16), new BigInteger("0B0C", 16)));
     }
 
@@ -732,14 +732,14 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 limit ?",
                         "select * from t1 limit             ?   "),
                 PreparedStatementParameters.ofUnnamed(Map.of(1, 100)),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 100);
 
         validate(List.of("select * from t1 limit ?param",
                         "select * from t1 limit             ?param   "),
                 PreparedStatementParameters.ofNamed(Map.of("param", 100)),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 100);
     }
@@ -751,7 +751,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 limit 100 with continuation ?",
                         "select * from t1 limit             100   with  continuation    ?          "),
                 PreparedStatementParameters.ofUnnamed(Map.of(1, expectedContinuation)),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 expectedContinuationStr,
                 100);
@@ -759,7 +759,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 limit 100 with continuation ?param",
                         "select * from t1 limit             100   with  continuation    ?param          "),
                 PreparedStatementParameters.ofNamed(Map.of("param", expectedContinuation)),
-                "select * from t1 ",
+                "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
                 expectedContinuationStr,
                 100);
@@ -775,7 +775,7 @@ public class AstNormalizerTests {
                         "select ?, ?NamedParam from t1 where col1 in (20,   200)",
                         "select ?, ?NamedParam from t1 where col1 in (30,   300.0,    3000.1)"),
                 PreparedStatementParameters.of(Map.of(1, "param1"), Map.of("NamedParam", "param2")),
-                "select ? , ?NamedParam from t1 where col1 in ( [ ] ) ",
+                "select ? , ?NamedParam from \"T1\" where \"COL1\" in ( [ ] ) ",
                 List.of(List.of("param1", "param2", List.of(10, 100, 1000)),
                         List.of("param1", "param2", List.of(20, 200)),
                         List.of("param1", "param2", List.of(30, 300.0, 3000.1))));
@@ -789,7 +789,7 @@ public class AstNormalizerTests {
                         "select ?, ?NamedParam1 from t1 where col1 in (200,   ?,    ?NamedParam2, ?, 20000)"),
                 PreparedStatementParameters.of(Map.of(1, "unnamed1", 2, "unnamed2", 3, "unnamed3"),
                         Map.of("NamedParam1", "named1", "NamedParam2", "named2")),
-                "select ? , ?NamedParam1 from t1 where col1 in ( ? , ? , ?NamedParam2 , ? , ? ) ",
+                "select ? , ?NamedParam1 from \"T1\" where \"COL1\" in ( ? , ? , ?NamedParam2 , ? , ? ) ",
                 List.of(List.of("unnamed1", "named1", 10, "unnamed2", "named2", "unnamed3", 1000),
                         List.of("unnamed1", "named1", 200, "unnamed2", "named2", "unnamed3", 20000)));
     }
@@ -809,9 +809,9 @@ public class AstNormalizerTests {
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > ?namedParam1 and col2 > ? group by col1"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "create schema template aggregate_index_tests_template" +
-                        " create table t1 ( id bigint , col1 bigint , col2 bigint , primary key ( id ) )" +
-                        " create index mv1 as select sum ( col2 ) from t1 where col1 > ?namedParam1 and col2 > ? group by col1 ",
+                "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
+                        " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
+                        " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? group by \"COL1\" ",
                 List.of(List.of(43, 42)),
                 null,
                 -1,
@@ -823,7 +823,7 @@ public class AstNormalizerTests {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from t1 where col1 > ?namedParam1 and col2 > ? ",
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ",
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,
@@ -835,7 +835,7 @@ public class AstNormalizerTests {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (nocache)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  nocache    )"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,
@@ -847,7 +847,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithoutLogQuerySetsOptionsLogQueryFalseWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,
@@ -859,7 +859,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithLogQuerySetsOptionsLogQueryTrueWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (log query)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  log       query)"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,
@@ -874,7 +874,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "explain select * from t1 where col1 > ?namedParam1 and col2 > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "explain select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(List.of(43, 42), List.of(43, 42)),
                 null,
                 -1,

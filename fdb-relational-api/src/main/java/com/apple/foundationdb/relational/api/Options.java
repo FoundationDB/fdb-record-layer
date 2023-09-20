@@ -160,7 +160,18 @@ public final class Options {
          * Scope: Connection
          */
         EXECUTION_SCANNED_ROWS_LIMIT,
-        DRY_RUN
+
+        /**
+         * Execute this insert / update / delete without persisting data to disk.
+         * Scope: Query
+         */
+        DRY_RUN,
+
+        /**
+         * Treat identifiers as-is in terms of case without upper-casing non-quoted ones.
+         * Scope: Connection
+         */
+        CASE_SENSITIVE_IDENTIFIERS,
     }
 
     public enum IndexFetchMethod {
@@ -192,6 +203,7 @@ public final class Options {
         builder.put(Name.EXECUTION_TIME_LIMIT, 0L);
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
+        builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
 
     }
@@ -320,6 +332,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
+        data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }

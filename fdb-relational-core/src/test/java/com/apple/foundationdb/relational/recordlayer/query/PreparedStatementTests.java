@@ -414,7 +414,7 @@ public class PreparedStatementTests {
             }
             // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("UPDATE RestaurantComplexRecord SET key = ?param WHERE rest_no = 1 RETURNING \"new\".*")) {
-                ps.setBytes("param", new byte[] {1, 2, 3, 4});
+                ps.setBytes("param", new byte[]{1, 2, 3, 4});
                 try (final var resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 1L).hasColumn("key", new byte[]{1, 2, 3, 4})

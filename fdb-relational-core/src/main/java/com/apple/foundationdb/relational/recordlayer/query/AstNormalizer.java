@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -98,6 +99,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private final StringBuilder sqlCanonicalizer;
+    private final boolean caseSensitive;
 
     /**
      * Controls whether a token should be considered for the hash function or not. This is necessary for handling
@@ -123,7 +125,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private final Set<Result.QueryCachingFlags> queryCachingFlags;
 
     @Nonnull
-    private Options.Builder queryOptions;
+    private final Options.Builder queryOptions;
 
     @Nonnull
     private static Map<Class<?>, Function<ParserRuleContext, Object>> literalNodes = new HashMap<>();
@@ -134,12 +136,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             return ctx.FALSE() == null;
         });
         literalNodes.put(RelationalParser.HexadecimalConstantContext.class, context -> new BigInteger(context.getText().substring(2, context.getText().length() - 1), 16).longValue());
-        literalNodes.put(RelationalParser.StringConstantContext.class, context -> ParserUtils.normalizeString(context.getText()));
+        literalNodes.put(RelationalParser.StringConstantContext.class, context -> ParserUtils.normalizeString(context.getText(), false));
         literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
     }
 
-    private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters) {
+    private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters, boolean caseSensitive) {
         hashFunction = Hashing.murmur3_32_fixed().newHasher();
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
@@ -151,6 +153,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(Result.QueryCachingFlags.class);
         queryOptions = Options.builder();
+        this.caseSensitive = caseSensitive;
     }
 
     @Override
@@ -174,6 +177,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         if (node.getSymbol().getType() != Token.EOF) {
             sqlCanonicalizer.append(node.getText()).append(" ");
         }
+        return null;
+    }
+
+    @Override
+    public Value visitUid(RelationalParser.UidContext ctx) {
+        String uid = ParserUtils.normalizeString(ctx.getText(), caseSensitive);
+        sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
     }
 
@@ -320,7 +330,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         allowLiteralAddition = false;
         allowTokenAddition = false;
         if (ctx.stringLiteral() != null) {
-            final var continuationStr = ParserUtils.normalizeString(ctx.stringLiteral().getText());
+            final var continuationStr = ParserUtils.normalizeString(ctx.stringLiteral().getText(), caseSensitive);
             Assert.notNullUnchecked(continuationStr, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
             Assert.thatUnchecked(!continuationStr.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
             final var continuationBytes = Base64.getDecoder().decode(continuationStr);
@@ -469,14 +479,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query) throws RelationalException {
+    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query, boolean caseSensitive) throws RelationalException {
         final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query));
         return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,
                         PreparedStatementParameters.of(context.getPreparedStatementParameters()),
                         context.getUserVersion(),
-                        context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes())
+                        context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()),
+                        caseSensitive
                 ));
     }
 
@@ -486,8 +497,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                       @Nonnull final RelationalParser.RootContext context,
                                       @Nonnull final PreparedStatementParameters preparedStatementParameters,
                                       int userVersion,
-                                      @Nonnull final BitSet readableIndexes) {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters);
+                                      @Nonnull final BitSet readableIndexes,
+                                      boolean caseSensitive) {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive);
         astNormalizer.visit(context);
         return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),
                 astNormalizer.getQueryExecutionParameters(),
