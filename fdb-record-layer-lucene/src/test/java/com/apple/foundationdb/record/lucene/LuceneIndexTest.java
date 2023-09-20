@@ -98,6 +98,7 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -329,6 +330,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX = new Index("Simple$text_suffixes_pky",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+
+    private static final Index COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX = new Index("Complex$text_pky",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                     LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
@@ -1184,16 +1191,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
                 .build();
-        final String[] nums = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
         for (int i = 0; i < 20; i++) {
-            final int ii = i + 1;
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                final String factors = IntStream.range(1, nums.length)
-                        .filter(n -> ii % n == 0)
-                        .mapToObj(n -> nums[n])
-                        .collect(Collectors.joining(" "));
-                recordStore.saveRecord(createSimpleDocument(1000L + i % 5, factors, null),
+                recordStore.saveRecord(createSimpleDocument(1000L + i % 5, numbersText(i + 1), null),
                         i < 5 ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS);
                 context.commit();
             }
@@ -1232,6 +1233,100 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         primaryKeySegmentIndex.readAllEntries());
             }
         }
+    }
+
+    @Test
+    void simpleDeleteSegmentIndex() {
+        final Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1624L, ENGINEER_JOKE, 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertIndexEntryPrimaryKeys(List.of(1623L, 1624L),
+                    recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
+            assertTrue(recordStore.deleteRecord(Tuple.from(1624L)));
+            assertIndexEntryPrimaryKeys(List.of(1623L),
+                    recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
+        }
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            assertIndexEntryPrimaryKeys(List.of(1623L, 1624L, 1547L),
+                    recordStore.scanIndex(index, fullTextSearch(index, "way"), null, ScanProperties.FORWARD_SCAN));
+            assertTrue(recordStore.deleteRecord(Tuple.from(1547L)));
+            assertIndexEntryPrimaryKeys(List.of(1623L, 1624L),
+                    recordStore.scanIndex(index, fullTextSearch(index, "way"), null, ScanProperties.FORWARD_SCAN));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
+            recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 2));
+            assertIndexEntryPrimaryKeys(List.of(1623L, 1624L, 1547L),
+                    recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void testGroupedMultipleUpdate() {
+        final Index index = COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
+                .build();
+        for (int g = 0; g < 3; g++) {
+            for (int i = 0; i < 5; i++) {
+                try (FDBRecordContext context = openContext(contextProps)) {
+                    rebuildIndexMetaData(context, COMPLEX_DOC, index);
+                    for (int j = 0; j < 10; j++) {
+                        int n = i * 10 + j + 1;
+                        recordStore.saveRecord(createComplexDocument(n, numbersText(n), "", g));
+                    }
+                    context.commit();
+                }
+            }
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            assertEquals(IntStream.rangeClosed(1, 7).mapToObj(i -> Tuple.from(0, i * 7)).collect(Collectors.toSet()),
+                    new HashSet<>(recordStore.scanIndex(index, groupedTextSearch(index, "text:seven", 0L), null, ScanProperties.FORWARD_SCAN)
+                            .map(IndexEntry::getPrimaryKey).asList().join()));
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            recordStore.saveRecord(createComplexDocument(49, "not here", "", 0));
+            recordStore.saveRecord(createComplexDocument(35, "nor here either", "", 0));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            assertEquals(Stream.of(1, 2, 3, 4, 6).map(i -> Tuple.from(0, i * 7)).collect(Collectors.toSet()),
+                    new HashSet<>(recordStore.scanIndex(index, groupedTextSearch(index, "text:seven", 0L), null, ScanProperties.FORWARD_SCAN)
+                            .map(IndexEntry::getPrimaryKey).asList().join()));
+            assertEquals(Stream.of(5, 7).map(i -> Tuple.from(0, i * 7)).collect(Collectors.toSet()),
+                    new HashSet<>(recordStore.scanIndex(index, groupedTextSearch(index, "text:here", 0L), null, ScanProperties.FORWARD_SCAN)
+                            .map(IndexEntry::getPrimaryKey).asList().join()));
+        }
+        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(2));
+    }
+
+    private String numbersText(int i) {
+        final String[] nums = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
+        return IntStream.range(1, nums.length)
+            .filter(n -> i % n == 0)
+            .mapToObj(n -> nums[n])
+            .collect(Collectors.joining(" "));        
     }
 
     private String matchAll(String... words) {
@@ -2514,7 +2609,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void assertEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
-        try (final FDBDirectory directory = new FDBDirectory(subspace, context)) {
+        try (final FDBDirectory directory = new FDBDirectory(subspace, context, false)) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
             assertNotNull(reference);
             Assertions.assertTrue(reference.getEntries().length > 0);
@@ -2524,7 +2619,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void assertOnlyCompoundFileExisting(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, boolean cleanFiles) {
-        final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context) : fdbDirectory;
+        final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, false) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
             Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"));

@@ -59,7 +59,7 @@ public abstract class FDBDirectoryBaseTest {
             return null;
         });
         FDBRecordContext context = fdb.openContext(getContextConfig());
-        directory = new FDBDirectory(subspace, context);
+        directory = new FDBDirectory(subspace, context, false);
     }
 
     private FDBRecordContextConfig getContextConfig() {

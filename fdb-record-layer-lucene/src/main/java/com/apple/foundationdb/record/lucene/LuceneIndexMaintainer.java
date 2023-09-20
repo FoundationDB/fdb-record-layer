@@ -264,7 +264,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return map;
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
         final DirectoryReader directoryReader = DirectoryReader.open(oldWriter);

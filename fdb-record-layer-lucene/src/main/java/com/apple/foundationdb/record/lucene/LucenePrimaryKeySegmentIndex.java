@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.DirectoryReader;
@@ -73,6 +74,7 @@ public class LucenePrimaryKeySegmentIndex {
      * Really only useful for small-scale debugging.
      * @return a list of Tuple-decoded key entries
      */
+    @VisibleForTesting
     public List<List<Object>> readAllEntries() {
         List<Tuple> tuples;
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(subspace)

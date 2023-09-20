@@ -158,8 +158,9 @@ public class FDBDirectory extends Directory  {
     @Nullable
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
-        this(subspace, context, null, null, false);
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+                        boolean primaryKeySegmentIndexEnabled) {
+        this(subspace, context, null, null, primaryKeySegmentIndexEnabled);
     }
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
@@ -860,9 +861,11 @@ public class FDBDirectory extends Directory  {
         if (!primaryKeySegmentIndexEnabled) {
             return null;
         }
-        if (primaryKeySegmentIndex == null) {
-            final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-            primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+        synchronized (this) {
+            if (primaryKeySegmentIndex == null) {
+                final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+            }
         }
         return primaryKeySegmentIndex;
     }
