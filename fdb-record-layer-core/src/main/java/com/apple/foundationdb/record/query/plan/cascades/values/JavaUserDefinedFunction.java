@@ -35,6 +35,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents a Java user-defined function.
@@ -117,7 +118,7 @@ public class JavaUserDefinedFunction extends BuiltInFunction<Value> {
             if (argumentsChanged) {
                 return (Value)constructor.newInstance(promotedArgumentsList.build());
             } else {
-                return (Value)constructor.newInstance(arguments);
+                return (Value)constructor.newInstance(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
             }
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RecordCoreException("could not access constructor '%s' in '%s'", constructor.getName(), fClazz.getName(), e);
