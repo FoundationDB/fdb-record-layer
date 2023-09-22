@@ -1344,6 +1344,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         } else {
             return planAndWithThen(candidateScan, null, Collections.singletonList(indexExpr), filter.getChildren(), sort);
         }
+
+        return andWithThenPlanner.plan();
     }
 
     @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
@@ -2607,10 +2609,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private boolean isMultidimensionalIndex() {
-            return candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL);
-        }
-
         private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
                     (maybeSort) -> planNestedField(candidateScan, child, filterField, maybeSort));
@@ -2803,20 +2801,18 @@ public class RecordQueryPlanner implements QueryPlanner {
                     throw new Query.InvalidExpressionException(
                             "Two nested fields in the same and clause, combine them into one");
                 } else {
-                    if (!unsatisfiedSorts.isEmpty() && !nextComparisonRanges.isEqualities()) {
+                    if (!unsatisfiedSorts.isEmpty() && !nextComparisons.isEquality()) {
                         // Didn't plan to equality, need to try with sorting.
                         scoredMatch = maybeSortedMatch.apply(unsatisfiedSorts.get(0));
                         nextComparisons = scoredMatch == null ? null : scoredMatch.getComparisonRanges().toScanComparisons();
                     }
                     if (scoredMatch != null) {
-                        // nextComparisonRanges should not be null at this point
-                        Objects.requireNonNull(nextComparisonRanges);
                         unsatisfiedFilters.remove(filterChild);
                         unsatisfiedFilters.addAll(scoredMatch.unsatisfiedFilters);
-                        comparisons.addAll(nextComparisonRanges);
-                        if (nextComparisonRanges.isEqualities()) {
+                        comparisons.addAll(nextComparisons);
+                        if (nextComparisons.isEquality()) {
                             foundComparison = true;
-                            foundCompleteComparison = nextComparisonRanges.getEqualitiesSize() == child.getColumnSize();
+                            foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
                             satisfyEqualitySort(child);
                         }
                         return true;
@@ -2846,7 +2842,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             int childSize = child.getColumnSize();
             if (childSize > 1) {
                 List<KeyExpression> flattenedChildren = child.normalizeKeyForPositions();
-                int childEqualityOffset = comparisons.getEqualitiesSize() - childColumns;
+                int childEqualityOffset = comparisons.getEqualitySize() - childColumns;
                 int remainingChildren = flattenedChildren.size() - childEqualityOffset;
                 if (remainingChildren > 0) {
                     for (int i = 0; i < remainingChildren; i++) {
@@ -2869,7 +2865,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     // TODO: If there is an equality on the same field as inequalities, it
                     //  would have been better to get it earlier and potentially match more of
                     //  the index. Which may require two passes over filter children.
-                    if (isMultidimensionalIndex() || comparisons.isEqualities()) {
+                    if (comparisons.isEquality()) {
                         comparisons.addEqualityComparison(comparison);
                         foundComparison = true;
                         return true;
