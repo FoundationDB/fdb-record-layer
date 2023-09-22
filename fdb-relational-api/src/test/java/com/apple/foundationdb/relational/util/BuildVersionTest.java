@@ -53,8 +53,8 @@ public class BuildVersionTest {
         BuildVersion bv = BuildVersion.getInstance();
         String version = bv.getInstance().getVersion();
         int minorVersion = bv.getInstance().getMinorVersion();
-        String mv = version.substring(2, 4);
-        Assertions.assertThat(mv).isEqualTo(Integer.toString(minorVersion));
+        int mv = Integer.parseInt(version.substring(2, 4));
+        Assertions.assertThat(mv).isEqualTo(minorVersion);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class BuildVersionTest {
         BuildVersion bv = BuildVersion.getInstance();
         String version = bv.getInstance().getVersion();
         int majorVersion = bv.getInstance().getMajorVersion();
-        String mv = version.substring(0, 2);
-        Assertions.assertThat(mv).isEqualTo(Integer.toString(majorVersion));
+        int mv = Integer.parseInt(version.substring(0, 2));
+        Assertions.assertThat(mv).isEqualTo(majorVersion);
     }
 }
