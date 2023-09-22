@@ -181,6 +181,7 @@ public interface MatchCandidate {
      * @param partialMatch the match to be used
      * @param planContext the plan context
      * @param memoizer the memoizer
+     * @param reverseScanOrder {@code true} if and only if a reverse scan is to be built
      * @return a new {@link RecordQueryPlan}
      */
     @SuppressWarnings("java:S135")
@@ -215,6 +216,7 @@ public interface MatchCandidate {
      * @param planContext the plan context
      * @param memoizer the memoizer
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
+     * @param reverseScanOrder {@code true} if and only if a reverse scan is to be built
      * @return a new {@link RecordQueryPlan}
      */
     @Nonnull

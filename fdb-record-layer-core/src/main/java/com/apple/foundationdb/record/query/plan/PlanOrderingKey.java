@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -132,6 +133,9 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
+                if (index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+                    return null;
+                }
                 if (!((RecordQueryIndexPlan)indexPlan).hasScanComparisons()) {
                     return null;
                 }

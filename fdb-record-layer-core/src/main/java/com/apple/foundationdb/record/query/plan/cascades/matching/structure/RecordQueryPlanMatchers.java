@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -80,6 +82,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofTypeOwning;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
@@ -267,6 +270,41 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryPlanWithIndex.class,
                 Extractor.of(RecordQueryPlanWithIndex::getScanType, name -> "indexScanType(" + name + ")"),
                 PrimitiveMatchers.equalsObject(scanType));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryIndexPlan> indexScanParameters(@Nonnull final BindingMatcher<? extends IndexScanParameters> downstream) {
+        return typedWithDownstream(RecordQueryIndexPlan.class,
+                Extractor.of(RecordQueryIndexPlan::getScanParameters, name -> "indexScanParameters(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<MultidimensionalIndexScanComparisons> multidimensional() {
+        return typed(MultidimensionalIndexScanComparisons.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<MultidimensionalIndexScanComparisons> prefix(@Nonnull final BindingMatcher<? extends ScanComparisons> downstream) {
+        return typedWithDownstream(MultidimensionalIndexScanComparisons.class,
+                Extractor.of(MultidimensionalIndexScanComparisons::getPrefixScanComparisons, name -> "prefix(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static BindingMatcher<MultidimensionalIndexScanComparisons> dimensions(@Nonnull final BindingMatcher<? extends ScanComparisons>... downstreams) {
+        return typedWithDownstream(MultidimensionalIndexScanComparisons.class,
+                Extractor.of(MultidimensionalIndexScanComparisons::getDimensionsScanComparisons, name -> "dimensions(" + name + ")"),
+                ListMatcher.exactly(downstreams));
+    }
+
+    @Nonnull
+    public static BindingMatcher<MultidimensionalIndexScanComparisons> suffix(@Nonnull final BindingMatcher<? extends ScanComparisons> downstream) {
+        return typedWithDownstream(MultidimensionalIndexScanComparisons.class,
+                Extractor.of(MultidimensionalIndexScanComparisons::getSuffixScanComparisons, name -> "suffix(" + name + ")"),
+                downstream);
     }
 
     @Nonnull
