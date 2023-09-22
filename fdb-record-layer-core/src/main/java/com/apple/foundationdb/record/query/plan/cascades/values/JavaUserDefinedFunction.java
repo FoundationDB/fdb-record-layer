@@ -55,7 +55,7 @@ public class JavaUserDefinedFunction extends BuiltInFunction<Value> {
         final var literalValue = (LiteralValue<?>)arguments.get(0);
         final var functionName = (String)literalValue.compileTimeEval(null);
 
-        // (yhatem) for now, the function name is expected to represent the fully-qualified class name, so we can find
+        // for now, the function name is expected to represent the fully-qualified class name, so we can find
         // it quickly via reflection, in the future we'll use the service loader to register the function.
         Class<?> clazz;
         try {
@@ -86,7 +86,6 @@ public class JavaUserDefinedFunction extends BuiltInFunction<Value> {
 
         // arguments[0] is the function name
         // arguments[1..n] are the function arguments
-
         if (arguments.size() - 1 != parameterTypes.size()) {
             throw new RecordCoreException("attempt to call '%s'.'%s' with incorrect number of parameters", clazz.getName(), "call");
         }
@@ -95,7 +94,6 @@ public class JavaUserDefinedFunction extends BuiltInFunction<Value> {
         boolean argumentsChanged = false;
 
         for (int i = 1 ; i < arguments.size(); i++) {
-
             final var argument = arguments.get(i);
             final var parameter = parameterTypes.get(i - 1);
             final var maxType = Type.maximumType(argument.getResultType(), parameter);
