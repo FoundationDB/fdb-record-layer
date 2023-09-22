@@ -82,7 +82,8 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     public static final ComparisonRange EMPTY = new ComparisonRange();
 
     /**
-     * Comparison ranges can be divided into three types, with distinct planning behaviour:
+     * Comparison ranges can be divided into three types. These types represent distinct planning behaviour when
+     * matching query predicates or filters to index expressions:
      * <ul>
      *     <li>Empty ranges, to which any comparison can be added.</li>
      *     <li>Equality ranges, to which only the same (equality) comparison can be added.</li>

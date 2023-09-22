@@ -40,6 +40,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -54,6 +56,8 @@ import java.util.stream.Stream;
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {
+    private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
+
     private static final int NUM_TEST_RUNS = 10;
     private static final int NUM_SAMPLES = 10_000;
 
@@ -169,7 +173,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
     @Test
     void dumpRTree() {
-        bitemporalInserts(db, rtSubspace, 1, 100000);
+        bitemporalInserts(db, rtSubspace, 1, 10000);
         final RTree.OnReadListener onReadListener = new RTree.OnReadListener() {
             @Override
             public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
@@ -185,9 +189,9 @@ public class RTreeModificationTest extends FDBTestBase {
                         parentNode = intermediateNode.getParentNode();
                         if (parentNode != null) {
                             final RTree.ChildSlot childSlot = parentNode.getSlots().get(intermediateNode.getSlotIndexInParent());
-                            System.out.println(depth + "," + childSlot.getMbr().toPlotString());
+                            logger.info(depth + "," + childSlot.getMbr().toPlotString());
                         } else {
-                            System.out.println(depth + "," + "everything");
+                            logger.info(depth + "," + "everything");
                         }
                     }
                     return node;
@@ -195,7 +199,7 @@ public class RTreeModificationTest extends FDBTestBase {
             }
         };
         final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(),
-                new RTree.ConfigBuilder().setMinM(4).setMaxM(8).build(),
+                new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadListener);
         validateRTree(db, rt);
@@ -284,7 +288,7 @@ public class RTreeModificationTest extends FDBTestBase {
     static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
         final RTree rt = new RTree(rtSubspace,
                 ForkJoinPool.commonPool(),
-                new RTree.ConfigBuilder().setMinM(4).setMaxM(8).build(),
+                new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue,
                 RTree::newRandomNodeId,
                 RTree.OnWriteListener.NOOP,

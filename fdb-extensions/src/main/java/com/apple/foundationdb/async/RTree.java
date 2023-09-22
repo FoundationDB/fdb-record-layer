@@ -663,6 +663,7 @@ public class RTree {
      *         As a side effect of calling this method the child slot is removed from {@code toBeProcessed}.
      */
     @Nullable
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     private static ChildSlot resolveNextIdForFetch(@Nonnull final List<Deque<ChildSlot>> toBeProcessed,
                                                    @Nonnull final Predicate<Rectangle> mbrPredicate,
                                                    @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
@@ -1671,7 +1672,7 @@ public class RTree {
     private <N extends Node> N checkNode(@Nonnull final N node) {
         if (node.size() < config.getMinM() || node.size() > config.getMaxM()) {
             if (!node.isRoot()) {
-                throw new IllegalStateException("packing of non-root packing is out of valid range");
+                throw new IllegalStateException("packing of non-root is out of valid range");
             }
         }
         return node;
@@ -2412,6 +2413,7 @@ public class RTree {
         /**
          * Method to determine if (during a scan a suffix predicate can be applied). A suffix predicate can only
          * be applied, if the smallest and largest hilbert value as well as the non-suffix part of the key are the same.
+         * @return {@code true} if a suffix predicate can be applied on this child slot
          */
         public boolean suffixPredicateCanBeApplied() {
             final int hilbertValueCompare = getSmallestHilbertValue().compareTo(getLargestHilbertValue());

@@ -1146,7 +1146,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                            @Nonnull NestedField filter, @Nullable KeyExpression sort) {
         if (sort instanceof ThenKeyExpression || then.createsDuplicates()) {
             // Too complicated for the simple checks below.
-            return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(filter), sort).plan();
+            return planAndWithThen(candidateScan, then, Collections.singletonList(filter), sort);
         }
         ScoredPlan plan = planNestedField(candidateScan, then.getChildren().get(0), filter, sort);
         if (plan == null && sort != null && sort.equals(then.getChildren().get(1))) {
@@ -1190,7 +1190,26 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ComparisonRanges getPlanComparisonRanges(@Nullable final ScoredPlan scoredPlan) {
+    private ScanComparisons getPlanComparisons(@Nullable ScoredPlan scoredPlan) {
+        return scoredPlan == null ? null : getPlanComparisons(scoredPlan.plan);
+    }
+
+    @Nullable
+    private ScanComparisons getPlanComparisons(@Nonnull RecordQueryPlan plan) {
+        if (plan instanceof RecordQueryIndexPlan) {
+            return ((RecordQueryIndexPlan) plan).getScanComparisons();
+        }
+        if (plan instanceof RecordQueryScanPlan) {
+            return ((RecordQueryScanPlan) plan).getScanComparisons();
+        }
+        if (plan instanceof RecordQueryTypeFilterPlan) {
+            return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInnerPlan());
+        }
+        return null;
+    }
+
+    @Nullable
+    protected ComparisonRanges getPlanComparisonRanges(@Nullable final ScoredPlan scoredPlan) {
         if (scoredPlan == null) {
             return null;
         }
@@ -1253,7 +1272,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         } else if (indexExpr instanceof ThenKeyExpression) {
             // May need second column to do sort, so handle like And, which does such cases.
             ThenKeyExpression then = (ThenKeyExpression) indexExpr;
-            return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(oneOfThemWithComparison), sort).plan();
+            return planAndWithThen(candidateScan, then, Collections.singletonList(oneOfThemWithComparison), sort);
         } else if (indexExpr instanceof NestingKeyExpression) {
             return null;
         }
@@ -1268,10 +1287,33 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (indexExpr instanceof NestingKeyExpression) {
             return planAndWithNesting(candidateScan, (NestingKeyExpression)indexExpr, filter, sort);
         } else if (indexExpr instanceof ThenKeyExpression) {
-            return new AndWithThenPlanner(candidateScan, (ThenKeyExpression)indexExpr, filter, sort).plan();
+            return planAndWithThen(candidateScan, (ThenKeyExpression)indexExpr, filter.getChildren(), sort);
         } else {
-            return new AndWithThenPlanner(candidateScan, Collections.singletonList(indexExpr), filter, sort).plan();
+            return planAndWithThen(candidateScan, null, Collections.singletonList(indexExpr), filter.getChildren(), sort);
         }
+    }
+
+    @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+    private ScoredPlan planAndWithThen(@Nonnull CandidateScan candidateScan,
+                                       @Nonnull ThenKeyExpression indexExpr,
+                                       @Nonnull List<QueryComponent> filters,
+                                       @Nullable KeyExpression sort) {
+        return planAndWithThen(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
+    }
+
+    private ScoredPlan planAndWithThen(@Nonnull CandidateScan candidateScan,
+                                       @Nullable ThenKeyExpression indexExpr,
+                                       @Nonnull List<KeyExpression> indexChildren,
+                                       @Nonnull List<QueryComponent> filters,
+                                       @Nullable KeyExpression sort) {
+        final AbstractAndWithThenPlanner andWithThenPlanner;
+        if (candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+            andWithThenPlanner = new MultidimensionalAndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
+        } else {
+            andWithThenPlanner = new AndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
+        }
+
+        return andWithThenPlanner.plan();
     }
 
     @Nullable
@@ -1364,7 +1406,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 return planFieldWithComparison(candidateScan, then.getChildren().get(0), singleField, sort, false);
             } else {
                 // May need second column to do sort, so handle like And, which does such cases.
-                return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(singleField), sort).plan();
+                return planAndWithThen(candidateScan, then, Collections.singletonList(singleField), sort);
             }
         }
         return null;
@@ -1384,7 +1426,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final boolean strictlySorted = sort != null; // Must be equal.
             return new ScoredPlan(1, valueScan(candidateScan, scanComparisons, strictlySorted));
         } else if (indexExpr instanceof ThenKeyExpression) {
-            return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithComparison), sort).plan();
+            return planAndWithThen(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithComparison), sort);
         }
         return null;
     }
@@ -1403,7 +1445,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final boolean strictlySorted = sort != null; // Must be equal.
             return new ScoredPlan(1, valueScan(candidateScan, scanComparisons, strictlySorted));
         } else if (indexExpr instanceof ThenKeyExpression) {
-            return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithOneOfComparison), sort).plan();
+            return planAndWithThen(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithOneOfComparison), sort);
         }
         return null;
     }
@@ -1472,7 +1514,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (sort == null) { //&& !then.createsDuplicates()) {
                 return planVersion(candidateScan, then.getChildren().get(0), filter, null);
             } else {
-                return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(filter), sort).plan();
+                return planAndWithThen(candidateScan, then, Collections.singletonList(filter), sort);
             }
         }
         return null;
@@ -2233,166 +2275,68 @@ public class RecordQueryPlanner implements QueryPlanner {
      * cases end up having more-or-less the same logic as the multi-field cases.
      * </p>
      */
-    private class AndWithThenPlanner {
+    private abstract class AbstractAndWithThenPlanner {
         /**
          * The original root expression on the index or {@code null} if the index actually has only a single column.
          */
         @Nullable
-        private final ThenKeyExpression indexExpr;
+        protected final ThenKeyExpression indexExpr;
         /**
          * The children of the root expression or a single key expression if the index actually has only a single column.
          */
         @Nonnull
-        private final List<KeyExpression> indexChildren;
+        protected final List<KeyExpression> indexChildren;
         /**
          * The children of the {@link AndComponent} or a single filter if the query is actually on a single component.
          */
         @Nonnull
-        private final List<QueryComponent> filters;
+        protected final List<QueryComponent> filters;
         @Nullable
-        private KeyExpression sort;
+        protected final KeyExpression sort;
         @Nonnull
-        private final CandidateScan candidateScan;
+        protected final CandidateScan candidateScan;
         /**
-         * The set of filters in the and that have not been satisfied (yet).
+         * The filters in the {@link AndComponent} that have not been satisfied (yet).
          */
         @Nonnull
-        private List<QueryComponent> unsatisfiedFilters;
+        protected final List<QueryComponent> unsatisfiedFilters;
         /**
          * The set of sort keys that have not been satisfied (yet).
          */
         @Nonnull
-        private List<KeyExpression> unsatisfiedSorts;
+        protected final List<KeyExpression> unsatisfiedSorts;
         /**
          * True if the current child of the index {@link ThenKeyExpression Then} clause has a corresponding equality comparison in the filter.
          */
-        private boolean foundComparison;
+        protected boolean foundComparison;
         /**
          * True if {@code foundComparison} completely accounted for the child.
          */
-        private boolean foundCompleteComparison;
-        /**
-         * Accumulate matching comparisons here.
-         */
-        @Nonnull
-        private ComparisonRanges comparisons;
+        protected boolean foundCompleteComparison;
 
         @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull ThenKeyExpression indexExpr,
-                                  @Nonnull AndComponent filter,
-                                  @Nullable KeyExpression sort) {
-            this(candidateScan, indexExpr, filter.getChildren(), sort);
-        }
-
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull ThenKeyExpression indexExpr,
-                                  @Nonnull List<QueryComponent> filters,
-                                  @Nullable KeyExpression sort) {
-            this (candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
-        }
-
-        @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull List<KeyExpression> indexChildren,
-                                  @Nonnull AndComponent filter,
-                                  @Nullable KeyExpression sort) {
-            this(candidateScan, null, indexChildren, filter.getChildren(), sort);
-        }
-
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
-        private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                   @Nullable ThenKeyExpression indexExpr,
-                                   @Nonnull List<KeyExpression> indexChildren,
-                                   @Nonnull List<QueryComponent> filters,
-                                   @Nullable KeyExpression sort) {
+        protected AbstractAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                             @Nullable ThenKeyExpression indexExpr,
+                                             @Nonnull List<KeyExpression> indexChildren,
+                                             @Nonnull List<QueryComponent> filters,
+                                             @Nullable KeyExpression sort) {
             this.indexExpr = indexExpr;
             this.indexChildren = indexChildren;
             this.filters = filters;
             this.sort = sort;
             this.candidateScan = candidateScan;
-
             unsatisfiedFilters = new ArrayList<>();
-            comparisons = new ComparisonRanges();
             unsatisfiedSorts = new ArrayList<>();
         }
 
-        public ScoredPlan plan() {
-            if (isMultidimensionalIndex() && !unsatisfiedSorts.isEmpty()) {
-                return null;
-            }
-//            if (isMultidimensionalIndex()) {
-//                return null;
-//            }
+        @Nullable
+        public abstract ScoredPlan plan();
 
-            setupPlanState();
-            boolean doneComparing = false;
-            boolean strictlySorted = true;
-            int childColumns = 0;
-            for (KeyExpression child : indexChildren) {
-                final int childColumnSize = child.getColumnSize();
-                if (isMultidimensionalIndex() || !doneComparing) {
-                    planChild(child);
-                    if (isMultidimensionalIndex()) {
-                        final int uncommittedComparisonRangesSize = comparisons.uncommittedComparisonRangesSize();
-                        if (uncommittedComparisonRangesSize < childColumnSize) {
-                            // nothing added in this iteration
-                            comparisons.addEmptyRanges(childColumnSize - uncommittedComparisonRangesSize);
-                        }
-                    }
-                    if (!comparisons.isEqualities() || !foundCompleteComparison) {
-                        // Didn't add another equality or only did part of child; done matching filters to index.
-                        doneComparing = true;
-                    }
-                }
-                if (doneComparing) {
-                    if (unsatisfiedSorts.isEmpty()) {
-                        if (strictlySorted &&
-                                !(candidateScan.index != null && candidateScan.index.isUnique() && childColumns >= candidateScan.index.getColumnSize())) {
-                            // More index children than sorts, except for unique index sorted up far enough.
-                            strictlySorted = false;
-                        }
-                        if (!isMultidimensionalIndex()) {
-                            break;
-                        }
-                    } else {
-                        // With inequalities or no filters, index ordering must match sort ordering.
-                        if (!nextSortSatisfied(child, childColumns)) {
-                            break;
-                        }
-                    }
-                }
-                childColumns += childColumnSize;
+        protected void setupPlanState() {
+            unsatisfiedFilters.clear();
+            unsatisfiedFilters.addAll(filters);
+            unsatisfiedSorts.clear();
 
-                comparisons.commitAndAdvance();
-            }
-            if (!unsatisfiedSorts.isEmpty()) {
-                return null;
-            }
-            if (comparisons.isEmpty()) {
-                return null;
-            }
-            boolean createsDuplicates = false;
-            if (candidateScan.index != null) {
-                if (!candidateScan.planContext.allowDuplicates) {
-                    createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
-                }
-                if (createsDuplicates && indexExpr != null && indexExpr.createsDuplicatesAfter(comparisons.size())) {
-                    // If fields after we stopped comparing create duplicates, they might be empty, so that a record
-                    // that otherwise matches the comparisons would be absent from the index entirely.
-                    return null;
-                }
-            }
-            return new ScoredPlan(comparisons.totalSize(),
-                    valueScan(candidateScan, comparisons.toScanComparisons(), strictlySorted),
-                    comparisons,
-                    unsatisfiedFilters, createsDuplicates);
-        }
-
-        private void setupPlanState() {
-            unsatisfiedFilters = new ArrayList<>(filters);
-            comparisons = new ComparisonRanges();
             if (sort != null) {
                 KeyExpression sortKey = sort;
                 if (sortKey instanceof GroupingKeyExpression) {
@@ -2407,7 +2351,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planChild(@Nonnull KeyExpression child) {
+        protected void planChild(@Nonnull KeyExpression child) {
             foundCompleteComparison = foundComparison = false;
             if (child instanceof RecordTypeKeyExpression) {
                 if (candidateScan.planContext.query.getRecordTypes().size() == 1) {
@@ -2474,10 +2418,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private boolean isMultidimensionalIndex() {
-            return candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL);
-        }
-
         private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
                     (maybeSort) -> planNestedField(candidateScan, child, filterField, maybeSort));
@@ -2488,74 +2428,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                     (maybeSort) -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, maybeSort));
         }
 
-        private boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
-                                                        @Nonnull QueryComponent filterChild,
-                                                        @Nonnull Function<KeyExpression, ScoredPlan> maybeSortedPlan) {
-            ScoredPlan scoredPlan = maybeSortedPlan.apply(null);
-            ComparisonRanges nextComparisonRanges = getPlanComparisonRanges(scoredPlan);
-            if (nextComparisonRanges != null) {
-                if (!comparisons.isEqualities() && nextComparisonRanges.getEqualitiesSize() > 0) {
-                    throw new Query.InvalidExpressionException(
-                            "Two nested fields in the same and clause, combine them into one");
-                } else {
-                    if (!unsatisfiedSorts.isEmpty() && !nextComparisonRanges.isEqualities()) {
-                        // Didn't plan to equality, need to try with sorting.
-                        scoredPlan = maybeSortedPlan.apply(unsatisfiedSorts.get(0));
-                        nextComparisonRanges = getPlanComparisonRanges(scoredPlan);
-                    }
-                    if (scoredPlan != null) {
-                        // nextComparisonRanges should not be null at this point
-                        Objects.requireNonNull(nextComparisonRanges);
-                        unsatisfiedFilters.remove(filterChild);
-                        unsatisfiedFilters.addAll(scoredPlan.unsatisfiedFilters);
-                        comparisons.addAll(nextComparisonRanges);
-                        if (nextComparisonRanges.isEqualities()) {
-                            foundComparison = true;
-                            foundCompleteComparison = nextComparisonRanges.getEqualitiesSize() == child.getColumnSize();
-                            satisfyEqualitySort(child);
-                        }
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
+        protected abstract boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
+                                                                   @Nonnull QueryComponent filterChild,
+                                                                   @Nonnull Function<KeyExpression, ScoredPlan> maybeSortedPlan);
 
-        // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
-        @SuppressWarnings("PMD.EmptyWhileStmt")
-        private void satisfyEqualitySort(@Nonnull KeyExpression child) {
-            while (unsatisfiedSorts.remove(child)) {
-                // Keep removing all occurrences.
-            }
-        }
-
-        // Does this sort key from an inequality comparison or in the index after filters match what's pending?
-        private boolean nextSortSatisfied(@Nonnull KeyExpression child, int childColumns) {
-            if (unsatisfiedSorts.isEmpty()) {
-                return false;
-            }
-            if (child.equals(unsatisfiedSorts.get(0))) {
-                unsatisfiedSorts.remove(0);
-                return true;
-            }
-            int childSize = child.getColumnSize();
-            if (childSize > 1) {
-                List<KeyExpression> flattenedChildren = child.normalizeKeyForPositions();
-                int childEqualityOffset = comparisons.getEqualitiesSize() - childColumns;
-                int remainingChildren = flattenedChildren.size() - childEqualityOffset;
-                if (remainingChildren > 0) {
-                    for (int i = 0; i < remainingChildren; i++) {
-                        if (flattenedChildren.get(childEqualityOffset + i).equals(unsatisfiedSorts.get(0))) {
-                            unsatisfiedSorts.remove(0);
-                        } else {
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-            }
-            return false;
-        }
+        protected abstract int getEqualitySize();
 
         private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull FieldWithComparison field, @Nonnull QueryComponent filterChild) {
             if (child instanceof FieldKeyExpression) {
@@ -2603,13 +2480,200 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private boolean addToComparisons(@Nonnull Comparisons.Comparison comparison) {
+        protected abstract boolean addToComparisons(@Nonnull Comparisons.Comparison comparison);
+
+        protected abstract void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild);
+    }
+
+    /**
+     * Mini-planner for handling the way that queries with multiple filters ("ands") on indexes with multiple components
+     * ("thens"). This handles things like matching comparisons to the different columns of the index and then combining
+     * them into a single scan, as well as validating that the sort is matched correctly.
+     *
+     * <p>
+     * In addition to handling cases where there really are multiple filters on compound indexes, this also handles cases
+     * like (1) a single filter on a compound index and (2) multiple filters on a single index. This is because those
+     * cases end up having more-or-less the same logic as the multi-field cases.
+     * </p>
+     */
+    private class AndWithThenPlanner extends AbstractAndWithThenPlanner {
+        /**
+         * Accumulate matching comparisons here.
+         */
+        @Nonnull
+        private final ScanComparisons.Builder comparisons;
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull ThenKeyExpression indexExpr,
+                                  @Nonnull AndComponent filter,
+                                  @Nullable KeyExpression sort) {
+            this(candidateScan, indexExpr, filter.getChildren(), sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull ThenKeyExpression indexExpr,
+                                  @Nonnull List<QueryComponent> filters,
+                                  @Nullable KeyExpression sort) {
+            this (candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                  @Nonnull List<KeyExpression> indexChildren,
+                                  @Nonnull AndComponent filter,
+                                  @Nullable KeyExpression sort) {
+            this(candidateScan, null, indexChildren, filter.getChildren(), sort);
+        }
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                   @Nullable ThenKeyExpression indexExpr,
+                                   @Nonnull List<KeyExpression> indexChildren,
+                                   @Nonnull List<QueryComponent> filters,
+                                   @Nullable KeyExpression sort) {
+            super(candidateScan, indexExpr, indexChildren, filters, sort);
+            this.comparisons = new ScanComparisons.Builder();
+        }
+
+        @Nullable
+        @Override
+        public ScoredPlan plan() {
+            setupPlanState();
+            boolean doneComparing = false;
+            boolean strictlySorted = true;
+            int childColumns = 0;
+            for (KeyExpression child : indexChildren) {
+                if (!doneComparing) {
+                    planChild(child);
+                    if (!comparisons.isEquality() || !foundCompleteComparison) {
+                        // Didn't add another equality or only did part of child; done matching filters to index.
+                        doneComparing = true;
+                    }
+                }
+                if (doneComparing) {
+                    if (unsatisfiedSorts.isEmpty()) {
+                        if (!(candidateScan.index != null && candidateScan.index.isUnique() && childColumns >= candidateScan.index.getColumnSize())) {
+                            // More index children than sorts, except for unique index sorted up far enough.
+                            strictlySorted = false;
+                        }
+                        break;
+                    }
+                    // With inequalities or no filters, index ordering must match sort ordering.
+                    if (!nextSortSatisfied(child, childColumns)) {
+                        break;
+                    }
+                }
+                childColumns += child.getColumnSize();
+            }
+            if (!unsatisfiedSorts.isEmpty()) {
+                return null;
+            }
+            if (comparisons.isEmpty()) {
+                return null;
+            }
+            boolean createsDuplicates = false;
+            if (candidateScan.index != null) {
+                if (!candidateScan.planContext.allowDuplicates) {
+                    createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
+                }
+                if (createsDuplicates && indexExpr != null && indexExpr.createsDuplicatesAfter(comparisons.size())) {
+                    // If fields after we stopped comparing create duplicates, they might be empty, so that a record
+                    // that otherwise matches the comparisons would be absent from the index entirely.
+                    return null;
+                }
+            }
+            return new ScoredPlan(comparisons.totalSize(), valueScan(candidateScan, comparisons.build(), strictlySorted), null, unsatisfiedFilters, createsDuplicates);
+        }
+
+        @Override
+        protected void setupPlanState() {
+            super.setupPlanState();
+            comparisons.clear();
+        }
+
+        @Override
+        protected int getEqualitySize() {
+            return comparisons.getEqualitySize();
+        }
+
+        @Override
+        protected boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
+                                                          @Nonnull QueryComponent filterChild,
+                                                          @Nonnull Function<KeyExpression, ScoredPlan> maybeSortedPlan) {
+            ScoredPlan scoredPlan = maybeSortedPlan.apply(null);
+            ScanComparisons nextComparisons = getPlanComparisons(scoredPlan);
+            if (nextComparisons != null) {
+                if (!comparisons.isEquality() && nextComparisons.getEqualitySize() > 0) {
+                    throw new Query.InvalidExpressionException(
+                            "Two nested fields in the same and clause, combine them into one");
+                } else {
+                    if (!unsatisfiedSorts.isEmpty() && !nextComparisons.isEquality()) {
+                        // Didn't plan to equality, need to try with sorting.
+                        scoredPlan = maybeSortedPlan.apply(unsatisfiedSorts.get(0));
+                        nextComparisons = getPlanComparisons(scoredPlan);
+                    }
+                    if (scoredPlan != null) {
+                        unsatisfiedFilters.remove(filterChild);
+                        unsatisfiedFilters.addAll(scoredPlan.unsatisfiedFilters);
+                        comparisons.addAll(nextComparisons);
+                        if (nextComparisons.isEquality()) {
+                            foundComparison = true;
+                            foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
+                            satisfyEqualitySort(child);
+                        }
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
+        @SuppressWarnings({"PMD.EmptyWhileStmt", "StatementWithEmptyBody"})
+        private void satisfyEqualitySort(@Nonnull KeyExpression child) {
+            while (unsatisfiedSorts.remove(child)) {
+                // Keep removing all occurrences.
+            }
+        }
+
+        // Does this sort key from an inequality comparison or in the index after filters match what's pending?
+        private boolean nextSortSatisfied(@Nonnull KeyExpression child, int childColumns) {
+            if (unsatisfiedSorts.isEmpty()) {
+                return false;
+            }
+            if (child.equals(unsatisfiedSorts.get(0))) {
+                unsatisfiedSorts.remove(0);
+                return true;
+            }
+            int childSize = child.getColumnSize();
+            if (childSize > 1) {
+                List<KeyExpression> flattenedChildren = child.normalizeKeyForPositions();
+                int childEqualityOffset = comparisons.getEqualitySize() - childColumns;
+                int remainingChildren = flattenedChildren.size() - childEqualityOffset;
+                if (remainingChildren > 0) {
+                    for (int i = 0; i < remainingChildren; i++) {
+                        if (flattenedChildren.get(childEqualityOffset + i).equals(unsatisfiedSorts.get(0))) {
+                            unsatisfiedSorts.remove(0);
+                        } else {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        protected boolean addToComparisons(@Nonnull Comparisons.Comparison comparison) {
             switch (ScanComparisons.getComparisonType(comparison)) {
                 case EQUALITY:
                     // TODO: If there is an equality on the same field as inequalities, it
                     //  would have been better to get it earlier and potentially match more of
                     //  the index. Which may require two passes over filter children.
-                    if (isMultidimensionalIndex() || comparisons.isEqualities()) {
+                    if (comparisons.isEquality()) {
                         comparisons.addEqualityComparison(comparison);
                         foundComparison = true;
                         return true;
@@ -2624,14 +2688,167 @@ public class RecordQueryPlanner implements QueryPlanner {
             return false;
         }
 
-        private void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
+        @Override
+        protected void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
             unsatisfiedFilters.remove(filterChild);
             if (foundComparison) {
                 foundCompleteComparison = true;
                 satisfyEqualitySort(child);
             }
         }
-
     }
 
+    /**
+     * Mini-planner for handling the way that queries with multiple filters ("ands") on multidimensional indexes with
+     * multiple components ("thens"). This handles things like matching comparisons to the different columns of the
+     * index and then combining them into a single scan.
+     * <p>
+     * In particular, this specific mini planner matches filters to sub expressions in the index not considering
+     * matches of preceding index sub expressions, i.e. this planner matches a filter to a sub expression independently
+     * of any other match between a filter and a sub expression of the index. This allows for free permutation of
+     * dimension columns for multidimensional indexes.
+     * </p>
+     * <p>
+     * If an index scan over a multidimensional index can be planned, we will still just plan a regular by-value
+     * prefix scan of that index here but leave all necessary bread crumbs to create a multi-dimensional index scan
+     * plan in {@link #optimizeCandidateScanForMultidimensionalIndex(ScoredPlan, Index)}.
+     * </p>
+     */
+    private class MultidimensionalAndWithThenPlanner extends AbstractAndWithThenPlanner {
+        /**
+         * Accumulate matching comparisons here.
+         */
+        @Nonnull
+        private final ComparisonRanges comparisons;
+
+        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
+        private MultidimensionalAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+                                                   @Nullable ThenKeyExpression indexExpr,
+                                                   @Nonnull List<KeyExpression> indexChildren,
+                                                   @Nonnull List<QueryComponent> filters,
+                                                   @Nullable KeyExpression sort) {
+            super(candidateScan, indexExpr, indexChildren, filters, sort);
+            comparisons = new ComparisonRanges();
+        }
+
+        @Nullable
+        @Override
+        public ScoredPlan plan() {
+            setupPlanState();
+            if (!unsatisfiedSorts.isEmpty()) {
+                return null;
+            }
+
+            // non-equalities comprises inequalities and no matches (empty matches)
+            boolean matchedNonEqualities = false;
+            boolean strictlySorted = true;
+            int childColumns = 0;
+            for (KeyExpression child : indexChildren) {
+                final int childColumnSize = child.getColumnSize();
+                planChild(child);
+                final int uncommittedComparisonRangesSize = comparisons.uncommittedComparisonRangesSize();
+                if (uncommittedComparisonRangesSize < childColumnSize) {
+                    // nothing added in this iteration
+                    comparisons.addEmptyRanges(childColumnSize - uncommittedComparisonRangesSize);
+                }
+                if (!comparisons.isEqualities() || !foundCompleteComparison) {
+                    // Didn't add another equality or only did part of child; done matching filters to index.
+                    matchedNonEqualities = true;
+                }
+                if (matchedNonEqualities) {
+                    if (strictlySorted &&
+                            !(candidateScan.index != null &&
+                              candidateScan.index.isUnique() &&
+                              childColumns >= candidateScan.index.getColumnSize())) {
+                        // More index children than sorts, except for unique index sorted up far enough.
+                        strictlySorted = false;
+                    }
+                }
+                childColumns += childColumnSize;
+
+                comparisons.commitAndAdvance();
+            }
+            if (comparisons.isEmpty()) {
+                return null;
+            }
+            boolean createsDuplicates = false;
+            if (candidateScan.index != null) {
+                if (!candidateScan.planContext.allowDuplicates) {
+                    createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
+                }
+                if (createsDuplicates && indexExpr != null && indexExpr.createsDuplicatesAfter(comparisons.size())) {
+                    // If fields after we stopped comparing create duplicates, they might be empty, so that a record
+                    // that otherwise matches the comparisons would be absent from the index entirely.
+                    return null;
+                }
+            }
+            return new ScoredPlan(comparisons.totalSize(),
+                    valueScan(candidateScan, comparisons.toScanComparisons(), strictlySorted),
+                    comparisons,
+                    unsatisfiedFilters, createsDuplicates);
+        }
+
+        @Override
+        protected void setupPlanState() {
+            super.setupPlanState();
+            comparisons.clear();
+        }
+
+        @Override
+        protected int getEqualitySize() {
+            return comparisons.getEqualitiesSize();
+        }
+
+        @Override
+        protected boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
+                                                          @Nonnull QueryComponent filterChild,
+                                                          @Nonnull Function<KeyExpression, ScoredPlan> maybeSortedPlan) {
+            @Nullable ScoredPlan scoredPlan = maybeSortedPlan.apply(null);
+            ComparisonRanges nextComparisonRanges = getPlanComparisonRanges(scoredPlan);
+            if (nextComparisonRanges != null) {
+                if (!comparisons.isEqualities() && nextComparisonRanges.getEqualitiesSize() > 0) {
+                    throw new Query.InvalidExpressionException(
+                            "Two nested fields in the same and clause, combine them into one");
+                } else {
+                    if (scoredPlan != null) {
+                        // nextComparisonRanges should not be null at this point
+                        Objects.requireNonNull(nextComparisonRanges);
+                        unsatisfiedFilters.remove(filterChild);
+                        unsatisfiedFilters.addAll(scoredPlan.unsatisfiedFilters);
+                        comparisons.addAll(nextComparisonRanges);
+                        if (nextComparisonRanges.isEqualities()) {
+                            foundComparison = true;
+                            foundCompleteComparison = nextComparisonRanges.getEqualitiesSize() == child.getColumnSize();
+                        }
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        protected boolean addToComparisons(@Nonnull Comparisons.Comparison comparison) {
+            switch (ScanComparisons.getComparisonType(comparison)) {
+                case EQUALITY:
+                    comparisons.addEqualityComparison(comparison);
+                    foundComparison = true;
+                    return true;
+                case INEQUALITY:
+                    comparisons.addInequalityComparison(comparison);
+                    return true;
+                default:
+                    break;
+            }
+            return false;
+        }
+
+        @Override
+        protected void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
+            unsatisfiedFilters.remove(filterChild);
+            if (foundComparison) {
+                foundCompleteComparison = true;
+            }
+        }
+    }
 }

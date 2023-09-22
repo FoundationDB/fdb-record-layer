@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -53,6 +54,11 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
 
     public ComparisonRanges(@Nonnull final List<ComparisonRange> ranges) {
         this.ranges = Lists.newArrayList(ranges);
+        this.sealedSize = 0;
+    }
+
+    public void clear() {
+        ranges.clear();
         this.sealedSize = 0;
     }
 
@@ -121,6 +127,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return i;
     }
 
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     boolean isPrefixRanges() {
         for (int i = 0; i < ranges.size(); i++) {
             final ComparisonRange comparisonRange = ranges.get(i);
@@ -235,6 +242,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -269,6 +277,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
         return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
