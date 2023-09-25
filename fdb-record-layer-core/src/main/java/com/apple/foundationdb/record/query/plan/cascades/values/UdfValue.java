@@ -1,5 +1,5 @@
 /*
- * JavaUdf.java
+ * UdfValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,27 +25,36 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
- * Represents a Java UDF.
+ * This represents a user-defined {@link Value}.
  */
-public abstract class JavaUdf extends AbstractValue {
+public abstract class UdfValue extends AbstractValue {
 
     @Nonnull
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Java-Udf-Value");
+    private final Iterable<? extends Value> children;
 
     @Nonnull
-    final Iterable<? extends Value> children;
+    private final Type resultType;
 
-    public JavaUdf(@Nonnull final Iterable<? extends Value> children) {
+    @Nonnull
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Udf-Value");
+
+    public UdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
         this.children = children;
+        this.resultType = resultType;
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, children);
     }
 
     @Nonnull
@@ -54,35 +63,24 @@ public abstract class JavaUdf extends AbstractValue {
         return children;
     }
 
-    @Nonnull
     @Override
+    @Nonnull
     public Type getResultType() {
-        return getUdfResultType();
-    }
-
-    @Nonnull
-    public static Type getUdfResultType() {
-        return Type.primitiveType(Type.TypeCode.UNKNOWN);
-    }
-
-    @Nonnull
-    public static Iterable<Type> getUdfParameterTypes() {
-        return List.of();
+        return resultType;
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return call(Streams.stream(children).map(c -> c.eval(store, context)).collect(Collectors.toList()));
+        return call(StreamSupport.stream(children.spliterator(), false).map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
+
+    @Nonnull
+    @Override
+    public abstract Value withChildren(final Iterable<? extends Value> newChildren);
 
     @Nullable
-    public abstract Object call(@Nonnull final List<Object> parameters);
-
-    @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, children);
-    }
+    public abstract Object call(@Nonnull final List<Object> arguments);
 
     @Override
     public int hashCodeWithoutChildren() {
