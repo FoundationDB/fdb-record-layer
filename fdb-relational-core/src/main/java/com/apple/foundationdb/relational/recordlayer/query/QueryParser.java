@@ -106,16 +106,13 @@ public class QueryParser {
         parser.addErrorListener(listener);
         RelationalParser.RootContext rootContext = parser.root();
 
-        // TODO (yhatem) DDLs are still ambiguous, therefore enabling this check
-        //  would cause practically all tests to fail. Once this is fixed (TODO)
-        //  we will enable it.
-        // if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
-        //     var errorMessage = String.join(", ", listener.getAmbiguityErrors());
-        //     if (!listener.getSyntaxErrors().isEmpty()) {
-        //         errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
-        //     }
-        //     throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
-        // }
+        if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
+            var errorMessage = String.join(", ", listener.getAmbiguityErrors());
+            if (!listener.getSyntaxErrors().isEmpty()) {
+                errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
+            }
+            throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
+        }
 
         if (!listener.getSyntaxErrors().isEmpty()) {
             throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);

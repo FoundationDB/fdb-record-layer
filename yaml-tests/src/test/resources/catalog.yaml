@@ -59,30 +59,30 @@
 - explainContains: 'map(AggregateIndexScan(Index(DATABASES_COUNT_INDEX'
 ---
 # How many schemas exist in this cluster?
-- query: select sum(count) from (select count(*) as count, template_name, template_version from schemas
+- query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
       group by template_name, template_version) as t;
 - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
 ---
 # How many schemas with the specified schemaTemplateName exist in this cluster?
-- query: select sum(count) from (select count(*) as count, template_name, template_version from schemas
+- query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
         group by template_name, template_version having template_name = 't') as t;
 - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
 ---
-- query: select sum(count) from (select count(*) as count, template_name, template_version from schemas
+- query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
     group by template_name, template_version having template_name = 'TEST_TEMPLATE_1') as t;
 - result: [{4}]
 ---
 # How many schemas with the specified schemaTemplateName and schemaTemplateVersion exist in this cluster?
-- query: select sum(count) from (select count(*) as count, template_name, template_version from schemas
+- query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
       group by template_name, template_version having template_name = 't' and template_version = 1) as t;
 - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
 ---
-- query: select sum(count) from (select count(*) as count, template_name, template_version from schemas
+- query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
     group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;
 - result: [{4}]
 ---
 # how many unique templates in a cluster?
-- query: select count(*) from (select count(*) as count, template_name, template_version from schemas
+- query: select count(*) from (select count(*), template_name, template_version from schemas
       group by template_name, template_version) as t;
 - explainContains: 'map(map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
 ---
@@ -92,7 +92,7 @@
 #- result: [{t}, {u}]
 #---
 # Which templates are used in a cluster?
-- query: select template_name, template_version from (select count(*) as count, template_name, template_version from schemas
+- query: select template_name, template_version from (select count(*) as cnt, template_name, template_version from schemas
     group by template_name, template_version) as t;
 - explainContains: 'map(map(AggregateIndexScan(Index(TEMPLATES_COUNT_INDEX'
 ---

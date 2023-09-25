@@ -35,8 +35,7 @@ root
     ;
 
 sqlStatements
-    : (sqlStatement (MINUS MINUS)? SEMI? | SEMI)*
-    (sqlStatement ((MINUS MINUS)? SEMI)? | SEMI)
+    : sqlStatement (SEMI sqlStatement)* SEMI?
     ;
 
 sqlStatement
@@ -83,7 +82,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structOrTableDefinition | enumDefinition | indexDefinition )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition )
     ;
 
 createStatement
@@ -110,8 +109,12 @@ dropStatement
 
 // details
 
-structOrTableDefinition
-    : (TYPE AS STRUCT| TABLE) uid '(' columnDefinition (COMMA columnDefinition)* (COMMA primaryKeyDefinition)? ')'
+structDefinition
+    : (TYPE AS STRUCT) uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* RIGHT_ROUND_BRACKET
+    ;
+
+tableDefinition
+    : TABLE uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* COMMA primaryKeyDefinition RIGHT_ROUND_BRACKET
     ;
 
 columnDefinition
@@ -257,14 +260,10 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName
-      (PARTITION '(' uidList ')' )? (AS? alias=uid)?
+    : tableName (AS? alias=uid)?
       (indexHint (',' indexHint)* )?                                #atomTableItem // done
-    | (
-      selectStatement
-      | '(' parenthesisSubquery=selectStatement ')'
-      )
-      AS? alias=uid                                                 #subqueryTableItem // done
+    |
+      selectStatement AS? alias=uid                                 #subqueryTableItem // done
     ;
 
 indexHint
@@ -296,8 +295,7 @@ joinPart
 
 // done
 queryExpression
-    : '(' querySpecification ')'
-    | '(' queryExpression ')'
+    : LEFT_ROUND_BRACKET (querySpecification | queryExpression) RIGHT_ROUND_BRACKET
     ;
 
 // done
@@ -543,7 +541,6 @@ simpleId
     : ID
     | charsetNameBase
     | intervalTypeBase
-    | dataTypeBase
     | keywordsCanBeId
     | functionNameBase
     ;
@@ -1042,22 +1039,18 @@ intervalTypeBase
     | MINUTE | WEEK | SECOND | MICROSECOND
     ;
 
-dataTypeBase
-    : DATE | TIME | TIMESTAMP | DATETIME | YEAR | ENUM | TEXT
-    ;
-
 keywordsCanBeId
     : ACCOUNT | ACTION | ADMIN | AFTER | AGGREGATE | ALGORITHM | ANY
     | AT | AUDIT_ADMIN | AUTHORS | AUTOCOMMIT | AUTOEXTEND_SIZE
     | AUTO_INCREMENT | AVG | AVG_ROW_LENGTH | BACKUP_ADMIN | BEGIN | BINLOG | BINLOG_ADMIN | BINLOG_ENCRYPTION_ADMIN | BIT | BIT_AND | BIT_OR | BIT_XOR
-    | BLOCK | BOOL | BOOLEAN | BTREE | CACHE | CASCADED | CHAIN | CHANGED
+    | BLOCK | BOOL | BTREE | CACHE | CASCADED | CHAIN | CHANGED
     | CHANNEL | CHECKSUM | PAGE_CHECKSUM | CATALOG_NAME | CIPHER
     | CLASS_ORIGIN | CLIENT | CLONE_ADMIN | CLOSE | CLUSTERING | COALESCE | CODE
     | COLUMNS | COLUMN_FORMAT | COLUMN_NAME | COMMENT | COMMIT | COMPACT
     | COMPLETION | COMPRESSED | COMPRESSION | CONCURRENT | CONNECT
     | CONNECTION | CONNECTION_ADMIN | CONSISTENT | CONSTRAINT_CATALOG | CONSTRAINT_NAME
     | CONSTRAINT_SCHEMA | CONTAINS | CONTEXT
-    | CONTRIBUTORS | COPY | COUNT | CPU | CURRENT | CURSOR_NAME
+    | CONTRIBUTORS | COPY | CPU | CURRENT | CURSOR_NAME
     | DATA | DATAFILE | DATABASES | DEALLOCATE
     | DEFAULT_AUTH | DEFINER | DELAY_KEY_WRITE | DES_KEY_FILE | DIRECTORY
     | DISABLE | DISCARD | DISK | DO | DUMPFILE | DUPLICATE
@@ -1102,10 +1095,10 @@ keywordsCanBeId
     | SQL_AFTER_GTIDS | SQL_AFTER_MTS_GAPS | SQL_BEFORE_GTIDS
     | SQL_BUFFER_RESULT | SQL_THREAD
     | STACKED | START | STARTS | STATS_AUTO_RECALC | STATS_PERSISTENT
-    | STATS_SAMPLE_PAGES | STATUS | STD | STDDEV | STDDEV_POP | STDDEV_SAMP | STOP | STORAGE | STRING
+    | STATS_SAMPLE_PAGES | STATUS | STD | STDDEV | STDDEV_POP | STDDEV_SAMP | STOP | STORAGE
     | SUBCLASS_ORIGIN | SUBJECT | SUBPARTITION | SUBPARTITIONS | SUM | SUSPEND | SWAPS
     | SWITCHES | SYSTEM_VARIABLES_ADMIN | TABLE_NAME | TABLESPACE | TABLE_ENCRYPTION_ADMIN
-    | TEMPORARY | TEMPTABLE | THAN | TRADITIONAL
+    | TEXT | TEMPORARY | TEMPTABLE | THAN | TRADITIONAL
     | TRANSACTION | TRANSACTIONAL | TRIGGERS | TRUNCATE | UNDEFINED | UNDOFILE
     | UNDO_BUFFER_SIZE | UNINSTALL | UNKNOWN | UNTIL | UPGRADE | USA | USER | USE_FRM | USER_RESOURCES
     | VALIDATION | VALUE | VALUES | VAR_POP | VAR_SAMP | VARIABLES | VARIANCE | VERSION_TOKEN_ADMIN | VIEW | WAIT | WARNINGS | WITHOUT
@@ -1121,7 +1114,7 @@ functionNameBase
     | BUFFER | CEIL | CEILING | CENTROID | CHARACTER_LENGTH
     | CHARSET | CHAR_LENGTH | COERCIBILITY | COLLATION
     | COMPRESS | COALESCE | CONCAT | CONCAT_WS | CONNECTION_ID | CONV
-    | CONVERT_TZ | COS | COT | COUNT | CRC32
+    | CONVERT_TZ | COS | COT | CRC32
     | CREATE_ASYMMETRIC_PRIV_KEY | CREATE_ASYMMETRIC_PUB_KEY
     | CREATE_DH_PARAMETERS | CREATE_DIGEST | CROSSES | CUME_DIST | DATABASE | DATE
     | DATEDIFF | DATE_FORMAT | DAY | DAYNAME | DAYOFMONTH

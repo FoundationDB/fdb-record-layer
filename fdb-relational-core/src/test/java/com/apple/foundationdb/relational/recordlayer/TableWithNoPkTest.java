@@ -185,8 +185,7 @@ public class TableWithNoPkTest {
                 //create a schema
                 final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string); ";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createStatement))
-                        .hasErrorCode(ErrorCode.SYNTAX_ERROR)
-                        .hasMessage("Illegal table definition 'T'. Include either a PRIMARY KEY clause OR A SINGLE ROW ONLY clause.");
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }

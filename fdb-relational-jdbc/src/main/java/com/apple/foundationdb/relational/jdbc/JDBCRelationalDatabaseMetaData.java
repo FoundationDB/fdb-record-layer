@@ -129,7 +129,7 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
         // TODO: We are returning databases here, not Tables (per @alacurie). For dbeaver. FIX.
         try (Statement statement = this.connection.createStatement()) {
             try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                return relationalStatement.unwrap(RelationalStatement.class).executeQuery("select * from databases;");
+                return relationalStatement.unwrap(RelationalStatement.class).executeQuery("select * from databases");
             }
         }
     }

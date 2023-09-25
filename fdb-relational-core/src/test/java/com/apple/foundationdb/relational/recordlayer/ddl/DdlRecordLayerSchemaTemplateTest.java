@@ -178,7 +178,7 @@ public class DdlRecordLayerSchemaTemplateTest {
     @Test
     void createSchemaTemplateWithNoTable() throws SQLException, RelationalException {
         String createColumnStatement = "CREATE SCHEMA TEMPLATE no_table " +
-                "CREATE TYPE AS STRUCT not_a_table(a bigint);";
+                "CREATE TYPE AS STRUCT not_a_table(a bigint)";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createColumnStatement))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE));

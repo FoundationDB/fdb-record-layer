@@ -647,7 +647,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitAtomTableItem(RelationalParser.AtomTableItemContext ctx) {
-        Assert.isNullUnchecked(ctx.PARTITION(), UNSUPPORTED_QUERY);
         final Typed tableName = (Typed) ctx.tableName().accept(this);
         Assert.thatUnchecked(tableName instanceof QualifiedIdentifierValue);
 
@@ -692,9 +691,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.alias);
         final var subqueryAlias = ParserUtils.safeCastLiteral(ctx.alias.accept(this), String.class);
         Assert.notNullUnchecked(subqueryAlias);
-        final var relationalExpression = ctx.selectStatement() != null ?
-                ctx.selectStatement().accept(this) :
-                ctx.parenthesisSubquery.accept(this);
+        final var relationalExpression = ctx.selectStatement().accept(this);
         Assert.thatUnchecked(relationalExpression instanceof RelationalExpression);
         final RelationalExpression from = (RelationalExpression) relationalExpression;
         final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias)).build(GroupExpressionRef.of(from));
@@ -1277,18 +1274,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
-        if (ctx.structOrTableDefinition() != null) {
-            ctx.structOrTableDefinition().accept(this);
-        } else if (ctx.enumDefinition() != null) {
-            ctx.enumDefinition().accept(this);
-        } else {
-            visit(ctx.indexDefinition());
-        }
-        return null;
-    }
-
-    @Override
     public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateName = ParserUtils.safeCastLiteral(visit(ctx.schemaTemplateId()), String.class);
         // schema template version will be set automatically at update operation to lastVersion + 1
@@ -1320,27 +1305,28 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Void visitStructOrTableDefinition(RelationalParser.StructOrTableDefinitionContext ctx) {
-        Assert.thatUnchecked(ctx.STRUCT() == null || ctx.primaryKeyDefinition() == null,
-                String.format("Illegal struct definition '%s'", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
-        Assert.thatUnchecked(ctx.TABLE() == null || ctx.primaryKeyDefinition() != null,
-                String.format("Illegal table definition '%s'. Include either a PRIMARY KEY clause OR A SINGLE ROW ONLY clause.", ctx.uid().getText()), ErrorCode.SYNTAX_ERROR);
+    public Void visitTableDefinition(RelationalParser.TableDefinitionContext ctx) {
         final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class));
         final var columns = ctx.columnDefinition().stream().map(c -> (RecordLayerColumn) c.accept(this)).collect(Collectors.toList());
-        final var isTable = ctx.STRUCT() == null;
 
         final var typeBuilder = RecordLayerTable.newBuilder(context.asDdl().getMetadataBuilder().isIntermingleTables());
         typeBuilder.setName(name).addColumns(columns);
 
-        if (ctx.primaryKeyDefinition() != null) {
-            final var primaryKeyParts = (List<List<String>>) ctx.primaryKeyDefinition().accept(this);
-            primaryKeyParts.forEach(typeBuilder::addPrimaryKeyPart);
-        }
-        if (isTable) {
-            context.asDdl().getMetadataBuilder().addTable(typeBuilder.build());
-        } else {
-            context.asDdl().getMetadataBuilder().addAuxiliaryType(typeBuilder.build().getDatatype());
-        }
+        final var primaryKeyParts = (List<List<String>>) ctx.primaryKeyDefinition().accept(this);
+        primaryKeyParts.forEach(typeBuilder::addPrimaryKeyPart);
+        context.asDdl().getMetadataBuilder().addTable(typeBuilder.build());
+        return null;
+    }
+
+    @Override
+    public Void visitStructDefinition(RelationalParser.StructDefinitionContext ctx) {
+        final var name = Assert.notNullUnchecked(ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class));
+        final var columns = ctx.columnDefinition().stream().map(c -> (RecordLayerColumn) c.accept(this)).collect(Collectors.toList());
+
+        final var typeBuilder = RecordLayerTable.newBuilder(context.asDdl().getMetadataBuilder().isIntermingleTables());
+        typeBuilder.setName(name).addColumns(columns);
+
+        context.asDdl().getMetadataBuilder().addAuxiliaryType(typeBuilder.build().getDatatype());
         return null;
     }
 

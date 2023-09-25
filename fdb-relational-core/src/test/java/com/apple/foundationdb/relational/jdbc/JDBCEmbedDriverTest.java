@@ -109,7 +109,7 @@ public class JDBCEmbedDriverTest {
                     checkSelectStarFromDatabasesResultSet(resultSet);
                 }
                 try (RelationalPreparedStatement preparedStatement = connection
-                        .prepareStatement("select * from databases where database_id = ?;").unwrap(RelationalPreparedStatement.class)) {
+                        .prepareStatement("select * from databases where database_id = ?").unwrap(RelationalPreparedStatement.class)) {
                     preparedStatement.setString(1, TESTDB);
                     try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         checkSelectStarFromDatabasesResultSet(resultSet);
@@ -119,7 +119,7 @@ public class JDBCEmbedDriverTest {
                 String columnName = "DATABASE_ID";
                 String columnValue = "/__SYS";
                 try (RelationalPreparedStatement preparedStatement =
-                        connection.prepareStatement("select * from databases where " + columnName + " = ?;")) {
+                        connection.prepareStatement("select * from databases where " + columnName + " = ?")) {
                     preparedStatement.setString(1, columnValue);
                     try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         // Should return one column only in a one row resultset.

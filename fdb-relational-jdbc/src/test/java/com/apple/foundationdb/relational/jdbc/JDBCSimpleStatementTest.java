@@ -77,6 +77,7 @@ public class JDBCSimpleStatementTest {
                 Assertions.assertEquals(connection, statement.getConnection());
                 // Make this better... currently returns zero how ever many rows we touch.
                 Assertions.assertEquals(0, statement.executeUpdate("Drop database if exists \"" + TESTDB + "\""));
+                Assertions.assertEquals(0, statement.executeUpdate("Drop schema template if exists test_template"));
                 Assertions.assertEquals(0,
                         statement.executeUpdate("CREATE SCHEMA TEMPLATE test_template " +
                                 "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))"));
@@ -90,11 +91,11 @@ public class JDBCSimpleStatementTest {
                 // Cancel currently does nothing.
                 statement.cancel();
                 Assertions.assertFalse(statement.isClosed());
-                try (RelationalResultSet resultSet = statement.executeQuery("select * from databases;")) {
+                try (RelationalResultSet resultSet = statement.executeQuery("select * from databases")) {
                     checkSelectStarFromDatabasesResultSet(resultSet);
                 }
                 try (RelationalPreparedStatement preparedStatement =
-                        connection.prepareStatement("select * from databases;")) {
+                        connection.prepareStatement("select * from databases")) {
                     try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         checkSelectStarFromDatabasesResultSet(resultSet);
                     }
@@ -103,7 +104,7 @@ public class JDBCSimpleStatementTest {
                 String columnName = "DATABASE_ID";
                 String columnValue = "/__SYS";
                 try (RelationalPreparedStatement preparedStatement =
-                        connection.prepareStatement("select * from databases where " + columnName + " = ?;")) {
+                        connection.prepareStatement("select * from databases where " + columnName + " = ?")) {
                     preparedStatement.setString(1, columnValue);
                     try (RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         // Should return one column only in a one row resultset.

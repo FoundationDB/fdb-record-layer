@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 
@@ -45,6 +46,7 @@ import com.google.protobuf.DescriptorProtos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -71,6 +73,11 @@ public class DdlStatementParsingTest {
     @BeforeAll
     public static void setup() {
         Utils.enableCascadesDebugger();
+    }
+
+    @BeforeEach
+    void setUpQueryLogger() {
+        QueryLogger.configure(Options.NONE);
     }
 
     private final PlanContext fakePlanContext;
@@ -521,7 +528,7 @@ public class DdlStatementParsingTest {
         final String tableDef = "CREATE TABLE tbl " + makeColumnDefinition(columns, true);
         final String typeDef = "CREATE TYPE AS STRUCT typ " + makeColumnDefinition(columns, false);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                typeDef +
+                typeDef + " " +
                 tableDef;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {

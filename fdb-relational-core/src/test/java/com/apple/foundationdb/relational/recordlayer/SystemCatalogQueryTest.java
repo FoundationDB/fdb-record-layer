@@ -52,7 +52,7 @@ public class SystemCatalogQueryTest {
 
     @BeforeEach
     public void setup() throws Exception {
-        runDdl("CREATE SCHEMA TEMPLATE st CREATE TABLE FOO (ID bigint, BAR string, PRIMARY KEY(ID));");
+        runDdl("CREATE SCHEMA TEMPLATE st CREATE TABLE FOO (ID bigint, BAR string, PRIMARY KEY(ID))");
         createDb("/TEST/DB1");
         createDb("/TEST/DB2");
         createDb("/TEST/DB3");

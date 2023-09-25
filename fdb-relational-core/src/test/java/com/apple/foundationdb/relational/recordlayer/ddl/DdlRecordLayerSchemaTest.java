@@ -105,7 +105,7 @@ public class DdlRecordLayerSchemaTest {
             conn.setSchema("TEST_SCHEMA");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string, PRIMARY KEY (A)); ";
+                final String createStatement = "CREATE SCHEMA TEMPLATE FOO CREATE TABLE T(A string, B string, PRIMARY KEY (A))";
                 statement.executeUpdate(createStatement);
             }
         }

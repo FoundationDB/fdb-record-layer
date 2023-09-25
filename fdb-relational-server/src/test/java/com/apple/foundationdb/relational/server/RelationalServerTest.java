@@ -99,7 +99,7 @@ public class RelationalServerTest {
                             "CREATE TABLE test_table (rest_no bigint, name string, PRIMARY KEY(rest_no))");
             update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create database \"" + testdb + "\"");
             update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create schema \"" + testdb + "/test_schema\" with template test_template");
-            ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "select * from databases;");
+            ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "select * from databases");
             Assertions.assertEquals(2, resultSet.getRowCount());
             Assertions.assertEquals(1, resultSet.getRow(0).getColumns().getColumnCount());
             Assertions.assertEquals(1, resultSet.getRow(1).getColumns().getColumnCount());
