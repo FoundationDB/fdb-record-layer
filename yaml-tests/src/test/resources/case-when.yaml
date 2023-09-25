@@ -1,0 +1,77 @@
+#
+# case-when.yaml
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template if exists case_when
+---
+- query: create schema template case_when
+    create type as struct S(S1 bigint, S2 bigint)
+    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+---
+- query: drop database if exists /FRL/CASE_WHEN_YAML
+---
+- query: create database /FRL/CASE_WHEN_YAML
+---
+- query: create schema /FRL/CASE_WHEN_YAML/test with template case_when
+---
+- connect: "jdbc:embed:/FRL/CASE_WHEN_YAML?schema=TEST"
+---
+- query: insert into A values
+    (1, 10, 10),
+    (2, 11, 20),
+    (3, 12, 30);
+- count: 3
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 10, A3: 10 },
+            { A1: 2, A2: 11, A3: 20 },
+            { A1: 3, A2: 12, A3: 30 } ]
+---
+- query: update A set A2 = case when A1 = 1 then 4444 end
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 4444, A3: 10 },
+            { A1: 2, A2: !null x, A3: 20 },
+            { A1: 3, A2: !null x, A3: 30 } ]
+---
+- query: update A set A2 = case when A2 is null then 8888 else 2222 end
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 2222, A3: 10 },
+            { A1: 2, A2: 8888, A3: 20 },
+            { A1: 3, A2: 8888, A3: 30 } ]
+---
+- query: update A set A2 = case when case when A2 = 2222 then 8888 else 2222 end > 4000 then 4444 else 6666 end
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 4444, A3: 10 },
+            { A1: 2, A2: 6666, A3: 20 },
+            { A1: 3, A2: 6666, A3: 30 } ]
+---
+- query: update A set A2 = case when A2 = 4444 then 1 else 2.2 end
+- error: "22000"
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop database /FRL/CASE_WHEN_YAML
+---
+- query: drop schema template case_when
+...

@@ -141,6 +141,23 @@
 - query: delete from A where A1 > 200 returning A1, A2, A3
 - result: []
 ---
+- query: delete from A
+---
+- query: insert into A values
+    (1, 10, 10),
+    (2, 11, 20),
+    (3, 12, 30);
+- count: 3
+---
+- query: update A set A2 = case when A1 = 1 then 1000
+    when A1 = 2 then 1500
+    else 2000 end
+---
+- query: select * from A;
+- result: [ { A1: 1, A2: 1000, A3: 10 },
+            { A1: 2, A2: 1500, A3: 20 },
+            { A1: 3, A2: 2000, A3: 30 } ]
+---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---
 - query: drop database /FRL/UPDATE_RETURNING_YAML

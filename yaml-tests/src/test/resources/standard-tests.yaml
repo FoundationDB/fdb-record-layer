@@ -50,6 +50,41 @@
            (13, 20, 13)
 - count: 13
 ---
+- query: select id, case when col1 = 10 then 100
+                         when col2 in (6,7,8,9) then 200
+                         else 300 end as NEWCOL
+         from T1
+- result: [{ID: 1, NEWCOL: 100},
+           {ID: 2, NEWCOL: 100},
+           {ID: 3, NEWCOL: 100},
+           {ID: 4, NEWCOL: 100},
+           {ID: 5, NEWCOL: 100},
+           {ID: 6, NEWCOL: 200},
+           {ID: 7, NEWCOL: 200},
+           {ID: 8, NEWCOL: 200},
+           {ID: 9, NEWCOL: 200},
+           {ID: 10, NEWCOL: 300},
+           {ID: 11, NEWCOL: 300},
+           {ID: 12, NEWCOL: 300},
+           {ID: 13, NEWCOL: 300} ]
+---
+- query: select id, case when col1 = 10 then 100
+    when col2 in (6,7,8,9) then 200 end as NEWCOL
+    from T1
+- result: [{ID: 1, NEWCOL: 100},
+           {ID: 2, NEWCOL: 100},
+           {ID: 3, NEWCOL: 100},
+           {ID: 4, NEWCOL: 100},
+           {ID: 5, NEWCOL: 100},
+           {ID: 6, NEWCOL: 200},
+           {ID: 7, NEWCOL: 200},
+           {ID: 8, NEWCOL: 200},
+           {ID: 9, NEWCOL: 200},
+           {ID: 10, NEWCOL: !null x},
+           {ID: 11, NEWCOL: !null x},
+           {ID: 12, NEWCOL: !null x},
+           {ID: 13, NEWCOL: !null x} ]
+---
 - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
 - result: [{ID: !l 5, !l 10, !l 5}]
 ---

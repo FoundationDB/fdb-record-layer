@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayCon
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
@@ -53,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValu
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
@@ -1207,6 +1209,35 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 .collect(Collectors.toList());
         BuiltInFunction<? extends Value> scalarFunction = ParserUtils.getExplicitFunction(ctx.scalarFunctionName().getText());
         return ParserUtils.encapsulate(scalarFunction, args);
+    }
+
+    @Override
+    public Value visitCaseFunctionCall(RelationalParser.CaseFunctionCallContext ctx) {
+        final var result = ctx.caseFuncAlternative().stream().map(this::handleCaseAlternative).collect(Collectors.toList());
+        final ImmutableList.Builder<BooleanValue> implications = ImmutableList.builder();
+        final ImmutableList.Builder<Value> pickerValues = ImmutableList.builder();
+        for (final var pair : result) {
+            implications.add(pair.getKey());
+            pickerValues.add(pair.getValue());
+        }
+
+        if (ctx.ELSE() != null) {
+            implications.add(ParserUtils.TautologicalValue.getInstance());
+            final var defaultConsequent = ctx.functionArg().accept(this);
+            Assert.thatUnchecked(defaultConsequent instanceof Value);
+            pickerValues.add((Value) defaultConsequent);
+        }
+
+        return new PickValue(new ConditionSelectorValue(implications.build()), pickerValues.build());
+    }
+
+    @Nonnull
+    private Pair<BooleanValue, Value> handleCaseAlternative(@Nonnull final RelationalParser.CaseFuncAlternativeContext caseAlternative) {
+        final var condition = caseAlternative.condition.accept(this);
+        Assert.thatUnchecked(condition instanceof BooleanValue);
+        final var consequent = caseAlternative.consequent.accept(this);
+        Assert.thatUnchecked(consequent instanceof Value);
+        return Pair.of((BooleanValue) condition, (Value) consequent);
     }
 
     @Override

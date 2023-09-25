@@ -759,6 +759,7 @@ ifNotExists
 
 functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
+    | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
     ;
 

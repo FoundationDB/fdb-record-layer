@@ -159,6 +159,11 @@ public class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
+    public void caseWhen() throws Exception {
+        doRun("case-when.yaml");
+    }
+
+    @Test
     public void updateDeleteReturning() throws Exception {
         doRun("update-delete-returning.yaml");
     }

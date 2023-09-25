@@ -20,27 +20,37 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -66,6 +76,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
@@ -876,5 +887,42 @@ public final class ParserUtils {
             }
         }
         return true;
+    }
+
+    static final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
+
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tautological-Value");
+
+        @Nonnull
+        private static final TautologicalValue INSTANCE = new TautologicalValue();
+
+        private TautologicalValue() {
+        }
+
+        @Override
+        public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull CorrelationIdentifier innermostAlias) {
+            return Optional.of(ConstantPredicate.TRUE);
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+            return true;
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        }
+
+        @Override
+        public int planHash(@Nonnull PlanHashKind hashKind) {
+            return hashCodeWithoutChildren();
+        }
+
+        @Nonnull
+        public static TautologicalValue getInstance() {
+            return INSTANCE;
+        }
     }
 }
