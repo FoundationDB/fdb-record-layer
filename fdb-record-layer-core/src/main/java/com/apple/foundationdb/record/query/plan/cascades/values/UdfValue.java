@@ -34,7 +34,17 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * This represents a user-defined {@link Value}.
+ * This represents a user-defined {@code Value} that can be subclassed to provide a custom implementation.
+ * To do this, the implementor is expected to:
+ * <ul>
+ *     <li>Subclass of {@link UdfFunction} that provides an implementation describing the UDF such as its name (which is the name of
+ *     the class itself), the UDF parameter types, and the instantiation rules of a corresponding subclass of {@link UdfValue},
+ *     for example, type promotion rules, calculated return type, and so on.</li>
+ *     <li>Subclass of {@link UdfValue} that represents the actual UDF business logic, this value can be either stateless
+ *     or stateful which could be useful for e.g. calculating an aggregation, the implementor supplies the implementation
+ *     in {@link UdfValue#call(List)} method, this method expects zero or more arguments, the number and type of these arguments
+ *     is determined by overriding {@link UdfFunction#getParameterTypes()} in the corresponding {@link UdfFunction}.</li>
+ * </ul>
  */
 public abstract class UdfValue extends AbstractValue {
 

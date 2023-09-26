@@ -34,6 +34,7 @@ import java.util.List;
 
 /**
  * This represents a user-defined function that can be subclassed to extend the planner with extra functionality.
+ * Note: the default encapsulation logic does not support variadic functions.
  */
 public abstract class UdfFunction extends BuiltInFunction<Value> {
 
