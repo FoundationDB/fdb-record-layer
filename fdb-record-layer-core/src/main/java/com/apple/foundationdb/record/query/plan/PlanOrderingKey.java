@@ -133,7 +133,7 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
-                if (index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+                if (IndexTypes.MULTIDIMENSIONAL.equals(index.getType())) {
                     return null;
                 }
                 if (!((RecordQueryIndexPlan)indexPlan).hasScanComparisons()) {

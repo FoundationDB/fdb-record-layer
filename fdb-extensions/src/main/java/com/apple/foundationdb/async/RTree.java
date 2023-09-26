@@ -575,12 +575,14 @@ public class RTree {
                             }
 
                             if (!mbrPredicate.test(childSlot.getMbr())) {
+                                onReadListener.onChildNodeDiscard(childSlot);
                                 continue;
                             }
 
                             if (childSlot.suffixPredicateCanBeApplied()) {
                                 if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
                                         childSlot.getLargestKeySuffix())) {
+                                    onReadListener.onChildNodeDiscard(childSlot);
                                     continue;
                                 }
                             }
@@ -590,7 +592,8 @@ public class RTree {
                         }
                         toBeProcessed.add(toBeProcessedThisLevel);
 
-                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate, suffixPredicate);
+                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate,
+                                suffixPredicate, onReadListener);
                         if (nextChildSlot == null) {
                             return false;
                         }
@@ -631,7 +634,8 @@ public class RTree {
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
 
         return AsyncUtil.whileTrue(() -> {
-            final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate, suffixPredicate);
+            final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate, suffixPredicate,
+                    onReadListener);
             if (nextChildSlot == null) {
                 return AsyncUtil.READY_FALSE;
             }
@@ -659,6 +663,7 @@ public class RTree {
      * as part of the current scan.
      * @param toBeProcessed list of deques
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
+     * @param suffixPredicate a predicate that is tested if applicable on the key suffix
      * @return The next child slot that needs to be processed or {@code null} if there is no next child slot.
      *         As a side effect of calling this method the child slot is removed from {@code toBeProcessed}.
      */
@@ -666,18 +671,21 @@ public class RTree {
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     private static ChildSlot resolveNextIdForFetch(@Nonnull final List<Deque<ChildSlot>> toBeProcessed,
                                                    @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                                   @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
+                                                   @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate,
+                                                   @Nonnull final OnReadListener onReadListener) {
         for (int level = toBeProcessed.size() - 1; level >= 0; level--) {
             final Deque<ChildSlot> toBeProcessedThisLevel = toBeProcessed.get(level);
 
             while (!toBeProcessedThisLevel.isEmpty()) {
                 final ChildSlot childSlot = toBeProcessedThisLevel.pollFirst();
                 if (!mbrPredicate.test(childSlot.getMbr())) {
+                    onReadListener.onChildNodeDiscard(childSlot);
                     continue;
                 }
                 if (childSlot.suffixPredicateCanBeApplied()) {
                     if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
                             childSlot.getLargestKeySuffix())) {
+                        onReadListener.onChildNodeDiscard(childSlot);
                         continue;
                     }
                 }
@@ -3375,6 +3383,10 @@ public class RTree {
         default void onKeyValueRead(@Nonnull Node node,
                                     @Nullable byte[] key,
                                     @Nullable byte[] value) {
+            // nothing
+        }
+
+        default void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
             // nothing
         }
     }

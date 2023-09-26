@@ -736,6 +736,7 @@ public class FDBStoreTimer extends StoreTimer {
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_READ_BYTES("intermediate node bytes read", true),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES("intermediate nodes written", false),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        MULTIDIMENSIONAL_CHILD_NODE_DISCARDS("child node discards", false),
         ;
 
         private final String title;

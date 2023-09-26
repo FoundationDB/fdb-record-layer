@@ -23,7 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -176,6 +182,55 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         }
 
         return new ScanComparisons(equalityComparisons, inequalityComparisons);
+    }
+
+    @Nullable
+    public List<QueryComponent> compensateForScanComparisons(@Nonnull final List<KeyExpression> normalizedKeyExpressions) {
+        final ComparisonRanges prefixRanges = toPrefixRanges();
+        final List<QueryComponent> compensations = Lists.newArrayList();
+        for (int i = prefixRanges.size(); i < size(); i ++) {
+            final ComparisonRange comparisonRange = ranges.get(i);
+            if (!comparisonRange.isEmpty()) {
+                final KeyExpression expression = normalizedKeyExpressions.get(i);
+                if (comparisonRange.isEquality()) {
+                    final Comparisons.Comparison comparison = comparisonRange.getEqualityComparison();
+                    final QueryComponent component = toQueryComponentWithComparison(expression, comparison);
+                    if (component == null) {
+                        return null;
+                    }
+                    compensations.add(component);
+                } else {
+                    Verify.verify(comparisonRange.isInequality());
+                    for (final Comparisons.Comparison comparison : comparisonRange.getInequalityComparisons()) {
+                        final QueryComponent component = toQueryComponentWithComparison(expression, comparison);
+                        if (component == null) {
+                            return null;
+                        }
+                        compensations.add(component);
+                    }
+                }
+            }
+        }
+        return compensations;
+    }
+
+    @Nullable
+    private static QueryComponent toQueryComponentWithComparison(@Nonnull final KeyExpression expression, @Nonnull Comparisons.Comparison comparison) {
+        if (expression instanceof FieldKeyExpression) {
+            if (((FieldKeyExpression)expression).getFanType() != KeyExpression.FanType.None) {
+                return null;
+            }
+            return new FieldWithComparison(((FieldKeyExpression)expression).getFieldName(), comparison);
+        } else if (expression instanceof NestingKeyExpression) {
+            final var nestingKeyExpression = (NestingKeyExpression)expression;
+            final QueryComponent nestedQueryComponent =
+                    toQueryComponentWithComparison(nestingKeyExpression.getChild(), comparison);
+            if (nestedQueryComponent == null) {
+                return null;
+            }
+            return new NestedField(nestingKeyExpression.getParent().getFieldName(), nestedQueryComponent);
+        }
+        return null;
     }
 
     public int size() {

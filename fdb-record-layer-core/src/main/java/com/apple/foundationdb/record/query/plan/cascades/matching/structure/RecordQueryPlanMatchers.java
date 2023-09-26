@@ -297,7 +297,7 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<MultidimensionalIndexScanComparisons> dimensions(@Nonnull final BindingMatcher<? extends ScanComparisons>... downstreams) {
         return typedWithDownstream(MultidimensionalIndexScanComparisons.class,
                 Extractor.of(MultidimensionalIndexScanComparisons::getDimensionsScanComparisons, name -> "dimensions(" + name + ")"),
-                ListMatcher.exactly(downstreams));
+                exactly(downstreams));
     }
 
     @Nonnull
