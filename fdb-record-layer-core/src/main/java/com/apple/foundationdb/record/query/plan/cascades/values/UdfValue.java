@@ -77,10 +77,10 @@ public abstract class UdfValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public abstract Value withChildren(final Iterable<? extends Value> newChildren);
+    public abstract Value withChildren(Iterable<? extends Value> newChildren);
 
     @Nullable
-    public abstract Object call(@Nonnull final List<Object> arguments);
+    public abstract Object call(@Nonnull List<Object> arguments);
 
     @Override
     public int hashCodeWithoutChildren() {

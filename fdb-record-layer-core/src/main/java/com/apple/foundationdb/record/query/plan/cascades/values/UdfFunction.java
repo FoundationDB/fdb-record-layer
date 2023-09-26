@@ -46,21 +46,26 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
     public abstract List<Type> getParameterTypes();
 
     @Nonnull
-    protected abstract UdfValue newCallsite(@Nonnull final List<Value> arguments);
+    @Override
+    public final String getFunctionName() {
+        return this.getClass().getSimpleName();
+    }
+
+    @Nonnull
+    protected abstract UdfValue newCallsite(@Nonnull List<Value> arguments);
 
     @SuppressWarnings("unchecked")
     @Nonnull
     @Override
     public final Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
         arguments.forEach(argument -> Verify.verify(argument instanceof Value));
-        final String udfName = this.getClass().getSimpleName();
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {
+            final String udfName = getFunctionName();
             throw new RecordCoreException("attempt to call '%s' with incorrect number of parameters", udfName);
         }
 
         final ImmutableList.Builder<Value> promotedArgumentsList = ImmutableList.builder();
-        boolean argumentsChanged = false;
 
         for (int i = 0; i < arguments.size(); i++) {
             final var argument = arguments.get(i);
@@ -70,16 +75,11 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
             SemanticException.check(maxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             if (!argument.getResultType().equals(maxType)) {
                 promotedArgumentsList.add(PromoteValue.inject((Value)argument, maxType));
-                argumentsChanged = true;
             } else {
                 promotedArgumentsList.add((Value)argument);
             }
         }
 
-        if (argumentsChanged) {
-            return newCallsite(promotedArgumentsList.build());
-        } else {
-            return newCallsite((List<Value>)arguments);
-        }
+        return newCallsite(promotedArgumentsList.build());
     }
 }
