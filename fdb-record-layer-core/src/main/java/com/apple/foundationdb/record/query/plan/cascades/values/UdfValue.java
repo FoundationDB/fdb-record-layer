@@ -44,9 +44,6 @@ public abstract class UdfValue extends AbstractValue {
     @Nonnull
     private final Type resultType;
 
-    @Nonnull
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Udf-Value");
-
     public UdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
         this.children = children;
         this.resultType = resultType;
@@ -54,7 +51,7 @@ public abstract class UdfValue extends AbstractValue {
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, children);
+        return PlanHashable.objectsPlanHash(hashKind, this.getClass().getCanonicalName(), children);
     }
 
     @Nonnull
@@ -84,6 +81,6 @@ public abstract class UdfValue extends AbstractValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, this.getClass().getCanonicalName());
     }
 }
