@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -305,7 +306,14 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     public static DimensionsKeyExpression getDimensionsKeyExpression(@Nonnull final KeyExpression root) {
         if (root instanceof KeyWithValueExpression) {
-            return (DimensionsKeyExpression)((KeyWithValueExpression)root).getInnerKey();
+            KeyExpression innerKey = ((KeyWithValueExpression)root).getInnerKey();
+            while (innerKey instanceof ThenKeyExpression) {
+                innerKey = ((ThenKeyExpression)innerKey).getChildren().get(0);
+            }
+            if (innerKey instanceof DimensionsKeyExpression) {
+                return (DimensionsKeyExpression)innerKey;
+            }
+            throw new RecordCoreException("structure of multidimensional index is not supported");
         }
         return (DimensionsKeyExpression)root;
     }
@@ -373,6 +381,11 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 default:
                     throw new RecordCoreException("unsupported kind of node");
             }
+        }
+
+        @Override
+        public void onChildNodeDiscard(@Nonnull final RTree.ChildSlot childSlot) {
+            timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_CHILD_NODE_DISCARDS);
         }
     }
 

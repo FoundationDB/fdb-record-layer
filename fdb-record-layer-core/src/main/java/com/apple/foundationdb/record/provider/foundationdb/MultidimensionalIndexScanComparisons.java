@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
@@ -92,7 +93,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
             dimensionsTupleRangeBuilder.add(dimensionScanComparison.toTupleRange(store, context));
         }
         final Hypercube hypercube = new Hypercube(dimensionsTupleRangeBuilder.build());
-        return new MultidimensionalIndexScanBounds(prefixScanComparisons.toTupleRange(store, context), hypercube, TupleRange.ALL);
+        return new MultidimensionalIndexScanBounds(prefixScanComparisons.toTupleRange(store, context),
+                hypercube, suffixScanComparisons.toTupleRange(store, context));
     }
 
     @Override
@@ -108,8 +110,21 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Nonnull
     @Override
     public String getScanDetails() {
-        @Nullable final TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
-        return tupleRange == null ? prefixScanComparisons.toString() : tupleRange.toString();
+        @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
+        final String prefix = tupleRange == null ? prefixScanComparisons.toString() : tupleRange.toString();
+
+        final String dimensions =
+                dimensionsScanComparisons.stream()
+                        .map(dimensionScanComparisons -> {
+                            @Nullable final TupleRange dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
+                            return dimensionTupleRange == null ? dimensionScanComparisons.toString() : dimensionTupleRange.toString();
+                        })
+                        .collect(Collectors.joining(","));
+
+        tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
+        final String suffix = tupleRange == null ? suffixScanComparisons.toString() : tupleRange.toString();
+
+        return prefix + ":{" + dimensions + "}:" + suffix;
     }
 
     @Override
@@ -132,8 +147,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                 attributeMapBuilder.put("dlow" + d, Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
                 attributeMapBuilder.put("dhigh" + d, Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
             } else {
-                detailsBuilder.add("suffix comparisons: {{dcomparisons" + d + "}}");
-                attributeMapBuilder.put("dcomparisons" + d, Attribute.gml(suffixScanComparisons.toString()));
+                detailsBuilder.add("dim" + d + " comparisons: " + "{{dcomparisons" + d + "}}");
+                attributeMapBuilder.put("dcomparisons" + d, Attribute.gml(dimensionScanComparisons.toString()));
             }
         }
 
@@ -238,7 +253,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
 
     @Override
     public String toString() {
-        return "BY_VALUE(MD):" + prefixScanComparisons + ":" + dimensionsScanComparisons;
+        return "BY_VALUE(MD):" + prefixScanComparisons + ":" + dimensionsScanComparisons + ":" + suffixScanComparisons;
     }
 
     @Override

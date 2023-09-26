@@ -28,6 +28,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -243,13 +244,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple low = Objects.requireNonNull(getLow());
+                final Tuple checkedLow = Objects.requireNonNull(getLow());
                 if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(highTuple, low) < 0) {
+                        TupleHelpers.compare(highTuple, checkedLow) < 0) {
                     return false;
                 }
                 if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(highTuple, low) <= 0) {
+                        TupleHelpers.compare(highTuple, checkedLow) <= 0) {
                     return false;
                 }
                 break;
@@ -265,13 +266,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple high = Objects.requireNonNull(getHigh());
+                final Tuple checkedHigh = Objects.requireNonNull(getHigh());
                 if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(lowTuple, high) > 0) {
+                        TupleHelpers.compare(trimTupleForHighComparison(lowTuple), checkedHigh) > 0) {
                     return false;
                 }
                 if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(highTuple, high) >= 0) {
+                        TupleHelpers.compare(lowTuple, checkedHigh) >= 0) {
                     return false;
                 }
                 break;
@@ -295,13 +296,13 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple low = Objects.requireNonNull(getLow());
+                final Tuple checkedLow = Objects.requireNonNull(getLow());
                 if (getLowEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(tuple, low) < 0) {
+                        TupleHelpers.compare(tuple, checkedLow) < 0) {
                     return false;
                 }
                 if (getLowEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(tuple, low) <= 0) {
+                        TupleHelpers.compare(tuple, checkedLow) <= 0) {
                     return false;
                 }
                 break;
@@ -317,13 +318,14 @@ public class TupleRange {
                 break;
             case RANGE_INCLUSIVE:
             case RANGE_EXCLUSIVE:
-                final Tuple high = Objects.requireNonNull(getHigh());
-                if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE &&
-                        TupleHelpers.compare(tuple, high) > 0) {
-                    return false;
+                final Tuple checkedHigh = Objects.requireNonNull(getHigh());
+                if (getHighEndpoint() == EndpointType.RANGE_INCLUSIVE) {
+                    if (TupleHelpers.compare(trimTupleForHighComparison(tuple), checkedHigh) > 0) {
+                        return false;
+                    }
                 }
                 if (getHighEndpoint() == EndpointType.RANGE_EXCLUSIVE &&
-                        TupleHelpers.compare(tuple, high) >= 0) {
+                        TupleHelpers.compare(tuple, checkedHigh) >= 0) {
                     return false;
                 }
                 break;
@@ -335,6 +337,25 @@ public class TupleRange {
         }
 
         return true;
+    }
+
+    /**
+     * Method to account for range-inclusive comparisons on shortened highs. Suppose, the high is
+     * {@code ('abc'))} of endpoint type {@link EndpointType#RANGE_INCLUSIVE}. A tuple {@code ('abc', 5)} should be
+     * within the bounds of that high but the high sorts lower. We need to cut of the second element {@code 5} of the
+     * tuple prior of doing any comparisons.
+     * @param tuple {@link Tuple} to trim
+     * @return the trimmed {@link Tuple} if necessary or the original {@link Tuple} if no adjustments were necessary.
+     */
+    @Nonnull
+    private Tuple trimTupleForHighComparison(@Nonnull final Tuple tuple) {
+        Verify.verify(high != null);
+        Verify.verify(highEndpoint == EndpointType.RANGE_INCLUSIVE);
+
+        if (tuple.size() > high.size()) {
+            return TupleHelpers.subTuple(tuple, 0, high.size());
+        }
+        return tuple;
     }
 
     /**
