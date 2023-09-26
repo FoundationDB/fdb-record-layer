@@ -85,7 +85,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
         IndexWriter indexWriter = writer;
         if (writer == null) {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
-                    state.context.getExecutor());
+                    state.context.getExecutor(),
+                    state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
         } else {
             return DirectoryReader.open(indexWriter);
         }

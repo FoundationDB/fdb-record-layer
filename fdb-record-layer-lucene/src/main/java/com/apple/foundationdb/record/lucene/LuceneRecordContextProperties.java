@@ -70,4 +70,9 @@ public final class LuceneRecordContextProperties {
      * This controls the page size to scan the basic Lucene index.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_INDEX_CURSOR_PAGE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.cursor.pageSize", 201);
+
+    /**
+     * This controls the number of threads used when opening segments in parallel.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_OPEN_PARALLELISM = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.open.parallelism", 16);
 }
