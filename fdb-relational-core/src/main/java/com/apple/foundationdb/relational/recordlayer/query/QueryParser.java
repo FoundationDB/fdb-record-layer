@@ -97,7 +97,7 @@ public class QueryParser {
     }
 
     @Nonnull
-    public static RelationalParser.RootContext parse(@Nonnull final String query) throws RelationalException {
+    public static ParseTreeInfoImpl parse(@Nonnull final String query) throws RelationalException {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
         setInterpreterMode(parser);
@@ -118,7 +118,7 @@ public class QueryParser {
             throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
         }
 
-        return rootContext;
+        return ParseTreeInfoImpl.from(rootContext);
     }
 
     private static void setInterpreterMode(@Nonnull final RelationalParser parser) {

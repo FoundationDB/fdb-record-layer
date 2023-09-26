@@ -480,7 +480,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query, boolean caseSensitive) throws RelationalException {
-        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query));
+        final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query).getRootContext());
         return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,
