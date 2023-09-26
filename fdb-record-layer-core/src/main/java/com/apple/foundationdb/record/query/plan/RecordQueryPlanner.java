@@ -755,7 +755,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         if (p == null) {
             p = matchToPlan(candidateScan, matchCandidateScan(candidateScan, indexExpr, filter, sort));
-            p = optimizeCandidateScanForMultidimensionalIndex(p, index);
+            p = optimizeCandidateScanForMultidimensionalIndex(planContext, p, index);
         }
         if (p == null) {
             // we can't match the filter, but maybe the sort
@@ -951,7 +951,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan optimizeCandidateScanForMultidimensionalIndex(@Nullable final ScoredPlan p,
+    private ScoredPlan optimizeCandidateScanForMultidimensionalIndex(@Nonnull PlanContext planContext,
+                                                                     @Nullable ScoredPlan p,
                                                                      @Nullable final Index index) {
         if (p == null) {
             return null;
@@ -974,6 +975,9 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         final DimensionsKeyExpression dimensionsKeyExpression =
                 MultidimensionalIndexMaintainer.getDimensionsKeyExpression(index.getRootExpression());
+        final KeyExpression indexKeyExpression = indexKeyExpressionForPlan(planContext.commonPrimaryKey, index);
+        Verify.verify(planComparisonRanges.size() == indexKeyExpression.getColumnSize());
+
         final int prefixCount = dimensionsKeyExpression.getPrefixSize();
         final int dimensionsCount = dimensionsKeyExpression.getDimensionsSize();
         final ComparisonRanges prefixComparisonRanges = new ComparisonRanges(planComparisonRanges.subRanges(0, prefixCount));
@@ -989,9 +993,24 @@ public class RecordQueryPlanner implements QueryPlanner {
                         .map(ComparisonRange::toScanComparisons)
                         .collect(ImmutableList.toImmutableList());
 
+        final int suffixCount = planComparisonRanges.size() - prefixCount - dimensionsCount;
         final ComparisonRanges suffixComparisonRanges =
                 new ComparisonRanges(planComparisonRanges.subRanges(prefixCount + dimensionsCount,
                         planComparisonRanges.size()));
+        final ScanComparisons suffixScanComparisons = suffixComparisonRanges.toScanComparisons();
+        final List<QueryComponent> compensationComponentsForSuffix;
+        if (suffixScanComparisons.size() < suffixCount) {
+            // we need to compensate
+            final List<KeyExpression> suffixKeyExpressions =
+                    indexKeyExpression.normalizeKeyForPositions().subList(prefixCount + dimensionsCount, planComparisonRanges.size());
+            compensationComponentsForSuffix =
+                    suffixComparisonRanges.compensateForScanComparisons(suffixKeyExpressions);
+            if (compensationComponentsForSuffix == null) {
+                return null;
+            }
+        } else {
+            compensationComponentsForSuffix = Lists.newArrayList();
+        }
 
         final IndexScanParameters indexScanParameters =
                 MultidimensionalIndexScanComparisons.byValue(prefixComparisonRanges.toScanComparisons(),
@@ -1008,7 +1027,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                         Type.any(),
                         QueryPlanConstraint.tautology());
 
-        return p.withPlan(plan);
+        p = p.withPlan(plan);
+        if (!compensationComponentsForSuffix.isEmpty()) {
+            p = p.withAdditionalIndexFilters(compensationComponentsForSuffix);
+        }
+        return p;
     }
 
     @Nonnull
@@ -2313,6 +2336,21 @@ public class RecordQueryPlanner implements QueryPlanner {
             newIndexFilters.addAll(additionalIndexFilters);
             return with(info, unsatisfiedFilters, newIndexFilters, sargedComparisons, score, createsDuplicates,
                     isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
+        }
+
+        @Nonnull
+        public ScoredPlan withIndexFilters(@Nonnull List<QueryComponent> newIndexFilters) {
+            return new ScoredPlan(plan, comparisonRanges, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
+                    createsDuplicates, flowsAllRequiredFields, includedRankComparisons);
+        }
+
+        @Nonnull
+        public ScoredPlan withAdditionalIndexFilters(@Nonnull List<QueryComponent> additionalIndexFilters) {
+            final List<QueryComponent> newIndexFilters = Lists.newArrayList();
+            newIndexFilters.addAll(indexFilters);
+            newIndexFilters.addAll(additionalIndexFilters);
+            return new ScoredPlan(plan, comparisonRanges, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
+                    createsDuplicates, flowsAllRequiredFields, includedRankComparisons);
         }
 
         @Nonnull
