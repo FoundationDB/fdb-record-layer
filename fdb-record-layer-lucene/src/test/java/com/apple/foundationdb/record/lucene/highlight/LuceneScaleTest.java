@@ -61,9 +61,19 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+/**
+ * Low level scale test that does a variety of operations against lucene, generating a csv that shows various
+ * store timer events as the number of records in the account goes up.
+ * <p>
+ *     Since this is run on a variety of hardware, in a non-isolated environment, metrics around specific millis aren't
+ *     super reliable, but the metrics around data read, or written can be a good indication of how a change in code
+ *     might impact performance in a production environment.
+ * </p>
+ */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
-@Timeout(value = 8, unit = TimeUnit.HOURS)
+// Generally, run this as long as you feel like, and stop when you want.
+@Timeout(value = 8, unit = TimeUnit.DAYS)
 public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LogManager.getLogger(LuceneScaleTest.class);
 
