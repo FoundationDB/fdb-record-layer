@@ -62,7 +62,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 @Tag(Tags.RequiresFDB)
-@Tag(Tags.Slow)
+@Tag(Tags.Performance)
 @Timeout(value = 8, unit = TimeUnit.HOURS)
 public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LogManager.getLogger(LuceneScaleTest.class);
