@@ -7,6 +7,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LucenePlanner;
@@ -49,10 +50,12 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -69,6 +72,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
  *     super reliable, but the metrics around data read, or written can be a good indication of how a change in code
  *     might impact performance in a production environment.
  * </p>
+ * <p>
+ *     The nested class {@link Config} is intended to hold the options, which you may adjust to see how a specific
+ *     change interacts with a single run. We may at some point want to pull this out into something that is not
+ *     committed, but this should work for now.
+ * </p>
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
@@ -76,6 +84,32 @@ import static org.hamcrest.MatcherAssert.assertThat;
 @Timeout(value = 8, unit = TimeUnit.DAYS)
 public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LogManager.getLogger(LuceneScaleTest.class);
+
+    /**
+     * A holder of all the config that one might want to change when running the test, all in one place.
+     */
+    private static class Config {
+        /**
+         * If {@code true}, configure index to use {@link LuceneIndexOptions#PRIMARY_KEY_SERIALIZATION_FORMAT}
+         */
+        static final boolean USE_PRIMARY_KEY_SERIALIZATION = false;
+        /**
+         * If {@code true}, configure test to clear the path before running the test, otherwise continue with the records
+         * that already existed, and the csvs that were already created.
+         */
+        static final boolean CLEAR_BEFORE_RUN = true;
+        /**
+         * The set of commands to run when running {@link #runPerfTest()}.
+         */
+        static final Set<Command> COMMANDS_TO_RUN = EnumSet.allOf(Command.class);
+    }
+
+    private enum Command {
+        IncreaseCount,
+        Insert,
+        Update,
+        Search
+    }
 
     private static final String RECORD_COUNT_COLUMN = "recordCount";
     private static final String OPERATION_MILLIS = "operationMillis";
@@ -99,9 +133,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             INDEX_NAME,
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
             LuceneIndexTypes.LUCENE,
-            Map.of(
-                    //LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]"
-            ));
+            Config.USE_PRIMARY_KEY_SERIALIZATION ? Map.of() : Map.of(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]"));
 
     public LuceneScaleTest() {
         super(new Object[] { "record-test", "unit", "LuceneScaleTest" });
@@ -115,7 +147,9 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
     @Override
     protected void clear() {
-//        super.clear();
+        if (Config.CLEAR_BEFORE_RUN) {
+            super.clear();
+        }
     }
 
     @Override
@@ -178,16 +212,12 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
              var insertsCsv = createPrintStream(".out/LuceneScaleTest.inserts.csv", dataModel.continuing);
              var searchesCsv = createPrintStream(".out/LuceneScaleTest.searches.csv", dataModel.continuing)) {
 
-            final boolean increaseCount = true;
-            final boolean doInsert = true;
-            final boolean doUpdate = true;
-            final boolean doSearch = true;
             for (int i = 0; i < 1000; i++) {
                 long startMillis;
-                if (increaseCount) {
+                if (Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
                     dataModel.saveNewRecords(90);
                 }
-                if (doInsert) {
+                if (Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
@@ -197,7 +227,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     }
                     updateCsv("Did insert", dataModel, insertsCsv, startMillis, testStartMillis, Map.of());
                 }
-                if (doUpdate) {
+                if (Config.COMMANDS_TO_RUN.contains(Command.Update)) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
@@ -209,7 +239,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                             Map.of("updatesPerContext", updatesPerContext,
                                     "updateBatches", operationCount));
                 }
-                if (doSearch) {
+                if (Config.COMMANDS_TO_RUN.contains(Command.Search)) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
