@@ -207,7 +207,7 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
-            // TODO (yhatem) memoize
+            // TODO memoize
             final var andPredicateProto = RecordMetaDataProto.AndPredicate.newBuilder();
             children.forEach(child -> andPredicateProto.addChildren(child.toProto()));
             return RecordMetaDataProto.Predicate.newBuilder().setAndPredicate(andPredicateProto.build()).build();
