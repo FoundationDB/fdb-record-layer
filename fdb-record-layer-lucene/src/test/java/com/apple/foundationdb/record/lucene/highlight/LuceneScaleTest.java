@@ -12,7 +12,6 @@ import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LucenePlanner;
 import com.apple.foundationdb.record.lucene.LuceneQueryComponent;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import com.apple.foundationdb.record.metadata.Index;
@@ -49,7 +48,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -180,7 +178,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         final String recordCount = "recordCount";
         timer.reset();
         for (int j = 0; j < updateBatches; j++) {
-            clearBlockReads();
             dataModel.updateRecords(updatesPerContext);
         }
         final Map<String, Number> keysAndValues = timer.getKeysAndValues();
@@ -221,9 +218,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
-                        clearBlockReads();
                         dataModel.saveNewRecord();
-                        dumpBlockReads(dataModel);
                     }
                     updateCsv("Did insert", dataModel, insertsCsv, startMillis, testStartMillis, Map.of());
                 }
@@ -231,9 +226,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
-                        clearBlockReads();
                         dataModel.updateRecords(updatesPerContext);
-                        //dumpBlockReads(dataModel);
                     }
                     updateCsv("Did updates", dataModel, updatesCsv, startMillis, testStartMillis,
                             Map.of("updatesPerContext", updatesPerContext,
@@ -243,9 +236,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
-                        clearBlockReads();
                         dataModel.search();
-                        // TODO dump block reads
                     }
                     updateCsv("Did Search", dataModel, searchesCsv, startMillis, testStartMillis, Map.of());
                 }
@@ -253,11 +244,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
             }
         }
-    }
-
-    private static void clearBlockReads() {
-        FDBDirectory.blocksRead.clear();
-        FDBDirectory.readStacks.clear();
     }
 
     private void updateCsv(final String logTtl, final DataModel dataModel, final PrintStream csvPrintStream,
@@ -300,31 +286,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
         return printStream;
-    }
-
-    private static void dumpBlockReads(final DataModel dataModel) throws FileNotFoundException {
-        final int maxDocId = dataModel.maxDocId;
-        if (maxDocId < 10 ||
-            (maxDocId < 100 && maxDocId % 10 == 0) ||
-            (maxDocId < 1000 && maxDocId % 100 == 0) ||
-            (maxDocId % 1000 == 0)) {
-            try (var blockReads = createPrintStream(String.format(".out/blockReads-%06d.txt", maxDocId), false)) {
-                blockReads.println("=====================");
-                blockReads.println("recordCount: " + maxDocId);
-                blockReads.println("OutsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
-                blockReads.println("InsideCache: " + FDBDirectory.blocksRead.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
-                FDBDirectory.blocksRead.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
-                        .forEach(entry -> blockReads.println(entry.getKey() + ": " + entry.getValue()));
-                blockReads.println("OutsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getOutsideCache).sum());
-                blockReads.println("InsideCache: " + FDBDirectory.readStacks.values().stream().mapToInt(FDBDirectory.DoubleCounter::getInsideCache).sum());
-                FDBDirectory.readStacks.entrySet().stream()
-                        .sorted(Comparator.comparing(entry -> entry.getValue().getInsideCache()))
-                        .forEach(entry -> {
-                            blockReads.println("Count: " + entry.getValue());
-                            blockReads.println(entry.getKey());
-                        });
-            }
-        }
     }
 
     private class DataModel {

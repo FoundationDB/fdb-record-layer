@@ -144,7 +144,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
-                    scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(),
+                    scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
                     scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector, autoCompleteAnalyzerSelector);
         }
 
@@ -271,11 +271,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 byte[][] binaryPoint = keySerializer.asFormattedBinaryPoint(primaryKey);
                 query = BinaryPoint.newRangeQuery(PRIMARY_KEY_BINARY_POINT_NAME, binaryPoint, binaryPoint);
             } catch (RecordCoreFormatException ex) {
-                throw new RuntimeException("Failed to use binary point");
                 // this can happen on format mismatch or encoding error
                 // fallback to the old way (less efficient)
-//                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
-//                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
+                query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
+                logSerializationError("Failed to delete using BinaryPoint encoded ID: {}", ex.getMessage());
             }
         } else {
             // fallback to the old way (less efficient)

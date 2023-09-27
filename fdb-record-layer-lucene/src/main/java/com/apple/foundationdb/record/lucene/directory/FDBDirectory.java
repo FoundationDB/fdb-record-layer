@@ -44,7 +44,6 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ChecksumIndexInput;
@@ -74,7 +73,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -101,28 +99,6 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
 @NotThreadSafe
 public class FDBDirectory extends Directory  {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
-
-    public static final Map<Tuple, DoubleCounter> blocksRead = new ConcurrentHashMap<>();
-    public static final Map<String, DoubleCounter> readStacks = new ConcurrentHashMap<>();
-
-    public static class DoubleCounter {
-        AtomicInteger outsideCache = new AtomicInteger();
-        AtomicInteger insideCache = new AtomicInteger();
-
-        public int getOutsideCache() {
-            return outsideCache.get();
-        }
-
-        public int getInsideCache() {
-            return insideCache.get();
-        }
-
-
-        @Override
-        public String toString() {
-            return "(" + outsideCache + "," + insideCache + ")";
-        }
-    }
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
@@ -411,18 +387,16 @@ public class FDBDirectory extends Directory  {
         });
     }
 
-    public CompletableFuture<Integer> writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
-        return CompletableFuture.supplyAsync( () -> {
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(getLogMessage("Write lucene data",
-                        LuceneLogMessageKeys.DATA_SIZE, value.length,
-                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
-            }
-            context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
-            return value.length;
-        });
+    public int writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, value.length);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene data",
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+        }
+        context.ensureActive().set(schemaSubspace.pack(Tuple.from(bitSetWords)), value);
+        return value.length;
     }
 
     /**
@@ -437,7 +411,7 @@ public class FDBDirectory extends Directory  {
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
-        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, resourceDescription, reference, block, "???"));
+        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, resourceDescription, reference, block));
     }
 
     /**
@@ -453,12 +427,11 @@ public class FDBDirectory extends Directory  {
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
-        final String stack = ExceptionUtils.getStackTrace(new Throwable());
-        return referenceFuture.thenCompose(reference -> readBlock(nestedResourceDescription, resourceDescription, reference, block, stack));
+        return referenceFuture.thenCompose(reference -> readBlock(nestedResourceDescription, resourceDescription, reference, block));
     }
 
     @Nonnull
-    private CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block, final String stack) {
+    private CompletableFuture<byte[]> readBlock(@Nonnull String nestedResourceDescription, @Nonnull String resourceDescription, @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("readBlock",
                     LuceneLogMessageKeys.FILE_NAME, resourceDescription,
@@ -471,17 +444,8 @@ public class FDBDirectory extends Directory  {
             return exceptionalFuture;
         }
         final long id = reference.getId();
-        blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
-                k -> new DoubleCounter()).outsideCache.incrementAndGet();
-        readStacks.computeIfAbsent(stack,
-                k -> new DoubleCounter()).outsideCache.incrementAndGet();
-        // TODO NO, do not use blockCache.asMap().computeIfAbsent()
         return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
                     if (sharedCache == null) {
-                        blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
-                                k -> new DoubleCounter()).insideCache.incrementAndGet();
-                        readStacks.computeIfAbsent(stack,
-                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         return readData(id, block);
                     }
                     final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
@@ -490,10 +454,6 @@ public class FDBDirectory extends Directory  {
                         return CompletableFuture.completedFuture(fromShared);
                     } else {
                         context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
-                        blocksRead.computeIfAbsent(Tuple.from(resourceDescription, nestedResourceDescription, id, block),
-                                k -> new DoubleCounter()).insideCache.incrementAndGet();
-                        readStacks.computeIfAbsent(stack,
-                                k -> new DoubleCounter()).insideCache.incrementAndGet();
                         return readData(id, block).thenApply(data -> {
                             sharedCache.putBlockIfAbsent(id, block, data);
                             return data;
@@ -504,9 +464,8 @@ public class FDBDirectory extends Directory  {
     }
 
     private CompletableFuture<byte[]> readData(long id, int block) {
-        final Tuple tuple = Tuple.from(id, block);
         return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
-                context.ensureActive().get(dataSubspace.pack(tuple))
+                context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
                         .thenApply(LuceneSerializer::decode));
     }
 
