@@ -55,7 +55,7 @@ public class IndexDeferredMaintenancePolicy {
     /**
      * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
      * If the user sets it to false, he is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
-     * function if {@link #isMergeRequired()} returns true after the operation.
+     * function if {@link #isMergeRequired()} returns true after the requested operation.
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
