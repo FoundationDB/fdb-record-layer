@@ -114,7 +114,7 @@ public class StandardDirectoryReaderOptimization {
 
         public void start(final Executor executor) {
             try {
-                future = CompletableFuture.supplyAsync(() -> {
+                future = CompletableFuture.runAsync(() -> {
                     try {
                         open();
                     } catch (IOException ex) {
@@ -123,7 +123,6 @@ public class StandardDirectoryReaderOptimization {
                         // This happens when trying to block in openSchema and having run out of extra threads.
                         segmentReaders[readerIndex] = null;
                     }
-                    return null;
                 }, executor);
             } catch (RejectedExecutionException ex) {
                 future = null;

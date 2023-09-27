@@ -2419,6 +2419,29 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void manySegmentsParallelOpen() {
+        for (int i = 0; i < 20; i++) {
+            final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                    .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, 0.001); // Don't merge
+            try (FDBRecordContext context = openContext(insertProps)) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+                recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
+                context.commit();
+            }
+        }
+        final RecordLayerPropertyStorage.Builder scanProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM, 2); // Don't merge
+        try (FDBRecordContext context = openContext(scanProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            assertEquals(20,
+                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context)) {
+                assertEquals(21, directory.listAll().length);
+            }
+        }
+    }
+
     private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
         assertEntriesAndSegmentInfoStoredInCompoundFile(subspace, context, segment, cleanFiles);
     }
