@@ -945,6 +945,7 @@ scalarFunctionName
     | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
+    | JAVA_CALL
     ;
 
 functionArgs

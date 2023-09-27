@@ -47,6 +47,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -347,6 +348,30 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Void visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
+        final var functionName = ctx.scalarFunctionName().getText();
+        boolean skipFirstFunctionArgument = "JAVA_CALL".equals(ParserUtils.normalizeString(functionName, false));
+        for (int i = 0; i < ctx.getChildCount(); i++) {
+            final var child = Assert.notNullUnchecked(ctx.getChild(i));
+            if (child == ctx.functionArgs()) {
+                final var args = (RelationalParser.FunctionArgsContext) child;
+                for (int j = 0; j < args.getChildCount(); j++) {
+                    final var arg = args.getChild(j);
+                    if (j == 0 && skipFirstFunctionArgument) {
+                        sqlCanonicalizer.append(arg.getText()).append(" ");
+                        hashFunction.putBytes(arg.getText().getBytes(StandardCharsets.UTF_8));
+                    } else {
+                        arg.accept(this);
+                    }
+                }
+            } else {
+                child.accept(this);
+            }
+        }
+        return null;
+    }
+
+    @Override
     public Object visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
@@ -479,7 +504,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull String query, boolean caseSensitive) throws RelationalException {
+    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull final String query, boolean caseSensitive) throws RelationalException {
         final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query).getRootContext());
         return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(

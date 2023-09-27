@@ -849,6 +849,41 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void queryJavaCallFunctionLocallyCreatedUdf() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'world')");
+                Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.SumUdf', pk, 42) + 100 FROM T1"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(100 + 42 + 42L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void queryJavaCallSimulatecustomerFunction() throws Exception {
+        final var expectedMetadata = new RelationalStructMetaData(FieldDescription.primitive("_0", Types.BINARY, DatabaseMetaData.columnNoNulls));
+        final var array = List.of(ByteString.copyFrom(new byte[]{0xA, 0xB}));
+        final var expected = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), expectedMetadata);
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bytes, b bytes array, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, X'0A', [ X'0B' ])");
+                Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.ByteOperationsUdf', a, b) FROM T1"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(expected)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {

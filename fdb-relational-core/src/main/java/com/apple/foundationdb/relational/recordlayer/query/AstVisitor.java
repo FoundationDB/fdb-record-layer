@@ -1203,10 +1203,24 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public Object visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
-        final List<Typed> args = ctx.functionArgs().children.stream()
-                .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
-                .map(arg -> (Typed) arg.accept(this))
-                .collect(Collectors.toList());
+        final var functionName = ctx.scalarFunctionName().getText();
+        final List<Typed> args;
+        if ("JAVA_CALL".equals(ParserUtils.normalizeString(functionName, false))) {
+            final var argExprs = ctx.functionArgs().children.stream().filter(arg -> arg instanceof RelationalParser.FunctionArgContext).collect(Collectors.toUnmodifiableList());
+            Assert.thatUnchecked(!argExprs.isEmpty());
+            final Typed className = context.withDisabledLiteralProcessing(() -> {
+                final var classNameObject = argExprs.get(0).accept(this);
+                Assert.thatUnchecked(classNameObject instanceof LiteralValue, String.format("attempt to invoke java_call with incorrect UDF '%s'", classNameObject), ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION);
+                return (LiteralValue<?>) classNameObject;
+            });
+            final var remainingArguments = argExprs.stream().skip(1).map(arg -> (Typed) arg.accept(this));
+            args = Streams.concat(Stream.of(Assert.notNullUnchecked(className)), remainingArguments).collect(Collectors.toUnmodifiableList());
+        } else {
+            args = ctx.functionArgs().children.stream()
+                    .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
+                    .map(arg -> (Typed) arg.accept(this))
+                    .collect(Collectors.toList());
+        }
         BuiltInFunction<? extends Value> scalarFunction = ParserUtils.getExplicitFunction(ctx.scalarFunctionName().getText());
         return ParserUtils.encapsulate(scalarFunction, args);
     }

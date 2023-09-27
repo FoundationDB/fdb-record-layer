@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.JavaCallFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
@@ -209,6 +210,7 @@ public final class ParserUtils {
         functionMap.put("greatest", VariadicFunctionValue.GreatestFn.class);
         functionMap.put("least", VariadicFunctionValue.LeastFn.class);
         functionMap.put("coalesce", VariadicFunctionValue.CoalesceFn.class);
+        functionMap.put("java_call", JavaCallFunction.class);
     }
 
     @Nonnull

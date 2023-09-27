@@ -803,6 +803,33 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDqlStatementWithJavaCallDoesNotCacheFunctionCall() throws Exception {
+        validate(List.of("select java_call('a.b.c.Foo', col1, ?, ?namedParam1) From t1"),
+                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                "select java_call ( 'a.b.c.Foo' , \"COL1\" , ? , ?namedParam1 ) From \"T1\" ",
+                List.of(List.of(42, 43)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT));
+    }
+
+    @Test
+    void parseDqlStatementWithJavaCallDifferentFunctions() throws Exception {
+        validateNotSameHash("select java_call('a.b.c.Foo', col1) From t1",
+                "select java_call('a.b.c.Bar', col1) From t1");
+        validateNotEqual("select java_call('a.b.c.Foo', col1) From t1",
+                "select java_call('a.b.c.Bar', col1) From t1");
+    }
+
+    @Test
+    void parseDqlStatementWithJavaCallDifferentParameterlessFunctions() throws Exception {
+        validateNotSameHash("select java_call('a.b.c.Foo') From t1",
+                "select java_call('a.b.c.Bar') From t1");
+        validateNotEqual("select java_call('a.b.c.Foo') From t1",
+                "select java_call('a.b.c.Bar') From t1");
+    }
+
+    @Test
     void parseDdlStatementSetsCorrectCachingFlagsWithPreparedParameters() throws Exception {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("create schema template aggregate_index_tests_template" +

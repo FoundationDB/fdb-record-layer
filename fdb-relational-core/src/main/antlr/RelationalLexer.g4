@@ -381,6 +381,7 @@ TRIM:                                'TRIM';
 UTC_DATE:                            'UTC_DATE';
 UTC_TIME:                            'UTC_TIME';
 UTC_TIMESTAMP:                       'UTC_TIMESTAMP';
+JAVA_CALL:                           'JAVA_CALL';
 
 // Keywords, but can be ID
 // Common Keywords, but can be ID
