@@ -75,10 +75,16 @@ import static org.hamcrest.MatcherAssert.assertThat;
  *     change interacts with a single run. We may at some point want to pull this out into something that is not
  *     committed, but this should work for now.
  * </p>
+ * <p>
+ *     The key test here is {@link #runPerfTest()}, which, depending on the config, does a loop of inserting some
+ *     records, then doing some operations and capturing metrics and dumping them to csvs in
+ *     {@code .out/LuceneScaleTest*}. There are some other tests in this class, mostly to make sure things work, or
+ *     to run a profiler or debugger.
+ * </p>
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
-// Generally, run this as long as you feel like, and stop when you want.
+// Generally, run this as long as you feel like, and stop when you want, or until it hits Config.LOOP_COUNT
 @Timeout(value = 8, unit = TimeUnit.DAYS)
 public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LogManager.getLogger(LuceneScaleTest.class);
@@ -87,6 +93,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
      * A holder of all the config that one might want to change when running the test, all in one place.
      */
     private static class Config {
+        /**
+         * The number of times to loop through the commands.
+         */
+        public static final int LOOP_COUNT = 1000;
         /**
          * If {@code true}, configure index to use {@link LuceneIndexOptions#PRIMARY_KEY_SERIALIZATION_FORMAT}
          */
@@ -209,7 +219,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
              var insertsCsv = createPrintStream(".out/LuceneScaleTest.inserts.csv", dataModel.continuing);
              var searchesCsv = createPrintStream(".out/LuceneScaleTest.searches.csv", dataModel.continuing)) {
 
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < Config.LOOP_COUNT; i++) {
                 long startMillis;
                 if (Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
                     dataModel.saveNewRecords(90);
@@ -295,12 +305,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private final List<String> searchWords = new ArrayList<>(SEARCH_WORD_COUNT);
         private static final int SEARCH_WORD_COUNT = 20;
         private int lastSearchWordsUpdate = -10000;
-
-        private PlannableIndexTypes plannableIndexTypes = new PlannableIndexTypes(
-                Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
-                Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
-                Sets.newHashSet(IndexTypes.TEXT),
-                Sets.newHashSet(LuceneIndexTypes.LUCENE));
 
 
         void prep() {
