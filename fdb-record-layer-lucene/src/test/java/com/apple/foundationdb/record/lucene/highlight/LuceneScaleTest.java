@@ -101,6 +101,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     //LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]"
             ));
 
+    public LuceneScaleTest() {
+        super(new Object[] { "record-test", "unit", "LuceneScaleTest" });
+    }
+
     @BeforeAll
     public static void setup() {
         //set up the English Synonym Map so that we don't spend forever setting it up for every test, because this takes a long time
