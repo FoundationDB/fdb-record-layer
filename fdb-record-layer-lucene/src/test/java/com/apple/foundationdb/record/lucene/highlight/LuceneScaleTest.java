@@ -78,8 +78,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LogManager.getLogger(LuceneScaleTest.class);
 
     private static final String RECORD_COUNT_COLUMN = "recordCount";
-    private static final String TOTAL_TIME_COLUMN = "totalTime";
-    static final List<String> CSV_COLUMNS = List.of(RECORD_COUNT_COLUMN, TOTAL_TIME_COLUMN, "bytes_deleted_count",
+    private static final String OPERATION_MILLIS = "operationMillis";
+    private static final String TOTAL_TEST_MILLIS = "totalTestMillis";
+    static final List<String> CSV_COLUMNS = List.of(RECORD_COUNT_COLUMN, OPERATION_MILLIS, TOTAL_TEST_MILLIS,
+            "bytes_deleted_count",
             "bytes_fetched_count", "bytes_read_count", "bytes_written_count", "commit_count", "commit_micros",
             "commit_read_only_count", "commit_read_only_micros", "commits_count", "commits_micros", "deletes_count",
             "empty_scans_count", "fetches_count", "get_read_version_count", "get_record_range_raw_first_chunk_count",
@@ -170,6 +172,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         final int updatesPerContext = 10;
         final int operationCount = 10;
 
+        final long testStartMillis = System.currentTimeMillis();
+
         try (var updatesCsv = createPrintStream(".out/LuceneScaleTest.updates.csv", dataModel.continuing);
              var insertsCsv = createPrintStream(".out/LuceneScaleTest.inserts.csv", dataModel.continuing);
              var searchesCsv = createPrintStream(".out/LuceneScaleTest.searches.csv", dataModel.continuing)) {
@@ -191,7 +195,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                         dataModel.saveNewRecord();
                         dumpBlockReads(dataModel);
                     }
-                    updateCsv("Did insert", dataModel, insertsCsv, startMillis, Map.of());
+                    updateCsv("Did insert", dataModel, insertsCsv, startMillis, testStartMillis, Map.of());
                 }
                 if (doUpdate) {
                     timer.reset();
@@ -201,7 +205,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                         dataModel.updateRecords(updatesPerContext);
                         //dumpBlockReads(dataModel);
                     }
-                    updateCsv("Did updates", dataModel, updatesCsv, startMillis,
+                    updateCsv("Did updates", dataModel, updatesCsv, startMillis, testStartMillis,
                             Map.of("updatesPerContext", updatesPerContext,
                                     "updateBatches", operationCount));
                 }
@@ -213,7 +217,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                         dataModel.search();
                         // TODO dump block reads
                     }
-                    updateCsv("Did Search", dataModel, searchesCsv, startMillis, Map.of());
+                    updateCsv("Did Search", dataModel, searchesCsv, startMillis, testStartMillis, Map.of());
                 }
                 dataModel.updateSearchWords();
 
@@ -227,7 +231,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
     private void updateCsv(final String logTtl, final DataModel dataModel, final PrintStream csvPrintStream,
-                           final long startMillis, final Map<?, ?> additionalKeysAndValues) {
+                           final long startMillis, final long testStartMillis, final Map<?, ?> additionalKeysAndValues) {
         final Map<String, Number> keysAndValues = timer.getKeysAndValues();
         logger.info(KeyValueLogMessage.build(logTtl)
                 .addKeysAndValues(keysAndValues)
@@ -238,8 +242,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         for (final String key : CSV_COLUMNS) {
             if (Objects.equals(key, RECORD_COUNT_COLUMN)) {
                 csvPrintStream.print(dataModel.maxDocId);
-            } else if (Objects.equals(key, TOTAL_TIME_COLUMN)) {
+            } else if (Objects.equals(key, OPERATION_MILLIS)) {
                 csvPrintStream.print(System.currentTimeMillis() - startMillis);
+            } else if (Objects.equals(key, TOTAL_TEST_MILLIS)) {
+                csvPrintStream.print(System.currentTimeMillis() - testStartMillis);
             } else {
                 csvPrintStream.print(keysAndValues.get(key));
             }
