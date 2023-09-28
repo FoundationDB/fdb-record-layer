@@ -81,7 +81,11 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordStoreTestBase(Object[] path) {
-        this.path = TestKeySpace.getKeyspacePath(path);
+        this(TestKeySpace.getKeyspacePath(path));
+    }
+
+    public FDBRecordStoreTestBase(final KeySpacePath keyspacePath) {
+        this.path = keyspacePath;
     }
 
     @Nonnull
@@ -138,10 +142,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     @BeforeEach
     public void clearAndInitialize() {
         getFDB();
-        fdb.run(timer, null, context -> {
-            path.deleteAllData(context);
-            return null;
-        });
+        clear();
 
         // Reset these indexes added and last modified versions, which can be updated during tests.
         // For example, adding the indexes to a RecordMetaDataBuilder can update these fields
@@ -149,6 +150,13 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         COUNT_INDEX.setLastModifiedVersion(0);
         COUNT_UPDATES_INDEX.setAddedVersion(0);
         COUNT_UPDATES_INDEX.setLastModifiedVersion(0);
+    }
+
+    protected void clear() {
+        fdb.run(timer, null, context -> {
+            path.deleteAllData(context);
+            return null;
+        });
     }
 
     @AfterEach
