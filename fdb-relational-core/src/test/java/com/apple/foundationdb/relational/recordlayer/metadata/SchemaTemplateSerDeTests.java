@@ -263,4 +263,37 @@ public class SchemaTemplateSerDeTests {
         });
         Assertions.assertTrue(thrown.getMessage().contains(message));
     }
+
+    @Test
+    public void deserializationNestedTypesPreservesNamesCorrectly() throws Exception {
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        true))
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+        final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
+        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42).findTableByName("T1");
+        Assertions.assertTrue(deserializedTableType.isPresent());
+        final var column = deserializedTableType.get().getColumns().stream().findFirst();
+        Assertions.assertTrue(column.isPresent());
+        final var type = column.get().getDatatype();
+        Assertions.assertTrue(type instanceof DataType.StructType);
+        final var typeName = ((DataType.StructType) type).getName();
+        Assertions.assertEquals("Subtype", typeName);
+    }
 }
