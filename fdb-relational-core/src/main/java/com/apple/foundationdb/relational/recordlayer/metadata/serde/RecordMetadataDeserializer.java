@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;

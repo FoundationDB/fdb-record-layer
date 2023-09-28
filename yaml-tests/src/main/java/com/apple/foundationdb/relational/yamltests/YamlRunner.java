@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import org.apache.logging.log4j.LogManager;

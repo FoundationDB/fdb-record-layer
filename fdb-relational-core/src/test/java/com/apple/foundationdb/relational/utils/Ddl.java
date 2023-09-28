@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 
 import org.junit.jupiter.api.extension.ExtensionContext;
 

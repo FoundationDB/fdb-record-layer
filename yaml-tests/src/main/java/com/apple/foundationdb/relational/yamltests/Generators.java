@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import static com.apple.foundationdb.relational.recordlayer.util.Assert.fail;
+import static com.apple.foundationdb.relational.util.Assert.fail;
 import static com.apple.foundationdb.relational.yamltests.Matchers.*;
 
 public class Generators {

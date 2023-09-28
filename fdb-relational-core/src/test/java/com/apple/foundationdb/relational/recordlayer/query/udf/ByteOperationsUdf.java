@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;

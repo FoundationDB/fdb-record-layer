@@ -34,7 +34,7 @@ import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.FileDescriptorSerializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;

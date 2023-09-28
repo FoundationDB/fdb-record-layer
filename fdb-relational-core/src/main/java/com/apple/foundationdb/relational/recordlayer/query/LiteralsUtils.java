@@ -32,7 +32,7 @@ import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
+import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.protobuf.ZeroCopyByteString;
 

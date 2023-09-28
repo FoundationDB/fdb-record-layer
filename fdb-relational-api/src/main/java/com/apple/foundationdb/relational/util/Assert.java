@@ -18,19 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.util;
+package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
- *
- * TODO (yhatem) move to API module.
  */
 @ExcludeFromJacocoGeneratedReport //just assertions, hard to test in a useful way
 public final class Assert {

@@ -40,7 +40,7 @@ public interface Index extends Metadata {
 
     /**
      * Returns the type of the index. An index type could be one of the types defined in
-     * {@link com.apple.foundationdb.record.metadata.IndexTypes}.
+     * {@code com.apple.foundationdb.record.metadata.IndexTypes}.
      *
      * @return the type of the index.
      *

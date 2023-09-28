@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.util;
 
-import com.apple.foundationdb.relational.recordlayer.util.Assert;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
