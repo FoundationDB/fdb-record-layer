@@ -2431,7 +2431,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
         }
         final RecordLayerPropertyStorage.Builder scanProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM, 2); // Don't merge
+                .addProp(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM, 2); // Decrease parallelism when opening segments
         try (FDBRecordContext context = openContext(scanProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             assertEquals(20,
