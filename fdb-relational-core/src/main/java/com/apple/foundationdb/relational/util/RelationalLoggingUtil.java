@@ -22,49 +22,50 @@ package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nullable;
+
 public class RelationalLoggingUtil {
-    public static void publishPlanGenerationLogs(Logger logger, KeyValueLogMessage message, Plan<?> plan, long totalTime, Options options) {
+    public static void publishPlanGenerationLogs(Logger logger, KeyValueLogMessage message, @Nullable Plan<?> plan,
+                                                 @Nullable RelationalException e, long totalTime, Options options) {
         final boolean logQuery = options.getOption(Options.Name.LOG_QUERY);
         final boolean isSlow = totalTime > (long) options.getOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS);
-
-        if (logQuery || logger.isDebugEnabled() || isSlow) {
+        message.addKeyAndValue("totalPlanTimeMicros", totalTime);
+        if (plan != null) {
             if (plan instanceof QueryPlan.PhysicalQueryPlan) {
                 final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash();
                 message.addKeyAndValue("planHash", planHash);
             }
             message.addKeyAndValue("plan", plan.explain());
-            message.addKeyAndValue("totalPlanTime", totalTime);
-            message.addKeyAndValue("query", plan.getQuery().trim());
         }
-        if (logQuery || isSlow) {
+        if (e != null) {
+            logger.info(message, e);
+        } else if (logQuery || isSlow) {
             logger.info(message);
         } else if (logger.isDebugEnabled()) {
             logger.debug(message);
         }
     }
 
-    public static void publishNormalizeQueryLogs(KeyValueLogMessage message, long stepTime, int queryHash) {
-        message.addKeyAndValue("normalizeQueryTimeMicros", stepTime);
+    public static void publishNormalizeQueryLogs(KeyValueLogMessage message, long stepTime, int queryHash, String query) {
         message.addKeyAndValue("queryHash", queryHash);
+        message.addKeyAndValue("query", query.trim());
+        message.addKeyAndValue("normalizeQueryTimeMicros", stepTime);
     }
 
-    public static void publishPlanCacheLogs(Logger logger, KeyValueLogMessage message, PlanCacheEvent event, long stepTime, boolean logQuery) {
+    public static void publishPlanCacheLogs(KeyValueLogMessage message, PlanCacheEvent event, long stepTime) {
         switch (event) {
             case SKIP:
-                if (logQuery || logger.isDebugEnabled()) {
-                    message.addKeyAndValue("planCache", "skip");
-                    message.addKeyAndValue("generatePhysicalPlanTimeMicros", stepTime);
-                }
+                message.addKeyAndValue("planCache", "skip");
+                message.addKeyAndValue("generatePhysicalPlanTimeMicros", stepTime);
                 break;
             case HIT:
-                if (logQuery || logger.isDebugEnabled()) {
-                    message.addKeyAndValue("planCache", "hit");
-                }
+                message.addKeyAndValue("planCache", "hit");
                 break;
             case MISS:
                 message.addKeyAndValue("planCache", "miss");

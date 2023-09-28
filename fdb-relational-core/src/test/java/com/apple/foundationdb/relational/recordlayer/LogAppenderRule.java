@@ -49,7 +49,7 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
     private Level beforeLogLevel;
 
     private static class LogAppender extends AbstractAppender {
-        private final List<String> log = new ArrayList<>();
+        private final List<LogEvent> log = new ArrayList<>();
 
         protected LogAppender(String name) {
             super(name, null, null, false, Property.EMPTY_ARRAY);
@@ -57,10 +57,10 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
 
         @Override
         public void append(LogEvent event) {
-            log.add(event.getMessage().getFormattedMessage());
+            log.add(event.toImmutable());
         }
 
-        public List<String> getLogs() {
+        public List<LogEvent> getLogs() {
             return log;
         }
     }
@@ -103,11 +103,15 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
         afterEach(null);
     }
 
-    public String getLastLogEntry() {
+    public LogEvent getLastLogEvent() {
         return logAppender.getLogs().get(logAppender.getLogs().size() - 1);
     }
 
-    public List<String> getLogs() {
+    public String getLastLogEventMessage() {
+        return getLastLogEvent().getMessage().getFormattedMessage();
+    }
+
+    public List<LogEvent> getLogEvents() {
         return logAppender.getLogs();
     }
 }

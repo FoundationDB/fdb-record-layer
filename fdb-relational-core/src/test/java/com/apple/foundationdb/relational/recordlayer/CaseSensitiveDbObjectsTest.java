@@ -118,36 +118,36 @@ public class CaseSensitiveDbObjectsTest {
 
     @Test
     void planIsProperlyCached() throws SQLException {
-        Assertions.assertThat(logAppender.getLogs()).isEmpty();
+        Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("select 'id' from 't1' where 'group' = ?");
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("select 'id' from 't1' where 'group' = ?");
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
     }
 
     @Test
     void planIsProperlyCachedAndReusedAcrossCaseOptionVariation() throws SQLException, RelationalException {
-        Assertions.assertThat(logAppender.getLogs()).isEmpty();
+        Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .hasRowExactly("abc")
                     .hasNoNextRow();
         }
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("select 'id' from 't1' where 'group' = ?");
-        Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
         try (RelationalConnection caseInsensitiveConn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             caseInsensitiveConn.setSchema("TEST_SCHEMA");
@@ -157,8 +157,8 @@ public class CaseSensitiveDbObjectsTest {
                             .hasRowExactly("abc")
                             .hasNoNextRow();
                 }
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("select 'id' from 't1' where 'group' = ?");
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
             }
         }
     }

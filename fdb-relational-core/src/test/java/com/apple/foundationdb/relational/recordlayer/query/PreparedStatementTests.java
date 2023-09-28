@@ -359,7 +359,7 @@ public class PreparedStatementTests {
                     continuation = resultSet.getContinuation();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(LOG QUERY) WITH CONTINUATION ?continuation")) {
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -369,14 +369,14 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                     continuation = resultSet.getContinuation();
                 }
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 14L)
                             .hasNoNextRow();
                 }
-                Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
             }
         }
     }
@@ -468,7 +468,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
             // Run a second time with different parameters
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ? or rest_no in ?param OPTIONS(LOG QUERY)")) {
@@ -481,7 +481,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
         }
     }
 
@@ -684,7 +684,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"miss\"");
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?val OPTIONS(LOG QUERY)")) {
                 ps.setLong("val", 12);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -694,7 +694,7 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            Assertions.assertThat(logAppender.getLastLogEntry()).contains("planCache=\"hit\"");
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
         }
     }
 

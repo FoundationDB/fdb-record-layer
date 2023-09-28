@@ -100,9 +100,17 @@ public final class PlanGenerator {
                             @Nonnull final PlanContext context) throws RelationalException {
         resetTimer();
         KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
-        final var plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
-                getPlanInternal(query, context, message));
-        RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, totalTimeMicros(), options);
+        Plan<?> plan = null;
+        RelationalException exception = null;
+        try {
+            plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
+                    getPlanInternal(query, context, message));
+        } catch (RelationalException e) {
+            exception = e;
+            throw e;
+        } finally {
+            RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
+        }
         return plan;
     }
 
@@ -118,19 +126,19 @@ public final class PlanGenerator {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
             final var astHashResult = AstNormalizer.normalizeQuery(context, query, caseSensitive);
-            RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash());
+            RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
+                    astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = Options.combine(astHashResult.getQueryOptions(), options);
-            boolean logThatQuery = options.getOption(Options.Name.LOG_QUERY);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
                 Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
-                RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), logThatQuery);
+                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros());
                 return plan;
             }
 
             // Default is to cache hit. This is modified later if we cache miss
-            RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, logThatQuery);
+            RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1);
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
@@ -139,7 +147,7 @@ public final class PlanGenerator {
                             planEquivalence,
                             () -> {
                                 final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
-                                RelationalLoggingUtil.publishPlanCacheLogs(logger, message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), logThatQuery);
+                                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros());
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
