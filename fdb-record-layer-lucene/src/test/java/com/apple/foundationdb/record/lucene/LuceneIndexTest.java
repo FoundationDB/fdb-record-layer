@@ -2598,7 +2598,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             assertEquals(20,
                     recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
-            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context)) {
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, true)) {
                 assertEquals(21, directory.listAll().length);
             }
         }
