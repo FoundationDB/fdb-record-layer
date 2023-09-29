@@ -575,6 +575,33 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(newLength < oldLength);
     }
 
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+    @Test
+    void testRecordUpdateMergeByAnotherRecordUpdate() {
+        Index index = SIMPLE_TEXT_SUFFIXES;
+        // update records while skipping merge
+        boolean needMerge = populateDataSplitSegments(index, 20, 5);
+        assertTrue(needMerge);
+
+        String[] allFiles = listFiles(index);
+        int oldLength = allFiles.length;
+
+        // Now update records with merge
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(true);
+            for (int i = 17; i < 22; i++) {
+                recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + " Sababa", 2));
+            }
+            commit(context);
+        }
+
+        allFiles = listFiles(index);
+        int newLength = allFiles.length;
+        LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
+        assertTrue(newLength < oldLength);
+    }
+
     @Test
     void testRecordUpdateReducedMerge() {
         // emulate repeating merge until until unchanged.
