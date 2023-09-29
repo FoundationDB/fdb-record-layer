@@ -29,7 +29,8 @@ public class IndexDeferredMaintenancePolicy {
     private boolean autoMergeDuringCommit = true;
 
     /**
-     * Indicate to the caller if a deferred index merge operation is required.
+     * Indication that a deferred index merge operation is required. This function may be used by the
+     * caller, to check  if the index maintainer requested a deferred merge.
      * @return if true, an index merge if required
      */
     public boolean isMergeRequired() {
@@ -37,7 +38,7 @@ public class IndexDeferredMaintenancePolicy {
     }
 
     /**
-     * Indicate to the caller if a deferred merge operation is required.
+     * Indicate to the caller if a deferred merge operation is required. This function is used by the index maintainer.
      * @param mergeRequired if true, indicate that an index merge if required
      */
     public void setMergeRequired(final boolean mergeRequired) {
@@ -54,7 +55,7 @@ public class IndexDeferredMaintenancePolicy {
 
     /**
      * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
-     * If the user sets it to false, he is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
+     * If the user sets it to false, they are responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
      * function if {@link #isMergeRequired()} returns true after the requested operation.
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */

@@ -409,7 +409,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = 60; iLast > 40; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                // recordStore.markIndexReadable(index);
                 recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
@@ -426,7 +425,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index, tuple, groupingCount);
         int oldLength = allFiles.length;
 
-        recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
@@ -502,7 +500,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index);
         int oldLength = allFiles.length;
 
-        recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
@@ -547,7 +544,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         String[] allFiles = listFiles(index);
         int oldLength = allFiles.length;
 
-        recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
@@ -561,7 +557,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(newLength < oldLength);
         oldLength = newLength;
 
-        recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
@@ -609,15 +604,13 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         boolean needMerge = populateDataSplitSegments(index, 40, 7);
         assertTrue(needMerge);
 
-        boolean allDone = false;
-        while (! allDone) {
+        int loopCounter = 0;
+        for (boolean allDone = false; !allDone; loopCounter++) {
             int oldLength = listFiles(index).length;
-            recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .build()) {
-                recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
                 indexBuilder.mergeIndex();
             }
             int newLength = listFiles(index).length;
@@ -626,6 +619,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
             allDone = oldLength <= newLength;
         }
+        assertTrue(loopCounter > 1);
         // Observed: 70 => 13, 13 => 2, 2 => 2
     }
 }
