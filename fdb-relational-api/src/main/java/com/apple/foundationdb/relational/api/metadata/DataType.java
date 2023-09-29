@@ -48,8 +48,6 @@ import java.util.Objects;
  * A type might be unresolved. This could happen e.g. while constructing a complex type hierarchy
  * where some types are forward-referenced. If a type is unresolved, it is possible to resolve it
  * using a type-resolution map, one example of doing this can be found in build() method in RecordLayerSchemaTemplate.Builder.
- *
- * TODO (yhatem) implement equality and hash code semantics.
  */
 public abstract class DataType {
     @Nonnull
@@ -161,6 +159,8 @@ public abstract class DataType {
     }
 
     public static final class BooleanType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private BooleanType(boolean isNullable) {
             super(isNullable, true, Code.BOOLEAN);
@@ -187,9 +187,33 @@ public abstract class DataType {
             return this;
         }
 
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof BooleanType)) {
+                return false;
+            }
+            final var otherBooleanType = (BooleanType) other;
+            return this.isNullable() == otherBooleanType.isNullable();
+        }
     }
 
     public static final class IntegerType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private IntegerType(boolean isNullable) {
             super(isNullable, true, Code.INTEGER);
         }
@@ -214,9 +238,34 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof IntegerType)) {
+                return false;
+            }
+            final var otherIntegerType = (IntegerType) other;
+            return this.isNullable() == otherIntegerType.isNullable();
+        }
     }
 
     public static final class LongType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private LongType(boolean isNullable) {
             super(isNullable, true, Code.LONG);
         }
@@ -241,9 +290,34 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof LongType)) {
+                return false;
+            }
+            final var otherLongType = (LongType) other;
+            return this.isNullable() == otherLongType.isNullable();
+        }
     }
 
     public static final class FloatType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private FloatType(boolean isNullable) {
             super(isNullable, true, Code.FLOAT);
         }
@@ -268,9 +342,34 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof FloatType)) {
+                return false;
+            }
+            final var otherFloatType = (FloatType) other;
+            return this.isNullable() == otherFloatType.isNullable();
+        }
     }
 
     public static final class DoubleType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private DoubleType(boolean isNullable) {
             super(isNullable, true, Code.DOUBLE);
         }
@@ -295,9 +394,34 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof DoubleType)) {
+                return false;
+            }
+            final var otherDoubleType = (DoubleType) other;
+            return this.isNullable() == otherDoubleType.isNullable();
+        }
     }
 
     public static final class StringType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private StringType(boolean isNullable) {
             super(isNullable, true, Code.STRING);
         }
@@ -322,9 +446,34 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof StringType)) {
+                return false;
+            }
+            final var otherStringType = (StringType) other;
+            return this.isNullable() == otherStringType.isNullable();
+        }
     }
 
     public static final class BytesType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
         private BytesType(boolean isNullable) {
             super(isNullable, true, Code.BYTES);
         }
@@ -349,9 +498,33 @@ public abstract class DataType {
         public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof BytesType)) {
+                return false;
+            }
+            final var otherBytesType = (BytesType) other;
+            return this.isNullable() == otherBytesType.isNullable();
+        }
     }
 
     public static final class EnumType extends DataType implements Named {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final String name;
@@ -365,13 +538,13 @@ public abstract class DataType {
 
             private final int number;
 
-            private EnumValue(@Nonnull String name, int number) {
+            private EnumValue(@Nonnull final String name, int number) {
                 this.name = name;
                 this.number = number;
             }
 
             @Nonnull
-            public static EnumValue of(@Nonnull String name, int number) {
+            public static EnumValue of(@Nonnull final String name, int number) {
                 return new EnumValue(name, number);
             }
 
@@ -384,8 +557,6 @@ public abstract class DataType {
                 return number;
             }
         }
-
-        @Nonnull
 
         private EnumType(@Nonnull String name, @Nonnull final List<EnumValue> values, boolean isNullable) {
             super(isNullable, true, Code.ENUM);
@@ -430,9 +601,35 @@ public abstract class DataType {
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable(), values);
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof EnumType)) {
+                return false;
+            }
+            final var otherEnumType = (EnumType) other;
+            return this.isNullable() == otherEnumType.isNullable() &&
+                    name.equals(otherEnumType.name) &&
+                    values.equals(otherEnumType.values);
+        }
     }
 
     public static final class ArrayType extends DataType {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final DataType elementType;
@@ -480,9 +677,34 @@ public abstract class DataType {
                 return ArrayType.from(elementType.resolve(resolutionMap));
             }
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable(), elementType);
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof ArrayType)) {
+                return false;
+            }
+            final var otherArrayType = (ArrayType) other;
+            return this.isNullable() == otherArrayType.isNullable() &&
+                    elementType.equals(otherArrayType.elementType);
+        }
     }
 
     public static final class StructType extends DataType implements Named {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final List<Field> fields;
@@ -493,7 +715,7 @@ public abstract class DataType {
         @Nonnull
         private final Supplier<Boolean> resolvedSupplier = Suppliers.memoize(this::calculateResolved);
 
-        private StructType(String name, boolean isNullable, @Nonnull final List<Field> fields) {
+        private StructType(@Nonnull final String name, boolean isNullable, @Nonnull final List<Field> fields) {
             super(isNullable, false, Code.STRUCT);
             this.name = name;
             this.fields = ImmutableList.copyOf(fields);
@@ -511,8 +733,13 @@ public abstract class DataType {
         }
 
         public static class Field {
+            @Nonnull
+            private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+            @Nonnull
             private final String name;
 
+            @Nonnull
             private final DataType type;
 
             private int index;
@@ -538,6 +765,30 @@ public abstract class DataType {
 
             public int getIndex() {
                 return index;
+            }
+
+            private int computeHashCode() {
+                return Objects.hash(name, index, type);
+            }
+
+            @Override
+            public int hashCode() {
+                return hashCodeSupplier.get();
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                if (this == other) {
+                    return true;
+                }
+
+                if (!(other instanceof Field)) {
+                    return false;
+                }
+                final var otherField = (Field) other;
+                return name.equals(otherField.name) &&
+                        index == otherField.index &&
+                        type.equals(otherField.type);
             }
         }
 
@@ -582,6 +833,30 @@ public abstract class DataType {
                 return StructType.from(name, resolvedFields.build(), isNullable());
             }
         }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable(), name, fields);
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof StructType)) {
+                return false;
+            }
+            final var otherStructType = (StructType) other;
+            return this.isNullable() == otherStructType.isNullable() &&
+                    name.equals(otherStructType.name) &&
+                    fields.equals(otherStructType.fields);
+        }
     }
 
     /**
@@ -593,6 +868,8 @@ public abstract class DataType {
      * To see how this type is used as resolved, check build() method in RecordLayerSchemaTemplate.Builder.
      */
     public static final class UnknownType extends DataType implements Named {
+        @Nonnull
+        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final String name;
@@ -629,9 +906,32 @@ public abstract class DataType {
 
         @Nonnull
         @Override
-        public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
+        public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             Assert.thatUnchecked(resolutionMap.containsKey(name), String.format("Could not find type '%s'", name));
             return ((DataType) resolutionMap.get(name)).withNullable(isNullable());
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable(), name);
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof UnknownType)) {
+                return false;
+            }
+            final var otherUnknownType = (UnknownType) other;
+            return this.isNullable() == otherUnknownType.isNullable() &&
+                    name.equals(otherUnknownType.name);
         }
     }
 
