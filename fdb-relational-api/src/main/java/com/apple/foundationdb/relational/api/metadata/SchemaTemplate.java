@@ -65,6 +65,15 @@ public interface SchemaTemplate extends Metadata {
     @Nonnull
     Set<? extends Table> getTables() throws RelationalException;
 
+    /**
+     * Retrieves a {@link Table} by looking up its name.
+     *
+     * @param tableName The name of the {@link Table}.
+     * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
+     */
+    @Nonnull
+    Optional<Table> findTableByName(@Nonnull final String tableName) throws RelationalException;
+
     @Nonnull
     Multimap<String, String> getTableIndexMapping() throws RelationalException;
 

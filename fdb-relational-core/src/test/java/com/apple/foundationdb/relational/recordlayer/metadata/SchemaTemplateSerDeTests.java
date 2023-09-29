@@ -296,4 +296,34 @@ public class SchemaTemplateSerDeTests {
         final var typeName = ((DataType.StructType) type).getName();
         Assertions.assertEquals("Subtype", typeName);
     }
+
+    @Test
+    public void findTableByNameWorksCorrectly() {
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        true))
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+        final var foundTableMaybe = sampleRecordSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(foundTableMaybe.isPresent());
+        Assertions.assertEquals("T1", foundTableMaybe.get().getName());
+        Assertions.assertDoesNotThrow(() -> sampleRecordSchemaTemplate.findTableByName("BLA"));
+        final var nonExisting = sampleRecordSchemaTemplate.findTableByName("BLA");
+        Assertions.assertFalse(nonExisting.isPresent());
+    }
 }

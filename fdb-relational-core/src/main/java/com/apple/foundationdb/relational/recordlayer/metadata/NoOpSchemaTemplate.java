@@ -81,6 +81,12 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Optional<Table> findTableByName(@Nonnull final String tableName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have tables!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
     public Multimap<String, String> getTableIndexMapping() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
     }

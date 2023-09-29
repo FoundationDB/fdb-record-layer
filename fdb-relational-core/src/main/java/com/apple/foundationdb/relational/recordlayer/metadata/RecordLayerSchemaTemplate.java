@@ -186,6 +186,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
      */
     @Nonnull
+    @Override
     public Optional<Table> findTableByName(@Nonnull final String tableName) {
         for (final var table : getTables()) {
             if (table.getName().equals(tableName)) {
