@@ -38,7 +38,7 @@ public class IndexDeferredMaintenancePolicy {
      * caller, to check which index maintainer requested a deferred merge.
      * @return set of indexes to be merged, null if no merge was requested.
      */
-    public Set<Index> getMergeRequiredIndexes() {
+    public synchronized Set<Index> getMergeRequiredIndexes() {
         return mergeRequiredIndexes;
     }
 
