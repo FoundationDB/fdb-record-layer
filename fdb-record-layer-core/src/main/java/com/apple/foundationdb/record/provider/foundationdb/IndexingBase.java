@@ -61,6 +61,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,7 +106,6 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private long lastTypeStampCheckMillis;
-    private List<Index> luceneIndexes;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
@@ -123,14 +123,6 @@ public abstract class IndexingBase {
         this.throttle = new IndexingThrottle(common, expectedIndexState);
         this.startingTimeMillis = System.currentTimeMillis();
         this.lastTypeStampCheckMillis = startingTimeMillis;
-        for (Index index: common.getTargetIndexes()) {
-            if (index.getType().contains("lucene")) { // Is there a better way to identify Lucene indexes without generating index maintainers?
-                if (luceneIndexes == null) {
-                    luceneIndexes = new ArrayList<>();
-                }
-                luceneIndexes.add(index);
-            }
-        }
     }
 
     // helper functions
@@ -934,9 +926,9 @@ public abstract class IndexingBase {
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
-                                    if (throttle.isIndexMergeNeeded()) {
-                                        throttle.resetIndexMergeNeeded();
-                                        return mergeIndexes().thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
+                                    final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
+                                    if (indexSet != null && !indexSet.isEmpty()) {
+                                        return mergeIndexes(indexSet).thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
                                     }
                                     return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
                                 }
@@ -951,7 +943,11 @@ public abstract class IndexingBase {
     }
 
     public CompletableFuture<Void> mergeIndexes() {
-        return AsyncUtil.whenAll(luceneIndexes.stream()
+        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
+    }
+
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
+        return AsyncUtil.whenAll(indexSet.stream()
                 .map(index2 -> getRunner().runAsync(context ->
                         openRecordStore(context).thenCompose(store ->
                     store.getIndexMaintainer(index2).mergeIndex()
@@ -959,7 +955,7 @@ public abstract class IndexingBase {
     }
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
-        if (luceneIndexes != null && !luceneIndexes.isEmpty() && policy.shouldDeferLuceneMergeDuringIndexing()) {
+        if (policy.shouldDeferMergeDuringIndexing()) {
             store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
         }
     }

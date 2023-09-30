@@ -45,7 +45,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.COMPLEX_MULTIPLE_GROUPED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
@@ -61,6 +63,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
@@ -107,7 +110,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferLuceneMergeDuringIndexing(preventMergeDuringIndexing))
+                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing))
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
                 indexBuilder.buildIndex(true);
@@ -202,12 +205,13 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setIndex(index)
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferLuceneMergeDuringIndexing(true)
+                            .setDeferMergeDuringIndexing(true)
                             .build())
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
                 indexBuilder.buildIndex(true);
             }
+            context.commit();
         }
         // .. and assert readable mode
         try (final FDBRecordContext context = openContext()) {
@@ -215,8 +219,9 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.isIndexReadable(index));
         }
         // assert number of segments
-        String[] allFiles = listFiles(index);
-        assertTrue(allFiles.length < 12);
+        final int newLength = listFiles(index).length;
+        LOGGER.debug("Merge test: number of files: new=" + newLength);
+        assertTrue(newLength < 12);
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -288,7 +293,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setTargetIndexes(indexes)
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferLuceneMergeDuringIndexing(preventMergeDuringIndexing)
+                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing)
                             .build())
                     .build()) {
                 for (Index index: indexes) {
@@ -371,7 +376,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferLuceneMergeDuringIndexing(true)
+                            .setDeferMergeDuringIndexing(true)
                             .build())
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
@@ -413,7 +418,10 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
                 }
-                if (recordStore.getIndexDeferredMaintenancePolicy().isMergeRequired()) {
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                if (indexSet != null && !indexSet.isEmpty()) {
+                    assertEquals(1, indexSet.size());
+                    assertEquals(indexSet.stream().findFirst().get().getName(), index.getName());
                     needMerge = true;
                 }
                 commit(context);
@@ -488,7 +496,8 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                 for (int i = iFIrst; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iIndex, 2));
                 }
-                if (recordStore.getIndexDeferredMaintenancePolicy().isMergeRequired()) {
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                if (indexSet != null && !indexSet.isEmpty()) {
                     needMerge = true;
                 }
                 commit(context);
@@ -525,7 +534,11 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iLast, 2));
                 }
-                if (recordStore.getIndexDeferredMaintenancePolicy().isMergeRequired()) {
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                if (indexSet != null && !indexSet.isEmpty()) {
+                    final Optional<Index> first = indexSet.stream().findFirst();
+                    assertEquals(1, indexSet.size());
+                    assertEquals(first.get().getName(), index.getName());
                     needMerge = true;
                 }
                 commit(context);
@@ -615,7 +628,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             }
             int newLength = listFiles(index).length;
             LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
-                         " needMerge=" + recordStore.getIndexDeferredMaintenancePolicy().isMergeRequired());
+                         " needMerge=" + recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes());
 
             allDone = oldLength <= newLength;
         }

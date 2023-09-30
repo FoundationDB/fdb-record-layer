@@ -2132,7 +2132,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final List<Tuple> mutualIndexingBoundaries;
         private final boolean allowUnblock;
         private final String allowUnblockId;
-        private final boolean deferLuceneMergeDuringIndexing;
+        private final boolean deferMergeDuringIndexing;
 
         /**
          * Possible actions when an index is already partially built.
@@ -2163,7 +2163,7 @@ public class OnlineIndexer implements AutoCloseable {
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
                                boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
-                               boolean allowUnblock, String allowUnblockId, boolean deferLuceneMergeDuringIndexing) {
+                               boolean allowUnblock, String allowUnblockId, boolean deferMergeDuringIndexing) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2178,7 +2178,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
             this.allowUnblock = allowUnblock;
             this.allowUnblockId = allowUnblockId;
-            this.deferLuceneMergeDuringIndexing = deferLuceneMergeDuringIndexing;
+            this.deferMergeDuringIndexing = deferMergeDuringIndexing;
         }
 
         /**
@@ -2343,13 +2343,13 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * If true, attempt to merge Lucene indexes in separate transactions. This feature may be used to avoid repeating
-         * transaction timeout (Lucene only).
-         * @return true if should defer Lucene index merge during indexing.
+         * If true, attempt to merge indexes in separate transactions. This feature may be used to avoid
+         * transaction timeout(s) for indexes that require merge and support deferred merge.
+         * @return true if should defer index merge during the indexing process.
          */
         @API(API.Status.EXPERIMENTAL)
-        public boolean shouldDeferLuceneMergeDuringIndexing() {
-            return this.deferLuceneMergeDuringIndexing;
+        public boolean shouldDeferMergeDuringIndexing() {
+            return this.deferMergeDuringIndexing;
         }
 
         /**
@@ -2381,7 +2381,7 @@ public class OnlineIndexer implements AutoCloseable {
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
             private String allowUnblockId = null;
-            private boolean deferLuceneMergeDuringIndexing = false;
+            private boolean deferMergeDuringIndexing = false;
 
             protected Builder() {
             }
@@ -2630,15 +2630,15 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             *  If set to true, attempt to merge Lucene indexes in separate transactions. This feature may be used to avoid
-             *  repeating transaction timeout, and only effects Lucene indexes.
+             *  If set to true, attempt to merge indexes in separate transactions. This feature may be used to avoid
+             *  transaction timeout(s), and only affects indexes that require merge and support deferred merge.
              * The default value is false.
-             * @param deferLuceneMergeDuringIndexing if true, attempt to merge in separate transactions.
+             * @param deferMergeDuringIndexing if true, attempt to merge indexes in separate transactions.
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
-            public Builder setDeferLuceneMergeDuringIndexing(boolean deferLuceneMergeDuringIndexing) {
-                this.deferLuceneMergeDuringIndexing = deferLuceneMergeDuringIndexing;
+            public Builder setDeferMergeDuringIndexing(boolean deferMergeDuringIndexing) {
+                this.deferMergeDuringIndexing = deferMergeDuringIndexing;
                 return this;
             }
 
@@ -2650,7 +2650,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        deferLuceneMergeDuringIndexing);
+                        deferMergeDuringIndexing);
             }
         }
     }

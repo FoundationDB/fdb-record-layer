@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
@@ -63,7 +64,7 @@ public class IndexingThrottle {
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
     private final IndexState expectedIndexState;
-    private boolean indexMergeNeeded;
+    private Set<Index> mergeRequiredIndexes = new HashSet<>();
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -337,8 +338,9 @@ public class IndexingThrottle {
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
                 return buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
-                    if (store.getIndexDeferredMaintenancePolicy().isMergeRequired()) {
-                        indexMergeNeeded = true;
+                    Set<Index> indexSet = store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                    if (indexSet != null) {
+                        mergeRequiredIndexes.addAll(indexSet);
                     }
                     return retVal;
                 });
@@ -433,12 +435,10 @@ public class IndexingThrottle {
         return booker.totalRecordsScannedSuccess;
     }
 
-    public boolean isIndexMergeNeeded() {
-        return indexMergeNeeded;
-    }
-
-    public void resetIndexMergeNeeded() {
-        indexMergeNeeded = false;
+    public synchronized Set<Index> getAndResetMergeRequiredIndexes() {
+        Set<Index> indexSet = mergeRequiredIndexes;
+        mergeRequiredIndexes = new HashSet<>();
+        return indexSet;
     }
 }
 

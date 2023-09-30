@@ -20,33 +20,41 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.metadata.Index;
+
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
  * to set and probe the merge policy and merge requests.
  */
 public class IndexDeferredMaintenancePolicy {
-    private boolean mergeRequired = false;
+    private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = true;
 
     /**
-     * Indication that a deferred index merge operation is required. This function may be used by the
-     * caller, to check  if the index maintainer requested a deferred merge.
-     * @return if true, an index merge if required
+     * Return a set of indexes that need a deferred index merge operation. This function may be used by the
+     * caller, to check which index maintainer requested a deferred merge.
+     * @return set of indexes to be merged, null if no merge was requested.
      */
-    public boolean isMergeRequired() {
-        return mergeRequired;
+    public Set<Index> getMergeRequiredIndexes() {
+        return mergeRequiredIndexes;
     }
 
     /**
      * Indicate to the caller if a deferred merge operation is required. This function is used by the index maintainer.
-     * @param mergeRequired if true, indicate that an index merge if required
+     * @param mergeRequiredIndex an index that should be merged
      */
-    public void setMergeRequired(final boolean mergeRequired) {
-        this.mergeRequired = mergeRequired;
+    public synchronized void setMergeRequiredIndexes(final Index mergeRequiredIndex) {
+        if (mergeRequiredIndexes == null) {
+            this.mergeRequiredIndexes = new HashSet<>();
+        }
+        this.mergeRequiredIndexes.add(mergeRequiredIndex);
     }
 
     /**
-     * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
+     * If thrue, indicates to the index maintenance to automatically merge indexes during commit.
      * @return true if should merge
      */
     public boolean shouldAutoMergeDuringCommit() {
@@ -56,7 +64,7 @@ public class IndexDeferredMaintenancePolicy {
     /**
      * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
      * If the user sets it to false, they are responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
-     * function if {@link #isMergeRequired()} returns true after the requested operation.
+     * function with the set of indexes returned by {@link #getMergeRequiredIndexes()} as target indexes.
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {

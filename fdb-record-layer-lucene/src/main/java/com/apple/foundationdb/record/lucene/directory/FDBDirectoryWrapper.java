@@ -116,8 +116,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
                 if (!indexDeferredMaintenancePolicy.shouldAutoMergeDuringCommit()) {
                     // If this store is being closed, it is too late to use it as a messenger. This flag should also be set
                     // when the requirements for a "real" merge are met.
-                    indexDeferredMaintenancePolicy.setMergeRequired(true);
-                    skipMerge(mergeSource, trigger, "user request");
+                    indexDeferredMaintenancePolicy.setMergeRequiredIndexes(state.index);
+                    skipMerge(mergeSource, trigger, "deferred merge policy");
                     return;
                 }
             }
@@ -179,7 +179,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     writer = new IndexWriter(directory, indexWriterConfig);
                     writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
                     // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-                    state.store.getIndexDeferredMaintenancePolicy().setMergeRequired(true);
+                    state.store.getIndexDeferredMaintenancePolicy().setMergeRequiredIndexes(state.index);
                 }
             }
         }
