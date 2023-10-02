@@ -213,9 +213,4 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
             return v;
         });
     }
-
-    @Override
-    public CompletableFuture<Void> mergeIndex() {
-        return AsyncUtil.DONE;
-    }
 }

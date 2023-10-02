@@ -606,9 +606,4 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             });
         }
     }
-
-    @Override
-    public CompletableFuture<Void> mergeIndex() {
-        return AsyncUtil.DONE;
-    }
 }

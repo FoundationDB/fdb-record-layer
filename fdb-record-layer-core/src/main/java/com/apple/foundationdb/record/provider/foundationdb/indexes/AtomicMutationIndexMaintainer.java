@@ -236,8 +236,8 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         return !IndexTypes.COUNT_UPDATES.equals(state.index.getType());
     }
 
-    @Override
-    public CompletableFuture<Void> mergeIndex() {
-        return AsyncUtil.DONE;
-    }
+
+    // NOTE: It is possible to convert _LONG entries to _TUPLE using something like
+    // maintainer1.scan(...).forEach(maintainer2::saveIndexEntryAsKeyValue).
+    // This might require multiple scans in transactions if there are too many groups.
 }

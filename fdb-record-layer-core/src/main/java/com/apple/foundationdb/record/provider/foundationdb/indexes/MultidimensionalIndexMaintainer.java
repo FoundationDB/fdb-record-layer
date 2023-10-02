@@ -311,11 +311,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return super.deleteWhere(tr, prefix);
     }
 
-    @Override
-    public CompletableFuture<Void> mergeIndex() {
-        return AsyncUtil.DONE;
-    }
-
     static class OnRead implements RTree.OnReadListener {
         @Nonnull
         private final CursorLimitManager cursorLimitManager;

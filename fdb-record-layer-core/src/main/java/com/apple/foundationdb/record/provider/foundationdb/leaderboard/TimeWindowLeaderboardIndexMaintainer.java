@@ -870,11 +870,6 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         });
     }
 
-    @Override
-    public CompletableFuture<Void> mergeIndex() {
-        return AsyncUtil.DONE;
-    }
-
     /**
      * A (potential) index key for a score.
      * Orders by best score first, then earliest timestamp, then other tiebreakers.
