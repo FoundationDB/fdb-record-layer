@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -92,7 +91,7 @@ public class RecordMetadataDeserializer {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
         final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), true, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
-        // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actualy field types so we can take decisions
+        // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
         // on higher level based on these types (wave3).
         if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
             ImmutableList.Builder<Type.Record.Field> newFields = ImmutableList.builder();
@@ -100,7 +99,8 @@ public class RecordMetadataDeserializer {
                 final var protoField = recordType.getDescriptor().getFields().get(i);
                 final var field = recordLayerType.getField(i);
                 if (field.getFieldType().isRecord()) {
-                    newFields.add(Type.Record.Field.of(generateTypeBuilder(protoField.getMessageType()).build().getType(), field.getFieldNameOptional(), field.getFieldIndexOptional()));
+                    Type.Record r = Type.Record.fromFieldsWithName(protoField.getMessageType().getName(), field.getFieldType().isNullable(), ((Type.Record) field.getFieldType()).getFields());
+                    newFields.add(Type.Record.Field.of(r, field.getFieldNameOptional(), field.getFieldIndexOptional()));
                 } else {
                     newFields.add(field);
                 }
@@ -114,13 +114,5 @@ public class RecordMetadataDeserializer {
                 .from(recordLayerType)
                 .setPrimaryKey(recordType.getPrimaryKey())
                 .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
-    }
-
-    @Nonnull
-    private RecordLayerTable.Builder generateTypeBuilder(@Nonnull final Descriptors.Descriptor recordType) {
-        // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
-        //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), true, Type.Record.fromDescriptor(recordType).getFields());
-        return RecordLayerTable.Builder.from(recordLayerType);
     }
 }
