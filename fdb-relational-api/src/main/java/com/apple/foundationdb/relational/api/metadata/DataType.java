@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.api.metadata;
 
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -34,6 +32,8 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class represents a Relational data type. A data type has the following characterstics:
@@ -160,7 +160,7 @@ public abstract class DataType {
 
     public static final class BooleanType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private BooleanType(boolean isNullable) {
             super(isNullable, true, Code.BOOLEAN);
@@ -208,11 +208,16 @@ public abstract class DataType {
             final var otherBooleanType = (BooleanType) other;
             return this.isNullable() == otherBooleanType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "boolean" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class IntegerType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private IntegerType(boolean isNullable) {
             super(isNullable, true, Code.INTEGER);
@@ -260,11 +265,16 @@ public abstract class DataType {
             final var otherIntegerType = (IntegerType) other;
             return this.isNullable() == otherIntegerType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "int" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class LongType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private LongType(boolean isNullable) {
             super(isNullable, true, Code.LONG);
@@ -312,11 +322,16 @@ public abstract class DataType {
             final var otherLongType = (LongType) other;
             return this.isNullable() == otherLongType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "long" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class FloatType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private FloatType(boolean isNullable) {
             super(isNullable, true, Code.FLOAT);
@@ -364,11 +379,16 @@ public abstract class DataType {
             final var otherFloatType = (FloatType) other;
             return this.isNullable() == otherFloatType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "float" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class DoubleType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private DoubleType(boolean isNullable) {
             super(isNullable, true, Code.DOUBLE);
@@ -416,11 +436,16 @@ public abstract class DataType {
             final var otherDoubleType = (DoubleType) other;
             return this.isNullable() == otherDoubleType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "double" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class StringType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private StringType(boolean isNullable) {
             super(isNullable, true, Code.STRING);
@@ -468,11 +493,16 @@ public abstract class DataType {
             final var otherStringType = (StringType) other;
             return this.isNullable() == otherStringType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "string" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class BytesType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private BytesType(boolean isNullable) {
             super(isNullable, true, Code.BYTES);
@@ -520,11 +550,16 @@ public abstract class DataType {
             final var otherBytesType = (BytesType) other;
             return this.isNullable() == otherBytesType.isNullable();
         }
+
+        @Override
+        public String toString() {
+            return "bytes" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class EnumType extends DataType implements Named {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final String name;
@@ -556,6 +591,16 @@ public abstract class DataType {
             public int getNumber() {
                 return number;
             }
+
+            @Override
+            public String toString() {
+                return name;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return String.format("enum(%s){%s}", name, values.stream().map(EnumValue::toString).collect(Collectors.joining(",")));
         }
 
         private EnumType(@Nonnull String name, @Nonnull final List<EnumValue> values, boolean isNullable) {
@@ -629,7 +674,7 @@ public abstract class DataType {
 
     public static final class ArrayType extends DataType {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final DataType elementType;
@@ -700,11 +745,16 @@ public abstract class DataType {
             return this.isNullable() == otherArrayType.isNullable() &&
                     elementType.equals(otherArrayType.elementType);
         }
+
+        @Override
+        public String toString() {
+            return "[" + elementType + "]" + (isNullable() ? " ∪ ∅" : "");
+        }
     }
 
     public static final class StructType extends DataType implements Named {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final List<Field> fields;
@@ -734,7 +784,7 @@ public abstract class DataType {
 
         public static class Field {
             @Nonnull
-            private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+            private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
             @Nonnull
             private final String name;
@@ -742,9 +792,10 @@ public abstract class DataType {
             @Nonnull
             private final DataType type;
 
-            private int index;
+            private final int index;
 
             private Field(@Nonnull final String name, @Nonnull final DataType type, int index) {
+                Assert.thatUnchecked(index >= 0);
                 this.name = name;
                 this.type = type;
                 this.index = index;
@@ -755,10 +806,12 @@ public abstract class DataType {
                 return new Field(name, type, index);
             }
 
+            @Nonnull
             public String getName() {
                 return name;
             }
 
+            @Nonnull
             public DataType getType() {
                 return type;
             }
@@ -789,6 +842,11 @@ public abstract class DataType {
                 return name.equals(otherField.name) &&
                         index == otherField.index &&
                         type.equals(otherField.type);
+            }
+
+            @Override
+            public String toString() {
+                return name;
             }
         }
 
@@ -857,6 +915,11 @@ public abstract class DataType {
                     name.equals(otherStructType.name) &&
                     fields.equals(otherStructType.fields);
         }
+
+        @Override
+        public String toString() {
+            return name + " { " + fields.stream().map(field -> field.getName() + ":" + field.getType()).collect(Collectors.joining(",")) + " } ";
+        }
     }
 
     /**
@@ -869,7 +932,7 @@ public abstract class DataType {
      */
     public static final class UnknownType extends DataType implements Named {
         @Nonnull
-        private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final String name;
@@ -932,6 +995,11 @@ public abstract class DataType {
             final var otherUnknownType = (UnknownType) other;
             return this.isNullable() == otherUnknownType.isNullable() &&
                     name.equals(otherUnknownType.name);
+        }
+
+        @Override
+        public String toString() {
+            return "???";
         }
     }
 
