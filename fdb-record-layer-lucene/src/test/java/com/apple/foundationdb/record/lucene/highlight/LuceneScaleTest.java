@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -124,6 +125,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
          */
         static final boolean USE_PRIMARY_KEY_SERIALIZATION = false;
         /**
+         * If {@code true}, configure index to use {@link LuceneIndexOptions#PRIMARY_KEY_SEGMENT_INDEX_ENABLED}.
+         */
+        static final boolean USE_PRIMARY_KEY_SEGMENT_INDEX = true;
+        /**
          * If {@code true}, configure test to clear the path before running the test, otherwise continue with the records
          * that already existed, and the csvs that were already created.
          */
@@ -161,14 +166,24 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             "lucene_write_file_reference_size_count", "lucene_write_size_count", "mutations_count",
             "open_context_count", "range_deletes_count", "range_fetches_count", "range_keyvalues_fetched_count",
             "range_query_direct_buffer_miss_count", "range_reads_count", "reads_count", "save_record_count",
-            "writes_count");
+            "writes_count", "lucene_delete_document_by_query_count", "lucene_delete_document_by_primary_key_count");
 
     private static final String INDEX_NAME = "text_and_number_idx";
     private static final Index INDEX = new Index(
             INDEX_NAME,
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
-            LuceneIndexTypes.LUCENE,
-            Config.USE_PRIMARY_KEY_SERIALIZATION ? Map.of() : Map.of(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]"));
+            LuceneIndexTypes.LUCENE, configIndexOptions());
+
+    private static Map<String, String> configIndexOptions() {
+        final ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
+        if (Config.USE_PRIMARY_KEY_SERIALIZATION) {
+            map.put(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT, "[INT64, INT64]");
+        }
+        if (Config.USE_PRIMARY_KEY_SEGMENT_INDEX) {
+            map.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
+        }
+        return map.build();
+    }
 
     public LuceneScaleTest() {
         super(TestKeySpace.getKeyspacePath("record-test", "performance", "luceneScaleTest")

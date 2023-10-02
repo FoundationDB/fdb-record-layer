@@ -70,6 +70,11 @@ public class LuceneIndexOptions {
      */
     public static final String TEXT_SYNONYM_SET_NAME_OPTION = "textSynonymSetName";
     public static final String PRIMARY_KEY_SERIALIZATION_FORMAT = "primaryKeySerializationFormat";
+    /**
+     * Whether a separate B-tree index gives a direct mapping of live documents to segment by record primary key.
+     * Boolean string ({@code true} or {@code false}).
+     */
+    public static final String PRIMARY_KEY_SEGMENT_INDEX_ENABLED = "primaryKeySegmentIndexEnabled";
 
     private LuceneIndexOptions() {
     }
