@@ -230,8 +230,8 @@ public class LucenePrimaryKeySegmentIndex {
                                 addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true);
                             }
                         }
-                        // TODO: Is doing this right away safe enough? Does transaction isolation protect against all cases where
-                        //  the source segment is used after a merge?
+                        // Deleting the index entry at worst triggers a fallback to search.
+                        // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
                         addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false);
                         visitor.reset();
                     }

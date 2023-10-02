@@ -1207,6 +1207,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
         } else {
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
         }
@@ -1277,6 +1278,38 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 2));
             assertIndexEntryPrimaryKeys(Set.of(1623L, 1624L, 1547L),
                     recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
+        }
+    }
+
+    @Test
+    void fullDeleteSegmentIndex() {
+        final Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
+                .build();
+        for (int i = 0; i < 10; i++) {
+            try (FDBRecordContext context = openContext()) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
+                recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2));
+                context.commit();
+            }
+        }
+        for (int i = 0; i < 4; i++) {
+            try (FDBRecordContext context = openContext()) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                for (int j = 0; j < 5; j++) {
+                    recordStore.deleteRecord(Tuple.from(1000 + i * 5 + j));
+                }
+                context.commit();
+            }
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = ((LuceneIndexMaintainer)recordStore.getIndexMaintainer(index))
+                    .getDirectory(Tuple.from())
+                    .getPrimaryKeySegmentIndex();
+            assertEquals(List.of(), primaryKeySegmentIndex.readAllEntries());
         }
     }
 
@@ -2583,13 +2616,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void manySegmentsParallelOpen() {
+    @ParameterizedTest
+    @BooleanSource
+    void manySegmentsParallelOpen(boolean primaryKeySegmentIndexEnabled) {
+        final Index index = primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX : SIMPLE_TEXT_SUFFIXES;
         for (int i = 0; i < 20; i++) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                     .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, 0.001); // Don't merge
             try (FDBRecordContext context = openContext(insertProps)) {
-                rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
                 context.commit();
             }
@@ -2597,10 +2632,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage.Builder scanProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM, 2); // Decrease parallelism when opening segments
         try (FDBRecordContext context = openContext(scanProps)) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
             assertEquals(20,
-                    recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
-            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, true)) {
+                    recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, primaryKeySegmentIndexEnabled)) {
                 assertEquals(21, directory.listAll().length);
             }
         }

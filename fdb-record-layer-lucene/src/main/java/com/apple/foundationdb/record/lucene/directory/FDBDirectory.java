@@ -624,6 +624,7 @@ public class FDBDirectory extends Directory  {
             return false;
         }
         context.ensureActive().clear(metaSubspace.pack(name));
+        // Nothing stored here currently.
         context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
         return true;
     }
