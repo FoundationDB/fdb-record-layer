@@ -120,7 +120,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -755,7 +754,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         if (p == null) {
             p = matchToPlan(candidateScan, matchCandidateScan(candidateScan, indexExpr, filter, sort));
-            p = optimizeCandidateScanForMultidimensionalIndex(planContext, p, index);
         }
         if (p == null) {
             // we can't match the filter, but maybe the sort
@@ -951,36 +949,28 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan optimizeCandidateScanForMultidimensionalIndex(@Nonnull PlanContext planContext,
-                                                                     @Nullable ScoredPlan p,
-                                                                     @Nullable final Index index) {
-        if (p == null) {
+    private ScoredPlan matchToPlan(@Nonnull final CandidateScan candidateScan,
+                                   @Nullable final ScoredMatch scoredMatch) {
+        if (scoredMatch == null) {
             return null;
         }
+        final Index index = candidateScan.getIndex();
         if (index == null || !index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
-            return p;
+            return scoredMatch.asScoredPlan(valueScan(candidateScan, scoredMatch.getInfo().toScanComparisons(),
+                    scoredMatch.isStrictlySorted));
         }
 
-        // From now on, we may only discard the plan or make a better one
-
-        final RecordQueryIndexPlan oldIndexPlan = Objects.requireNonNull((RecordQueryIndexPlan)p.plan);
-        if (oldIndexPlan.isReverse()) {
-            return null;
-        }
-
-        final ComparisonRanges planComparisonRanges = getPlanComparisonRanges(p);
-        if (planComparisonRanges == null) {
-            return null;
-        }
+        final ComparisonRanges comparisonRanges = scoredMatch.getInfo();
 
         final DimensionsKeyExpression dimensionsKeyExpression =
                 MultidimensionalIndexMaintainer.getDimensionsKeyExpression(index.getRootExpression());
-        final KeyExpression indexKeyExpression = indexKeyExpressionForPlan(planContext.commonPrimaryKey, index);
-        Verify.verify(planComparisonRanges.size() == indexKeyExpression.getColumnSize());
+        final KeyExpression commonPrimaryKey = candidateScan.getPlanContext().commonPrimaryKey;
+        final KeyExpression indexKeyExpression = indexKeyExpressionForPlan(commonPrimaryKey, index);
+        Verify.verify(comparisonRanges.size() == indexKeyExpression.getColumnSize());
 
         final int prefixCount = dimensionsKeyExpression.getPrefixSize();
         final int dimensionsCount = dimensionsKeyExpression.getDimensionsSize();
-        final ComparisonRanges prefixComparisonRanges = new ComparisonRanges(planComparisonRanges.subRanges(0, prefixCount));
+        final ComparisonRanges prefixComparisonRanges = new ComparisonRanges(comparisonRanges.subRanges(0, prefixCount));
         if (!prefixComparisonRanges.getRanges()
                 .stream()
                 .allMatch(ComparisonRange::isEquality)) {
@@ -988,21 +978,21 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         final List<ScanComparisons> dimensionsScanComparisons =
-                planComparisonRanges.subRanges(prefixCount, prefixCount + dimensionsCount)
+                comparisonRanges.subRanges(prefixCount, prefixCount + dimensionsCount)
                         .stream()
                         .map(ComparisonRange::toScanComparisons)
                         .collect(ImmutableList.toImmutableList());
 
-        final int suffixCount = planComparisonRanges.size() - prefixCount - dimensionsCount;
+        final int suffixCount = comparisonRanges.size() - prefixCount - dimensionsCount;
         final ComparisonRanges suffixComparisonRanges =
-                new ComparisonRanges(planComparisonRanges.subRanges(prefixCount + dimensionsCount,
-                        planComparisonRanges.size()));
+                new ComparisonRanges(comparisonRanges.subRanges(prefixCount + dimensionsCount,
+                        comparisonRanges.size()));
         final ScanComparisons suffixScanComparisons = suffixComparisonRanges.toScanComparisons();
         final List<QueryComponent> compensationComponentsForSuffix;
         if (suffixScanComparisons.size() < suffixCount) {
             // we need to compensate
             final List<KeyExpression> suffixKeyExpressions =
-                    indexKeyExpression.normalizeKeyForPositions().subList(prefixCount + dimensionsCount, planComparisonRanges.size());
+                    indexKeyExpression.normalizeKeyForPositions().subList(prefixCount + dimensionsCount, comparisonRanges.size());
             compensationComponentsForSuffix =
                     suffixComparisonRanges.compensateForScanComparisons(suffixKeyExpressions);
             if (compensationComponentsForSuffix == null) {
@@ -1015,23 +1005,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         final IndexScanParameters indexScanParameters =
                 MultidimensionalIndexScanComparisons.byValue(prefixComparisonRanges.toScanComparisons(),
                         dimensionsScanComparisons, suffixComparisonRanges.toScanComparisons());
-        final RecordQueryPlan plan =
-                new RecordQueryIndexPlan(oldIndexPlan.getIndexName(),
-                        oldIndexPlan.getCommonPrimaryKey(),
-                        indexScanParameters,
-                        oldIndexPlan.getIndexFetchMethod(),
-                        oldIndexPlan.getFetchIndexRecords(),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Type.any(),
-                        QueryPlanConstraint.tautology());
-
-        p = p.withPlan(plan);
+        final RecordQueryPlan plan = planScan(candidateScan, indexScanParameters, scoredMatch.isStrictlySorted);
+        final ScoredPlan scoredPlan = scoredMatch.asScoredPlan(plan);
         if (!compensationComponentsForSuffix.isEmpty()) {
-            p = p.withAdditionalIndexFilters(compensationComponentsForSuffix);
+            return scoredPlan.withAdditionalIndexFilters(compensationComponentsForSuffix);
         }
-        return p;
+        return scoredPlan;
     }
 
     @Nonnull
@@ -1121,10 +1100,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             final RecordQueryPlan filtered = new RecordQueryFilterPlan(bestPlan.getPlan(),
                     planContext.rankComparisons.planComparisonSubstitutes(bestPlan.combineNonSargables()));
             // TODO: further optimization requires knowing which filters are satisfied
-            return new ScoredPlan(filtered, bestPlan.comparisonRanges, Collections.emptyList(), Collections.emptyList(),
+            return new ScoredPlan(filtered, Collections.emptyList(), Collections.emptyList(),
                     bestPlan.sargedComparisons, bestPlan.score, bestPlan.createsDuplicates, bestPlan.isStrictlySorted,
-                    bestPlan.flowsAllRequiredFields,
-                    bestPlan.includedRankComparisons);
+                    bestPlan.isStrictlySorted,
+                    bestPlan.flowsAllRequiredFields, bestPlan.includedRankComparisons);
         } else {
             return bestPlan;
         }
@@ -1168,7 +1147,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (intersectionPlan.getComplexity() > configuration.getComplexityThreshold()) {
                 throw new RecordQueryPlanComplexityException(intersectionPlan);
             }
-            return new ScoredPlan(intersectionPlan, null, nonSargables, Collections.emptyList(),
+            return new ScoredPlan(intersectionPlan, nonSargables, Collections.emptyList(),
                     computeSargedComparisons(intersectionPlan), plan1.score, plan1.createsDuplicates,
                     plan1.isStrictlySorted, false, includedRankComparisons);
         } else {
@@ -1335,12 +1314,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                         FieldKeyExpression sortField = (FieldKeyExpression) sort;
                         if (Objects.equals(sortField.getFieldName(), field.getFieldName())) {
                             // everything matches, yay!! Hopefully that comparison can be for tuples
-                            return new ScoredMatch(1, comparisonRanges, null,
+                            return new ScoredMatch(1, comparisonRanges,
                                     Collections.emptyList(), true, true);
                         }
                     }
                 } else {
-                    return new ScoredMatch(1, comparisonRanges, null,
+                    return new ScoredMatch(1, comparisonRanges,
                             Collections.<QueryComponent>emptyList(), true, false);
                 }
             }
@@ -1391,7 +1370,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             andWithThenPlanner = new AndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
         }
 
-        return andWithThenPlanner.plan();
+        final ScoredMatch scoredMatch = andWithThenPlanner.plan();
+        return matchToPlan(candidateScan, scoredMatch);
     }
 
     @Nullable
@@ -1552,7 +1532,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     sort.equals(indexExpr) ||
                     (candidateScan.index != null && candidateScan.index.isUnique() && sort.getColumnSize() >= candidateScan.index.getColumnSize());
             return new ScoredPlan(0,
-                    valueScan(candidateScan, null, strictlySorted), null, Collections.emptyList(), indexExpr.createsDuplicates(),
+                    valueScan(candidateScan, null, strictlySorted), Collections.emptyList(), indexExpr.createsDuplicates(),
                     strictlySorted);
         } else {
             return null;
@@ -1665,7 +1645,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     }
                     final RecordQueryPlan scan = rankScan(candidateScan, filterComparison, scanComparisons);
                     final boolean createsDuplicates = RankComparisons.createsDuplicates(index, indexExpr);
-                    return new ScoredPlan(scan, null, unsatisfiedFilters, Collections.emptyList(), computeSargedComparisons(scan),
+                    return new ScoredPlan(scan, unsatisfiedFilters, Collections.emptyList(), computeSargedComparisons(scan),
                             indexExpr.getColumnSize(), createsDuplicates, scan.isStrictlySorted(), false, includedRankComparisons);
                 }
             }
@@ -1716,7 +1696,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         // This weight is fairly arbitrary, but it is supposed to be higher than for most indexes because
         // most of the time, the full text scan is believed to be more selective (and expensive to run as a post-filter)
         // than other indexes.
-        return new ScoredPlan(plan, null, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), computeSargedComparisons(plan),
+        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), computeSargedComparisons(plan),
                 10, scan.createsDuplicates(), plan.isStrictlySorted(), false, null);
     }
 
@@ -1864,7 +1844,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                             .map(subplan -> ((RecordQueryFilterPlan)subplan.getPlan()).getConjunctedFilter())
                             .collect(Collectors.toList())));
             ScoredPlan firstSubPlan = subplans.get(0);
-            return new ScoredPlan(combinedOrFilter, null, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
+            return new ScoredPlan(combinedOrFilter, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
                     firstSubPlan.score, firstSubPlan.createsDuplicates, firstSubPlan.isStrictlySorted,
                     false, firstSubPlan.includedRankComparisons);
         }
@@ -1920,8 +1900,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         // rather than the in join plan.
         int score = getConfiguration().shouldAttemptFailedInJoinAsOr() ? 0 : 1;
 
-        return new ScoredPlan(unionPlan, null, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
-                score, anyDuplicates, false, false, includedRankComparisons);
+        return new ScoredPlan(unionPlan, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
+                score, anyDuplicates, false, false, false, includedRankComparisons);
     }
 
     @Nullable
@@ -1940,8 +1920,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (unionPlan.getComplexity() > configuration.getComplexityThreshold()) {
             throw new RecordQueryPlanComplexityException(unionPlan);
         }
-        return new ScoredPlan(unionPlan, null, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
-                1, true, false, false, includedRankComparisons);
+        return new ScoredPlan(unionPlan, Collections.emptyList(), Collections.emptyList(), Collections.emptySet(),
+                1, true, false, false, false, includedRankComparisons);
     }
 
     @Nullable
@@ -2339,18 +2319,18 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        public ScoredPlan withIndexFilters(@Nonnull List<QueryComponent> newIndexFilters) {
-            return new ScoredPlan(plan, comparisonRanges, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
-                    createsDuplicates, flowsAllRequiredFields, includedRankComparisons);
+        public S withIndexFilters(@Nonnull List<QueryComponent> newIndexFilters) {
+            return with(info, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
+                    createsDuplicates, isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
         @Nonnull
-        public ScoredPlan withAdditionalIndexFilters(@Nonnull List<QueryComponent> additionalIndexFilters) {
+        public S withAdditionalIndexFilters(@Nonnull List<QueryComponent> additionalIndexFilters) {
             final List<QueryComponent> newIndexFilters = Lists.newArrayList();
             newIndexFilters.addAll(indexFilters);
             newIndexFilters.addAll(additionalIndexFilters);
-            return new ScoredPlan(plan, comparisonRanges, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
-                    createsDuplicates, flowsAllRequiredFields, includedRankComparisons);
+            return with(info, unsatisfiedFilters, newIndexFilters, sargedComparisons, score, createsDuplicates,
+                    isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
         @Nonnull
