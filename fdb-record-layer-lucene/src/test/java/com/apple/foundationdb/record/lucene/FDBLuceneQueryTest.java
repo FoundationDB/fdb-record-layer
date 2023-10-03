@@ -81,6 +81,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -801,6 +802,11 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
+        Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        // limit the FJP size to try and force the # segments to exceed the # threads
+        FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                null, false));
         CountingThreadFactory threadFactory = new CountingThreadFactory();
         executorService = Executors.newFixedThreadPool(value, threadFactory);
         initializeFlat();
@@ -834,6 +840,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
             }
         }
+        // Restore the old executor so as not to disrupt other tests
+        FDBDatabaseFactory.instance().setExecutor(oldExecutor);
     }
 
     static class CountingThreadFactory implements ThreadFactory {
@@ -1291,6 +1299,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
         // (random words) rather than using random English words from a canned text. With English text, Lucene compression
         // reduces the size of the segment such that we need many more records to create the required number of segments
+        Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        // limit the FJP size to try and force the # segments to exceed the # threads
         FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                 null, false));
@@ -1319,5 +1329,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             // Random words are up to 10 characters long, so this would never match
             assertPrimaryKeys("text:morningstart", false, Set.of());
         }
+        // Restore the old executor so as not to disrupt other tests
+        FDBDatabaseFactory.instance().setExecutor(oldExecutor);
     }
 }

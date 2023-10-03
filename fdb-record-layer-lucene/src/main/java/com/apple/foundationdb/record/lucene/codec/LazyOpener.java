@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Class to lazily "open" something that may throw an IOException when opening.
@@ -33,16 +36,10 @@ import java.io.UncheckedIOException;
  */
 public class LazyOpener<T> {
 
-    private final Supplier<T> opener;
+    private final CompletableFuture<T> openerFuture;
 
-    private LazyOpener(final Opener<T> opener) {
-        this.opener = Suppliers.memoize(() -> {
-            try {
-                return opener.open();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+    private LazyOpener(final CompletableFuture<T> openerFuture) {
+        this.openerFuture = openerFuture;
     }
 
     /**
@@ -55,7 +52,14 @@ public class LazyOpener<T> {
      * @return a new lazily opened object
      */
     public static <U> LazyOpener<U> supply(LazyOpener.Opener<U> opener) {
-        return new LazyOpener<U>(opener);
+        return new LazyOpener<>(CompletableFuture.supplyAsync(() -> {
+            // This would run asynchronously in a different thread
+            try {
+                return opener.open();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }));
     }
 
     /**
@@ -65,11 +69,13 @@ public class LazyOpener<T> {
      */
     public T get() throws IOException {
         try {
-            return opener.get();
+            return openerFuture.get();
         } catch (UncheckedIOException e) {
             final IOException cause = e.getCause();
             cause.addSuppressed(e);
             throw cause;
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RecordCoreException(e);
         }
     }
 
@@ -79,7 +85,11 @@ public class LazyOpener<T> {
      * @return the object returned by the {@code opener}
      */
     public T getUnchecked() {
-        return opener.get();
+        try {
+            return openerFuture.get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RecordCoreException(e);
+        }
     }
 
     /**
