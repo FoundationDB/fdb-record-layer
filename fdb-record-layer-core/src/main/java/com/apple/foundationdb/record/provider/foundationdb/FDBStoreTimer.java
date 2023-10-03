@@ -383,6 +383,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_STOP_ONLINE_INDEX_BUILD("wait for stopping ongoing online index builds"),
         /** Wait for {@link OnlineIndexer} to checking ongoing online index builds. */
         WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD("wait for checking ongoing online index builds"),
+        /** Wait for {@link OnlineIndexer} to complete ongoing online index merge(s). */
+        WAIT_ONLINE_MERGE_INDEX("wait for online merge index"),
         /** Wait for {@link OnlineIndexer} to build endpoints. */
         WAIT_BUILD_ENDPOINTS("wait for building endpoints"),
         /** Wait for a record scan without an index. */

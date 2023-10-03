@@ -177,7 +177,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
 
-    private static final Index COMPLEX_MULTIPLE_GROUPED = new Index("Complex$text_multiple_grouped",
+    protected static final Index COMPLEX_MULTIPLE_GROUPED = new Index("Complex$text_multiple_grouped",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))).groupBy(field("group")),
             LuceneIndexTypes.LUCENE);
 
@@ -217,12 +217,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")),
             function(LuceneFunctionNames.LUCENE_TEXT, field("third_value")));
 
-    private static final List<KeyExpression> MAP_ON_VALUE_INDEX_STORED_FIELDS =
+    protected static final List<KeyExpression> MAP_ON_VALUE_INDEX_STORED_FIELDS =
             lucene_keys.stream()
                     .map(key -> field("entry", KeyExpression.FanType.FanOut).nest(key))
                     .collect(ImmutableList.toImmutableList());
 
-    private static final List<KeyExpression> keys = ImmutableList.copyOf(Iterables.concat(List.of(field("key")), lucene_keys));
+    protected static final List<KeyExpression> keys = ImmutableList.copyOf(Iterables.concat(List.of(field("key")), lucene_keys));
 
     private static final Index TEXT_AND_NUMBER_INDEX = new Index(
             "text_and_number_idx",
@@ -307,12 +307,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
 
-    private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
-                                                "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
-                                                "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
-                                                "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
+    protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
+                                                  "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
+                                                  "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
+                                                  "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
 
-    private static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
+    protected static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
 
     private static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
         return new Index(
@@ -324,8 +324,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index MAP_ON_VALUE_INDEX = getMapOnValueIndexWithOption("Map$entry-value", ImmutableMap.of());
 
-    private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE =
+    protected static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE =
             getMapOnValueIndexWithOption("Map_with_auto_complete$entry-value", ImmutableMap.of());
+
+    protected static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_2 =
+            new Index(
+                    "Map_with_auto_complete$entry-value",
+                    new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 1),
+                    LuceneIndexTypes.LUCENE,
+                    ImmutableMap.of());
 
     private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS =
             getMapOnValueIndexWithOption("Map_with_auto_complete_excluded_fields$entry-value", ImmutableMap.of());
@@ -388,7 +395,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
-    private TestRecordsTextProto.MapDocument createMultiEntryMapDoc(long docId, String text, String text2, String text3,
+    protected static TestRecordsTextProto.MapDocument createMultiEntryMapDoc(long docId, String text, String text2, String text3,
                                                                     String text4, int group) {
         return TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(docId)
@@ -475,7 +482,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private LuceneScanParameters groupedAutoCompleteScanParams(@Nonnull final String search,
+    protected static LuceneScanParameters groupedAutoCompleteScanParams(@Nonnull final String search,
                                                                @Nonnull final Object group,
                                                                @Nonnull final Iterable<String> fields) {
         return new LuceneScanQueryParameters(
@@ -2659,7 +2666,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, false) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
-            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"));
+            Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"), "fileName=" + file);
             if (cleanFiles) {
                 try {
                     directory.deleteFile(file);

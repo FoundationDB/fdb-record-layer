@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -61,7 +61,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
     }
 
-    private void buildIndexAndCrashHalfway(int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.Builder builder) {
+    private void buildIndexAndCrashHalfway(int chunkSize, int count, FDBStoreTimer timer, @Nonnull OnlineIndexer.Builder builder) {
         final AtomicLong counter = new AtomicLong(0);
         try (OnlineIndexer indexBuilder = builder
                 .setLimit(chunkSize)

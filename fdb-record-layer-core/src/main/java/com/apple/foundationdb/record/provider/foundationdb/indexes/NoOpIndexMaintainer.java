@@ -153,4 +153,9 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
         return null;
     }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
 }

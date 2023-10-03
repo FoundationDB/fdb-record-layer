@@ -898,4 +898,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         result = result.add("{...}");
         return result;
     }
+
+    @Override
+    public CompletableFuture<Void> mergeIndex() {
+        return AsyncUtil.DONE;
+    }
 }
