@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -129,6 +130,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
          */
         static final boolean USE_PRIMARY_KEY_SEGMENT_INDEX = true;
         /**
+         * Whether to defer merges to outside the operations.
+         */
+        static final boolean AUTOMERGE_DURING_COMMIT = false;
+        /**
          * If {@code true}, configure test to clear the path before running the test, otherwise continue with the records
          * that already existed, and the csvs that were already created.
          */
@@ -166,7 +171,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             "lucene_write_file_reference_size_count", "lucene_write_size_count", "mutations_count",
             "open_context_count", "range_deletes_count", "range_fetches_count", "range_keyvalues_fetched_count",
             "range_query_direct_buffer_miss_count", "range_reads_count", "reads_count", "save_record_count",
-            "writes_count", "lucene_delete_document_by_query_count", "lucene_delete_document_by_primary_key_count");
+            "writes_count", "lucene_delete_document_by_query_count", "lucene_delete_document_by_primary_key_count",
+            "lucene_merge_count");
 
     private static final String INDEX_NAME = "text_and_number_idx";
     private static final Index INDEX = new Index(
@@ -251,32 +257,39 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         final long testStartMillis = System.currentTimeMillis();
 
-        try (var updatesCsv = createPrintStream(".out/LuceneScaleTest.updates.csv", dataModel.continuing);
-                var insertsCsv = createPrintStream(".out/LuceneScaleTest.inserts.csv", dataModel.continuing);
-                var searchesCsv = createPrintStream(".out/LuceneScaleTest.searches.csv", dataModel.continuing)) {
+        try (var updatesCsv = createPrintStream("updates", dataModel.continuing);
+                var insertsCsv = createPrintStream("inserts", dataModel.continuing);
+                var searchesCsv = createPrintStream("searches", dataModel.continuing);
+                var mergeCsv = createPrintStream("merges", dataModel.continuing)) {
 
             for (int i = 0; i < Config.LOOP_COUNT; i++) {
                 long startMillis;
                 if (Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
-                    dataModel.saveNewRecords(90);
+                    for (int i1 = 0; i1 < 90; i1++) {
+                        // TODO save more than one record per transaction
+                        final Set<Index> indexesRequireMerge = dataModel.saveNewRecord();
+                        mergeIndexes(indexesRequireMerge, null, testStartMillis, dataModel);
+                    }
                 }
                 if (Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
-                        dataModel.saveNewRecord();
+                        final Set<Index> indexesRequireMerge = dataModel.saveNewRecord();
+                        mergeIndexes(indexesRequireMerge, mergeCsv, testStartMillis, dataModel);
                     }
-                    updateCsv("Did insert", dataModel, insertsCsv, startMillis, testStartMillis, Map.of());
+                    updateCsv("Did insert", dataModel, insertsCsv, startMillis, testStartMillis, Map.of(), timer);
                 }
                 if (Config.COMMANDS_TO_RUN.contains(Command.Update)) {
                     timer.reset();
                     startMillis = System.currentTimeMillis();
                     for (int j = 0; j < operationCount; j++) {
-                        dataModel.updateRecords(updatesPerContext);
+                        final Set<Index> indexesRequireMerge = dataModel.updateRecords(updatesPerContext);
+                        mergeIndexes(indexesRequireMerge, mergeCsv, testStartMillis, dataModel);
                     }
                     updateCsv("Did updates", dataModel, updatesCsv, startMillis, testStartMillis,
                             Map.of("updatesPerContext", updatesPerContext,
-                                    "updateBatches", operationCount));
+                                    "updateBatches", operationCount), timer);
                 }
                 if (Config.COMMANDS_TO_RUN.contains(Command.Search)) {
                     timer.reset();
@@ -284,7 +297,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     for (int j = 0; j < operationCount; j++) {
                         dataModel.search();
                     }
-                    updateCsv("Did Search", dataModel, searchesCsv, startMillis, testStartMillis, Map.of());
+                    updateCsv("Did Search", dataModel, searchesCsv, startMillis, testStartMillis, Map.of(), timer);
                 }
                 dataModel.updateSearchWords();
 
@@ -292,9 +305,29 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void updateCsv(final String logTtl, final DataModel dataModel, final PrintStream csvPrintStream,
-                           final long startMillis, final long testStartMillis, final Map<?, ?> additionalKeysAndValues) {
-        final Map<String, Number> keysAndValues = timer.getKeysAndValues();
+    private void mergeIndexes(final Set<Index> indexesRequireMerge, @Nullable final PrintStream mergeCsv,
+                              final long testStartMillis, final DataModel dataModel) {
+        FDBStoreTimer mergeTimer = new FDBStoreTimer();
+        long startMillis = System.currentTimeMillis();
+        for (final Index index : indexesRequireMerge) {
+            final OnlineIndexer onlineIndexer = OnlineIndexer.newBuilder()
+                    .addTargetIndex(index)
+                    .setRecordStore(recordStore)
+                    .setTimer(mergeTimer)
+                    .build();
+            onlineIndexer.mergeIndex();
+        }
+
+        if (mergeCsv != null) {
+            updateCsv("Did merge", dataModel, mergeCsv, startMillis, testStartMillis, Map.of(
+                    "indexCount", indexesRequireMerge), mergeTimer);
+        }
+    }
+
+    private static void updateCsv(final String logTtl, final DataModel dataModel, final PrintStream csvPrintStream,
+                                  final long startMillis, final long testStartMillis, final Map<?, ?> additionalKeysAndValues,
+                                  final FDBStoreTimer timer1) {
+        final Map<String, Number> keysAndValues = timer1.getKeysAndValues();
         logger.info(KeyValueLogMessage.build(logTtl)
                 .addKeysAndValues(keysAndValues)
                 .addKeysAndValues(additionalKeysAndValues)
@@ -318,7 +351,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private static PrintStream createPrintStream(final String name, final boolean append) throws FileNotFoundException {
-        final PrintStream printStream = new PrintStream(new FileOutputStream(name, append), true);
+        final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".csv";
+        final PrintStream printStream = new PrintStream(new FileOutputStream(filename, append), true);
 
         boolean success = false;
         try {
@@ -394,9 +428,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             return recordStore;
         }
 
-        void saveNewRecord() {
+        Set<Index> saveNewRecord() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
+                store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
                 final String text = LuceneIndexTestUtils.generateRandomWords(500)[1];
                 store.saveRecord(
                         TestRecordsTextProto.ComplexDocument.newBuilder()
@@ -416,12 +451,14 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     }
                 }
                 context.commit();
+                return store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
             }
         }
 
-        public void updateRecords(final int count) {
+        public Set<Index> updateRecords(final int count) {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
+                store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
                 for (int i = 0; i < count; i++) {
                     final TestRecordsTextProto.ComplexDocument.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder()
                             .mergeFrom(getRandomRecord(store));
@@ -429,6 +466,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     store.saveRecord(builder.build());
                 }
                 context.commit();
+                return store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
             }
         }
 
