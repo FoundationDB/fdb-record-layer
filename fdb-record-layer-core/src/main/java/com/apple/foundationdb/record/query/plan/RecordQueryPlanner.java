@@ -955,12 +955,18 @@ public class RecordQueryPlanner implements QueryPlanner {
             return null;
         }
         final Index index = candidateScan.getIndex();
-        if (index == null || !index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
-            return scoredMatch.asScoredPlan(valueScan(candidateScan, scoredMatch.getInfo().toScanComparisons(),
-                    scoredMatch.isStrictlySorted));
+        if (index != null && index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
+            return matchToMultidimensionalIndexScan(candidateScan, scoredMatch, index);
         }
 
-        final ComparisonRanges comparisonRanges = scoredMatch.getInfo();
+        return scoredMatch.asScoredPlan(valueScan(candidateScan, scoredMatch.getComparisonRanges().toScanComparisons(),
+                scoredMatch.isStrictlySorted));
+    }
+
+    @Nullable
+    private ScoredPlan matchToMultidimensionalIndexScan(final @Nonnull CandidateScan candidateScan,
+                                                        final @Nonnull ScoredMatch scoredMatch, final Index index) {
+        final ComparisonRanges comparisonRanges = scoredMatch.getComparisonRanges();
 
         final DimensionsKeyExpression dimensionsKeyExpression =
                 MultidimensionalIndexMaintainer.getDimensionsKeyExpression(index.getRootExpression());
@@ -982,6 +988,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                         .stream()
                         .map(ComparisonRange::toScanComparisons)
                         .collect(ImmutableList.toImmutableList());
+
+        // TODO For now we will not plan a multidimensional index scan if one or more of the dimensions is not at least
+        //      matched by an inequality.
+        if (dimensionsScanComparisons.stream().anyMatch(ScanComparisons::isEmpty)) {
+            return null;
+        }
 
         final int suffixCount = comparisonRanges.size() - prefixCount - dimensionsCount;
         final ComparisonRanges suffixComparisonRanges =
@@ -1370,8 +1382,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             andWithThenPlanner = new AndWithThenPlanner(candidateScan, indexExpr, indexChildren, filters, sort);
         }
 
-        final ScoredMatch scoredMatch = andWithThenPlanner.plan();
-        return matchToPlan(candidateScan, scoredMatch);
+        return andWithThenPlanner.plan();
     }
 
     @Nullable
