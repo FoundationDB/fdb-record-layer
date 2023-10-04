@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 
 /**
  * Class to lazily "open" something that may throw an IOException when opening.
@@ -36,10 +37,23 @@ import java.util.concurrent.ExecutionException;
  */
 public class LazyOpener<T> {
 
-    private final CompletableFuture<T> openerFuture;
+    private final CompletableFuture<Void> starter;
+    private final CompletableFuture<T> future;
 
-    private LazyOpener(final CompletableFuture<T> openerFuture) {
-        this.openerFuture = openerFuture;
+    /**
+     * Executor that runs whatever it is given in the current thread.
+     */
+    private static final Executor executor = Runnable::run;
+
+    private LazyOpener(final Opener<T> opener) {
+        starter = new CompletableFuture<>();
+        future = starter.thenApplyAsync(ignored -> {
+            try {
+                return opener.open();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }, executor);
     }
 
     /**
@@ -52,14 +66,7 @@ public class LazyOpener<T> {
      * @return a new lazily opened object
      */
     public static <U> LazyOpener<U> supply(LazyOpener.Opener<U> opener) {
-        return new LazyOpener<>(CompletableFuture.supplyAsync(() -> {
-            // This would run asynchronously in a different thread
-            try {
-                return opener.open();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }));
+        return new LazyOpener<U>(opener);
     }
 
     /**
@@ -69,12 +76,13 @@ public class LazyOpener<T> {
      */
     public T get() throws IOException {
         try {
-            return openerFuture.get();
-        } catch (UncheckedIOException e) {
-            final IOException cause = e.getCause();
-            cause.addSuppressed(e);
-            throw cause;
-        } catch (ExecutionException | InterruptedException e) {
+            return getInternal();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof UncheckedIOException) {
+                final IOException cause = ((UncheckedIOException)e.getCause()).getCause();
+                cause.addSuppressed(e);
+                throw cause;
+            }
             throw new RecordCoreException(e);
         }
     }
@@ -86,8 +94,23 @@ public class LazyOpener<T> {
      */
     public T getUnchecked() {
         try {
-            return openerFuture.get();
-        } catch (ExecutionException | InterruptedException e) {
+            return getInternal();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof UncheckedIOException) {
+                final UncheckedIOException cause = ((UncheckedIOException)e.getCause());
+                cause.addSuppressed(e);
+                throw cause;
+            }
+            throw new RecordCoreException(e);
+        }
+    }
+
+    private T getInternal() throws ExecutionException {
+        starter.complete(null);
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RecordCoreException(e);
         }
     }
