@@ -82,7 +82,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     public static final ComparisonRange EMPTY = new ComparisonRange();
 
     /**
-     * Comparison ranges can be divided into three types. These types represent distinct planning behaviour when
+     * Comparison ranges can be divided into three types. These types represent distinct planning behavior when
      * matching query predicates or filters to index expressions:
      * <ul>
      *     <li>Empty ranges, to which any comparison can be added.</li>
@@ -318,16 +318,11 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return ScanComparisons.EMPTY;
         }
 
-        final List<Comparisons.Comparison> equalityComparisons = Lists.newArrayList();
-        final Set<Comparisons.Comparison> inequalityComparisons = Sets.newHashSet();
-
         if (isEquality()) {
-            equalityComparisons.add(getEqualityComparison());
-        } else {
-            inequalityComparisons.addAll(getInequalityComparisons());
+            return new ScanComparisons(Lists.newArrayList(getEqualityComparison()), Collections.emptySet());
         }
 
-        return new ScanComparisons(equalityComparisons, inequalityComparisons);
+        return new ScanComparisons(Collections.emptyList(), Sets.newHashSet(getInequalityComparisons()));
     }
 
     /**
@@ -437,7 +432,16 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Nonnull
-    public static ComparisonRange from(@Nonnull Comparisons.Comparison comparison) {
+    public static ComparisonRange from(@Nonnull final Comparisons.Comparison comparison) {
+        final var result = tryFrom(comparison);
+        if (result == null) {
+            throw new RecordCoreException("unexpected comparison type");
+        }
+        return result;
+    }
+
+    @Nullable
+    public static ComparisonRange tryFrom(@Nonnull final Comparisons.Comparison comparison) {
         switch (ScanComparisons.getComparisonType(comparison)) {
             case EQUALITY:
                 return new ComparisonRange(comparison);
@@ -445,7 +449,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
                 return ComparisonRange.fromInequalities(Collections.singletonList(comparison));
             case NONE:
             default:
-                throw new RecordCoreException("unexpected comparison type");
+                return null;
         }
     }
 

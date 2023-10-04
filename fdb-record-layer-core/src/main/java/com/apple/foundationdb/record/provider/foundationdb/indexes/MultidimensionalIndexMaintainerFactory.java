@@ -29,6 +29,10 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -62,6 +66,72 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                 super.validate(metaDataValidator);
                 validateNotGrouping();
                 validateNotVersion();
+                validateStructure();
+            }
+
+            /**
+             * Validate the structure of the {@link KeyExpression} associated with a multidimensional index.
+             * A multidimensional index consists of prefix, dimensions, and suffix key parts which are declared
+             * by a {@link DimensionsKeyExpression}. A {@link DimensionsKeyExpression} in turn holds a prefix size and
+             * a dimensions size integer which function as split points of its one child key expression (much like
+             * the split point in {@link KeyWithValueExpression}).
+             * Neither prefix, dimensions, nor suffix can contain any value parts. Thus, if covering value-only parts
+             * are needed, they can be added outside the {@link DimensionsKeyExpression} using a top
+             * {@link KeyWithValueExpression}:
+             * {@code KeyWithValue(ThenKey(DimensionsKey(ThenKey(...), 1, 2), valueExpr), 4)}.
+             * Note that when a {@link KeyWithValueExpression} is used, the column size of the
+             * {@link DimensionsKeyExpression} must be equal to the split point of the {@link KeyWithValueExpression}.
+             */
+            private void validateStructure() {
+                // We allow for an optional KeyWithValueExpression
+                KeyExpression key = index.getRootExpression();
+                if (key instanceof KeyWithValueExpression) {
+                    final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression)key;
+
+                    //
+                    // Find the DimensionsKeyExpression that must cover the entire key part.
+                    //
+                    key = keyWithValueExpression.getInnerKey();
+                    while (key instanceof ThenKeyExpression)  {
+                        key = ((ThenKeyExpression)key).getChildren().get(0);
+                    }
+
+                    if (!(key instanceof DimensionsKeyExpression)) {
+                        throw new KeyExpression.InvalidExpressionException(
+                                String.format("no dimensions key expression or at incorrect place in %s index", index.getType()),
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                LogMessageKeys.INDEX_KEY, index.getRootExpression());
+                    }
+
+                    final DimensionsKeyExpression dimensionsKeyExpression = (DimensionsKeyExpression)key;
+                    validateDimensions(dimensionsKeyExpression);
+
+                    if (dimensionsKeyExpression.getColumnSize() != keyWithValueExpression.getSplitPoint()) {
+                        throw new KeyExpression.InvalidExpressionException(
+                                String.format("dimensions key expression must cover exactly all key parts in %s index", index.getType()),
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                LogMessageKeys.INDEX_KEY, index.getRootExpression());
+                    }
+                } else {
+                    // If there is not KeyWithValueExpression, DimensionsKeyExpression is the only other option.
+                    if (!(key instanceof DimensionsKeyExpression)) {
+                        throw new KeyExpression.InvalidExpressionException(
+                                String.format("no dimensions key expression or at incorrect place in %s index", index.getType()),
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                LogMessageKeys.INDEX_KEY, index.getRootExpression());
+                    }
+                    validateDimensions((DimensionsKeyExpression)key);
+                }
+            }
+
+            private void validateDimensions(@Nonnull final DimensionsKeyExpression dimensionsKeyExpression) {
+                if (dimensionsKeyExpression.getPrefixSize() + dimensionsKeyExpression.getDimensionsSize() >
+                        dimensionsKeyExpression.getColumnSize()) {
+                    throw new KeyExpression.InvalidExpressionException(
+                            String.format("dimensions key expression declares wider prefix/dimensions than it covers in %s index", index.getType()),
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            LogMessageKeys.INDEX_KEY, index.getRootExpression());
+                }
             }
 
             @Override

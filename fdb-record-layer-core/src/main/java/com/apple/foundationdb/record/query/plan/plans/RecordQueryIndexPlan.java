@@ -79,6 +79,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -96,6 +97,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
@@ -152,6 +154,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     private final QueryPlanConstraint constraint;
 
+    @Nonnull
+    private final Supplier<ComparisonRanges> comparisonRangesSupplier;
+
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
@@ -206,6 +211,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             }
         }
         this.constraint = constraint;
+        this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     }
 
     @Nonnull
@@ -557,21 +563,26 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     @Override
     public ComparisonRanges getComparisonRanges() {
+        return comparisonRangesSupplier.get();
+    }
+
+    @Nonnull
+    private ComparisonRanges computeComparisonRanges() {
         if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
             final MultidimensionalIndexScanComparisons mdIndexScanComparisons =
                     (MultidimensionalIndexScanComparisons)scanParameters;
             final ImmutableList.Builder<ComparisonRange> comparisonRangeBuilder = ImmutableList.builder();
             final ComparisonRanges prefixComparisonRanges =
-                    ComparisonRanges.fromScanComparisons(mdIndexScanComparisons.getPrefixScanComparisons());
+                    ComparisonRanges.from(mdIndexScanComparisons.getPrefixScanComparisons());
             comparisonRangeBuilder.addAll(prefixComparisonRanges.getRanges());
             final List<ComparisonRange> dimensionComparisonRanges =
                     mdIndexScanComparisons.getDimensionsScanComparisons()
                             .stream()
-                            .flatMap(dimensionScanComparisons -> ComparisonRanges.fromScanComparisons(dimensionScanComparisons)
+                            .flatMap(dimensionScanComparisons -> ComparisonRanges.from(dimensionScanComparisons)
                                     .getRanges().stream())
                             .collect(ImmutableList.toImmutableList());
             final ComparisonRanges suffixComparisonRanges =
-                    ComparisonRanges.fromScanComparisons(mdIndexScanComparisons.getSuffixScanComparisons());
+                    ComparisonRanges.from(mdIndexScanComparisons.getSuffixScanComparisons());
             return new ComparisonRanges(ImmutableList.<ComparisonRange>builder()
                     .addAll(prefixComparisonRanges.getRanges())
                     .addAll(dimensionComparisonRanges)
@@ -579,7 +590,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                     .build());
         }
 
-        return ComparisonRanges.fromScanComparisons(getScanComparisons());
+        return ComparisonRanges.from(getScanComparisons());
     }
 
     @Override

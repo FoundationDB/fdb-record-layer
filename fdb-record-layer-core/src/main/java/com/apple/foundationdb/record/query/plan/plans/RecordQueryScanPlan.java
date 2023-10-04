@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that scans records directly from the main tree within a range of primary keys.
@@ -85,6 +87,8 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     private final boolean strictlySorted;
     @Nonnull
     private final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional;
+    @Nonnull
+    private final Supplier<ComparisonRanges> comparisonRangesSupplier;
 
     /**
      * Overloaded constructor.
@@ -161,6 +165,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
+        this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     }
 
     @Nonnull
@@ -196,7 +201,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public ComparisonRanges getComparisonRanges() {
-        return ComparisonRanges.fromScanComparisons(comparisons);
+        return comparisonRangesSupplier.get();
+    }
+
+    @Nonnull
+    private ComparisonRanges computeComparisonRanges() {
+        return ComparisonRanges.from(comparisons);
     }
 
     @Override
