@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -159,7 +161,20 @@ public abstract class DataType {
         String getName();
     }
 
+    // todo: this is ugly, DataType should be an interface.
+    public abstract static class NumericType extends DataType {
+        private NumericType(boolean isNullable, boolean isPrimitive, @Nonnull Code code) {
+            super(isNullable, isPrimitive, code);
+        }
+    }
+
     public static final class BooleanType extends DataType {
+        @Nonnull
+        private static final BooleanType NOT_NULLABLE_INSTANCE = new BooleanType(false);
+
+        @Nonnull
+        private static final BooleanType NULLABLE_INSTANCE = new BooleanType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -186,6 +201,16 @@ public abstract class DataType {
         @Override
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
+        }
+
+        @Nonnull
+        public static BooleanType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static BooleanType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
         }
 
         private int computeHashCode() {
@@ -216,7 +241,13 @@ public abstract class DataType {
         }
     }
 
-    public static final class IntegerType extends DataType {
+    public static final class IntegerType extends NumericType {
+        @Nonnull
+        private static final IntegerType NOT_NULLABLE_INSTANCE = new IntegerType(false);
+
+        @Nonnull
+        private static final IntegerType NULLABLE_INSTANCE = new IntegerType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -243,6 +274,16 @@ public abstract class DataType {
         @Override
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
+        }
+
+        @Nonnull
+        public static IntegerType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static IntegerType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
         }
 
         private int computeHashCode() {
@@ -273,7 +314,13 @@ public abstract class DataType {
         }
     }
 
-    public static final class LongType extends DataType {
+    public static final class LongType extends NumericType {
+        @Nonnull
+        private static final LongType NOT_NULLABLE_INSTANCE = new LongType(false);
+
+        @Nonnull
+        private static final LongType NULLABLE_INSTANCE = new LongType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -328,9 +375,25 @@ public abstract class DataType {
         public String toString() {
             return "long" + (isNullable() ? " ∪ ∅" : "");
         }
+
+        @Nonnull
+        public static LongType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static LongType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
+        }
     }
 
-    public static final class FloatType extends DataType {
+    public static final class FloatType extends NumericType {
+        @Nonnull
+        private static final FloatType NOT_NULLABLE_INSTANCE = new FloatType(false);
+
+        @Nonnull
+        private static final FloatType NULLABLE_INSTANCE = new FloatType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -385,9 +448,24 @@ public abstract class DataType {
         public String toString() {
             return "float" + (isNullable() ? " ∪ ∅" : "");
         }
+
+        @Nonnull
+        public static FloatType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static FloatType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
+        }
     }
 
-    public static final class DoubleType extends DataType {
+    public static final class DoubleType extends NumericType {
+        @Nonnull
+        private static final DoubleType NOT_NULLABLE_INSTANCE = new DoubleType(false);
+
+        @Nonnull
+        private static final DoubleType NULLABLE_INSTANCE = new DoubleType(true);
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -414,6 +492,16 @@ public abstract class DataType {
         @Override
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
             return this;
+        }
+
+        @Nonnull
+        public static DoubleType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static DoubleType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
         }
 
         private int computeHashCode() {
@@ -445,6 +533,12 @@ public abstract class DataType {
     }
 
     public static final class StringType extends DataType {
+        @Nonnull
+        private static final StringType NOT_NULLABLE_INSTANCE = new StringType(false);
+
+        @Nonnull
+        private static final StringType NULLABLE_INSTANCE = new StringType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -499,9 +593,25 @@ public abstract class DataType {
         public String toString() {
             return "string" + (isNullable() ? " ∪ ∅" : "");
         }
+
+        @Nonnull
+        public static StringType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static StringType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
+        }
     }
 
     public static final class BytesType extends DataType {
+        @Nonnull
+        private static final BytesType NOT_NULLABLE_INSTANCE = new BytesType(false);
+
+        @Nonnull
+        private static final BytesType NULLABLE_INSTANCE = new BytesType(true);
+
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -528,6 +638,16 @@ public abstract class DataType {
         @Override
         public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
             return this;
+        }
+
+        @Nonnull
+        public static BytesType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static BytesType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
         }
 
         private int computeHashCode() {
@@ -931,14 +1051,14 @@ public abstract class DataType {
      * effectively <i>replacing</i> it with a corresponding resolved type, since {@link DataType}s are immutable.
      * To see how this type is used as resolved, check build() method in RecordLayerSchemaTemplate.Builder.
      */
-    public static final class UnknownType extends DataType implements Named {
+    public static final class UnresolvedType extends DataType implements Named {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         @Nonnull
         private final String name;
 
-        private UnknownType(@Nonnull final String name, boolean isNullable) {
+        private UnresolvedType(@Nonnull final String name, boolean isNullable) {
             super(isNullable, false, Code.UNKNOWN);
             this.name = name;
         }
@@ -955,12 +1075,12 @@ public abstract class DataType {
             if (isNullable == isNullable()) {
                 return this;
             }
-            return new UnknownType(name, isNullable);
+            return new UnresolvedType(name, isNullable);
         }
 
         @Nonnull
-        public static UnknownType of(@Nonnull final String name, boolean isNullable) {
-            return new UnknownType(name, isNullable);
+        public static UnresolvedType of(@Nonnull final String name, boolean isNullable) {
+            return new UnresolvedType(name, isNullable);
         }
 
         @Override
@@ -990,12 +1110,61 @@ public abstract class DataType {
                 return true;
             }
 
-            if (!(other instanceof UnknownType)) {
+            if (!(other instanceof UnresolvedType)) {
                 return false;
             }
-            final var otherUnknownType = (UnknownType) other;
-            return this.isNullable() == otherUnknownType.isNullable() &&
-                    name.equals(otherUnknownType.name);
+            final var otherUnresolvedType = (UnresolvedType) other;
+            return this.isNullable() == otherUnresolvedType.isNullable() &&
+                    name.equals(otherUnresolvedType.name);
+        }
+    }
+
+    public static final class UnknownType extends DataType {
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        @Nonnull
+        private static final UnknownType INSTANCE = new UnknownType();
+
+        private UnknownType() {
+            super(false, false, Code.UNKNOWN);
+        }
+
+        @Nonnull
+        @Override
+        public DataType withNullable(boolean isNullable) {
+            throw new RelationalException("Attempt to set nullability on unknown type", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
+
+        @Override
+        public boolean isResolved() {
+            return false;
+        }
+
+        @Nonnull
+        @Override
+        public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
+            throw new RelationalException("Can not resolve unknown type", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            // singleton.
+            return super.equals(o);
+        }
+
+        @Nonnull
+        public static UnknownType instance() {
+            return INSTANCE;
         }
 
         @Override
@@ -1021,20 +1190,20 @@ public abstract class DataType {
 
     @Nonnull
     public enum Primitives {
-        BOOLEAN(new BooleanType(false)),
-        LONG(new LongType(false)),
-        INTEGER(new IntegerType(false)),
-        FLOAT(new FloatType(false)),
-        DOUBLE(new DoubleType(false)),
-        STRING(new StringType(false)),
-        BYTES(new BytesType(false)),
-        NULLABLE_BOOLEAN(new BooleanType(true)),
-        NULLABLE_LONG(new LongType(true)),
-        NULLABLE_INTEGER(new IntegerType(true)),
-        NULLABLE_FLOAT(new FloatType(true)),
-        NULLABLE_DOUBLE(new DoubleType(true)),
-        NULLABLE_STRING(new StringType(true)),
-        NULLABLE_BYTES(new BytesType(true)),
+        BOOLEAN(BooleanType.notNullable()),
+        LONG(LongType.notNullable()),
+        INTEGER(IntegerType.notNullable()),
+        FLOAT(FloatType.notNullable()),
+        DOUBLE(DoubleType.notNullable()),
+        STRING(StringType.notNullable()),
+        BYTES(BytesType.notNullable()),
+        NULLABLE_BOOLEAN(BooleanType.nullable()),
+        NULLABLE_LONG(LongType.nullable()),
+        NULLABLE_INTEGER(IntegerType.nullable()),
+        NULLABLE_FLOAT(FloatType.nullable()),
+        NULLABLE_DOUBLE(DoubleType.nullable()),
+        NULLABLE_STRING(StringType.nullable()),
+        NULLABLE_BYTES(BytesType.nullable()),
         ;
 
         @Nonnull

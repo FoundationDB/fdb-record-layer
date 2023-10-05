@@ -613,7 +613,7 @@ public final class ParserUtils {
                 // lookup the type (Struct, Table, or Enum) in the schema template metadata under construction.
                 final var maybeFound = metadataBuilder.findType(typeString);
                 // if we can not find the type now, mark it, we will try to resolve it later on via a second pass.
-                type = maybeFound.orElseGet(() -> DataType.UnknownType.of(typeString, isNullable));
+                type = maybeFound.orElseGet(() -> DataType.UnresolvedType.of(typeString, isNullable));
                 break;
         }
 

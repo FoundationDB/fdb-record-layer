@@ -545,7 +545,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                     }
                     return mapBuilder.build();
                 case UNKNOWN:
-                    final var typeName = ((DataType.UnknownType) dataType).getName();
+                    final var typeName = ((DataType.UnresolvedType) dataType).getName();
                     Assert.thatUnchecked(types.containsKey(typeName), String.format("could not find type '%s'", typeName));
                     return Set.of(types.get(typeName));
                 default:

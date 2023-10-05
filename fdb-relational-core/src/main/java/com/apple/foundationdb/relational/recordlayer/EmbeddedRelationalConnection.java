@@ -43,7 +43,11 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
+import com.apple.foundationdb.relational.api.fleuntsql.statement.StatementBuilderFactory;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
+import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
@@ -381,5 +385,25 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public <T> T unwrap(Class<T> iface) throws SQLException {
         return iface.cast(this);
+    }
+
+    @Override
+    @Nonnull
+    public StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
+        try {
+            return new StatementBuilderFactoryImpl(getSchemaTemplate(), this);
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
+    }
+
+    @Override
+    @Nonnull
+    public ExpressionFactory createExpressionBuilderFactory() throws SQLException {
+        try {
+            return new ExpressionFactoryImpl(getSchemaTemplate(), getOptions());
+        } catch (RelationalException e) {
+            throw e.toSqlException();
+        }
     }
 }

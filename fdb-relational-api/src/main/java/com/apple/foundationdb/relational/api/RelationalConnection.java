@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
+import com.apple.foundationdb.relational.api.fleuntsql.statement.StatementBuilderFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
@@ -345,6 +347,16 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     @ExcludeFromJacocoGeneratedReport
     default boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Nonnull
+    default StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Nonnull
+    default ExpressionFactory createExpressionBuilderFactory() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 }
