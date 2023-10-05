@@ -206,6 +206,12 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             super(new ArrayList<>(), new HashSet<>());
         }
 
+        public Builder clear() {
+            this.equalityComparisons.clear();
+            this.inequalityComparisons.clear();
+            return this;
+        }
+
         @Nonnull
         public Builder addEqualityComparison(@Nonnull Comparisons.Comparison comparison) {
             if (!inequalityComparisons.isEmpty()) {

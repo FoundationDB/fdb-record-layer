@@ -53,12 +53,15 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -76,6 +79,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,6 +97,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
@@ -149,6 +154,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     private final QueryPlanConstraint constraint;
 
+    @Nonnull
+    private final Supplier<ComparisonRanges> comparisonRangesSupplier;
+
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
@@ -203,6 +211,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             }
         }
         this.constraint = constraint;
+        this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     }
 
     @Nonnull
@@ -549,6 +558,47 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         } else {
             throw new RecordCoreException("this plan does not use ScanComparisons");
         }
+    }
+
+    @Nonnull
+    @Override
+    public ComparisonRanges getComparisonRanges() {
+        return comparisonRangesSupplier.get();
+    }
+
+    @Nonnull
+    private ComparisonRanges computeComparisonRanges() {
+        if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
+            final MultidimensionalIndexScanComparisons mdIndexScanComparisons =
+                    (MultidimensionalIndexScanComparisons)scanParameters;
+            final ImmutableList.Builder<ComparisonRange> comparisonRangeBuilder = ImmutableList.builder();
+            final ComparisonRanges prefixComparisonRanges =
+                    ComparisonRanges.from(mdIndexScanComparisons.getPrefixScanComparisons());
+            comparisonRangeBuilder.addAll(prefixComparisonRanges.getRanges());
+            final List<ComparisonRange> dimensionComparisonRanges =
+                    mdIndexScanComparisons.getDimensionsScanComparisons()
+                            .stream()
+                            .flatMap(dimensionScanComparisons -> ComparisonRanges.from(dimensionScanComparisons)
+                                    .getRanges().stream())
+                            .collect(ImmutableList.toImmutableList());
+            final ComparisonRanges suffixComparisonRanges =
+                    ComparisonRanges.from(mdIndexScanComparisons.getSuffixScanComparisons());
+            return new ComparisonRanges(ImmutableList.<ComparisonRange>builder()
+                    .addAll(prefixComparisonRanges.getRanges())
+                    .addAll(dimensionComparisonRanges)
+                    .addAll(suffixComparisonRanges.getRanges())
+                    .build());
+        }
+
+        return ComparisonRanges.from(getScanComparisons());
+    }
+
+    @Override
+    public boolean hasComparisonRanges() {
+        if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
+            return true;
+        }
+        return hasScanComparisons();
     }
 
     @Override

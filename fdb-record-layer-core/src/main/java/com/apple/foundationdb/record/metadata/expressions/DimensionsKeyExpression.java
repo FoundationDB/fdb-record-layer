@@ -136,6 +136,12 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
 
     @Nonnull
     @Override
+    protected KeyExpression getSubKeyImpl(final int start, final int end) {
+        return getWholeKey().getSubKey(start, end);
+    }
+
+    @Nonnull
+    @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
@@ -172,6 +178,11 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     @Nonnull
     public KeyExpression getDimensionsSubKey() {
         return getWholeKey().getSubKey(prefixSize, dimensionsSize);
+    }
+
+    @Nonnull
+    public KeyExpression getPrefixAndDimensionsKeyExpression() {
+        return getWholeKey().getSubKey(0, prefixSize + dimensionsSize);
     }
 
     @Override

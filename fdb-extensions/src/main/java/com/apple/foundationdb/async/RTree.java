@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
@@ -37,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +63,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -320,6 +323,7 @@ public class RTree {
      *
      * @see #newConfigBuilder
      */
+    @CanIgnoreReturnValue
     public static class ConfigBuilder {
         private int minM = DEFAULT_MIN_M;
         private int maxM = DEFAULT_MAX_M;
@@ -344,24 +348,27 @@ public class RTree {
             return minM;
         }
 
-        public void setMinM(final int minM) {
+        public ConfigBuilder setMinM(final int minM) {
             this.minM = minM;
+            return this;
         }
 
         public int getMaxM() {
             return maxM;
         }
 
-        public void setMaxM(final int maxM) {
+        public ConfigBuilder setMaxM(final int maxM) {
             this.maxM = maxM;
+            return this;
         }
 
         public int getSplitS() {
             return splitS;
         }
 
-        public void setSplitS(final int splitS) {
+        public ConfigBuilder setSplitS(final int splitS) {
             this.splitS = splitS;
+            return this;
         }
 
         @Nonnull
@@ -369,16 +376,18 @@ public class RTree {
             return storage;
         }
 
-        public void setStorage(@Nonnull final Storage storage) {
+        public ConfigBuilder setStorage(@Nonnull final Storage storage) {
             this.storage = storage;
+            return this;
         }
 
         public boolean isStoreHilbertValues() {
             return storeHilbertValues;
         }
 
-        public void setStoreHilbertValues(final boolean storeHilbertValues) {
+        public ConfigBuilder setStoreHilbertValues(final boolean storeHilbertValues) {
             this.storeHilbertValues = storeHilbertValues;
+            return this;
         }
 
         public Config build() {
@@ -477,12 +486,14 @@ public class RTree {
      * (this allows for efficient scans for {@code ORDER BY x, y LIMIT n} queries).
      * @param readTransaction the transaction to use
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
+     * @param suffixKeyPredicate a predicate on the suffix key
      * @return an {@link AsyncIterator} of {@link ItemSlot}s.
      */
     @Nonnull
     public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final Predicate<Rectangle> mbrPredicate) {
-        return scan(readTransaction, null, null, mbrPredicate);
+                                        @Nonnull final Predicate<Rectangle> mbrPredicate,
+                                        @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
+        return scan(readTransaction, null, null, mbrPredicate, suffixKeyPredicate);
     }
 
     /**
@@ -500,17 +511,19 @@ public class RTree {
      * @param lastHilbertValue the last Hilbert value that was returned by a previous call to this method
      * @param lastKey the last key that was returned by a previous call to this method
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
+     * @param suffixKeyPredicate a predicate on the suffix key
      * @return an {@link AsyncIterator} of {@link ItemSlot}s.
      */
     @Nonnull
     public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
                                         @Nullable final BigInteger lastHilbertValue,
                                         @Nullable final Tuple lastKey,
-                                        @Nonnull final Predicate<Rectangle> mbrPredicate) {
+                                        @Nonnull final Predicate<Rectangle> mbrPredicate,
+                                        @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
         Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
                                     (lastHilbertValue != null && lastKey != null));
         AsyncIterator<LeafNode> leafIterator =
-                new LeafIterator(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate);
+                new LeafIterator(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate, suffixKeyPredicate);
         return new ItemSlotIterator(leafIterator);
     }
 
@@ -520,8 +533,13 @@ public class RTree {
      * comparing nodes (the left one being the smaller, the right one being the greater).
      * @param readTransaction the transaction to use 
      * @param nodeId node id to start from. This may be the actual root of the tree or some other node within the tree.
+     * @param lastHilbertValue hilbert value serving as a watermark to return only items that are larger than the
+     *        {@code (lastHilbertValue, lastKey)} pair
+     * @param lastKey key serving as a watermark to return only items that are larger than the
+     *        {@code (lastHilbertValue, lastKey)} pair
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}. This predicate is evaluated on the way down to the
      *        leaf node.
+     * @param suffixPredicate predicate to be invoked on a range of suffixes
      * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link LeafNode} whose
      *         {@link Node}s all pass the mbr predicate test.
      */
@@ -530,7 +548,8 @@ public class RTree {
                                                                       @Nonnull final byte[] nodeId,
                                                                       @Nullable final BigInteger lastHilbertValue,
                                                                       @Nullable final Tuple lastKey,
-                                                                      @Nonnull final Predicate<Rectangle> mbrPredicate) {
+                                                                      @Nonnull final Predicate<Rectangle> mbrPredicate,
+                                                                      @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
         final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
@@ -543,7 +562,8 @@ public class RTree {
                             final ChildSlot childSlot = iterator.next();
                             if (lastHilbertValue != null &&
                                     lastKey != null) {
-                                final int hilbertValueAndKeyCompare = childSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey);
+                                final int hilbertValueAndKeyCompare =
+                                        childSlot.compareLargestHilbertValueAndKey(lastHilbertValue, lastKey);
                                 if (hilbertValueAndKeyCompare < 0) {
                                     //
                                     // The (lastHilbertValue, lastKey) pair is larger than the
@@ -554,14 +574,26 @@ public class RTree {
                                 }
                             }
 
-                            if (mbrPredicate.test(childSlot.getMbr())) {
-                                toBeProcessedThisLevel.addLast(childSlot);
-                                iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
+                            if (!mbrPredicate.test(childSlot.getMbr())) {
+                                onReadListener.onChildNodeDiscard(childSlot);
+                                continue;
                             }
+
+                            if (childSlot.suffixPredicateCanBeApplied()) {
+                                if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
+                                        childSlot.getLargestKeySuffix())) {
+                                    onReadListener.onChildNodeDiscard(childSlot);
+                                    continue;
+                                }
+                            }
+
+                            toBeProcessedThisLevel.addLast(childSlot);
+                            iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
                         }
                         toBeProcessed.add(toBeProcessedThisLevel);
 
-                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate);
+                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate,
+                                suffixPredicate, onReadListener);
                         if (nextChildSlot == null) {
                             return false;
                         }
@@ -584,7 +616,7 @@ public class RTree {
      * being the greater).
      * @param readTransaction the transaction to use
      * @param traversalState traversal state to start from. The initial traversal state is always obtained by initially
-     *        calling {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate)}.
+     *        calling {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate, BiPredicate)}.
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}. This predicate is evaluated for each node that
      *        is processed.
      * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link LeafNode} whose
@@ -595,20 +627,22 @@ public class RTree {
                                                                   @Nonnull final TraversalState traversalState,
                                                                   @Nullable final BigInteger lastHilbertValue,
                                                                   @Nullable final Tuple lastKey,
-                                                                  @Nonnull final Predicate<Rectangle> mbrPredicate) {
+                                                                  @Nonnull final Predicate<Rectangle> mbrPredicate,
+                                                                  @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
 
         final List<Deque<ChildSlot>> toBeProcessed = traversalState.getToBeProcessed();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
 
         return AsyncUtil.whileTrue(() -> {
-            final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate);
+            final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate, suffixPredicate,
+                    onReadListener);
             if (nextChildSlot == null) {
                 return AsyncUtil.READY_FALSE;
             }
 
             // fetch the left-most path rooted at the current child to its left-most leaf and concatenate the paths
             return fetchLeftmostPathToLeaf(readTransaction, nextChildSlot.getChildId(), lastHilbertValue,
-                    lastKey, mbrPredicate)
+                    lastKey, mbrPredicate, suffixPredicate)
                     .thenApply(nestedTraversalState -> {
                         if (nestedTraversalState.isEnd()) {
                             // no more data in this subtree
@@ -629,21 +663,34 @@ public class RTree {
      * as part of the current scan.
      * @param toBeProcessed list of deques
      * @param mbrPredicate a predicate on an mbr {@link Rectangle}
+     * @param suffixPredicate a predicate that is tested if applicable on the key suffix
      * @return The next child slot that needs to be processed or {@code null} if there is no next child slot.
      *         As a side effect of calling this method the child slot is removed from {@code toBeProcessed}.
      */
     @Nullable
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     private static ChildSlot resolveNextIdForFetch(@Nonnull final List<Deque<ChildSlot>> toBeProcessed,
-                                                   @Nonnull final Predicate<Rectangle> mbrPredicate) {
+                                                   @Nonnull final Predicate<Rectangle> mbrPredicate,
+                                                   @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate,
+                                                   @Nonnull final OnReadListener onReadListener) {
         for (int level = toBeProcessed.size() - 1; level >= 0; level--) {
             final Deque<ChildSlot> toBeProcessedThisLevel = toBeProcessed.get(level);
 
             while (!toBeProcessedThisLevel.isEmpty()) {
-                final ChildSlot nextChild = toBeProcessedThisLevel.pollFirst();
-                if (mbrPredicate.test(nextChild.getMbr())) {
-                    toBeProcessed.subList(level + 1, toBeProcessed.size()).clear();
-                    return nextChild;
+                final ChildSlot childSlot = toBeProcessedThisLevel.pollFirst();
+                if (!mbrPredicate.test(childSlot.getMbr())) {
+                    onReadListener.onChildNodeDiscard(childSlot);
+                    continue;
                 }
+                if (childSlot.suffixPredicateCanBeApplied()) {
+                    if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
+                            childSlot.getLargestKeySuffix())) {
+                        onReadListener.onChildNodeDiscard(childSlot);
+                        continue;
+                    }
+                }
+                toBeProcessed.subList(level + 1, toBeProcessed.size()).clear();
+                return childSlot;
             }
         }
         return null;
@@ -924,13 +971,16 @@ public class RTree {
                 }
 
                 //
-                // Manufacture a new slot for the splitNode;the caller will then use that slot to insert it into the
+                // Manufacture a new slot for the splitNode; the caller will then use that slot to insert it into the
                 // parent.
                 //
-                final var lastSlotOfSplitNode = splitNode.getSlots().get(splitNode.size() - 1);
-                return new NodeOrAdjust(new ChildSlot(lastSlotOfSplitNode.getHilbertValue(),
-                        lastSlotOfSplitNode.getKey(), splitNode.getId(), computeMbr(splitNode.getSlots())), splitNode,
-                        true);
+                final NodeSlot firstSlotOfSplitNode = splitNode.getSlots().get(0);
+                final NodeSlot lastSlotOfSplitNode = splitNode.getSlots().get(splitNode.size() - 1);
+                return new NodeOrAdjust(
+                        new ChildSlot(firstSlotOfSplitNode.getSmallestHilbertValue(), firstSlotOfSplitNode.getSmallestKey(),
+                                lastSlotOfSplitNode.getLargestHilbertValue(), lastSlotOfSplitNode.getLargestKey(),
+                                splitNode.getId(), computeMbr(splitNode.getSlots())),
+                        splitNode, true);
             });
         }
     }
@@ -954,15 +1004,19 @@ public class RTree {
         final ArrayList<? extends NodeSlot> rightSlots = Lists.newArrayList(oldRootNode.getSlots().subList(leftSize, leftSize + rightSize));
         rightNode.setSlots(rightSlots);
 
+        final NodeSlot firstSlotOfLeftNode = leftSlots.get(0);
         final NodeSlot lastSlotOfLeftNode = leftSlots.get(leftSlots.size() - 1);
+        final NodeSlot firstSlotOfRightNode = rightSlots.get(0);
         final NodeSlot lastSlotOfRightNode = rightSlots.get(rightSlots.size() - 1);
 
         final ArrayList<ChildSlot> rootNodeSlots =
                 Lists.newArrayList(
-                        new ChildSlot(lastSlotOfLeftNode.getHilbertValue(), lastSlotOfLeftNode.getKey(), leftNode.getId(),
-                                computeMbr(leftNode.getSlots())),
-                        new ChildSlot(lastSlotOfRightNode.getHilbertValue(), lastSlotOfRightNode.getKey(), rightNode.getId(),
-                                computeMbr(rightNode.getSlots())));
+                        new ChildSlot(firstSlotOfLeftNode.getSmallestHilbertValue(), firstSlotOfLeftNode.getSmallestKey(),
+                                lastSlotOfLeftNode.getLargestHilbertValue(), lastSlotOfLeftNode.getLargestKey(),
+                                leftNode.getId(), computeMbr(leftNode.getSlots())),
+                        new ChildSlot(firstSlotOfRightNode.getSmallestHilbertValue(), firstSlotOfRightNode.getSmallestKey(),
+                                lastSlotOfRightNode.getLargestHilbertValue(), lastSlotOfRightNode.getLargestKey(),
+                                rightNode.getId(), computeMbr(rightNode.getSlots())));
         final IntermediateNode newRootNode = new IntermediateNode(rootId, rootNodeSlots);
 
         storageAdapter.writeNodes(transaction, Lists.newArrayList(leftNode, rightNode, newRootNode));
@@ -1297,11 +1351,18 @@ public class RTree {
         final Rectangle newMbr = computeMbr(targetNode.getSlots());
         slotHasChanged = !childSlot.getMbr().equals(newMbr);
         childSlot.setMbr(newMbr);
+
+        final NodeSlot firstSlotOfTargetNode = targetNode.getSlots().get(0);
+        slotHasChanged |= !childSlot.getSmallestHilbertValue().equals(firstSlotOfTargetNode.getSmallestHilbertValue());
+        childSlot.setSmallestHilbertValue(firstSlotOfTargetNode.getSmallestHilbertValue());
+        slotHasChanged |= !childSlot.getSmallestKey().equals(firstSlotOfTargetNode.getSmallestKey());
+        childSlot.setSmallestKey(firstSlotOfTargetNode.getSmallestKey());
+
         final NodeSlot lastSlotOfTargetNode = targetNode.getSlots().get(targetNode.size() - 1);
-        slotHasChanged |= !childSlot.getLargestHilbertValue().equals(lastSlotOfTargetNode.getHilbertValue());
-        childSlot.setLargestHilbertValue(lastSlotOfTargetNode.getHilbertValue());
-        slotHasChanged |= !childSlot.getKey().equals(lastSlotOfTargetNode.getKey());
-        childSlot.setLargestKey(lastSlotOfTargetNode.getKey());
+        slotHasChanged |= !childSlot.getLargestHilbertValue().equals(lastSlotOfTargetNode.getLargestHilbertValue());
+        childSlot.setLargestHilbertValue(lastSlotOfTargetNode.getLargestHilbertValue());
+        slotHasChanged |= !childSlot.getLargestKey().equals(lastSlotOfTargetNode.getLargestKey());
+        childSlot.setLargestKey(lastSlotOfTargetNode.getLargestKey());
         return slotHasChanged;
     }
 
@@ -1438,15 +1499,41 @@ public class RTree {
 
     /**
      * Method to validate the Hilbert R-tree.
+     * @param db the database to use
+     */
+    public void validate(@Nonnull final Database db) {
+        validate(db, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Method to validate the Hilbert R-tree.
+     * @param db the database to use
+     * @param maxNumNodesToBeValidated a maximum number of nodes this call should attempt to validate
+     */
+    public void validate(@Nonnull final Database db,
+                         final int maxNumNodesToBeValidated) {
+        ArrayDeque<ParentNodeAndChildId> toBeProcessed = new ArrayDeque<>();
+        toBeProcessed.addLast(new ParentNodeAndChildId(null, rootId));
+
+        while (!toBeProcessed.isEmpty()) {
+            db.run(tr -> validate(tr, maxNumNodesToBeValidated, toBeProcessed).join());
+        }
+    }
+
+    /**
+     * Method to validate the Hilbert R-tree.
      * @param transaction the transaction to use
-     * @return a completable future that completes successfully if the tree is valid, completes with failure otherwise
+     * @param maxNumNodesToBeValidated a maximum number of nodes this call should attempt to validate
+     * @param toBeProcessed a deque with node information that still needs to be processed
+     * @return a completable future that completes successfully with the current deque of to-be-processed nodes if the
+     *         portion of the tree that was validated is in fact valid, completes with failure otherwise
      */
     @Nonnull
-    public CompletableFuture<Void> validate(@Nonnull final Transaction transaction) {
-        final ArrayDeque<ParentNodeAndChildId> toBeProcessed = new ArrayDeque<>();
+    private CompletableFuture<ArrayDeque<ParentNodeAndChildId>> validate(@Nonnull final Transaction transaction,
+                                                                         final int maxNumNodesToBeValidated,
+                                                                         @Nonnull final ArrayDeque<ParentNodeAndChildId> toBeProcessed) {
+        final AtomicInteger numNodesEnqueued = new AtomicInteger(0);
         final List<CompletableFuture<List<ParentNodeAndChildId>>> working = Lists.newArrayList();
-
-        toBeProcessed.addLast(new ParentNodeAndChildId(null, rootId));
 
         // Fetch the entire tree.
         return AsyncUtil.whileTrue(() -> {
@@ -1459,57 +1546,102 @@ public class RTree {
                 }
             }
             
-            while (working.size() <= MAX_CONCURRENT_READS) {
+            while (working.size() <= MAX_CONCURRENT_READS && numNodesEnqueued.get() < maxNumNodesToBeValidated) {
                 final ParentNodeAndChildId currentParentNodeAndChildId = toBeProcessed.pollFirst();
                 if (currentParentNodeAndChildId == null) {
                     break;
                 }
 
-                working.add(onReadListener.onAsyncRead(fetchNode(transaction, currentParentNodeAndChildId.getChildId())).thenApply(childNode -> {
+                final IntermediateNode parentNode = currentParentNodeAndChildId.getParentNode();
+                final ChildSlot childSlotInParentNode;
+                final int slotIndexInParent;
+                if (parentNode != null) {
+                    List<ChildSlot> slots = parentNode.getSlots();
+                    int slotIndex;
+                    ChildSlot childSlot = null;
+                    for (slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
+                        childSlot = slots.get(slotIndex);
+                        if (Arrays.equals(childSlot.getChildId(), currentParentNodeAndChildId.getChildId())) {
+                            break;
+                        }
+                    }
+
+                    if (slotIndex == slots.size()) {
+                        throw new IllegalStateException("child slot not found in parent for child node");
+                    } else {
+                        childSlotInParentNode = childSlot;
+                        slotIndexInParent = slotIndex;
+                    }
+                } else {
+                    childSlotInParentNode = null;
+                    slotIndexInParent = -1;
+                }
+
+                final CompletableFuture<Node> fetchedNodeFuture =
+                        onReadListener.onAsyncRead(fetchNode(transaction, currentParentNodeAndChildId.getChildId())
+                                .thenApply(node -> {
+                                    if (parentNode != null) {
+                                        node.linkToParent(parentNode, slotIndexInParent);
+                                    }
+                                    return node;
+                                }));
+                working.add(fetchedNodeFuture.thenApply(childNode -> {
                     BigInteger lastHilbertValue = null;
                     Tuple lastKey = null;
 
-                    // check that all (hilbert values;key pairs) are monotonically increasing
+                    // check that all (hilbert values; key pairs) are monotonically increasing
                     for (final NodeSlot nodeSlot : childNode.getSlots()) {
                         if (lastHilbertValue != null) {
-                            final int hilbertValueCompare = nodeSlot.getHilbertValue().compareTo(lastHilbertValue);
+                            final int hilbertValueCompare = nodeSlot.getSmallestHilbertValue().compareTo(lastHilbertValue);
                             Verify.verify(hilbertValueCompare >= 0,
-                                    "(hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
+                                    "smallest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
                             if (hilbertValueCompare == 0) {
-                                Verify.verify(TupleHelpers.compare(nodeSlot.getKey(), lastKey) >= 0,
-                                        "(hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
+                                Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), lastKey) >= 0,
+                                        "smallest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
                             }
                         }
-                        lastHilbertValue = nodeSlot.getHilbertValue();
-                        lastKey = nodeSlot.getKey();
+                        lastHilbertValue =  nodeSlot.getSmallestHilbertValue();
+                        lastKey = nodeSlot.getSmallestKey();
+                        final int hilbertValueCompare = nodeSlot.getLargestHilbertValue().compareTo(lastHilbertValue);
+                        Verify.verify(hilbertValueCompare >= 0,
+                                "largest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
+                        if (hilbertValueCompare == 0) {
+                            Verify.verify(TupleHelpers.compare(nodeSlot.getLargestKey(), lastKey) >= 0,
+                                    "largest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
+                        }
+
+                        lastHilbertValue = nodeSlot.getLargestHilbertValue();
+                        lastKey = nodeSlot.getLargestKey();
                     }
 
-                    final IntermediateNode parentNode = currentParentNodeAndChildId.getParentNode();
                     if (parentNode == null) {
                         // child is root
                         Verify.verify(childNode.isRoot());
                     } else {
-                        final ChildSlot childSlotInParentNode =
-                                parentNode.getSlots()
-                                        .stream()
-                                        .filter(childSlot -> Arrays.equals(childSlot.getChildId(), childNode.getId()))
-                                        .findFirst()
-                                        .orElseThrow(() -> new IllegalStateException("child slot not found in parent for child node"));
-
                         // Recompute the mbr of the child and compare it to the mbr the parent has.
                         final Rectangle computedMbr = computeMbr(childNode.getSlots());
                         Verify.verify(childSlotInParentNode.getMbr().equals(computedMbr),
                                 "computed mbr does not match mbr from node");
 
-                        // Verify that the largest hilbert value in the parent node is indeed the hilbert value of
-                        // the right-most child in childNode.
-                        Verify.verify(childSlotInParentNode.getLargestHilbertValue().equals(childNode.getSlots().get(childNode.size() - 1).getHilbertValue()),
-                                "expected largest hilbert does not match the actual hilbert value of the last child in childNode");
+                        // Verify that the smallest hilbert value in the parent node is indeed the smallest hilbert value of
+                        // the left-most child in childNode.
+                        Verify.verify(childSlotInParentNode.getSmallestHilbertValue().equals(childNode.getSlots().get(0).getSmallestHilbertValue()),
+                                "expected smallest hilbert value does not match the actual smallest hilbert value of the first child in childNode");
 
-                        // Verify that the largest hilbert value in the parent node is indeed the hilbert value of
+                        // Verify that the smallest key in the parent node is indeed the smallest key of
+                        // the left-most child in childNode.
+                        Verify.verify(TupleHelpers.equals(childSlotInParentNode.getSmallestKey(), childNode.getSlots().get(0).getSmallestKey()),
+                                "expected smallest key does not match the actual smallest key of the first child in childNode");
+
+                        // Verify that the largest hilbert value in the parent node is indeed the largest hilbert value of
                         // the right-most child in childNode.
-                        Verify.verify(TupleHelpers.equals(childSlotInParentNode.getLargestKey(), childNode.getSlots().get(childNode.size() - 1).getKey()),
-                                "expected largest key does not match the actual key of the last child in childNode");
+                        Verify.verify(childSlotInParentNode.getLargestHilbertValue().equals(childNode.getSlots().get(childNode.size() - 1).getLargestHilbertValue()),
+                                "expected largest hilbert value does not match the actual hilbert value of the last child in childNode");
+
+                        // Verify that the largest key in the parent node is indeed the largest key of the right-most\
+                        // child in childNode.
+                        Verify.verify(TupleHelpers.equals(childSlotInParentNode.getLargestKey(), childNode.getSlots().get(childNode.size() - 1).getLargestKey()),
+                                "expected largest key does not match the actual largest key of the last child in childNode");
                     }
 
                     // add all children to the to be processed queue
@@ -1522,13 +1654,14 @@ public class RTree {
                         return ImmutableList.of();
                     }
                 }));
+                numNodesEnqueued.addAndGet(1);
             }
 
             if (working.isEmpty()) {
                 return AsyncUtil.READY_FALSE;
             }
             return AsyncUtil.whenAny(working).thenApply(v -> true);
-        }, executor).thenApply(vignore -> null);
+        }, executor).thenApply(vignore -> toBeProcessed);
     }
 
     @Nonnull
@@ -1547,7 +1680,7 @@ public class RTree {
     private <N extends Node> N checkNode(@Nonnull final N node) {
         if (node.size() < config.getMinM() || node.size() > config.getMaxM()) {
             if (!node.isRoot()) {
-                throw new IllegalStateException("packing of non-root packing is out of valid range");
+                throw new IllegalStateException("packing of non-root is out of valid range");
             }
         }
         return node;
@@ -1976,29 +2109,112 @@ public class RTree {
         public IntermediateNode newOfSameKind(@Nonnull final byte[] nodeId) {
             return new IntermediateNode(nodeId, Lists.newArrayList());
         }
-
-        @Nonnull
-        public String getPlotMbrs() {
-            return getSlots().stream()
-                    .map(child -> child.getMbr().toPlotString())
-                    .collect(Collectors.joining("\n"));
-        }
     }
 
     /**
      * Abstract base class for all node slots. Holds a Hilbert value and a key. The semantics of these attributes
      * is refined in the subclasses {@link ItemSlot} and {@link ChildSlot}.
      */
-    public abstract static class NodeSlot {
+    public interface NodeSlot {
         @Nonnull
-        protected BigInteger hilbertValue;
+        BigInteger getSmallestHilbertValue();
 
         @Nonnull
-        protected Tuple key;
+        BigInteger getLargestHilbertValue();
 
-        protected NodeSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Tuple key) {
+        @Nonnull
+        Tuple getSmallestKey();
+
+        @Nonnull
+        default Tuple getSmallestKeySuffix() {
+            return getSmallestKey().getNestedTuple(1);
+        }
+
+        @Nonnull
+        Tuple getLargestKey();
+
+        @Nonnull
+        default Tuple getLargestKeySuffix() {
+            return getLargestKey().getNestedTuple(1);
+        }
+
+        /**
+         * Create a tuple for the key part of this slot. This tuple is used when the slot is persisted in the database.
+         * Note that the serialization format is not yet finalized.
+         * @param storeHilbertValues indicator if the hilbert value should be encoded into the slot key or null-ed out
+         * @return a new tuple
+         */
+        @Nonnull
+        Tuple getSlotKey(boolean storeHilbertValues);
+
+        /**
+         * Create a tuple for the value part of this slot. This tuple is used when the slot is persisted in the database.
+         * Note that the serialization format is not yet finalized.
+         * @return a new tuple
+         */
+        @Nonnull
+        Tuple getSlotValue();
+
+        /**
+         * Compare this node slot's smallest {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
+         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
+         * @param hilbertValue Hilbert value
+         * @param key first key
+         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
+         */
+        default int compareSmallestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
+                                                      @Nonnull final Tuple key) {
+            final int hilbertValueCompare = getSmallestHilbertValue().compareTo(hilbertValue);
+            if (hilbertValueCompare != 0) {
+                return hilbertValueCompare;
+            }
+            return TupleHelpers.compare(getSmallestKey(), key);
+        }
+
+        /**
+         * Compare this node slot's largest {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
+         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
+         * @param hilbertValue Hilbert value
+         * @param key first key
+         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
+         */
+        default int compareLargestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
+                                                     @Nonnull final Tuple key) {
+            final int hilbertValueCompare = getLargestHilbertValue().compareTo(hilbertValue);
+            if (hilbertValueCompare != 0) {
+                return hilbertValueCompare;
+            }
+            return TupleHelpers.compare(getLargestKey(), key);
+        }
+    }
+
+    /**
+     * An item slot that is used by {@link LeafNode}s. Holds the actual data of the item as well as the items Hilbert
+     * value and its key.
+     */
+    public static class ItemSlot implements NodeSlot {
+        private static final Comparator<ItemSlot> comparator =
+                Comparator.comparing(ItemSlot::getHilbertValue).thenComparing(ItemSlot::getKey);
+
+        public static final int SLOT_KEY_TUPLE_SIZE = 2;
+        public static final int SLOT_VALUE_TUPLE_SIZE = 1;
+
+        @Nonnull
+        private final BigInteger hilbertValue;
+        @Nonnull
+        private final Tuple key;
+
+        @Nonnull
+        private final Tuple value;
+        @Nonnull
+        private final Point position;
+
+        public ItemSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Point position, @Nonnull final Tuple key,
+                        @Nonnull final Tuple value) {
             this.hilbertValue = hilbertValue;
             this.key = key;
+            this.value = value;
+            this.position = position;
         }
 
         @Nonnull
@@ -2016,60 +2232,6 @@ public class RTree {
             return key.getNestedTuple(1);
         }
 
-        /**
-         * Create a tuple for the key part of this slot. This tuple is used when the slot is persisted in the database.
-         * Note that the serialization format is not yet finalized.
-         * @param storeHilbertValues indicator if the hilbert value should be encoded into the slot key or null-ed out
-         * @return a new tuple
-         */
-        @Nonnull
-        protected abstract Tuple getSlotKey(boolean storeHilbertValues);
-
-        /**
-         * Create a tuple for the value part of this slot. This tuple is used when the slot is persisted in the database.
-         * Note that the serialization format is not yet finalized.
-         * @return a new tuple
-         */
-        @Nonnull
-        protected abstract Tuple getSlotValue();
-
-        /**
-         * Compare this node slot's {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)} pair.
-         * We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
-         * @param hilbertValue Hilbert value
-         * @param key first key
-         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
-         */
-        public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                             @Nonnull final Tuple key) {
-            final int hilbertValueCompare = getHilbertValue().compareTo(hilbertValue);
-            if (hilbertValueCompare != 0) {
-                return hilbertValueCompare;
-            }
-            return TupleHelpers.compare(getKey(), key);
-        }
-    }
-
-    /**
-     * An item slot that is used by {@link LeafNode}s. Holds the actual data of the item as well as the items Hilbert
-     * value and its key.
-     */
-    public static class ItemSlot extends NodeSlot {
-        public static final int SLOT_KEY_TUPLE_SIZE = 2;
-        public static final int SLOT_VALUE_TUPLE_SIZE = 1;
-
-        @Nonnull
-        private final Tuple value;
-        @Nonnull
-        private final Point position;
-
-        public ItemSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Point position, @Nonnull final Tuple key,
-                        @Nonnull final Tuple value) {
-            super(hilbertValue, key);
-            this.value = value;
-            this.position = position;
-        }
-
         @Nonnull
         public Tuple getValue() {
             return value;
@@ -2082,14 +2244,54 @@ public class RTree {
 
         @Nonnull
         @Override
-        protected Tuple getSlotKey(final boolean storeHilbertValues) {
+        public BigInteger getSmallestHilbertValue() {
+            return hilbertValue;
+        }
+
+        @Nonnull
+        @Override
+        public BigInteger getLargestHilbertValue() {
+            return hilbertValue;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getSmallestKey() {
+            return key;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getLargestKey() {
+            return key;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getSlotKey(final boolean storeHilbertValues) {
             return Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
         }
 
         @Nonnull
         @Override
-        protected Tuple getSlotValue() {
+        public Tuple getSlotValue() {
             return Tuple.from(getValue());
+        }
+
+        /**
+         * Compare this node slot's {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
+         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
+         * @param hilbertValue Hilbert value
+         * @param key first key
+         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
+         */
+        public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
+                                             @Nonnull final Tuple key) {
+            final int hilbertValueCompare = getHilbertValue().compareTo(hilbertValue);
+            if (hilbertValueCompare != 0) {
+                return hilbertValueCompare;
+            }
+            return TupleHelpers.compare(getKey(), key);
         }
 
         @Override
@@ -2119,8 +2321,8 @@ public class RTree {
      * hilbert value of its child, the largest key of its child and an mbr that encompasses all points in the subtree
      * rooted at the child.
      */
-    public static class ChildSlot extends NodeSlot {
-        public static final int SLOT_KEY_TUPLE_SIZE = 2;
+    public static class ChildSlot implements NodeSlot {
+        public static final int SLOT_KEY_TUPLE_SIZE = 4;
         public static final int SLOT_VALUE_TUPLE_SIZE = 2;
 
         @Nonnull
@@ -2128,10 +2330,23 @@ public class RTree {
         @Nonnull
         private Rectangle mbr;
 
+        @Nonnull
+        private BigInteger smallestHilbertValue;
+        @Nonnull
+        private Tuple smallestKey;
+        @Nonnull
+        private BigInteger largestHilbertValue;
+        @Nonnull
+        private Tuple largestKey;
+
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-        public ChildSlot(@Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
+        public ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
+                         @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
                          @Nonnull final byte[] childId, @Nonnull final Rectangle mbr) {
-            super(largestHilbertValue, largestKey);
+            this.smallestHilbertValue = smallestHilbertValue;
+            this.smallestKey = smallestKey;
+            this.largestHilbertValue = largestHilbertValue;
+            this.largestKey = largestKey;
             this.childId = childId;
             this.mbr = mbr;
         }
@@ -2142,22 +2357,44 @@ public class RTree {
             return childId;
         }
 
-        public void setLargestHilbertValue(@Nonnull final BigInteger largestHilbertValue) {
-            this.hilbertValue = largestHilbertValue;
+        public void setSmallestHilbertValue(@Nonnull final BigInteger smallestHilbertValue) {
+            this.smallestHilbertValue = smallestHilbertValue;
         }
 
         @Nonnull
+        @Override
+        public BigInteger getSmallestHilbertValue() {
+            return smallestHilbertValue;
+        }
+
+        public void setSmallestKey(@Nonnull final Tuple smallestKey) {
+            this.smallestKey = smallestKey;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getSmallestKey() {
+            return smallestKey;
+        }
+
+        public void setLargestHilbertValue(@Nonnull final BigInteger largestHilbertValue) {
+            this.largestHilbertValue = largestHilbertValue;
+        }
+
+        @Nonnull
+        @Override
         public BigInteger getLargestHilbertValue() {
-            return hilbertValue;
+            return largestHilbertValue;
         }
 
         public void setLargestKey(@Nonnull final Tuple largestKey) {
-            this.key = largestKey;
+            this.largestKey = largestKey;
         }
 
         @Nonnull
+        @Override
         public Tuple getLargestKey() {
-            return key;
+            return largestKey;
         }
 
         public void setMbr(@Nonnull final Rectangle mbr) {
@@ -2171,21 +2408,38 @@ public class RTree {
 
         @Nonnull
         @Override
-        protected Tuple getSlotKey(final boolean storeHilbertValue) {
-            return Tuple.from(getLargestHilbertValue(), getLargestKey());
+        public Tuple getSlotKey(final boolean storeHilbertValue) {
+            return Tuple.from(getSmallestHilbertValue(), getSmallestKey(), getLargestHilbertValue(), getLargestKey());
         }
 
         @Nonnull
         @Override
-        protected Tuple getSlotValue() {
+        public Tuple getSlotValue() {
             return Tuple.from(getChildId(), getMbr().getRanges());
+        }
+
+        /**
+         * Method to determine if (during a scan a suffix predicate can be applied). A suffix predicate can only
+         * be applied, if the smallest and largest hilbert value as well as the non-suffix part of the key are the same.
+         * @return {@code true} if a suffix predicate can be applied on this child slot
+         */
+        public boolean suffixPredicateCanBeApplied() {
+            final int hilbertValueCompare = getSmallestHilbertValue().compareTo(getLargestHilbertValue());
+            Verify.verify(hilbertValueCompare <= 0);
+            if (hilbertValueCompare != 0) {
+                return false;
+            }
+
+            int positionTupleCompare =
+                    TupleHelpers.compare(getSmallestKey().getNestedTuple(0), getLargestKey().getNestedTuple(0)) ;
+            Verify.verify(positionTupleCompare <= 0);
+            return positionTupleCompare == 0;
         }
 
         @Nonnull
         @Override
         public String toString() {
-            //return "[" + getMbr() + ";" + getLargestHilbertValue() + "]";
-            return getMbr().toString();
+            return "[" + getMbr() + ";" + getSmallestHilbertValue() + "; " + getLargestHilbertValue() + "]";
         }
 
         @Nonnull
@@ -2193,6 +2447,7 @@ public class RTree {
             Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
             Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
             return new ChildSlot(keyTuple.getBigInteger(0), keyTuple.getNestedTuple(1),
+                    keyTuple.getBigInteger(2), keyTuple.getNestedTuple(3),
                     valueTuple.getBytes(0), new Rectangle(valueTuple.getNestedTuple(1)));
         }
     }
@@ -2270,10 +2525,6 @@ public class RTree {
      * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
      */
     public static class BySlotStorageAdapter implements StorageAdapter {
-        private static final Comparator<ItemSlot> comparator =
-                Comparator.<RTree.ItemSlot, BigInteger>comparing(NodeSlot::getHilbertValue)
-                        .thenComparing(NodeSlot::getKey);
-
         @Nonnull
         private final Subspace subspace;
         private final boolean storeHilbertValues;
@@ -2415,7 +2666,7 @@ public class RTree {
                 // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
                 // the Hilbert value as fdb does the sorting for us.
                 //
-                itemSlots.sort(comparator);
+                itemSlots.sort(ItemSlot.comparator);
             }
 
             return nodeKind == Kind.LEAF
@@ -2511,11 +2762,12 @@ public class RTree {
         @Override
         public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction,
                                                  @Nonnull final byte[] nodeId) {
-            return transaction.get(packWithSubspace(nodeId))
+            final byte[] key = packWithSubspace(nodeId);
+            return transaction.get(key)
                     .thenApply(valueBytes -> {
                         final Node node = fromTuple(nodeId, valueBytes == null ? null : Tuple.fromBytes(valueBytes));
                         onReadListener.onNodeRead(node);
-                        onReadListener.onKeyValueRead(node, null, valueBytes);
+                        onReadListener.onKeyValueRead(node, key, valueBytes);
                         return node;
                     });
         }
@@ -2619,8 +2871,8 @@ public class RTree {
     /**
      * An {@link AsyncIterator} over the leaf nodes that represent the result of a scan over the tree. This iterator
      * interfaces with the scan logic
-     * (see {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate)} and
-     * {@link #fetchNextPathToLeaf(ReadTransaction, TraversalState, BigInteger, Tuple, Predicate)}) and wraps
+     * (see {@link #fetchLeftmostPathToLeaf(ReadTransaction, byte[], BigInteger, Tuple, Predicate, BiPredicate)} and
+     * {@link #fetchNextPathToLeaf(ReadTransaction, TraversalState, BigInteger, Tuple, Predicate, BiPredicate)}) and wraps
      * intermediate {@link TraversalState}s created by these methods.
      */
     public class LeafIterator implements AsyncIterator<LeafNode> {
@@ -2634,6 +2886,8 @@ public class RTree {
         private final Tuple lastKey;
         @Nonnull
         private final Predicate<Rectangle> mbrPredicate;
+        @Nonnull
+        private final BiPredicate<Tuple, Tuple> suffixKeyPredicate;
 
         @Nullable
         private TraversalState currentState;
@@ -2643,7 +2897,7 @@ public class RTree {
         @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
         public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId,
                             @Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey,
-                            @Nonnull final Predicate<Rectangle> mbrPredicate) {
+                            @Nonnull final Predicate<Rectangle> mbrPredicate, @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
             Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
                                         (lastHilbertValue != null && lastKey != null));
             this.readTransaction = readTransaction;
@@ -2651,6 +2905,7 @@ public class RTree {
             this.lastHilbertValue = lastHilbertValue;
             this.lastKey = lastKey;
             this.mbrPredicate = mbrPredicate;
+            this.suffixKeyPredicate = suffixKeyPredicate;
             this.currentState = null;
             this.nextStateFuture = null;
         }
@@ -2659,9 +2914,11 @@ public class RTree {
         public CompletableFuture<Boolean> onHasNext() {
             if (nextStateFuture == null) {
                 if (currentState == null) {
-                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate);
+                    nextStateFuture = fetchLeftmostPathToLeaf(readTransaction, rootId, lastHilbertValue, lastKey,
+                            mbrPredicate, suffixKeyPredicate);
                 } else {
-                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, lastHilbertValue, lastKey, mbrPredicate);
+                    nextStateFuture = fetchNextPathToLeaf(readTransaction, currentState, lastHilbertValue, lastKey,
+                            mbrPredicate, suffixKeyPredicate);
                 }
             }
             return nextStateFuture.thenApply(traversalState -> !traversalState.isEnd());
@@ -3047,23 +3304,21 @@ public class RTree {
         @Nonnull
         public String toPlotString() {
             final StringBuilder builder = new StringBuilder();
-            builder.append("rectangle(");
             for (int d = 0; d < getNumDimensions(); d++) {
                 builder.append(((Number)getLow(d)).longValue());
                 if (d + 1 < getNumDimensions()) {
-                    builder.append("|");
+                    builder.append(",");
                 }
             }
 
-            builder.append(" ");
+            builder.append(",");
 
             for (int d = 0; d < getNumDimensions(); d++) {
-                builder.append(((Number)getHigh(d)).longValue() - ((Number)getLow(d)).longValue());
+                builder.append(((Number)getHigh(d)).longValue());
                 if (d + 1 < getNumDimensions()) {
-                    builder.append(" ");
+                    builder.append(",");
                 }
             }
-            builder.append(")#");
             return builder.toString();
         }
 
@@ -3090,36 +3345,25 @@ public class RTree {
      */
     public interface OnWriteListener {
         OnWriteListener NOOP = new OnWriteListener() {
-            @Override
-            public <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
-                return future;
-            }
-
-            @Override
-            public void onNodeWritten(@Nonnull final Node node) {
-                // nothing
-            }
-
-            @Override
-            public void onKeyValueWritten(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
-                // nothing
-            }
-
-            @Override
-            public void onNodeCleared(@Nonnull final Node node) {
-                // nothing
-            }
         };
 
-        <T> CompletableFuture<T> onAsyncReadForWrite(@Nonnull CompletableFuture<T> future);
+        default <T extends Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull CompletableFuture<T> future) {
+            return future;
+        }
 
-        void onNodeWritten(@Nonnull Node node);
+        default void onNodeWritten(@Nonnull Node node) {
+            // nothing
+        }
 
-        void onKeyValueWritten(@Nonnull Node node,
-                               @Nullable byte[] key,
-                               @Nullable byte[] value);
+        default void onKeyValueWritten(@Nonnull Node node,
+                                       @Nullable byte[] key,
+                                       @Nullable byte[] value) {
+            // nothing
+        }
 
-        void onNodeCleared(@Nonnull Node node);
+        default void onNodeCleared(@Nonnull Node node) {
+            // nothing
+        }
     }
 
     /**
@@ -3127,28 +3371,24 @@ public class RTree {
      */
     public interface OnReadListener {
         OnReadListener NOOP = new OnReadListener() {
-            @Override
-            public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
-                return future;
-            }
-
-            @Override
-            public void onNodeRead(@Nonnull final Node node) {
-                // nothing
-            }
-
-            @Override
-            public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
-                // nothing
-            }
         };
 
-        <T> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future);
+        default <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
+            return future;
+        }
 
-        void onNodeRead(@Nonnull Node node);
+        default void onNodeRead(@Nonnull Node node) {
+            // nothing
+        }
 
-        void onKeyValueRead(@Nonnull Node node,
-                            @Nullable byte[] key,
-                            @Nullable byte[] value);
+        default void onKeyValueRead(@Nonnull Node node,
+                                    @Nullable byte[] key,
+                                    @Nullable byte[] value) {
+            // nothing
+        }
+
+        default void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
+            // nothing
+        }
     }
 }
