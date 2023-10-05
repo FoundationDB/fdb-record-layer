@@ -74,8 +74,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
         private LazyFieldsProducer(final SegmentReadState state) {
             fieldsProducer = LazyCloseable.supply(() -> {
                 PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
-                BlockTreeTermsReader blockTreeTermsReader = new BlockTreeTermsReader(postingsReader, state);
-                return blockTreeTermsReader;
+                return new BlockTreeTermsReader(postingsReader, state);
             });
         }
 

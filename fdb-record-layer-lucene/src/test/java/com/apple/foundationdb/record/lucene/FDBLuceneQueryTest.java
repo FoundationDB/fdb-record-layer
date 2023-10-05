@@ -802,7 +802,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
-        Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
         // limit the FJP size to try and force the # segments to exceed the # threads
         FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
@@ -1299,7 +1299,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
         // (random words) rather than using random English words from a canned text. With English text, Lucene compression
         // reduces the size of the segment such that we need many more records to create the required number of segments
-        Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
         // limit the FJP size to try and force the # segments to exceed the # threads
         FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,

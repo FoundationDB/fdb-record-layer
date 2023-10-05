@@ -89,6 +89,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         }
 
         @Override
+        @SuppressWarnings("PMD.ProperCloneImplementation")
         public LazyStoredFieldsReader clone() {
             return new LazyStoredFieldsReader(directory, si, fn, context,
                     LazyCloseable.supply(() -> storedFieldsReader.get().clone()));

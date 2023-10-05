@@ -46,6 +46,7 @@ public class LazyOpener<T> {
     private static final Executor executor = Runnable::run;
 
     private LazyOpener(final Opener<T> opener) {
+        // Empty future that will gate the completion of the opener task
         starter = new CompletableFuture<>();
         future = starter.thenApplyAsync(ignored -> {
             try {
@@ -74,6 +75,7 @@ public class LazyOpener<T> {
      * @return the object returned by the {@code opener}
      * @throws IOException if calling {@link Opener#open()} threw an {@link IOException}
      */
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public T get() throws IOException {
         try {
             return getInternal();
@@ -92,6 +94,7 @@ public class LazyOpener<T> {
      * method threw {@link IOException}.
      * @return the object returned by the {@code opener}
      */
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public T getUnchecked() {
         try {
             return getInternal();
@@ -106,6 +109,7 @@ public class LazyOpener<T> {
     }
 
     private T getInternal() throws ExecutionException {
+        // Once "opening" is required, complete the starter future to initiate the realization of the future
         starter.complete(null);
         try {
             return future.get();
