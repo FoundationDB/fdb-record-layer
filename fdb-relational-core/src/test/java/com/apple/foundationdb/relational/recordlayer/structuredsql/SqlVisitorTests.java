@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -38,6 +39,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 public class SqlVisitorTests {
 
@@ -94,6 +97,53 @@ public class SqlVisitorTests {
             updateBuilder.addWhereClause(ef.field("T1", "B").asInt().lessThan(ef.literal(42)).nested().nested());
             var generatedQuery = updateBuilder.build().getSqlQuery();
             Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444 AND ( ( \"B\" < 42 ) )", generatedQuery);
+            isValidStatement(ddl.getConnection(), generatedQuery);
+        }
+    }
+
+    @Test
+    public void rewriteColumnAliases() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set customer_facing_a = 42 where CUSTOMER_FACING_PK = 444";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement, Map.of("CUSTOMER_FACING_A", List.of("a"), "CUSTOMER_FACING_PK", List.of("pk")));
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            updateBuilder.addWhereClause(ef.field("T1", "B").asInt().lessThan(ef.literal(42)).nested());
+            var generatedQuery = updateBuilder.build().getSqlQuery();
+            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE \"PK\" = 444 AND ( \"B\" < 42 )", generatedQuery);
+            isValidStatement(ddl.getConnection(), generatedQuery);
+        }
+    }
+
+    @Test
+    public void rewriteColumnAliasesQuotes() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
+            final var updateStatement = "update T1 set \"customer_facing_a\" = 42 where \"CUSTOMER_FACING_PK\" = 444";
+            final var updateBuilder = connection.createStatementBuilderFactory().updateStatementBuilder(updateStatement, Map.of("customer_facing_a", List.of("A"), "CUSTOMER_FACING_PK", List.of("PK")));
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            updateBuilder.addWhereClause(ef.field("T1", "B").asInt().lessThan(ef.literal(42)).nested());
+            var generatedQuery = updateBuilder.build().getSqlQuery();
+            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE \"PK\" = 444 AND ( \"B\" < 42 )", generatedQuery);
+            isValidStatement(ddl.getConnection(), generatedQuery);
+        }
+    }
+
+    @Test
+    public void rewriteColumnAliasesInsideUdf() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set customer_facing_a = 42 where CUSTOMER_FACING_PK = greatest(42, customer_FACING_B)";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement,
+                    Map.of("CUSTOMER_FACING_A", List.of("a"),
+                            "CUSTOMER_FACING_PK", List.of("pk"),
+                            "CUSTOMER_FACING_B", List.of("b")));
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            updateBuilder.addWhereClause(ef.field("T1", "B").asInt().lessThan(ef.literal(42)).nested());
+            var generatedQuery = updateBuilder.build().getSqlQuery();
+            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE \"PK\" = greatest ( 42 , \"B\" ) AND ( \"B\" < 42 )", generatedQuery);
             isValidStatement(ddl.getConnection(), generatedQuery);
         }
     }

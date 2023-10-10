@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.api.fleuntsql.expression.details;
 
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.fleuntsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.BooleanExpressionTrait;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFragment;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.NumericExpressionTrait;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import com.google.common.base.Suppliers;
 

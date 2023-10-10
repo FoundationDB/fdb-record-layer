@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.api.fleuntsql.expression;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.fleuntsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.details.Mixins;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;

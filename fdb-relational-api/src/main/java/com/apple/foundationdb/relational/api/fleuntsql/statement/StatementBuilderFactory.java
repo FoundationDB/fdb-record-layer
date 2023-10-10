@@ -24,6 +24,8 @@ import com.apple.foundationdb.relational.api.ParseTreeInfo;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.util.List;
+import java.util.Map;
 
 @NotThreadSafe
 public interface StatementBuilderFactory {
@@ -34,6 +36,32 @@ public interface StatementBuilderFactory {
     @Nonnull
     UpdateStatement.Builder updateStatementBuilder(@Nonnull final String updateQuery);
 
+    /**
+     * Generates an {@link UpdateStatement.Builder} from a given SQL statement using the provided map of column synonyms.
+     *
+     * @param updateQuery The update query.
+     * @param columnSynonyms A map of column synonyms (aliases).
+     * @return An update builder that corresponds to the SQL statement.
+     *
+     * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
+     * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
+     */
+    @Nonnull
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull final String updateQuery, @Nonnull final Map<String, List<String>> columnSynonyms);
+
     @Nonnull
     UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree);
+
+    /**
+     * Generates an {@link UpdateStatement.Builder} from a given update parse tree using the provided map of column synonyms.
+     *
+     * @param parseTree The update query parse tree.
+     * @param columnSynonyms A map of column synonyms (aliases).
+     * @return An update builder that corresponds to the SQL statement.
+     *
+     * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
+     * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
+     */
+    @Nonnull
+    UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree, @Nonnull final Map<String, List<String>> columnSynonyms);
 }

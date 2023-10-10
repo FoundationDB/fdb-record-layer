@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql.expression;
 
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.fleuntsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;

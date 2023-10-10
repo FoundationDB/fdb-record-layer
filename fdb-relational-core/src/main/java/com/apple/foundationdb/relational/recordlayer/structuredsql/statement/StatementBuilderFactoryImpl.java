@@ -22,13 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.structuredsql.statement;
 
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.fleuntsql.statement.StatementBuilderFactory;
 import com.apple.foundationdb.relational.api.fleuntsql.statement.UpdateStatement;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.ParseTreeInfoImpl;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Map;
 
 public class StatementBuilderFactoryImpl implements StatementBuilderFactory {
 
@@ -52,13 +54,27 @@ public class StatementBuilderFactoryImpl implements StatementBuilderFactory {
     @Nonnull
     @Override
     public UpdateStatement.Builder updateStatementBuilder(@Nonnull final String updateQuery) {
-        return UpdateStatementImpl.BuilderImpl.fromQuery(relationalConnection, schemaTemplate, updateQuery);
+        return UpdateStatementImpl.BuilderImpl.fromQuery(relationalConnection, schemaTemplate, updateQuery, Map.of());
+    }
+
+    @Nonnull
+    @Override
+    public UpdateStatement.Builder updateStatementBuilder(@Nonnull String updateQuery, @Nonnull Map<String, List<String>> columnSynonyms) {
+        return UpdateStatementImpl.BuilderImpl.fromQuery(relationalConnection, schemaTemplate, updateQuery, columnSynonyms);
     }
 
     @Nonnull
     @Override
     public UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree) {
         Assert.thatUnchecked(parseTree instanceof ParseTreeInfoImpl);
-        return UpdateStatementImpl.BuilderImpl.fromParseTreeInfoImpl(relationalConnection, schemaTemplate, (ParseTreeInfoImpl) parseTree);
+        return UpdateStatementImpl.BuilderImpl.fromParseTreeInfoImpl(relationalConnection, schemaTemplate, (ParseTreeInfoImpl) parseTree, Map.of());
+    }
+
+    @Nonnull
+    @Override
+    public UpdateStatement.Builder updateStatementBuilder(@Nonnull final ParseTreeInfo parseTree,
+                                                          @Nonnull final Map<String, List<String>> columnSynonyms) {
+        Assert.thatUnchecked(parseTree instanceof ParseTreeInfoImpl);
+        return UpdateStatementImpl.BuilderImpl.fromParseTreeInfoImpl(relationalConnection, schemaTemplate, (ParseTreeInfoImpl) parseTree, columnSynonyms);
     }
 }

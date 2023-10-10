@@ -25,14 +25,14 @@ import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.fleuntsql.SqlVisitor;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.BooleanExpressionTrait;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.Expression;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
 import com.apple.foundationdb.relational.api.fleuntsql.statement.UpdateStatement;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
@@ -41,13 +41,18 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseTreeInfoImpl;
 import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.FieldImpl;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.antlr.v4.runtime.tree.TerminalNodeImpl;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -362,6 +367,13 @@ public class UpdateStatementImpl implements UpdateStatement {
             public UpdateVisitor(@Nonnull final RelationalConnection connection,
                                  @Nonnull final SchemaTemplate schemaTemplate,
                                  @Nonnull final RelationalParser.RootContext ast) {
+                this(connection, schemaTemplate, ast, Map.of());
+            }
+
+            public UpdateVisitor(@Nonnull final RelationalConnection connection,
+                                 @Nonnull final SchemaTemplate schemaTemplate,
+                                 @Nonnull final RelationalParser.RootContext ast,
+                                 @Nonnull final Map<String, List<String>> columnSynonyms) {
                 this.queryStringScratchpad = new StringBuilder();
                 this.updateBuilder = new BuilderImpl(connection, schemaTemplate);
                 try {
@@ -370,6 +382,11 @@ public class UpdateStatementImpl implements UpdateStatement {
                     throw new RelationalException(e).toUncheckedWrappedException();
                 }
                 this.isUpdateStatement = false;
+                // TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
+                if (!columnSynonyms.isEmpty()) {
+                    final var uidReplacer = new UidReplacer(columnSynonyms, connection.getOptions().getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
+                    uidReplacer.visit(ast);
+                }
                 visit(ast);
                 if (!isUpdateStatement) {
                     throw new RelationalException("expecting an update statement", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
@@ -450,22 +467,103 @@ public class UpdateStatementImpl implements UpdateStatement {
             }
         }
 
+        public static class CustomSimpleId extends RelationalParser.UidContext {
+
+            public CustomSimpleId(ParserRuleContext parent, int invokingState, @Nonnull final String name) {
+                super(parent, invokingState);
+                addChild(new TerminalNodeImpl(new CustomCommonToken(name)));
+            }
+
+            public static class CustomCommonToken extends CommonToken {
+
+                private static final long serialVersionUID = 3459762348795L;
+
+                @Nonnull
+                private final String name;
+
+                public CustomCommonToken(@Nonnull final String name) {
+                    super(0); // maybe use something else.
+                    this.name = name;
+                }
+
+                @Override
+                public String getText() {
+                    return name;
+                }
+            }
+        }
+
+        private static final class UidReplacer extends RelationalParserBaseVisitor<Void> {
+
+            @Nonnull
+            private final ImmutableMap<String, List<String>> synonymsMap;
+
+            private final boolean isCaseSensitive;
+
+            private UidReplacer(@Nonnull final Map<String, List<String>> symnonymsMap, boolean isCaseSensitive) {
+                ImmutableMap.Builder<String, List<String>> normalizedSynonymsMap = ImmutableMap.builder();
+                for (final var synonymsPair : symnonymsMap.entrySet()) {
+                    final var normalizedKey = Assert.notNullUnchecked(ParserUtils.normalizeString(synonymsPair.getKey(), isCaseSensitive));
+                    final var normalizedValue = synonymsPair.getValue().stream().map(part -> Assert.notNullUnchecked(ParserUtils.normalizeString(part, isCaseSensitive))).collect(Collectors.toUnmodifiableList());
+                    normalizedSynonymsMap.put(normalizedKey, normalizedValue);
+                }
+                this.synonymsMap = normalizedSynonymsMap.build();
+                this.isCaseSensitive = isCaseSensitive;
+            }
+
+            @Override
+            public Void visitUid(RelationalParser.UidContext ctx) {
+                final var normalizeUid = ParserUtils.normalizeString(ctx.getText(), isCaseSensitive);
+                final var synonymsValueMaybe = synonymsMap.get(normalizeUid);
+                if (synonymsValueMaybe != null) {
+                    if (!(ctx.parent instanceof ParserRuleContext)) {
+                        return null;
+                    }
+                    final var parent = (ParserRuleContext) ctx.parent;
+                    int childIndex = -1;
+                    for (int i = 0; i < parent.getChildCount(); i++) {
+                        if (parent.children.get(i) == ctx) {
+                            childIndex = i;
+                            break;
+                        }
+                    }
+                    if (childIndex < 0) {
+                        return null;
+                    }
+
+                    ImmutableList.Builder<ParseTree> newNodes = ImmutableList.builder();
+                    newNodes.addAll(parent.children.subList(0, childIndex));
+                    for (int i = 0; i < synonymsValueMaybe.size(); i++) {
+                        newNodes.add(new CustomSimpleId(parent, 1, "\"" + synonymsValueMaybe.get(i) + "\""));
+                        if (i < synonymsValueMaybe.size() - 1) {
+                            newNodes.add(new TerminalNodeImpl(new CustomSimpleId.CustomCommonToken(".")));
+                        }
+                    }
+                    newNodes.addAll(parent.children.subList(childIndex + 1, parent.children.size()));
+                    parent.children = newNodes.build();
+                }
+                return null;
+            }
+        }
+
         @Nonnull
         public static Builder fromQuery(@Nonnull final RelationalConnection relationalConnection,
                                         @Nonnull final SchemaTemplate schemaTemplate,
-                                        @Nonnull final String updateQuery) {
+                                        @Nonnull final String updateQuery,
+                                        @Nonnull final Map<String, List<String>> columnSynonyms) {
             final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(updateQuery));
             final var parseTree = new RelationalParser(new CommonTokenStream(tokenSource));
-            return fromParseTreeInfoImpl(relationalConnection, schemaTemplate, ParseTreeInfoImpl.from(parseTree.root()));
+            return fromParseTreeInfoImpl(relationalConnection, schemaTemplate, ParseTreeInfoImpl.from(parseTree.root()), columnSynonyms);
         }
 
         @Nonnull
         public static Builder fromParseTreeInfoImpl(@Nonnull final RelationalConnection relationalConnection,
                                                     @Nonnull final SchemaTemplate schemaTemplate,
-                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo) {
+                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo,
+                                                    @Nonnull final Map<String, List<String>> columnSynonyms) {
             Assert.thatUnchecked(parseTreeInfo.getQueryType().equals(ParseTreeInfo.QueryType.UPDATE),
                     String.format("Expecting update statement, got '%s' statement", parseTreeInfo.getQueryType().name()));
-            final var updateVisitor = new UpdateVisitor(relationalConnection, schemaTemplate, parseTreeInfo.getRootContext());
+            final var updateVisitor = new UpdateVisitor(relationalConnection, schemaTemplate, parseTreeInfo.getRootContext(), columnSynonyms);
             return updateVisitor.getUpdateBuilder();
         }
     }

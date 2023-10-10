@@ -23,11 +23,11 @@ package com.apple.foundationdb.relational.recordlayer.structuredsql.expression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
+import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
 import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 import com.apple.foundationdb.relational.util.Assert;
 

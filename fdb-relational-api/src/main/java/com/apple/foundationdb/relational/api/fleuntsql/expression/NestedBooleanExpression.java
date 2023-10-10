@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.api.fleuntsql.expression;
 
-import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.fleuntsql.FluentVisitor;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
