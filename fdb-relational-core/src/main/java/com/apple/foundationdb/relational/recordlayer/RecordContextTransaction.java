@@ -30,9 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,7 +41,6 @@ import java.util.List;
  */
 @ConnectionScoped
 public class RecordContextTransaction implements Transaction {
-    private static final Logger logger = LogManager.getLogger(RecordContextTransaction.class);
 
     /*
      * Collection of Runnables that run whenever a transaction commits or aborts. Once called,
@@ -57,19 +53,15 @@ public class RecordContextTransaction implements Transaction {
 
     public RecordContextTransaction(FDBRecordContext context) {
         this.context = context;
-        logger.trace("Construct {}", this, new Throwable());
     }
 
     @Override
     public void commit() throws RelationalException {
-        logger.trace("Commit {}", this, new Throwable());
         try {
             context.commit();
         } catch (FDBExceptions.FDBStoreTransactionConflictException ex) {
-            logger.trace("Commit {} ERROR", this, ex);
             throw new RelationalException(ex.getMessage(), ErrorCode.SERIALIZATION_FAILURE, ex);
         } catch (RecordCoreException e) {
-            logger.trace("Commit {} ERROR", this, e);
             throw ExceptionUtil.toRelationalException(e);
         }
         notifyTerminated();
@@ -77,13 +69,11 @@ public class RecordContextTransaction implements Transaction {
 
     @Override
     public void abort() throws RelationalException {
-        logger.trace("Abort {}", this, new Throwable());
         isClosed = true;
         notifyTerminated();
         try {
             context.close();
         } catch (RecordCoreException e) {
-            logger.trace("Abort {} ERROR", this, e);
             throw ExceptionUtil.toRelationalException(e);
         }
     }
