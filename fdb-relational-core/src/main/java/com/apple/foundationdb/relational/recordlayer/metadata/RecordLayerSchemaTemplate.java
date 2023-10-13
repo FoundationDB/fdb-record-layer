@@ -477,7 +477,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             Assert.thatUnchecked(sorted.isPresent(), "Invalid cyclic dependency in the schema definition", ErrorCode.INVALID_SCHEMA_TEMPLATE);
 
             // resolve types
-            final var resolvedTypes = new LinkedHashMap<String, DataType.Named>();
+            final Map<String, DataType.Named> resolvedTypes = new LinkedHashMap<>();
             for (final var type : sorted.get()) {
                 var typeToAdd = type;
                 if (!type.isResolved()) {
