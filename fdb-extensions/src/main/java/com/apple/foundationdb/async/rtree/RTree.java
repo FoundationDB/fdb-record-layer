@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async;
+package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -37,7 +36,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,23 +43,18 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -138,12 +131,9 @@ public class RTree {
     /**
      * root id. The root id is always only zeros.
      */
-    private static final byte[] rootId = new byte[16];
+    static final byte[] rootId = new byte[16];
 
-    public static final int NODE_ID_LENGTH = 16;
     public static final int MAX_CONCURRENT_READS = 16;
-
-    private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     /**
      * Indicator if we should maintain a secondary node index consisting of hilbet value and key to speed up
@@ -221,11 +211,6 @@ public class RTree {
     private final OnWriteListener onWriteListener;
     @Nonnull
     private final OnReadListener onReadListener;
-
-    /**
-     * Only used for debugging to keep node ids readable.
-     */
-    private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
 
     /**
      * Different kinds of storage layouts.
@@ -346,11 +331,11 @@ public class RTree {
         private Storage storage = DEFAULT_STORAGE;
         private boolean storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
 
-        protected ConfigBuilder() {
+        public ConfigBuilder() {
         }
 
-        protected ConfigBuilder(final boolean useSlotIndex, final int minM, final int maxM, final int splitS,
-                                @Nonnull final Storage storage, final boolean storeHilbertValues) {
+        public ConfigBuilder(final boolean useSlotIndex, final int minM, final int maxM, final int splitS,
+                             @Nonnull final Storage storage, final boolean storeHilbertValues) {
             this.useSlotIndex = useSlotIndex;
             this.minM = minM;
             this.maxM = maxM;
@@ -428,7 +413,7 @@ public class RTree {
      */
     public RTree(@Nonnull final Subspace subspace, @Nonnull final Subspace secondarySubspace,
                  @Nonnull final Executor executor, @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
-        this(subspace, secondarySubspace, executor, DEFAULT_CONFIG, hilbertValueFunction, RTree::newRandomNodeId,
+        this(subspace, secondarySubspace, executor, DEFAULT_CONFIG, hilbertValueFunction, Node::newRandomNodeId,
                 OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
@@ -573,7 +558,7 @@ public class RTree {
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
                 .thenApply(node -> {
-                    if (node.getKind() == Kind.INTERMEDIATE) {
+                    if (node.getKind() == Node.Kind.INTERMEDIATE) {
                         final List<ChildSlot> childSlots = ((IntermediateNode)node).getSlots();
                         Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
                         for (Iterator<ChildSlot> iterator = childSlots.iterator(); iterator.hasNext(); ) {
@@ -851,12 +836,12 @@ public class RTree {
             // enough space left in target
 
             if (logger.isTraceEnabled()) {
-                logger.trace("regular insert without splitting; node={}; size={}", bytesToHex(targetNode.getId()), targetNode.size());
+                logger.trace("regular insert without splitting; node={}; size={}", targetNode, targetNode.size());
             }
             targetNode.insertSlot(slotIndexInTargetNode, newSlot);
             storageAdapter.insertIntoNodeIndexIfNecessary(transaction, level - 1, newSlot);
 
-            if (targetNode.getKind() == Kind.INTERMEDIATE) {
+            if (targetNode.getKind() == Node.Kind.INTERMEDIATE) {
                 //
                 // If this is an insert for an intermediate node, the child node referred to by newSlot
                 // is a split node from a lower level meaning a split has happened on a lower level and the
@@ -865,7 +850,7 @@ public class RTree {
                 storageAdapter.writeNodes(transaction, Collections.singletonList(targetNode));
             } else {
                 // if this is an insert for a leaf node we can just write the slot
-                Verify.verify(targetNode.getKind() == Kind.LEAF);
+                Verify.verify(targetNode.getKind() == Node.Kind.LEAF);
                 storageAdapter.writeLeafNodeSlot(transaction, (LeafNode)targetNode, (ItemSlot)newSlot);
             }
 
@@ -918,8 +903,9 @@ public class RTree {
                 if (numSlots == siblingNodes.size() * config.getMaxM()) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("splitting node; node={}, siblings={}",
-                                bytesToHex(targetNode.getId()),
-                                siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+                                targetNode,
+                                siblingNodes.stream().map(Node::toString)
+                                        .collect(Collectors.joining(",")));
                     }
                     splitNode = targetNode.newOfSameKind(nodeIdSupplier.get());
                     // link this split node to become the last node of the siblings
@@ -930,9 +916,10 @@ public class RTree {
                 } else {
                     if (logger.isTraceEnabled()) {
                         logger.trace("handling overflow; node={}, numSlots={}, siblings={}",
-                                bytesToHex(targetNode.getId()),
+                                targetNode,
                                 numSlots,
-                                siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+                                siblingNodes.stream().map(Node::toString)
+                                        .collect(Collectors.joining(",")));
                     }
                     splitNode = null;
                     newSiblingNodes = siblingNodes;
@@ -1192,12 +1179,12 @@ public class RTree {
         //
         if (targetNode.isRoot() || targetNode.getSlots().size() > config.getMinM()) {
             if (logger.isTraceEnabled()) {
-                logger.trace("regular delete; node={}; size={}", bytesToHex(targetNode.getId()), targetNode.size());
+                logger.trace("regular delete; node={}; size={}", targetNode, targetNode.size());
             }
             targetNode.deleteSlot(slotIndexInTargetNode);
             storageAdapter.deleteFromNodeIndexIfNecessary(transaction, level - 1, deleteSlot);
 
-            if (targetNode.getKind() == Kind.INTERMEDIATE) {
+            if (targetNode.getKind() == Node.Kind.INTERMEDIATE) {
                 //
                 // If this node is the root and the root node is an intermediate node, then it should at least have two
                 // children.
@@ -1210,7 +1197,7 @@ public class RTree {
                 //
                 storageAdapter.writeNodes(transaction, Collections.singletonList(targetNode));
             } else {
-                Verify.verify(targetNode.getKind() == Kind.LEAF);
+                Verify.verify(targetNode.getKind() == Node.Kind.LEAF);
                 storageAdapter.clearLeafNodeSlot(transaction, (LeafNode)targetNode, (ItemSlot)deleteSlot);
             }
 
@@ -1244,17 +1231,17 @@ public class RTree {
                 if (numSlots == siblingNodes.size() * config.getMinM()) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("fusing nodes; node={}, siblings={}",
-                                bytesToHex(targetNode.getId()),
-                                siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+                                targetNode,
+                                siblingNodes.stream().map(Node::toString).collect(Collectors.joining(",")));
                     }
                     tombstoneNode = siblingNodes.get(siblingNodes.size() - 1);
                     newSiblingNodes = siblingNodes.subList(0, siblingNodes.size() - 1);
                 } else {
                     if (logger.isTraceEnabled()) {
                         logger.trace("handling underflow; node={}, numSlots={}, siblings={}",
-                                bytesToHex(targetNode.getId()),
+                                targetNode,
                                 numSlots,
-                                siblingNodes.stream().map(node -> bytesToHex(node.getId())).collect(Collectors.joining(",")));
+                                siblingNodes.stream().map(Node::toString).collect(Collectors.joining(",")));
                     }
                     tombstoneNode = null;
                     newSiblingNodes = siblingNodes;
@@ -1459,7 +1446,7 @@ public class RTree {
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, 0, hilbertValue, key, isInsertUpdate)
                 .thenApply(node -> {
                     Verify.verify((!isInsertUpdate && node == null ) ||
-                                  (node.getKind() == Kind.LEAF && node instanceof LeafNode));
+                                  (node.getKind() == Node.Kind.LEAF && node instanceof LeafNode));
                     return (LeafNode)node;
                 });
     }
@@ -1473,7 +1460,7 @@ public class RTree {
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, level, hilbertValue, key, isInsertUpdate)
                 .thenApply(node -> {
                     Verify.verify((!isInsertUpdate && node == null) ||
-                                  (node.getKind() == Kind.INTERMEDIATE && node instanceof IntermediateNode));
+                                  (node.getKind() == Node.Kind.INTERMEDIATE && node instanceof IntermediateNode));
                     return (IntermediateNode)node;
                 });
     }
@@ -1531,7 +1518,7 @@ public class RTree {
                             if (parentNode.get() != null) {
                                 node.linkToParent(parentNode.get(), slotInParent.get());
                             }
-                            if (node.getKind() == Kind.INTERMEDIATE) {
+                            if (node.getKind() == Node.Kind.INTERMEDIATE) {
                                 final IntermediateNode intermediateNode = (IntermediateNode)node;
                                 final int slotIndex = findChildSlotIndex(intermediateNode, hilbertValue, key, isInsertUpdate);
                                 if (slotIndex < 0) {
@@ -1556,7 +1543,7 @@ public class RTree {
                 .thenApply(ignored -> {
                     final LeafNode node = leafNode.get();
                     if (logger.isTraceEnabled()) {
-                        logger.trace("update path; path={}", nodeIdPath(node));
+                        logger.trace("update path; path={}", Node.nodeIdPath(node));
                     }
                     return node;
                 });
@@ -1790,7 +1777,7 @@ public class RTree {
                     }
 
                     // add all children to the to be processed queue
-                    if (childNode.getKind() == Kind.INTERMEDIATE) {
+                    if (childNode.getKind() == Node.Kind.INTERMEDIATE) {
                         return ((IntermediateNode)childNode).getSlots()
                                 .stream()
                                 .map(childSlot -> new ParentNodeAndChildId((IntermediateNode)childNode, childSlot.getChildId()))
@@ -1834,7 +1821,7 @@ public class RTree {
             // make sure that the node covers the Hilbert Value/key we would like to delete
             final ChildSlot firstChildSlot = intermediateNode.getSlots().get(0);
 
-            final int compare = compareHilbertValueKeyPair(firstChildSlot.getSmallestHilbertValue(), firstChildSlot.getSmallestKey(), hilbertValue, key);
+            final int compare = NodeSlot.compareHilbertValueKeyPair(firstChildSlot.getSmallestHilbertValue(), firstChildSlot.getSmallestKey(), hilbertValue, key);
             if (compare > 0) {
                 // child smallest HV/key > target HV/key
                 return -1;
@@ -1850,7 +1837,7 @@ public class RTree {
             // Hilbert value. If there is no such subtree, i.e. the target Hilbert value is the
             // largest Hilbert value, we choose the largest one in the current node.
             //
-            final int compare = compareHilbertValueKeyPair(childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), hilbertValue, key);
+            final int compare = NodeSlot.compareHilbertValueKeyPair(childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), hilbertValue, key);
             if (compare >= 0) {
                 // child largest HV/key > target HV/key
                 return slotIndex;
@@ -1880,7 +1867,7 @@ public class RTree {
         for (int slotIndex = 0; slotIndex < items.size(); slotIndex++) {
             final ItemSlot slot = items.get(slotIndex);
 
-            final int compare = compareHilbertValueKeyPair(slot.getHilbertValue(), slot.getKey(), hilbertValue, key);
+            final int compare = NodeSlot.compareHilbertValueKeyPair(slot.getHilbertValue(), slot.getKey(), hilbertValue, key);
             if (compare == 0) {
                 return -1;
             }
@@ -1910,7 +1897,7 @@ public class RTree {
         for (int slotIndex = 0; slotIndex < items.size(); slotIndex++) {
             final ItemSlot slot = items.get(slotIndex);
 
-            final int compare = compareHilbertValueKeyPair(slot.getHilbertValue(), slot.getKey(), hilbertValue, key);
+            final int compare = NodeSlot.compareHilbertValueKeyPair(slot.getHilbertValue(), slot.getKey(), hilbertValue, key);
             if (compare == 0) {
                 return slotIndex;
             }
@@ -1921,15 +1908,6 @@ public class RTree {
         }
 
         return -1;
-    }
-
-    private static int compareHilbertValueKeyPair(@Nonnull final BigInteger hilbertValue1, @Nonnull final Tuple key1,
-                                                  @Nonnull final BigInteger hilbertValue2, @Nonnull final Tuple key2) {
-        final int hilbertValueCompare = hilbertValue1.compareTo(hilbertValue2);
-        if (hilbertValueCompare != 0) {
-            return hilbertValueCompare;
-        }
-        return TupleHelpers.compare(key1, key2);
     }
 
     /**
@@ -1962,1438 +1940,6 @@ public class RTree {
             }
         }
         return Objects.requireNonNull(mbr); // cannot be null but compile cannot infer that
-    }
-
-    /**
-     * Method to create a new node identifier. This method uses {@link UUID#randomUUID()} and should be used in
-     * production to avoid conflicts.
-     * @return a new 16-byte byte array containing a new unique node identifier
-     */
-    @Nonnull
-    public static byte[] newRandomNodeId() {
-        final UUID uuid = UUID.randomUUID();
-        final byte[] uuidBytes = new byte[NODE_ID_LENGTH];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(uuid.getMostSignificantBits())
-                .putLong(uuid.getLeastSignificantBits());
-        return uuidBytes;
-    }
-
-    /**
-     * Method to create a new node identifier. This method uses an internal static {@link AtomicLong} that is
-     * incremented. This method creates monotonically increasing node identifiers which can be shortened when printed
-     * or logged. This way of creating node identifiers should only be used for testing and debugging purposes.
-     * @return a new 16-byte byte array containing a new unique node identifier
-     */
-    @Nonnull
-    public static byte[] newSequentialNodeId() {
-        final long nodeIdAsLong = nodeIdState.getAndIncrement();
-        final byte[] uuidBytes = new byte[NODE_ID_LENGTH];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(0L)
-                .putLong(nodeIdAsLong);
-        return uuidBytes;
-    }
-
-    /**
-     * Helper method to format bytes as hex strings for logging and debugging.
-     * @param bytes an array of bytes
-     * @return a {@link String} containing the hexadecimal representation of the byte array passed in
-     */
-    @Nonnull
-    private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-        }
-        return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
-    }
-
-    /**
-     * Helper method to format the node ids of an insert/update path as a string.
-     * @param node a node that is usually linked up to its parents to form an insert/update path
-     * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
-     */
-    @Nonnull
-    private static String nodeIdPath(@Nullable Node node) {
-        final List<String> nodeIds = Lists.newArrayList();
-        do {
-            if (node != null) {
-                nodeIds.add(bytesToHex(node.getId()));
-                node = node.getParentNode();
-            } else {
-                nodeIds.add("<null>");
-            }
-        } while (node != null);
-        Collections.reverse(nodeIds);
-        return String.join(", ", nodeIds);
-    }
-
-    /**
-     * Enum to capture the kind of node.
-     */
-    public enum Kind {
-        LEAF((byte)0x00),
-        INTERMEDIATE((byte)0x01);
-
-        private final byte serialized;
-
-        Kind(final byte serialized) {
-            this.serialized = serialized;
-        }
-
-        public byte getSerialized() {
-            return serialized;
-        }
-
-        @Nonnull
-        private static Kind fromSerializedNodeKind(byte serializedNodeKind) {
-            final Kind nodeKind;
-            switch (serializedNodeKind) {
-                case 0x00:
-                    nodeKind = Kind.LEAF;
-                    break;
-                case 0x01:
-                    nodeKind = Kind.INTERMEDIATE;
-                    break;
-                default:
-                    throw new IllegalArgumentException("unknown node kind");
-            }
-            Verify.verify(nodeKind.getSerialized() == serializedNodeKind);
-            return nodeKind;
-        }
-    }
-
-    /**
-     * Abstract base class to capture the common aspects of {@link LeafNode} and {@link IntermediateNode}. All nodes
-     * have a node id and slots and can be linked up to a parent. Note that while the root node mostly is an
-     * intermediate node it can also be a leaf node if the tree is nearly empty.
-     */
-    public abstract static class Node {
-        @Nonnull
-        private final byte[] id;
-
-        @Nullable
-        private IntermediateNode parentNode;
-        private int slotIndexInParent;
-
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-        public Node(@Nonnull final byte[] id, @Nullable final IntermediateNode parentNode, final int slotIndexInParent) {
-            this.id = id;
-            this.parentNode = parentNode;
-            this.slotIndexInParent = slotIndexInParent;
-        }
-
-        @Nonnull
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-        public byte[] getId() {
-            return id;
-        }
-
-        public int size() {
-            return getSlots().size();
-        }
-
-        public boolean isEmpty() {
-            return getSlots().isEmpty();
-        }
-
-        public abstract Node replaceSlots(@Nonnull List<? extends NodeSlot> newSlots);
-
-        @Nonnull
-        public abstract List<? extends NodeSlot> getSlots();
-
-        public abstract Node insertSlot(int slotIndex, @Nonnull NodeSlot slot);
-
-        @Nonnull
-        public abstract List<? extends NodeSlot> getInsertedSlots();
-
-        @Nonnull
-        public abstract List<? extends NodeSlot> getDeletedSlots();
-
-        public abstract Node deleteSlot(int slotIndex);
-
-        public boolean isRoot() {
-            return Arrays.equals(rootId, id);
-        }
-
-        @Nonnull
-        public abstract Kind getKind();
-
-        @Nullable
-        public IntermediateNode getParentNode() {
-            return parentNode;
-        }
-
-        public int getSlotIndexInParent() {
-            return slotIndexInParent;
-        }
-
-        @Nullable
-        public ChildSlot getSlotInParent() {
-            if (parentNode == null) {
-                return null;
-            }
-            Verify.verify(slotIndexInParent >= 0);
-            return parentNode.getSlots().get(slotIndexInParent);
-        }
-
-        public void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent) {
-            this.parentNode = parentNode;
-            this.slotIndexInParent = slotInParent;
-        }
-
-        @Nonnull
-        public abstract Node newOfSameKind(@Nonnull byte[] nodeId);
-    }
-
-    /**
-     * A leaf node of the tree. A leaf node holds the actual data in {@link ItemSlot}s.
-     */
-    public static class LeafNode extends Node {
-        @Nonnull
-        private List<ItemSlot> itemSlots;
-        @Nonnull
-        private final List<ItemSlot> insertedItemSlots;
-        @Nonnull
-        private final List<ItemSlot> deletedItemSlots;
-
-        public LeafNode(@Nonnull final byte[] id) {
-            this(id, Lists.newArrayList());
-        }
-
-        public LeafNode(@Nonnull final byte[] id,
-                        @Nonnull final List<ItemSlot> itemSlots) {
-            this(id, itemSlots, null, -1);
-        }
-
-        public LeafNode(@Nonnull final byte[] id,
-                        @Nonnull final List<ItemSlot> itemSlots,
-                        @Nullable final IntermediateNode parentNode,
-                        final int slotIndexInParent) {
-            super(id, parentNode, slotIndexInParent);
-            this.itemSlots = itemSlots;
-            this.insertedItemSlots = Lists.newArrayList();
-            this.deletedItemSlots = Lists.newArrayList();
-        }
-
-        @Nonnull
-        @Override
-        public Kind getKind() {
-            return Kind.LEAF;
-        }
-
-        @Nonnull
-        @Override
-        public List<ItemSlot> getSlots() {
-            return itemSlots;
-        }
-
-        @Nonnull
-        @Override
-        public List<? extends NodeSlot> getInsertedSlots() {
-            return insertedItemSlots;
-        }
-
-        @Nonnull
-        @Override
-        public List<? extends NodeSlot> getDeletedSlots() {
-            return deletedItemSlots;
-        }
-
-        @Override
-        public LeafNode replaceSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
-            Verify.verify(deletedItemSlots.isEmpty());
-            deletedItemSlots.addAll(getSlots());
-
-            this.itemSlots =
-                    newSlots.stream()
-                            .map(slot -> (ItemSlot)slot)
-                            .collect(Collectors.toList());
-
-            insertedItemSlots.clear();
-            insertedItemSlots.addAll(itemSlots);
-            return this;
-        }
-
-        @Override
-        public LeafNode insertSlot(final int slotIndex, @Nonnull final NodeSlot slot) {
-            Preconditions.checkArgument(slot instanceof ItemSlot);
-            insertedItemSlots.add((ItemSlot)slot);
-            itemSlots.add(slotIndex, (ItemSlot)slot);
-            return this;
-        }
-
-        @Override
-        public LeafNode deleteSlot(final int slotIndex) {
-            deletedItemSlots.add(itemSlots.get(slotIndex));
-            itemSlots.remove(slotIndex);
-            return this;
-        }
-
-        @Nonnull
-        @Override
-        public LeafNode newOfSameKind(@Nonnull final byte[] nodeId) {
-            return new LeafNode(nodeId, Lists.newArrayList());
-        }
-    }
-
-    /**
-     * An intermediate node of the tree. An intermediate node holds the holds information about its children nodes that
-     * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
-     * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
-     */
-    public static class IntermediateNode extends Node {
-        @Nonnull
-        private List<ChildSlot> childSlots;
-        @Nonnull
-        private final List<ChildSlot> insertedChildSlots;
-        @Nonnull
-        private final List<ChildSlot> deletedChildSlots;
-
-        public IntermediateNode(@Nonnull final byte[] id) {
-            this(id, Lists.newArrayList());
-        }
-
-        public IntermediateNode(@Nonnull final byte[] id,
-                                @Nonnull final List<ChildSlot> childSlots) {
-            this(id, childSlots, null, -1);
-        }
-
-        public IntermediateNode(@Nonnull final byte[] id,
-                                @Nonnull final List<ChildSlot> childSlots,
-                                @Nullable final IntermediateNode parentNode,
-                                final int slotIndexInParent) {
-            super(id, parentNode, slotIndexInParent);
-            this.childSlots = childSlots;
-            this.insertedChildSlots = Lists.newArrayList();
-            this.deletedChildSlots = Lists.newArrayList();
-        }
-
-        @Nonnull
-        @Override
-        public Kind getKind() {
-            return Kind.INTERMEDIATE;
-        }
-
-        @Nonnull
-        @Override
-        public List<ChildSlot> getSlots() {
-            return childSlots;
-        }
-
-        @Nonnull
-        @Override
-        public List<? extends NodeSlot> getInsertedSlots() {
-            return insertedChildSlots;
-        }
-
-        @Nonnull
-        @Override
-        public List<? extends NodeSlot> getDeletedSlots() {
-            return deletedChildSlots;
-        }
-
-        @Override
-        public IntermediateNode replaceSlots(@Nonnull final List<? extends NodeSlot> newSlots) {
-            Verify.verify(deletedChildSlots.isEmpty());
-            deletedChildSlots.addAll(getSlots());
-
-            this.childSlots =
-                    newSlots.stream()
-                            .map(slot -> (ChildSlot)slot)
-                            .collect(Collectors.toList());
-
-            insertedChildSlots.clear();
-            insertedChildSlots.addAll(childSlots);
-            return this;
-        }
-
-        @Override
-        public IntermediateNode insertSlot(final int slotIndex, @Nonnull final NodeSlot slot) {
-            Preconditions.checkArgument(slot instanceof ChildSlot);
-            insertedChildSlots.add((ChildSlot)slot);
-            childSlots.add(slotIndex, (ChildSlot)slot);
-            return this;
-        }
-
-        @Override
-        public IntermediateNode deleteSlot(final int slotIndex) {
-            deletedChildSlots.add(childSlots.get(slotIndex));
-            childSlots.remove(slotIndex);
-            return this;
-        }
-
-        @Nonnull
-        @Override
-        public IntermediateNode newOfSameKind(@Nonnull final byte[] nodeId) {
-            return new IntermediateNode(nodeId, Lists.newArrayList());
-        }
-    }
-
-    /**
-     * Abstract base class for all node slots. Holds a Hilbert value and a key. The semantics of these attributes
-     * is refined in the subclasses {@link ItemSlot} and {@link ChildSlot}.
-     */
-    public interface NodeSlot {
-        @Nonnull
-        BigInteger getSmallestHilbertValue();
-
-        @Nonnull
-        BigInteger getLargestHilbertValue();
-
-        @Nonnull
-        Tuple getSmallestKey();
-
-        @Nonnull
-        default Tuple getSmallestKeySuffix() {
-            return getSmallestKey().getNestedTuple(1);
-        }
-
-        @Nonnull
-        Tuple getLargestKey();
-
-        @Nonnull
-        default Tuple getLargestKeySuffix() {
-            return getLargestKey().getNestedTuple(1);
-        }
-
-        /**
-         * Create a tuple for the key part of this slot. This tuple is used when the slot is persisted in the database.
-         * Note that the serialization format is not yet finalized.
-         * @param storeHilbertValues indicator if the hilbert value should be encoded into the slot key or null-ed out
-         * @return a new tuple
-         */
-        @Nonnull
-        Tuple getSlotKey(boolean storeHilbertValues);
-
-        /**
-         * Create a tuple for the value part of this slot. This tuple is used when the slot is persisted in the database.
-         * Note that the serialization format is not yet finalized.
-         * @return a new tuple
-         */
-        @Nonnull
-        Tuple getSlotValue();
-
-        /**
-         * Indicates that this slot was updated after it was read from the database. A newly-created node slot is by
-         * definition clean and therefore not dirty.
-         * @return indicator; {@code true} if this node slot is dirty, {@code false} otherwise
-         */
-        boolean isDirty();
-
-        /**
-         * Returns the original node slot prior to the update if this node slot is dirty, i.e. {@link #isDirty()}
-         * returns {@code true}.
-         * @return the node slot prior to an update if this node slot is dirty. This method throws an exception
-         *         if thew node slot is not dirty.
-         */
-        @Nonnull
-        NodeSlot getOriginalNodeSlot();
-
-        /**
-         * Compare this node slot's smallest {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
-         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
-         * @param hilbertValue Hilbert value
-         * @param key first key
-         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
-         */
-        default int compareSmallestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                                      @Nonnull final Tuple key) {
-            return compareHilbertValueKeyPair(getSmallestHilbertValue(), getSmallestKey(), hilbertValue, key);
-        }
-
-        /**
-         * Compare this node slot's largest {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
-         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
-         * @param hilbertValue Hilbert value
-         * @param key first key
-         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
-         */
-        default int compareLargestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                                     @Nonnull final Tuple key) {
-            return compareHilbertValueKeyPair(getLargestHilbertValue(), getLargestKey(), hilbertValue, key);
-        }
-    }
-
-    /**
-     * An item slot that is used by {@link LeafNode}s. Holds the actual data of the item as well as the items Hilbert
-     * value and its key.
-     */
-    public static class ItemSlot implements NodeSlot {
-        private static final Comparator<ItemSlot> comparator =
-                Comparator.comparing(ItemSlot::getHilbertValue).thenComparing(ItemSlot::getKey);
-
-        public static final int SLOT_KEY_TUPLE_SIZE = 2;
-        public static final int SLOT_VALUE_TUPLE_SIZE = 1;
-
-        @Nonnull
-        private final BigInteger hilbertValue;
-        @Nonnull
-        private final Tuple key;
-
-        @Nonnull
-        private final Tuple value;
-        @Nonnull
-        private final Point position;
-
-        public ItemSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final Point position, @Nonnull final Tuple key,
-                        @Nonnull final Tuple value) {
-            this.hilbertValue = hilbertValue;
-            this.key = key;
-            this.value = value;
-            this.position = position;
-        }
-
-        @Nonnull
-        public BigInteger getHilbertValue() {
-            return hilbertValue;
-        }
-
-        @Nonnull
-        public Tuple getKey() {
-            return key;
-        }
-
-        @Nonnull
-        public Tuple getKeySuffix() {
-            return key.getNestedTuple(1);
-        }
-
-        @Nonnull
-        public Tuple getValue() {
-            return value;
-        }
-
-        @Nonnull
-        public Point getPosition() {
-            return position;
-        }
-
-        @Nonnull
-        @Override
-        public BigInteger getSmallestHilbertValue() {
-            return hilbertValue;
-        }
-
-        @Nonnull
-        @Override
-        public BigInteger getLargestHilbertValue() {
-            return hilbertValue;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSmallestKey() {
-            return key;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getLargestKey() {
-            return key;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSlotKey(final boolean storeHilbertValues) {
-            return Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSlotValue() {
-            return Tuple.from(getValue());
-        }
-
-        @Override
-        public boolean isDirty() {
-            return false;
-        }
-
-        @Nonnull
-        @Override
-        public ItemSlot getOriginalNodeSlot() {
-            throw new IllegalStateException("original slot requested for clean slot");
-        }
-
-        /**
-         * Compare this node slot's {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
-         * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
-         * @param hilbertValue Hilbert value
-         * @param key first key
-         * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
-         */
-        public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                             @Nonnull final Tuple key) {
-            final int hilbertValueCompare = getHilbertValue().compareTo(hilbertValue);
-            if (hilbertValueCompare != 0) {
-                return hilbertValueCompare;
-            }
-            return TupleHelpers.compare(getKey(), key);
-        }
-
-        @Override
-        public String toString() {
-            return "[" + getPosition() + ";" + getHilbertValue() + "; " + getKey() + "]";
-        }
-
-        @Nonnull
-        private static ItemSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple,
-                                                @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
-            Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
-            Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
-            final Tuple itemKey = keyTuple.getNestedTuple(1);
-            final Point point = new Point(itemKey.getNestedTuple(0));
-            final BigInteger hilbertValue;
-            if (keyTuple.get(0) == null) {
-                hilbertValue = hilbertValueFunction.apply(point);
-            } else {
-                hilbertValue = keyTuple.getBigInteger(0);
-            }
-            return new ItemSlot(hilbertValue, point, itemKey, valueTuple.getNestedTuple(0));
-        }
-    }
-
-    /**
-     * A child slot that is used by {@link IntermediateNode}s. Holds the id of a child node, as well as the largest
-     * hilbert value of its child, the largest key of its child and an mbr that encompasses all points in the subtree
-     * rooted at the child.
-     */
-    public static class ChildSlot implements NodeSlot {
-        public static final int SLOT_KEY_TUPLE_SIZE = 4;
-        public static final int SLOT_VALUE_TUPLE_SIZE = 2;
-
-        @Nonnull
-        private final byte[] childId;
-        @Nonnull
-        private Rectangle mbr;
-
-        @Nonnull
-        private BigInteger smallestHilbertValue;
-        @Nonnull
-        private Tuple smallestKey;
-        @Nonnull
-        private BigInteger largestHilbertValue;
-        @Nonnull
-        private Tuple largestKey;
-        @Nullable
-        private ChildSlot originalNodeSlot;
-        private boolean isDirty;
-
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-        public ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
-                         @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
-                         @Nonnull final byte[] childId, @Nonnull final Rectangle mbr) {
-            this.smallestHilbertValue = smallestHilbertValue;
-            this.smallestKey = smallestKey;
-            this.largestHilbertValue = largestHilbertValue;
-            this.largestKey = largestKey;
-            this.childId = childId;
-            this.mbr = mbr;
-            this.originalNodeSlot = null;
-            this.isDirty = false;
-        }
-
-        @Nonnull
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-        public byte[] getChildId() {
-            return childId;
-        }
-
-        public void setSmallestHilbertValue(@Nonnull final BigInteger smallestHilbertValue) {
-            this.smallestHilbertValue = smallestHilbertValue;
-        }
-
-        @Nonnull
-        @Override
-        public BigInteger getSmallestHilbertValue() {
-            return smallestHilbertValue;
-        }
-
-        public void setSmallestKey(@Nonnull final Tuple smallestKey) {
-            this.smallestKey = smallestKey;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSmallestKey() {
-            return smallestKey;
-        }
-
-        public void setLargestHilbertValue(@Nonnull final BigInteger largestHilbertValue) {
-            this.largestHilbertValue = largestHilbertValue;
-        }
-
-        @Nonnull
-        @Override
-        public BigInteger getLargestHilbertValue() {
-            return largestHilbertValue;
-        }
-
-        public void setLargestKey(@Nonnull final Tuple largestKey) {
-            this.largestKey = largestKey;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getLargestKey() {
-            return largestKey;
-        }
-
-        public void setMbr(@Nonnull final Rectangle mbr) {
-            this.mbr = mbr;
-        }
-
-        @Nonnull
-        public Rectangle getMbr() {
-            return mbr;
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSlotKey(final boolean storeHilbertValue) {
-            return Tuple.from(getSmallestHilbertValue(), getSmallestKey(), getLargestHilbertValue(), getLargestKey());
-        }
-
-        @Nonnull
-        @Override
-        public Tuple getSlotValue() {
-            return Tuple.from(getChildId(), getMbr().getRanges());
-        }
-
-        public void setOriginalNodeSlotAndMarkDirty(@Nonnull final ChildSlot originalNodeSlot) {
-            this.isDirty = true;
-            Verify.verify(this.originalNodeSlot == null);
-            this.originalNodeSlot = originalNodeSlot;
-        }
-
-        public void markClean() {
-            this.isDirty = false;
-            this.originalNodeSlot = null;
-        }
-
-        @Override
-        public boolean isDirty() {
-            return isDirty;
-        }
-
-        @Nonnull
-        @Override
-        public ChildSlot getOriginalNodeSlot() {
-            if (isDirty) {
-                return Objects.requireNonNull(originalNodeSlot);
-            }
-            throw new IllegalStateException("original slot requested for clean slot");
-        }
-
-        /**
-         * Method to determine if (during a scan a suffix predicate can be applied). A suffix predicate can only
-         * be applied, if the smallest and largest hilbert value as well as the non-suffix part of the key are the same.
-         * @return {@code true} if a suffix predicate can be applied on this child slot
-         */
-        public boolean suffixPredicateCanBeApplied() {
-            final int hilbertValueCompare = getSmallestHilbertValue().compareTo(getLargestHilbertValue());
-            Verify.verify(hilbertValueCompare <= 0);
-            if (hilbertValueCompare != 0) {
-                return false;
-            }
-
-            int positionTupleCompare =
-                    TupleHelpers.compare(getSmallestKey().getNestedTuple(0), getLargestKey().getNestedTuple(0)) ;
-            Verify.verify(positionTupleCompare <= 0);
-            return positionTupleCompare == 0;
-        }
-
-        @Nonnull
-        @Override
-        public String toString() {
-            return "[" + getMbr() + ";" + getSmallestHilbertValue() + "; " + getLargestHilbertValue() + "]";
-        }
-
-        @Nonnull
-        private static ChildSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-            Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
-            Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
-            return new ChildSlot(keyTuple.getBigInteger(0), keyTuple.getNestedTuple(1),
-                    keyTuple.getBigInteger(2), keyTuple.getNestedTuple(3),
-                    valueTuple.getBytes(0), new Rectangle(valueTuple.getNestedTuple(1)));
-        }
-    }
-
-    /**
-     * Storage adapter used for serialization and deserialization of nodes.
-     */
-    public interface StorageAdapter {
-
-        /**
-         * Get the {@link Config} associated with this storage adapter.
-         */
-        @Nonnull
-        Config getConfig();
-
-        /**
-         * Get the subspace used to store this r-tree.
-         * @return r-tree subspace
-         */
-        @Nonnull
-        Subspace getSubspace();
-
-        /**
-         * Get the subspace used to store a node slot index if in warranted by the {@link Config}.
-         * @return secondary subspace or {@code null} if we do not maintain a node slot index
-         */
-        @Nullable
-        default Subspace getSecondarySubspace() {
-            final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-            return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getSecondarySubspace();
-        }
-
-        /**
-         * Get the node slot index adapter used to store a node slot index if in warranted by the {@link Config}.
-         * @return aninstance of {@link NodeSlotIndexAdapter} or {@code null} if we do not maintain a node slot index
-         */
-        @Nullable
-        NodeSlotIndexAdapter getNodeSlotIndexAdapter();
-
-        /**
-         * Get the on-write listener.
-         * @return the on-write listener.
-         */
-        @Nonnull
-        OnWriteListener getOnWriteListener();
-
-        /**
-         * Get the on-read listener.
-         * @return the on-read listener.
-         */
-        @Nonnull
-        OnReadListener getOnReadListener();
-
-        /**
-         * Insert a new entry into the node index if configuration indicates we should maintain such an index.
-         * @param transaction the transaction to use
-         * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-         * @param nodeSlot the {@link NodeSlot} to be inserted
-         */
-        void insertIntoNodeIndexIfNecessary(@Nonnull Transaction transaction, final int level, @Nonnull NodeSlot nodeSlot);
-
-        /**
-         * Deletes an entry from the node index if configuration indicates we should maintain such an index.
-         * @param transaction the transaction to use
-         * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-         * @param nodeSlot the {@link NodeSlot} to be deleted
-         */
-        void deleteFromNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                            @Nonnull final NodeSlot nodeSlot);
-
-        /**
-         * Updates the node index for all dirty slots in the given node if configuration indicates we should maintain
-         * such an index.
-         * @param transaction the transaction to use
-         * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-         * @param node the node whose dirty node slots we update the index for
-         */
-        void updateNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level, @Nonnull final Node node);
-
-        /**
-         * Persist a node slot.
-         * @param transaction the transaction to use
-         * @param node node whose slot to persist
-         * @param itemSlot the node slot to persist
-         */
-        void writeLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull LeafNode node, @Nonnull ItemSlot itemSlot);
-
-        /**
-         * Clear out a leaf node slot.
-         * @param transaction the transaction to use
-         * @param node node whose slot is cleared out
-         * @param itemSlot the node slot to clear out
-         */
-        void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull LeafNode node, @Nonnull ItemSlot itemSlot);
-
-        /**
-         * Method to (re-)persist all slots for a list of nodes passed in. The method will first clear the range starting with
-         * the node ids of the nodes passed in and then persist all the nodes slots.
-         * @param transaction the transaction to use
-         * @param nodes a list of nodes to be (re-persisted)
-         */
-        void writeNodes(@Nonnull Transaction transaction, @Nonnull List<? extends Node> nodes);
-
-        /**
-         * Scan the node slot index for the given Hilbert Value/key pair and return the appropriate {@link Node}.
-         * Note that this method requires a node lot index to be maintained.
-         * @param transaction the transaction to use
-         * @param level the level we should search counting upwards starting from level {@code 0} for the leaf node
-         *        level.
-         * @param hilbertValue the Hilbert Value of the {@code (Hilbert Value, key)} pair to search for
-         * @param key the key of the {@code (Hilbert Value, key)} pair to search for
-         * @param isInsertUpdate a use case indicator determining if this search is going to be used for an
-         *        update operation or a delete operation
-         * @return a future that when completed holds the appropriate {@link Node} or {@code null} if such a
-         *         {@link Node} could not be found.
-         */
-        @Nonnull
-        CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull final ReadTransaction transaction,
-                                                          final int level,
-                                                          @Nonnull final BigInteger hilbertValue,
-                                                          @Nonnull final Tuple key,
-                                                          final boolean isInsertUpdate);
-
-        /**
-         * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
-         * slots. Each slot is represented by a key/value pair in FDB. Each key (common for both leaf and intermediate
-         * nodes) starts with an 8-byte node id (which is usually a serialized {@link UUID}) followed by one byte which
-         * indicates the {@link RTree.Kind} of node the slot belongs to.
-         * @param transaction the transaction to use
-         * @param nodeId the node id we should use
-         * @return A completable future containing the {@link Node} that was fetched from the database once completed.
-         *         The node may be an object of {@link LeafNode} or of {@link IntermediateNode}.
-         */
-        @Nonnull
-        CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
-    }
-
-    /**
-     * Implementations common to all concrete implementations of {@link StorageAdapter}.
-     */
-    private abstract static class AbstractStorageAdapter implements StorageAdapter {
-        @Nonnull
-        public byte[] packWithSubspace(final byte[] key) {
-            return getSubspace().pack(key);
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull final ReadTransaction transaction,
-                                                                 final int level,
-                                                                 @Nonnull final BigInteger hilbertValue,
-                                                                 @Nonnull final Tuple key,
-                                                                 final boolean isInsertUpdate) {
-            final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-            Objects.requireNonNull(nodeSlotIndexAdapter);
-            return nodeSlotIndexAdapter.scanIndexForNodeId(transaction, level, hilbertValue, key, isInsertUpdate)
-                    .thenCompose(nodeId -> fetchNode(transaction, nodeId));
-        }
-
-        @Override
-        public void insertIntoNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                                   @Nonnull final NodeSlot nodeSlot) {
-            if (!getConfig().isUseSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
-                return;
-            }
-
-            final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-            Objects.requireNonNull(nodeSlotIndexAdapter);
-            nodeSlotIndexAdapter.writeChildSlot(transaction, level, (ChildSlot)nodeSlot);
-        }
-
-        @Override
-        public void deleteFromNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                                   @Nonnull final NodeSlot nodeSlot) {
-            if (!getConfig().isUseSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
-                return;
-            }
-
-            final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-            Objects.requireNonNull(nodeSlotIndexAdapter);
-            nodeSlotIndexAdapter.clearChildSlot(transaction, level, (ChildSlot)nodeSlot);
-        }
-
-        @Override
-        public void updateNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level, @Nonnull final Node node) {
-            if (!getConfig().isUseSlotIndex()) {
-                return;
-            }
-
-            // only intermediate nodes need node slot index updates
-            if (!(node instanceof IntermediateNode)) {
-                return;
-            }
-
-            final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-            Objects.requireNonNull(nodeSlotIndexAdapter);
-
-            final IntermediateNode intermediateNode = (IntermediateNode)node;
-            for (final ChildSlot childSlot : intermediateNode.getSlots()) {
-                if (childSlot.isDirty()) {
-                    Objects.requireNonNull(childSlot.getOriginalNodeSlot());
-                    nodeSlotIndexAdapter.clearChildSlot(transaction, level, childSlot.getOriginalNodeSlot());
-                    nodeSlotIndexAdapter.writeChildSlot(transaction, level, childSlot);
-                    childSlot.markClean();
-                }
-            }
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, @Nonnull final byte[] nodeId) {
-            return getOnWriteListener().onAsyncReadForWrite(fetchNodeInternal(transaction, nodeId).thenApply(this::checkNode));
-        }
-
-        protected abstract CompletableFuture<Node> fetchNodeInternal(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
-
-        /**
-         * Method to perform basic invariant check(s) on a newly fetched node.
-         * @param node the node to check
-         * @param <N> the type param for the node in order for this method to not be lossy on the type of the node that
-         *            was passed in
-         * @return the node that was passed in
-         */
-        @Nonnull
-        private <N extends Node> N checkNode(@Nonnull final N node) {
-            if (node.size() < getConfig().getMinM() || node.size() > getConfig().getMaxM()) {
-                if (!node.isRoot()) {
-                    throw new IllegalStateException("packing of non-root is out of valid range");
-                }
-            }
-            return node;
-        }
-    }
-
-    /**
-     * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
-     */
-    private static class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
-        @Nonnull
-        private final Config config;
-        @Nonnull
-        private final Subspace subspace;
-        @Nullable
-        private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
-        @Nonnull
-        private final Function<Point, BigInteger> hilbertValueFunction;
-        @Nonnull
-        private final OnWriteListener onWriteListener;
-        @Nonnull
-        private final OnReadListener onReadListener;
-
-        public BySlotStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
-                                    @Nonnull final Subspace secondarySubspace,
-                                    @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
-                                    @Nonnull final OnWriteListener onWriteListener,
-                                    @Nonnull final OnReadListener onReadListener) {
-            this.config = config;
-            this.subspace = subspace;
-            this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
-            this.hilbertValueFunction = hilbertValueFunction;
-            this.onWriteListener = onWriteListener;
-            this.onReadListener = onReadListener;
-        }
-
-        @Override
-        @Nonnull
-        public Config getConfig() {
-            return config;
-        }
-
-        @Override
-        @Nonnull
-        public Subspace getSubspace() {
-            return subspace;
-        }
-
-        @Override
-        @Nullable
-        public NodeSlotIndexAdapter getNodeSlotIndexAdapter() {
-            return nodeSlotIndexAdapter;
-        }
-
-        @Nonnull
-        @Override
-        public OnWriteListener getOnWriteListener() {
-            return onWriteListener;
-        }
-
-        @Nonnull
-        @Override
-        public OnReadListener getOnReadListener() {
-            return onReadListener;
-        }
-
-        @Override
-        public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-            writeNodeSlot(transaction, node, itemSlot);
-        }
-
-        private void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
-            Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(config.isStoreHilbertValues()));
-            final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
-            final byte[] packedValue = nodeSlot.getSlotValue().pack();
-            transaction.set(packedKey, packedValue);
-            onWriteListener.onKeyValueWritten(node, packedKey, packedValue);
-        }
-
-        @Override
-        public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-            clearNodeSlot(transaction, node, itemSlot);
-        }
-
-        private void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
-            Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-            keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(config.isStoreHilbertValues()));
-            final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
-            transaction.clear(packedKey);
-            onWriteListener.onNodeCleared(node);
-        }
-
-        @Override
-        public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
-            for (final Node node : nodes) {
-                writeNode(transaction, node);
-                onWriteListener.onNodeWritten(node);
-            }
-        }
-
-        private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
-            for (final NodeSlot deletedSlot : node.getDeletedSlots()) {
-                clearNodeSlot(transaction, node, deletedSlot);
-            }
-
-            for (final NodeSlot insertedSlot : node.getInsertedSlots()) {
-                writeNodeSlot(transaction, node, insertedSlot);
-            }
-
-            for (final NodeSlot nodeSlot : node.getSlots()) {
-                if (nodeSlot.isDirty()) {
-                    clearNodeSlot(transaction, node, nodeSlot.getOriginalNodeSlot());
-                    writeNodeSlot(transaction, node, nodeSlot);
-                }
-            }
-
-            final Node rereadNode = fetchNode(transaction, node.getId()).join();
-            Verify.verify(rereadNode.size() == node.size());
-            onWriteListener.onNodeWritten(node);
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Node> fetchNodeInternal(@Nonnull final ReadTransaction transaction,
-                                                         @Nonnull final byte[] nodeId) {
-            return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithSubspace(nodeId)),
-                            ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
-                    .thenApply(keyValues -> {
-                        final Node node = fromKeyValues(nodeId, keyValues);
-                        onReadListener.onNodeRead(node);
-                        keyValues.forEach(keyValue -> onReadListener.onKeyValueRead(node, keyValue.getKey(), keyValue.getValue()));
-                        return node;
-                    });
-        }
-
-        /**
-         * Interpret the returned key/value pairs from a fetch of slots from the database and reconstruct an in-memory
-         * {@link Node}.
-         * @param nodeId node id
-         * @param keyValues a list of key values as returned by the call to {@link Transaction#getRange(Range)}.
-         * @return an instance of a subclass of {@link Node} specific to the node kind as read from the database.
-         */
-        @SuppressWarnings("ConstantValue")
-        @Nonnull
-        private Node fromKeyValues(@Nonnull final byte[] nodeId, final List<KeyValue> keyValues) {
-            List<ItemSlot> itemSlots = null;
-            List<ChildSlot> childSlots = null;
-            Kind nodeKind = null;
-
-            // one key/value pair corresponds to one slot
-            for (final KeyValue keyValue : keyValues) {
-                final Tuple keyTuple = getSubspace().unpack(keyValue.getKey()).popFront();
-                final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
-
-                final Kind currentNodeKind = Kind.fromSerializedNodeKind((byte)keyTuple.getLong(0));
-                if (nodeKind == null) {
-                    nodeKind = currentNodeKind;
-                } else if (nodeKind != currentNodeKind) {
-                    throw new IllegalArgumentException("same node id uses different node kinds");
-                }
-
-                final Tuple slotKeyTuple = keyTuple.popFront();
-                if (nodeKind == Kind.LEAF) {
-                    if (itemSlots == null) {
-                        itemSlots = Lists.newArrayList();
-                    }
-                    itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple, hilbertValueFunction));
-                } else {
-                    Verify.verify(nodeKind == Kind.INTERMEDIATE);
-                    if (childSlots == null) {
-                        childSlots = Lists.newArrayList();
-                    }
-                    childSlots.add(ChildSlot.fromKeyAndValue(slotKeyTuple, valueTuple));
-                }
-            }
-
-            if (nodeKind == null && Arrays.equals(rootId, nodeId)) {
-                // root node but nothing read -- root node is the only node that can be empty --
-                // this only happens when the R-Tree is completely empty.
-                nodeKind = Kind.LEAF;
-                itemSlots = Lists.newArrayList();
-            }
-
-            Verify.verify((nodeKind == Kind.LEAF && itemSlots != null && childSlots == null) ||
-                          (nodeKind == Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
-
-            if (nodeKind == Kind.LEAF &&
-                    !config.isStoreHilbertValues()) {
-                //
-                // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
-                // the Hilbert value as fdb does the sorting for us.
-                //
-                itemSlots.sort(ItemSlot.comparator);
-            }
-
-            return nodeKind == Kind.LEAF
-                   ? new LeafNode(nodeId, itemSlots)
-                   : new IntermediateNode(nodeId, childSlots);
-        }
-    }
-
-    /**
-     * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
-     */
-    private static class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
-        @Nonnull
-        private final Config config;
-        @Nonnull
-        private final Subspace subspace;
-        @Nullable
-        private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
-        @Nonnull
-        private final Function<Point, BigInteger> hilbertValueFunction;
-        @Nonnull
-        private final OnWriteListener onWriteListener;
-        @Nonnull
-        private final OnReadListener onReadListener;
-
-        public ByNodeStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
-                                    @Nonnull final Subspace secondarySubspace,
-                                    @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
-                                    @Nonnull final OnWriteListener onWriteListener,
-                                    @Nonnull final OnReadListener onReadListener) {
-            this.config = config;
-            this.subspace = subspace;
-            this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
-            this.hilbertValueFunction = hilbertValueFunction;
-            this.onWriteListener = onWriteListener;
-            this.onReadListener = onReadListener;
-        }
-
-        @Override
-        @Nonnull
-        public Config getConfig() {
-            return config;
-        }
-
-        @Override
-        @Nonnull
-        public Subspace getSubspace() {
-            return subspace;
-        }
-
-        @Override
-        @Nullable
-        public NodeSlotIndexAdapter getNodeSlotIndexAdapter() {
-            return nodeSlotIndexAdapter;
-        }
-
-        @Nonnull
-        @Override
-        public OnWriteListener getOnWriteListener() {
-            return onWriteListener;
-        }
-
-        @Nonnull
-        @Override
-        public OnReadListener getOnReadListener() {
-            return onReadListener;
-        }
-
-        @Override
-        public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-            writeNode(transaction, node);
-        }
-
-        @Override
-        public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-            writeNode(transaction, node);
-        }
-
-        @Override
-        public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
-            for (final Node node : nodes) {
-                writeNode(transaction, node);
-            }
-        }
-
-        private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
-            final byte[] packedKey = packWithSubspace(node.getId());
-
-            if (node.isEmpty()) {
-                // this can only happen when we just deleted the last slot; delete the entire node
-                transaction.clear(packedKey);
-            } else {
-                // updateNodeIndexIfNecessary(transaction, level, node);
-                final byte[] packedValue = toTuple(node).pack();
-                transaction.set(packedKey, packedValue);
-            }
-            onWriteListener.onNodeWritten(node);
-        }
-
-        @Nonnull
-        private Tuple toTuple(@Nonnull final Node node) {
-            final List<Tuple> slotTuples = Lists.newArrayListWithExpectedSize(node.size());
-            for (final NodeSlot nodeSlot : node.getSlots()) {
-                final Tuple slotTuple = Tuple.fromStream(
-                        Streams.concat(nodeSlot.getSlotKey(config.isStoreHilbertValues()).getItems().stream(),
-                                nodeSlot.getSlotValue().getItems().stream()));
-                slotTuples.add(slotTuple);
-            }
-            return Tuple.from(node.getKind().getSerialized(), slotTuples);
-        }
-
-        @Nonnull
-        @Override
-        public CompletableFuture<Node> fetchNodeInternal(@Nonnull final ReadTransaction transaction,
-                                                         @Nonnull final byte[] nodeId) {
-            final byte[] key = packWithSubspace(nodeId);
-            return transaction.get(key)
-                    .thenApply(valueBytes -> {
-                        final Node node = fromTuple(nodeId, valueBytes == null ? null : Tuple.fromBytes(valueBytes));
-                        onReadListener.onNodeRead(node);
-                        onReadListener.onKeyValueRead(node, key, valueBytes);
-                        return node;
-                    });
-        }
-
-        @SuppressWarnings("unchecked")
-        @Nonnull
-        private Node fromTuple(@Nonnull final byte[] nodeId, @Nullable final Tuple tuple) {
-            if (tuple == null) {
-                if (Arrays.equals(rootId, nodeId)) {
-                    return new LeafNode(nodeId, Lists.newArrayList());
-                }
-                throw new IllegalStateException("unable to find node for given node id");
-            }
-
-            final Kind nodeKind = Kind.fromSerializedNodeKind((byte)tuple.getLong(0));
-            final List<Object> nodeSlotObjects = tuple.getNestedList(1);
-
-            List<ItemSlot> itemSlots = null;
-            List<ChildSlot> childSlots = null;
-
-            for (final Object nodeSlotObject : nodeSlotObjects) {
-                final List<Object> nodeSlotItems = (List<Object>)nodeSlotObject;
-
-                switch (nodeKind) {
-                    case LEAF:
-                        final Tuple itemSlotKeyTuple = Tuple.fromList(nodeSlotItems.subList(0, ItemSlot.SLOT_KEY_TUPLE_SIZE));
-                        final Tuple itemSlotValueTuple = Tuple.fromList(nodeSlotItems.subList(ItemSlot.SLOT_KEY_TUPLE_SIZE, nodeSlotItems.size()));
-
-                        if (itemSlots == null) {
-                            itemSlots = Lists.newArrayListWithExpectedSize(nodeSlotObjects.size());
-                        }
-                        itemSlots.add(ItemSlot.fromKeyAndValue(itemSlotKeyTuple, itemSlotValueTuple, hilbertValueFunction));
-                        break;
-
-                    case INTERMEDIATE:
-                        final Tuple childSlotKeyTuple = Tuple.fromList(nodeSlotItems.subList(0, ChildSlot.SLOT_KEY_TUPLE_SIZE));
-                        final Tuple childSlotValueTuple = Tuple.fromList(nodeSlotItems.subList(ChildSlot.SLOT_KEY_TUPLE_SIZE, nodeSlotItems.size()));
-
-                        if (childSlots == null) {
-                            childSlots = Lists.newArrayListWithExpectedSize(nodeSlotObjects.size());
-                        }
-                        childSlots.add(ChildSlot.fromKeyAndValue(childSlotKeyTuple, childSlotValueTuple));
-                        break;
-                    default:
-                        throw new IllegalStateException("unknown node kind");
-                }
-            }
-
-            Verify.verify((nodeKind == Kind.LEAF && itemSlots != null) ||
-                          (nodeKind == Kind.INTERMEDIATE && childSlots != null));
-
-            return nodeKind == Kind.LEAF
-                   ? new LeafNode(nodeId, itemSlots)
-                   : new IntermediateNode(nodeId, childSlots);
-        }
-    }
-
-    private static class NodeSlotIndexAdapter {
-        @Nonnull
-        private final Subspace secondarySubspace;
-
-        private NodeSlotIndexAdapter(@Nonnull final Subspace secondarySubspace) {
-            this.secondarySubspace = secondarySubspace;
-        }
-
-        @Nonnull
-        public Subspace getSecondarySubspace() {
-            return secondarySubspace;
-        }
-
-        @Nonnull
-        private CompletableFuture<byte[]> scanIndexForNodeId(@Nonnull final ReadTransaction transaction,
-                                                             final int level,
-                                                             @Nonnull final BigInteger hilbertValue,
-                                                             @Nonnull final Tuple key,
-                                                             final boolean isInsertUpdate) {
-            final List<Object> keys = Lists.newArrayList();
-            keys.add(level);
-            keys.add(hilbertValue);
-            keys.addAll(key.getItems());
-            final byte[] packedKey = secondarySubspace.pack(Tuple.fromList(keys));
-            return AsyncUtil.collect(transaction.getRange(new Range(packedKey,
-                            secondarySubspace.pack(Tuple.from(level + 1))), 1, false, StreamingMode.EXACT))
-                    .thenCompose(keyValues -> {
-                        Verify.verify(keyValues.size() <= 1);
-                        if (!keyValues.isEmpty()) {
-                            final KeyValue keyValue = keyValues.get(0);
-                            return CompletableFuture.completedFuture(keyValue.getValue());
-                        }
-                        if (!isInsertUpdate) {
-                            // no such node; return null if on the delete path
-                            return CompletableFuture.completedFuture(null);
-                        }
-                        // if on the insert/update try to fetch the previous node
-                        return AsyncUtil.collect(transaction.getRange(new Range(secondarySubspace.pack(Tuple.from(level)),
-                                        packedKey), 1, true, StreamingMode.EXACT))
-                                .thenApply(previousKeyValues -> {
-                                    Verify.verify(previousKeyValues.size() <= 1);
-                                    if (previousKeyValues.isEmpty()) {
-                                        return rootId;
-                                    }
-                                    final KeyValue keyValue = previousKeyValues.get(0);
-                                    return keyValue.getValue();
-                                });
-                    });
-        }
-
-        private void writeChildSlot(final @Nonnull Transaction transaction, final int level,
-                                    @Nonnull final ChildSlot childSlot) {
-            transaction.set(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)), childSlot.getChildId());
-        }
-
-        private void clearChildSlot(final @Nonnull Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
-            transaction.clear(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)));
-        }
-
-        @Nonnull
-        private Tuple createIndexKeyTuple(final int level, @Nonnull final ChildSlot childSlot) {
-            return createIndexKeyTuple(level, childSlot.getLargestHilbertValue(), childSlot.getLargestKey());
-        }
-
-        @Nonnull
-        private Tuple createIndexKeyTuple(final int level, @Nonnull final BigInteger largestHilbertValue,
-                                          @Nonnull final Tuple largestKey) {
-            final List<Object> keys = Lists.newArrayList();
-            keys.add(level);
-            keys.add(largestHilbertValue);
-            keys.addAll(largestKey.getItems());
-            return Tuple.fromList(keys);
-        }
     }
 
     /**
@@ -3911,55 +2457,4 @@ public class RTree {
         }
     }
 
-    /**
-     * Function interface for a call back whenever we read the slots for a node.
-     */
-    public interface OnWriteListener {
-        OnWriteListener NOOP = new OnWriteListener() {
-        };
-
-        default <T extends Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull CompletableFuture<T> future) {
-            return future;
-        }
-
-        default void onNodeWritten(@Nonnull Node node) {
-            // nothing
-        }
-
-        default void onKeyValueWritten(@Nonnull Node node,
-                                       @Nullable byte[] key,
-                                       @Nullable byte[] value) {
-            // nothing
-        }
-
-        default void onNodeCleared(@Nonnull Node node) {
-            // nothing
-        }
-    }
-
-    /**
-     * Function interface for a call back whenever we read the slots for a node.
-     */
-    public interface OnReadListener {
-        OnReadListener NOOP = new OnReadListener() {
-        };
-
-        default <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
-            return future;
-        }
-
-        default void onNodeRead(@Nonnull Node node) {
-            // nothing
-        }
-
-        default void onKeyValueRead(@Nonnull Node node,
-                                    @Nullable byte[] key,
-                                    @Nullable byte[] value) {
-            // nothing
-        }
-
-        default void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
-            // nothing
-        }
-    }
 }

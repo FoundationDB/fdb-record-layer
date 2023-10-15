@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async;
+package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
@@ -26,6 +26,7 @@ import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
@@ -99,7 +100,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -144,7 +145,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -180,13 +181,13 @@ public class RTreeModificationTest extends FDBTestBase {
     @Test
     void dumpRTree() {
         bitemporalInserts(db, rtSubspace, rtSecondarySubspace, 1, 10000);
-        final RTree.OnReadListener onReadListener = new RTree.OnReadListener() {
+        final OnReadListener onReadListener = new OnReadListener() {
             @Override
-            public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+            public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
                 return future.thenApply(node -> {
-                    if (node instanceof RTree.IntermediateNode) {
-                        final RTree.IntermediateNode intermediateNode = (RTree.IntermediateNode)node;
-                        RTree.IntermediateNode parentNode = intermediateNode.getParentNode();
+                    if (node instanceof IntermediateNode) {
+                        final IntermediateNode intermediateNode = (IntermediateNode)node;
+                        IntermediateNode parentNode = intermediateNode.getParentNode();
                         int depth = 0;
                         while (parentNode != null) {
                             depth ++;
@@ -194,7 +195,7 @@ public class RTreeModificationTest extends FDBTestBase {
                         }
                         parentNode = intermediateNode.getParentNode();
                         if (parentNode != null) {
-                            final RTree.ChildSlot childSlot = parentNode.getSlots().get(intermediateNode.getSlotIndexInParent());
+                            final ChildSlot childSlot = parentNode.getSlots().get(intermediateNode.getSlotIndexInParent());
                             logger.info(depth + "," + childSlot.getMbr().toPlotString());
                         } else {
                             logger.info(depth + "," + "everything");
@@ -206,7 +207,7 @@ public class RTreeModificationTest extends FDBTestBase {
         };
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
-                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadListener);
         validateRTree(db, rt);
     }
@@ -299,9 +300,9 @@ public class RTreeModificationTest extends FDBTestBase {
                 ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue,
-                RTree::newRandomNodeId,
-                RTree.OnWriteListener.NOOP,
-                RTree.OnReadListener.NOOP);
+                Node::newRandomNodeId,
+                OnWriteListener.NOOP,
+                OnReadListener.NOOP);
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas

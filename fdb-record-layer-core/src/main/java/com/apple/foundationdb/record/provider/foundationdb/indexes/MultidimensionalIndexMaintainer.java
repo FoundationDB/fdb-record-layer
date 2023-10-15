@@ -26,8 +26,13 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.RTree;
-import com.apple.foundationdb.async.RTreeHilbertCurveHelpers;
+import com.apple.foundationdb.async.rtree.ChildSlot;
+import com.apple.foundationdb.async.rtree.ItemSlot;
+import com.apple.foundationdb.async.rtree.Node;
+import com.apple.foundationdb.async.rtree.OnReadListener;
+import com.apple.foundationdb.async.rtree.OnWriteListener;
+import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.async.rtree.RTreeHilbertCurveHelpers;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -81,7 +86,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 /**
- * An index maintainer for keeping a {@link com.apple.foundationdb.async.RTree}.
+ * An index maintainer for keeping a {@link RTree}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
@@ -139,8 +144,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                             final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
                             final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
-                                    RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId,
-                                    RTree.OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
+                                    RTreeHilbertCurveHelpers::hilbertValue, Node::newRandomNodeId,
+                                    OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
                             final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
                                     rTree.scan(transaction, lastHilbertValue, lastKey,
@@ -272,8 +277,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                         final Tuple keySuffix = Tuple.fromList(keySuffixParts);
                         final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
                         final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
-                                RTreeHilbertCurveHelpers::hilbertValue, RTree::newRandomNodeId, new OnWrite(timer),
-                                RTree.OnReadListener.NOOP);
+                                RTreeHilbertCurveHelpers::hilbertValue, Node::newRandomNodeId, new OnWrite(timer),
+                                OnReadListener.NOOP);
                         if (remove) {
                             return rTree.delete(state.transaction, point, keySuffix);
                         } else {
@@ -337,7 +342,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return point;
     }
 
-    static class OnRead implements RTree.OnReadListener {
+    static class OnRead implements OnReadListener {
         @Nonnull
         private final CursorLimitManager cursorLimitManager;
         @Nonnull
@@ -350,12 +355,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SCAN, future);
         }
 
         @Override
-        public void onNodeRead(@Nonnull final RTree.Node node) {
+        public void onNodeRead(@Nonnull final Node node) {
             switch (node.getKind()) {
                 case LEAF:
                     timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_READS);
@@ -369,7 +374,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             final int keyLength = key == null ? 0 : key.length;
             final int valueLength = value == null ? 0 : value.length;
 
@@ -393,12 +398,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onChildNodeDiscard(@Nonnull final RTree.ChildSlot childSlot) {
+        public void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
             timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_CHILD_NODE_DISCARDS);
         }
     }
 
-    static class OnWrite implements RTree.OnWriteListener {
+    static class OnWrite implements OnWriteListener {
         @Nonnull
         private final FDBStoreTimer timer;
 
@@ -407,12 +412,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public <T extends RTree.Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_MODIFICATION, future);
         }
 
         @Override
-        public void onNodeWritten(@Nonnull final RTree.Node node) {
+        public void onNodeWritten(@Nonnull final Node node) {
             switch (node.getKind()) {
                 case LEAF:
                     timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_WRITES);
@@ -426,7 +431,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueWritten(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             final int keyLength = key == null ? 0 : key.length;
             final int valueLength = value == null ? 0 : value.length;
 
@@ -448,18 +453,18 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onNodeCleared(@Nonnull final RTree.Node node) {
+        public void onNodeCleared(@Nonnull final Node node) {
 
         }
     }
 
-    static class ItemSlotCursor extends AsyncIteratorCursor<RTree.ItemSlot> {
+    static class ItemSlotCursor extends AsyncIteratorCursor<ItemSlot> {
         @Nonnull
         private final CursorLimitManager cursorLimitManager;
         @Nonnull
         private final FDBStoreTimer timer;
 
-        public ItemSlotCursor(@Nonnull final Executor executor, @Nonnull final AsyncIterator<RTree.ItemSlot> iterator,
+        public ItemSlotCursor(@Nonnull final Executor executor, @Nonnull final AsyncIterator<ItemSlot> iterator,
                               @Nonnull final CursorLimitManager cursorLimitManager, @Nonnull final FDBStoreTimer timer) {
             super(executor, iterator);
             this.cursorLimitManager = cursorLimitManager;
@@ -468,7 +473,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
         @Nonnull
         @Override
-        public CompletableFuture<RecordCursorResult<RTree.ItemSlot>> onNext() {
+        public CompletableFuture<RecordCursorResult<ItemSlot>> onNext() {
             if (nextResult != null && !nextResult.hasNext()) {
                 // This guard is needed to guarantee that if onNext is called multiple times after the cursor has
                 // returned a result without a value, then the same NoNextReason is returned each time. Without this guard,
@@ -478,7 +483,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             } else if (cursorLimitManager.tryRecordScan()) {
                 return iterator.onHasNext().thenApply(hasNext -> {
                     if (hasNext) {
-                        final RTree.ItemSlot itemSlot = iterator.next();
+                        final ItemSlot itemSlot = iterator.next();
                         timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                         timer.increment(FDBStoreTimer.Counts.LOAD_KEY_VALUE);
                         valuesSeen++;

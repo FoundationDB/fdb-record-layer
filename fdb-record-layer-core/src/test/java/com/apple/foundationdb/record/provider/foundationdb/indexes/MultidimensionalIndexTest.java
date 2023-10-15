@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.async.RTree;
+import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
@@ -100,8 +100,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.async.RTree.Storage.BY_NODE;
-import static com.apple.foundationdb.async.RTree.Storage.BY_SLOT;
+import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
+import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;

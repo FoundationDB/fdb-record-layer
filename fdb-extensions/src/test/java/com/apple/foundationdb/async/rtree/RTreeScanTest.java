@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async;
+package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.async.RTreeModificationTest.Item;
+import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.rtree.RTreeModificationTest.Item;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.DirectorySubspace;
 import com.apple.foundationdb.directory.PathUtil;
@@ -162,7 +164,7 @@ public class RTreeScanTest extends FDBTestBase {
 
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
@@ -210,11 +212,11 @@ public class RTreeScanTest extends FDBTestBase {
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
-            final AsyncIterator<RTree.ItemSlot> scan = rt.scan(tr, topNTraversal, (s, l) -> true);
+            final AsyncIterator<ItemSlot> scan = rt.scan(tr, topNTraversal, (s, l) -> true);
             AsyncUtil.forEachRemaining(scan, itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
                     topNTraversal.addItemSlot(itemSlot);
@@ -225,7 +227,7 @@ public class RTreeScanTest extends FDBTestBase {
         });
 
         final List<Item> expectedResults = inOrder(expectedResultsQueue);
-        final List<RTree.ItemSlot> topNItemSlots = inOrder(topNTraversal.getQueue());
+        final List<ItemSlot> topNItemSlots = inOrder(topNTraversal.getQueue());
 
         Assertions.assertEquals(expectedResults.size(), topNItemSlots.size());
         Streams.zip(expectedResults.stream(), topNItemSlots.stream(),
@@ -251,15 +253,15 @@ public class RTreeScanTest extends FDBTestBase {
 
     @SuppressWarnings("UnstableApiUsage")
     private static class TopNTraversal implements Predicate<RTree.Rectangle> {
-        private static final Comparator<RTree.ItemSlot> comparator =
-                Comparator.<RTree.ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
-                        .thenComparing(RTree.ItemSlot::getKeySuffix);
+        private static final Comparator<ItemSlot> comparator =
+                Comparator.<ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
+                        .thenComparing(ItemSlot::getKeySuffix);
 
         @Nonnull
         private RTree.Rectangle query;
         private final int num;
         @Nonnull
-        private final MinMaxPriorityQueue<RTree.ItemSlot> queue;
+        private final MinMaxPriorityQueue<ItemSlot> queue;
 
         @SuppressWarnings("UnstableApiUsage")
         public TopNTraversal(@Nonnull final RTree.Rectangle query, final int num) {
@@ -269,7 +271,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Nonnull
-        public MinMaxPriorityQueue<RTree.ItemSlot> getQueue() {
+        public MinMaxPriorityQueue<ItemSlot> getQueue() {
             return queue;
         }
 
@@ -278,11 +280,11 @@ public class RTreeScanTest extends FDBTestBase {
             return rectangle.isOverlapping(query);
         }
 
-        public void addItemSlot(@Nonnull final RTree.ItemSlot itemSlot) {
+        public void addItemSlot(@Nonnull final ItemSlot itemSlot) {
             queue.add(itemSlot);
 
             if (queue.size() == num) {
-                final RTree.ItemSlot maximumItemSlot = Objects.requireNonNull(queue.peekLast());
+                final ItemSlot maximumItemSlot = Objects.requireNonNull(queue.peekLast());
 
                 if (comparator.compare(maximumItemSlot, itemSlot) >= 0) {
                     // maximum item slot must be somewhere between minX and maxX
@@ -294,7 +296,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
     }
 
-    static class OnReadCounters implements RTree.OnReadListener {
+    static class OnReadCounters implements OnReadListener {
         private final AtomicLong readSlotCounter = new AtomicLong(0);
         private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
         private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
@@ -345,27 +347,27 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Override
-        public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
             return future;
         }
 
         @Override
-        public void onNodeRead(@Nonnull final RTree.Node node) {
-            if (node.getKind() == RTree.Kind.LEAF) {
+        public void onNodeRead(@Nonnull final Node node) {
+            if (node.getKind() == Node.Kind.LEAF) {
                 readLeafNodesCounter.incrementAndGet();
             } else {
-                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
+                Verify.verify(node.getKind() == Node.Kind.INTERMEDIATE);
                 readIntermediateNodesCounter.incrementAndGet();
             }
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final RTree.Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             readSlotCounter.incrementAndGet();
-            if (node.getKind() == RTree.Kind.LEAF) {
+            if (node.getKind() == Node.Kind.LEAF) {
                 readLeafSlotCounter.incrementAndGet();
             } else {
-                Verify.verify(node.getKind() == RTree.Kind.INTERMEDIATE);
+                Verify.verify(node.getKind() == Node.Kind.INTERMEDIATE);
                 readIntermediateSlotCounter.incrementAndGet();
             }
         }
