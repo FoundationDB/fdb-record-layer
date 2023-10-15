@@ -71,6 +71,7 @@ public class RTreeScanTest extends FDBTestBase {
     private static final int NUM_QUERIES = 100;
     private static Database db;
     private static DirectorySubspace rtSubspace;
+    private static DirectorySubspace rtSecondarySubspace;
     @Nullable
     private static Item[] items;
 
@@ -90,8 +91,13 @@ public class RTreeScanTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSubspace.getKey()));
             return null;
         });
-        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, 0L, NUM_SAMPLES / 2);
-        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rtSubspace, 0L, NUM_SAMPLES / 2);
+        rtSecondarySubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(RTree.class.getSimpleName(), "secondary")).get();
+        db.run(tr -> {
+            tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
+            return null;
+        });
+        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, rtSecondarySubspace, 0L, NUM_SAMPLES / 2);
+        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rtSubspace, rtSecondarySubspace, 0L, NUM_SAMPLES / 2);
         items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
@@ -155,7 +161,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         final OnReadCounters onReadCounters = new OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+        final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
 
@@ -203,7 +209,7 @@ public class RTreeScanTest extends FDBTestBase {
             }
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+        final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
@@ -247,7 +253,7 @@ public class RTreeScanTest extends FDBTestBase {
     private static class TopNTraversal implements Predicate<RTree.Rectangle> {
         private static final Comparator<RTree.ItemSlot> comparator =
                 Comparator.<RTree.ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
-                        .thenComparing(itemSlot -> itemSlot.getKeySuffix());
+                        .thenComparing(RTree.ItemSlot::getKeySuffix);
 
         @Nonnull
         private RTree.Rectangle query;

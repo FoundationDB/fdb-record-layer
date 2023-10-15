@@ -225,32 +225,38 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples) throws Exception {
+        final int batchSize = 2000;
         final Random random = new Random(seed);
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationCutOff = 30L * 60L; // meetings are at least 30 minutes long
         final long durationStandardDeviation = 60L * 60L;
         final long expirationStandardDeviation = 24L * 60L * 60L;
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, hook);
-            for (long recNo = 0; recNo < numSamples; recNo++) {
-                final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
-                final long startEpoch = (long)(random.nextGaussian() * epochStandardDeviation) + epochMean;
-                final long endEpoch = startEpoch + durationCutOff + (long)(Math.abs(random.nextGaussian()) * durationStandardDeviation);
-                final long duration = endEpoch - startEpoch;
-                Verify.verify(duration > 0L);
-                final long expirationEpoch = endEpoch + expirationCutOff  + (long)(Math.abs(random.nextGaussian()) * expirationStandardDeviation);
-                logRecord(calendarName, startEpoch, endEpoch, expirationEpoch);
-                final TestRecordsMultidimensionalProto.MyMultidimensionalRecord record =
-                        TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
-                                .setRecNo(recNo)
-                                .setCalendarName(calendarName)
-                                .setStartEpoch(startEpoch)
-                                .setEndEpoch(endEpoch)
-                                .setExpirationEpoch(expirationEpoch)
-                                .build();
-                recordStore.saveRecord(record);
+        int numRecordsCommitted = 0;
+        while (numRecordsCommitted < numSamples) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, hook);
+                int recNoInBatch;
+                for (recNoInBatch = 0; numRecordsCommitted + recNoInBatch < numSamples && recNoInBatch < batchSize; recNoInBatch ++) {
+                    final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
+                    final long startEpoch = (long)(random.nextGaussian() * epochStandardDeviation) + epochMean;
+                    final long endEpoch = startEpoch + durationCutOff + (long)(Math.abs(random.nextGaussian()) * durationStandardDeviation);
+                    final long duration = endEpoch - startEpoch;
+                    Verify.verify(duration > 0L);
+                    final long expirationEpoch = endEpoch + expirationCutOff + (long)(Math.abs(random.nextGaussian()) * expirationStandardDeviation);
+                    logRecord(calendarName, startEpoch, endEpoch, expirationEpoch);
+                    final TestRecordsMultidimensionalProto.MyMultidimensionalRecord record =
+                            TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
+                                    .setRecNo((long)numRecordsCommitted + (long)recNoInBatch)
+                                    .setCalendarName(calendarName)
+                                    .setStartEpoch(startEpoch)
+                                    .setEndEpoch(endEpoch)
+                                    .setExpirationEpoch(expirationEpoch)
+                                    .build();
+                    recordStore.saveRecord(record);
+                }
+                commit(context);
+                numRecordsCommitted += recNoInBatch;
             }
-            commit(context);
         }
     }
 
@@ -501,26 +507,10 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     static Stream<Arguments> argumentsForIndexReads() {
         final Random random = new Random(System.currentTimeMillis());
         return Stream.of(
-                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_SLOT.toString(), false),
-                Arguments.of(random.nextLong(), 10, RTree.Storage.BY_SLOT.toString(), true),
-                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_SLOT.toString(), false),
-                Arguments.of(random.nextLong(), 100, RTree.Storage.BY_SLOT.toString(), true),
-                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString(), false),
-                Arguments.of(random.nextLong(), 300, RTree.Storage.BY_SLOT.toString(), true),
-                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString(), false),
-                Arguments.of(random.nextLong(), 1000, RTree.Storage.BY_SLOT.toString(), true),
-                Arguments.of(random.nextLong(), 2000, RTree.Storage.BY_SLOT.toString(), false),
-                Arguments.of(random.nextLong(), 2000, RTree.Storage.BY_SLOT.toString(), true),
-                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), false),
-                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), true),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false),
-                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true),
-                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), false),
-                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), true),
-                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), false),
-                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), true),
-                Arguments.of(random.nextLong(), 2000, BY_NODE.toString(), false),
-                Arguments.of(random.nextLong(), 2000, BY_NODE.toString(), true)
+                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString(), false),
+                Arguments.of(random.nextLong(), 5000, RTree.Storage.BY_SLOT.toString(), true),
+                Arguments.of(random.nextLong(), 5000, BY_NODE.toString(), false),
+                Arguments.of(random.nextLong(), 5000, BY_NODE.toString(), true)
         );
     }
 

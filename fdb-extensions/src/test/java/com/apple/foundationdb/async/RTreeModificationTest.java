@@ -63,6 +63,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
     private Database db;
     private DirectorySubspace rtSubspace;
+    private DirectorySubspace rtSecondarySubspace;
 
     private static final boolean TRACE = false;
 
@@ -80,6 +81,11 @@ public class RTreeModificationTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSubspace.getKey()));
             return null;
         });
+        rtSecondarySubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(RTree.class.getSimpleName(), "secondary")).get();
+        db.run(tr -> {
+            tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
+            return null;
+        });
     }
 
     @AfterEach
@@ -90,9 +96,9 @@ public class RTreeModificationTest extends FDBTestBase {
     @ParameterizedTest
     @MethodSource("numSamplesAndSeeds")
     public void testAllDeleted(final long seed, final int numSamples) {
-        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
+        final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+        final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
@@ -135,9 +141,9 @@ public class RTreeModificationTest extends FDBTestBase {
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
     public void testRandomDeletes(final long seed, final int numSamples, final int numDeletes) {
-        final Item[] items = randomInserts(db, rtSubspace, seed, numSamples);
+        final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+        final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
@@ -173,7 +179,7 @@ public class RTreeModificationTest extends FDBTestBase {
 
     @Test
     void dumpRTree() {
-        bitemporalInserts(db, rtSubspace, 1, 10000);
+        bitemporalInserts(db, rtSubspace, rtSecondarySubspace, 1, 10000);
         final RTree.OnReadListener onReadListener = new RTree.OnReadListener() {
             @Override
             public <T extends RTree.Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
@@ -198,7 +204,7 @@ public class RTreeModificationTest extends FDBTestBase {
                 });
             }
         };
-        final RTree rt = new RTree(rtSubspace, ForkJoinPool.commonPool(),
+        final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue, RTree::newSequentialNodeId, RTree.OnWriteListener.NOOP,
                 onReadListener);
@@ -231,7 +237,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static Item[] randomInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
-                                final long seed, final int numSamples) {
+                                @Nonnull final DirectorySubspace rtSecondarySubspace, final long seed, final int numSamples) {
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {
@@ -239,11 +245,12 @@ public class RTreeModificationTest extends FDBTestBase {
             items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
-        insertData(db, rtSubspace, items);
+        insertData(db, rtSubspace, rtSecondarySubspace, items);
         return items;
     }
 
     static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                                         @Nonnull final DirectorySubspace rtSecondarySubspace,
                                          final long seed, int numSamples) {
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
@@ -255,12 +262,12 @@ public class RTreeModificationTest extends FDBTestBase {
             items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
-        insertData(db, rtSubspace, items);
+        insertData(db, rtSubspace, rtSecondarySubspace, items);
         return items;
     }
 
     static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
-                                    final long seed, int numSamples) {
+                                    @Nonnull final DirectorySubspace rtSecondarySubspace, final long seed, int numSamples) {
         final int smear = 100;
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
@@ -281,12 +288,14 @@ public class RTreeModificationTest extends FDBTestBase {
             current += step;
         }
 
-        insertData(db, rtSubspace, items);
+        insertData(db, rtSubspace, rtSecondarySubspace, items);
         return items;
     }
 
-    static void insertData(final @Nonnull Database db, final @Nonnull DirectorySubspace rtSubspace, @Nonnull final Item[] items) {
+    static void insertData(@Nonnull final Database db, @Nonnull final DirectorySubspace rtSubspace,
+                           @Nonnull final DirectorySubspace rtSecondarySubspace, @Nonnull final Item[] items) {
         final RTree rt = new RTree(rtSubspace,
+                rtSecondarySubspace,
                 ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue,
