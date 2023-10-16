@@ -97,7 +97,7 @@ class LazyOpenerTest {
         LazyOpener<String> initial = LazyOpener.supply(() -> {
             int openCount = openCounter.incrementAndGet();
             try {
-                return CompletableFuture.runAsync(() -> {}, forkJoinPool)
+                return CompletableFuture.runAsync(() -> { }, forkJoinPool)
                         .thenCompose(ignored -> MoreAsyncUtil.delayedFuture(2, TimeUnit.SECONDS))
                         .thenApplyAsync(v -> "Opened " + openCount, forkJoinPool)
                         .get();
