@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -27,7 +29,12 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -75,6 +82,35 @@ class LazyOpenerTest {
         MatcherAssert.assertThat(allValues, Matchers.everyItem(Matchers.is(1)));
         // Stream.parallel doesn't guarantee that it will run in 100 parallel threads
         MatcherAssert.assertThat(threads.keySet(), Matchers.hasSize(Matchers.greaterThan(10)));
+    }
+
+    @Test
+    void testForkJoinPoolDeadlock() throws ExecutionException, InterruptedException, TimeoutException {
+        // Lucene heavily uses `LazyCloseable` to Lazily open inputs from FDB. For StoredFieldsFormat (at the time
+        // LazyCloseable was added), Lucene would "open" one, but not actually call get, it would then fork a bunch of
+        // threads, in a forkJoinPool, each of which would in turn, try to call get. This created a deadlock situation when
+        // LazyOpener was implemented with Suppliers.memoize. This test explicitly tests this, and with the previous
+        // attempt that had Suppliers.memoize, this test would timeout, instead of taking the 2 seconds in the delayed
+        // future.
+        final ForkJoinPool forkJoinPool = new ForkJoinPool(2);
+        final AtomicInteger openCounter = new AtomicInteger(0);
+        LazyOpener<String> initial = LazyOpener.supply(() -> {
+            int openCount = openCounter.incrementAndGet();
+            try {
+                return CompletableFuture.runAsync(() -> {}, forkJoinPool)
+                        .thenCompose(ignored -> MoreAsyncUtil.delayedFuture(2, TimeUnit.SECONDS))
+                        .thenApplyAsync(v -> "Opened " + openCount, forkJoinPool)
+                        .get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        final List<CompletableFuture<String>> result = IntStream.range(0, 50).parallel()
+                .mapToObj(i -> CompletableFuture.supplyAsync(() -> initial.getUnchecked() + " " + i, forkJoinPool))
+                .collect(Collectors.toList());
+        final List<String> strings = AsyncUtil.getAll(result).get(10, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(strings, Matchers.containsInAnyOrder(IntStream.range(0, 50)
+                .mapToObj(i -> Matchers.is("Opened 1 " + i)).collect(Collectors.toList())));
     }
 
     @Test
