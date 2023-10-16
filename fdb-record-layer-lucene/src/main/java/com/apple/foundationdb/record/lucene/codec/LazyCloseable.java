@@ -34,7 +34,7 @@ import java.io.IOException;
  * @param <T> the value opened
  */
 public class LazyCloseable<T extends Closeable> implements Closeable {
-    private final LazyOpener<T> opener;
+    private final LazyOpener<T> lazyOpener;
     private boolean initialized;
 
     /**
@@ -52,7 +52,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
 
     private LazyCloseable(LazyOpener.Opener<T> opener) {
         this.initialized = false;
-        this.opener = LazyOpener.supply(() -> {
+        this.lazyOpener = LazyOpener.supply(() -> {
             final T result = opener.open();
             initialized = true;
             return result;
@@ -65,7 +65,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
      * @throws IOException if calling {@link LazyOpener.Opener#open()} threw an {@link IOException}
      */
     public T get() throws IOException {
-        return opener.get();
+        return lazyOpener.get();
     }
 
     /**
@@ -74,7 +74,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
      * @return the object returned by the {@code opener}
      */
     public T getUnchecked() {
-        return opener.getUnchecked();
+        return lazyOpener.getUnchecked();
     }
 
     /**
@@ -85,7 +85,7 @@ public class LazyCloseable<T extends Closeable> implements Closeable {
     @Override
     public void close() throws IOException {
         if (initialized) {
-            opener.get().close();
+            lazyOpener.get().close();
         }
     }
 
