@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
@@ -63,6 +64,7 @@ public class IndexingThrottle {
     @Nonnull private final IndexingCommon common;
     @Nonnull private final Booker booker;
     private final IndexState expectedIndexState;
+    private Set<Index> mergeRequiredIndexes = new HashSet<>();
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -92,7 +94,6 @@ public class IndexingThrottle {
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
         private long consecutiveFailureCount = 0;
         private StoreTimerSnapshot storeTimerSnapshot = null;
-
 
         Booker(@Nonnull IndexingCommon common) {
             this.common = common;
@@ -336,7 +337,13 @@ public class IndexingThrottle {
             // TODO: eliminate the usage of the runner - call (and handle) every transaction here
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
-                return buildFunction.apply(store, recordsScanned);
+                return buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
+                    Set<Index> indexSet = store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                    if (indexSet != null) {
+                        mergeRequiredIndexes.addAll(indexSet);
+                    }
+                    return retVal;
+                });
             }), (result, exception) -> {
                 booker.handleLimitsPostRunnerTransaction(exception, recordsScanned, adjustLimits, additionalLogMessageKeyValues);
                 return Pair.of(result, exception);
@@ -426,6 +433,12 @@ public class IndexingThrottle {
 
     public long getTotalRecordsScannedSuccessfully() {
         return booker.totalRecordsScannedSuccess;
+    }
+
+    public synchronized Set<Index> getAndResetMergeRequiredIndexes() {
+        Set<Index> indexSet = mergeRequiredIndexes;
+        mergeRequiredIndexes = new HashSet<>();
+        return indexSet;
     }
 }
 

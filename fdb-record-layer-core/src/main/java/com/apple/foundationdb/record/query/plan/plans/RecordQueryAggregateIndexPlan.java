@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -337,5 +338,16 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public ScanComparisons getScanComparisons() {
         return indexPlan.getScanComparisons();
+    }
+
+    @Override
+    public boolean hasComparisonRanges() {
+        return indexPlan.hasComparisonRanges();
+    }
+
+    @Nonnull
+    @Override
+    public ComparisonRanges getComparisonRanges() {
+        return indexPlan.getComparisonRanges();
     }
 }

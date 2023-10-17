@@ -39,6 +39,24 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.417.0
+
+
+### 3.3.416.0
+
+* **Feature** planner support for multidimensional indexes [(Issue #2305)](https://github.com/FoundationDB/fdb-record-layer/issues/2305)
+
+### 3.3.415.0
+
+* **Performance** Lucene: avoid segments merge at closing [(Issue #2279)](https://github.com/FoundationDB/fdb-record-layer/issues/2279)
+
+### 3.3.414.0
+
+
+### 3.3.413.0
+
+* **Feature** Support Java UDFs in Cascades [(Issue #2307)](https://github.com/FoundationDB/fdb-record-layer/issues/2307)
+
 ### 3.3.412.0
 
 * **Bug fix** Throw RecordCoreException when missing FileReference [(Issue #2291)](https://github.com/FoundationDB/fdb-record-layer/issues/2291)

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -107,6 +108,7 @@ public class FDBDirectory extends Directory  {
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
     private static final int SCHEMA_SUBSPACE = 3;
+    private static final int PRIMARY_KEY_SUBSPACE = 4;
     public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
@@ -152,25 +154,25 @@ public class FDBDirectory extends Directory  {
 
     private final Map<BitSet, byte[]> fieldInfosDataMap;
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
-        this(subspace, context, null, null);
+    private final boolean primaryKeySegmentIndexEnabled;
+    @Nullable
+    private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
+
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+                        boolean primaryKeySegmentIndexEnabled) {
+        this(subspace, context, null, null, primaryKeySegmentIndexEnabled);
     }
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
-                        @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey) {
-        this(subspace, context, sharedCacheManager, sharedCacheKey, NoLockFactory.INSTANCE);
-    }
-
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
-                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                 @Nonnull LockFactory lockFactory) {
-        this(subspace, context, sharedCacheManager, sharedCacheKey, lockFactory,
+                        @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
+                        boolean primaryKeySegmentIndexEnabled) {
+        this(subspace, context, sharedCacheManager, sharedCacheKey, primaryKeySegmentIndexEnabled, NoLockFactory.INSTANCE,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
     }
 
     FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
                  @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                 @Nonnull LockFactory lockFactory,
+                 boolean primaryKeySegmentIndexEnabled, @Nonnull LockFactory lockFactory,
                  int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
@@ -195,6 +197,7 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
+        this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
@@ -501,8 +504,7 @@ public class FDBDirectory extends Directory  {
     public String[] listAll() {
         long startTime = System.nanoTime();
         try {
-            Set<String> outSet = getFileReferenceCache().keySet();
-            return outSet.toArray(new String[0]);
+            return getFileReferenceCache().keySet().stream().filter(name -> !name.endsWith(".pky")).toArray(String[]::new);
         } finally {
             context.record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
@@ -596,23 +598,35 @@ public class FDBDirectory extends Directory  {
             return;
         }
         try {
-            boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync().thenApply(cache -> {
-                FDBLuceneFileReference value = cache.get(name);
-                if (value == null) {
-                    return false;
-                }
-                context.ensureActive().clear(metaSubspace.pack(name));
-                context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
-                cache.remove(name);
-                return true;
-            })));
+            boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync()
+                    .thenApply(cache -> deleteFileInternal(cache, name))));
 
             if (!deleted) {
                 throw new NoSuchFileException(name);
             }
+
+            if (isCompoundFile(name)) {
+                Map<String, FDBLuceneFileReference> cache = fileReferenceCache.get();
+                String primaryKeyName = name.substring(0, name.length() - DATA_EXTENSION.length()) + "pky";
+                deleteFileInternal(cache, primaryKeyName);
+                // TODO: If the segment is being deleted because it no longer has any live docs, it won't be merged
+                //  so we might need to delete the primary key entries another way for case where tryDeleteDocument
+                //  wasn't used.
+            }
         } finally {
             context.increment(LuceneEvents.Counts.LUCENE_DELETE_FILE);
         }
+    }
+
+    private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) {
+        FDBLuceneFileReference value = cache.remove(name);
+        if (value == null) {
+            return false;
+        }
+        context.ensureActive().clear(metaSubspace.pack(name));
+        // Nothing stored here currently.
+        context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+        return true;
     }
 
     /**
@@ -837,5 +851,53 @@ public class FDBDirectory extends Directory  {
 
     Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
         return blockCache;
+    }
+
+    /**
+     * Get a primary key segment index if enabled.
+     * @return index or {@code null} if not enabled
+     */
+    @Nullable
+    public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
+        if (!primaryKeySegmentIndexEnabled) {
+            return null;
+        }
+        synchronized (this) {
+            if (primaryKeySegmentIndex == null) {
+                final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+            }
+        }
+        return primaryKeySegmentIndex;
+    }
+
+    // Map segment name to integer id.
+    // TODO: Could store this elsewhere, such as inside compound file.
+    public long primaryKeySegmentId(@Nonnull String segmentName, boolean create) throws IOException {
+        final String fileName = IndexFileNames.segmentFileName(segmentName, "", "pky");
+        FDBLuceneFileReference ref = getFDBLuceneFileReference(fileName);
+        if (ref == null) {
+            if (!create) {
+                throw new NoSuchFileException(segmentName);
+            }
+            ref = new FDBLuceneFileReference(getIncrement(), 0, 0, 0);
+            writeFDBLuceneFileReference(fileName, ref);
+        }
+        return ref.getId();
+    }
+
+    // Map stored segment id back to segment name.
+    @Nullable
+    public String primaryKeySegmentName(long segmentId) {
+        for (Map.Entry<String, FDBLuceneFileReference> entry : getFileReferenceCache().entrySet()) {
+            if (entry.getValue().getId() == segmentId) {
+                final String fileName = entry.getKey();
+                if (!fileName.endsWith(".pky")) {
+                    throw new IllegalArgumentException("Given segment id is not for a pky file: " + fileName);
+                }
+                return fileName.substring(0, fileName.length() - 4);
+            }
+        }
+        return null;
     }
 }

@@ -139,7 +139,9 @@ public class LuceneEvents {
         /** Wait for lucene to load the file cache. */
         WAIT_LUCENE_LOAD_FILE_CACHE("lucene load file cache"),
         /** Create a file from FDBDirectory. */
-        WAIT_LUCENE_CREATE_OUTPUT("lucene create output")
+        WAIT_LUCENE_CREATE_OUTPUT("lucene create output"),
+        /** Look up primary key segment. */
+        WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key")
         ;
 
         private final String title;
@@ -200,6 +202,14 @@ public class LuceneEvents {
         LUCENE_DELETE_FILE("lucene delete file", false),
         /** Number of file delete operations on the FDBDirectory. */
         LUCENE_RENAME_FILE("lucene rename file", false),
+        /** Number of times query is needed for document delete. */
+        LUCENE_DELETE_DOCUMENT_BY_QUERY("lucene delete document by query", false),
+        /** Number of times primary key index used for document delete. */
+        LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY("lucene delete document by primary key", false),
+        /** Number of documents merged. */
+        LUCENE_MERGE_DOCUMENTS("lucene merge document", false),
+        /** Number of segments merged. */
+        LUCENE_MERGE_SEGMENTS("lucene merge segment", false)
         ;
 
         private final String title;

@@ -61,6 +61,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -596,7 +597,10 @@ public abstract class IndexingBase {
     }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+    protected CompletableFuture<Boolean> doneOrThrottleDelayAndMaybeLogProgress(boolean done, SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+        if (done) {
+            return AsyncUtil.READY_FALSE;
+        }
         long toWait = throttle.waitTimeMilliseconds();
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
@@ -721,6 +725,7 @@ public abstract class IndexingBase {
         // Copying the state also guards against changes made by other online building from check version.
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
+        maybeDeferAutoMergeDuringCommit(store);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -921,11 +926,11 @@ public abstract class IndexingBase {
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
                             .handle((hasMore, ex) -> {
                                 if (ex == null) {
-                                    if (Boolean.FALSE.equals(hasMore)) {
-                                        // all done
-                                        return AsyncUtil.READY_FALSE;
+                                    final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
+                                    if (indexSet != null && !indexSet.isEmpty()) {
+                                        return mergeIndexes(indexSet).thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
                                     }
-                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, additionalLogMessageKeyValues);
+                                    return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
                                 }
                                 final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                                 if (LOGGER.isInfoEnabled()) {
@@ -935,6 +940,24 @@ public abstract class IndexingBase {
                                 throw unwrappedEx;
                             }).thenCompose(Function.identity()),
                 getRunner().getExecutor());
+    }
+
+    public CompletableFuture<Void> mergeIndexes() {
+        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
+    }
+
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
+        return AsyncUtil.whenAll(indexSet.stream()
+                .map(index2 -> getRunner().runAsync(context ->
+                        openRecordStore(context).thenCompose(store ->
+                    store.getIndexMaintainer(index2).mergeIndex()
+                ))).collect(Collectors.toList()));
+    }
+
+    private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
+        if (policy.shouldDeferMergeDuringIndexing()) {
+            store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+        }
     }
 
     protected static boolean allRangesExhausted(Tuple cont, Tuple end) {

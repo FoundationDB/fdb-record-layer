@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenancePolicy;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
@@ -72,7 +74,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey);
+        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey,
+                state.index.getBooleanOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false));
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -85,7 +88,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
         IndexWriter indexWriter = writer;
         if (writer == null) {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
-                    state.context.getExecutor());
+                    state.context.getExecutor(),
+                    state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
         } else {
             return DirectoryReader.open(indexWriter);
         }
@@ -107,6 +111,16 @@ class FDBDirectoryWrapper implements AutoCloseable {
         })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+            if (trigger == MergeTrigger.FULL_FLUSH || trigger == MergeTrigger.CLOSING) {
+                final IndexDeferredMaintenancePolicy indexDeferredMaintenancePolicy = state.store.getIndexDeferredMaintenancePolicy();
+                if (!indexDeferredMaintenancePolicy.shouldAutoMergeDuringCommit()) {
+                    // If this store is being closed, it is too late to use it as a messenger. This flag should also be set
+                    // when the requirements for a "real" merge are met.
+                    indexDeferredMaintenancePolicy.setMergeRequiredIndexes(state.index);
+                    skipMerge(mergeSource, trigger, "deferred merge policy");
+                    return;
+                }
+            }
             long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
@@ -115,17 +129,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     }
                     super.merge(mergeSource, trigger);
                 } else {
-                    if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge aborted based on probability"));
-                    }
-                    synchronized (this) {
-                        MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
-                        while (nextMerge != null) {
-                            nextMerge.setAborted();
-                            mergeSource.onMergeFinished(nextMerge);
-                            nextMerge = mergeSource.getNextMerge();
-                        }
-                    }
+                    skipMerge(mergeSource, trigger, "probability optimization");
                 }
             } else {
                 if (LOGGER.isTraceEnabled()) {
@@ -134,6 +138,20 @@ class FDBDirectoryWrapper implements AutoCloseable {
                 super.merge(mergeSource, trigger);
             }
             state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
+        }
+
+        private void skipMerge(final MergeSource mergeSource, final MergeTrigger trigger, String reason) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Lucene index skipped. Reason: " + reason));
+            }
+            synchronized (this) {
+                MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                while (nextMerge != null) {
+                    nextMerge.setAborted();
+                    mergeSource.onMergeFinished(nextMerge);
+                    nextMerge = mergeSource.getNextMerge();
+                }
+            }
         }
     }
 
@@ -144,7 +162,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
-                            .setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
+                            .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
+                            .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(true)
@@ -159,6 +178,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     }
                     writer = new IndexWriter(directory, indexWriterConfig);
                     writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
+                    // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
+                    state.store.getIndexDeferredMaintenancePolicy().setMergeRequiredIndexes(state.index);
                 }
             }
         }
@@ -175,5 +196,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
             writerAnalyzerId = null;
         }
         directory.close();
+    }
+
+    public void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+        getWriter(analyzerWrapper).maybeMerge();
     }
 }

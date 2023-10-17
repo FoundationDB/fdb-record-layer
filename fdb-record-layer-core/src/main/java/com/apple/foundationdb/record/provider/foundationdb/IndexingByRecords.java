@@ -350,7 +350,7 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+            return doneOrThrottleDelayAndMaybeLogProgress(false, subspaceProvider, Arrays.asList(
                     LogMessageKeys.START_TUPLE, startTuple,
                     LogMessageKeys.END_TUPLE, endTuple,
                     LogMessageKeys.REAL_END, realEnd));
@@ -365,7 +365,7 @@ public class IndexingByRecords extends IndexingBase {
                             })
                     )).thenCompose(list -> {
                         rangeDeque.addAll(list);
-                        return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+                        return doneOrThrottleDelayAndMaybeLogProgress(false, subspaceProvider, Arrays.asList(
                                 LogMessageKeys.REASON, "RecordBuiltRangeException",
                                 LogMessageKeys.START_TUPLE, startTuple,
                                 LogMessageKeys.END_TUPLE, endTuple,

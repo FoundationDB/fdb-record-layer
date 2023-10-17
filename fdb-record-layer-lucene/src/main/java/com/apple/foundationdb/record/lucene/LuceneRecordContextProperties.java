@@ -62,6 +62,11 @@ public final class LuceneRecordContextProperties {
     public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_MAX_SIZE = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeMaxSize", 5.0);
 
     /**
+     * Count of segments after which to merge for ordinary full-text search with Lucene.
+     */
+    public static final RecordLayerPropertyKey<Double> LUCENE_MERGE_SEGMENTS_PER_TIER = RecordLayerPropertyKey.doublePropertyKey("com.apple.foundationdb.record.lucene.mergeSegmentsPerTier", 10.0);
+
+    /**
      * This controls whether Lucene indexes' directories (and their directories for auto-complete) should be merged based on probability to reduce multiple merges per transaction.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.multipleMerge.optimizationEnabled", true);
@@ -70,4 +75,9 @@ public final class LuceneRecordContextProperties {
      * This controls the page size to scan the basic Lucene index.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_INDEX_CURSOR_PAGE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.cursor.pageSize", 201);
+
+    /**
+     * This controls the number of threads used when opening segments in parallel.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_OPEN_PARALLELISM = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.open.parallelism", 16);
 }

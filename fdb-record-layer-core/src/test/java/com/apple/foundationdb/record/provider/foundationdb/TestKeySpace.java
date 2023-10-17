@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -31,6 +35,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * A KeySpace and some helper methods for testing.
  */
 public class TestKeySpace {
+
+    private static final Logger LOG = LogManager.getLogger(TestKeySpace.class);
+
     public static final KeySpace keySpace = new KeySpace(
             new DirectoryLayerDirectory("record-test", "record-test")
                     .addSubdirectory(new DirectoryLayerDirectory("unit", "unit")
@@ -56,6 +63,8 @@ public class TestKeySpace {
                     )
                     .addSubdirectory(new DirectoryLayerDirectory("performance", "performance")
                             .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))
+                            .addSubdirectory(new DirectoryLayerDirectory("luceneScaleTest", "luceneScaleTest")
+                                    .addSubdirectory(new KeySpaceDirectory("run", KeySpaceDirectory.KeyType.STRING)))
                     )
     );
 
@@ -64,13 +73,20 @@ public class TestKeySpace {
      * must be valid in the test keys space.
      */
     public static KeySpacePath getKeyspacePath(Object... pathElements) {
-        if (pathElements.length <= 0) {
-            fail("must call this method with at least one path element");
+        try {
+            if (pathElements.length <= 0) {
+                fail("must call this method with at least one path element");
+            }
+            KeySpacePath path = keySpace.path((String)pathElements[0]);
+            for (int i = 1; i < pathElements.length; i++) {
+                path = path.add((String)pathElements[i]);
+            }
+            return path;
+        } catch (NoSuchDirectoryException e) {
+            LOG.error(KeyValueLogMessage.build("Failed to get TestKeySpace")
+                    .addKeysAndValues(e.getLogInfo())
+                    .toString());
+            throw e;
         }
-        KeySpacePath path = keySpace.path((String) pathElements[0]);
-        for (int i = 1; i < pathElements.length; i++) {
-            path = path.add((String) pathElements[i]);
-        }
-        return path;
     }
 }

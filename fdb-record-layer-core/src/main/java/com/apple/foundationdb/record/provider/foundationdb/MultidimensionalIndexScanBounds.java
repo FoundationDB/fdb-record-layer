@@ -49,9 +49,15 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     @Nonnull
     private final SpatialPredicate spatialPredicate;
 
-    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange, @Nonnull final SpatialPredicate spatialPredicate) {
+    @Nonnull
+    private final TupleRange suffixRange;
+
+    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange,
+                                           @Nonnull final SpatialPredicate spatialPredicate,
+                                           @Nonnull final TupleRange suffixRange) {
         this.prefixRange = prefixRange;
         this.spatialPredicate = spatialPredicate;
+        this.suffixRange = suffixRange;
     }
 
     @Nonnull
@@ -68,6 +74,11 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     @Nonnull
     public SpatialPredicate getSpatialPredicate() {
         return spatialPredicate;
+    }
+
+    @Nonnull
+    public TupleRange getSuffixRange() {
+        return suffixRange;
     }
 
     /**

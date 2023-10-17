@@ -383,6 +383,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_STOP_ONLINE_INDEX_BUILD("wait for stopping ongoing online index builds"),
         /** Wait for {@link OnlineIndexer} to checking ongoing online index builds. */
         WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD("wait for checking ongoing online index builds"),
+        /** Wait for {@link OnlineIndexer} to complete ongoing online index merge(s). */
+        WAIT_ONLINE_MERGE_INDEX("wait for online merge index"),
         /** Wait for {@link OnlineIndexer} to build endpoints. */
         WAIT_BUILD_ENDPOINTS("wait for building endpoints"),
         /** Wait for a record scan without an index. */
@@ -736,6 +738,7 @@ public class FDBStoreTimer extends StoreTimer {
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_READ_BYTES("intermediate node bytes read", true),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES("intermediate nodes written", false),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        MULTIDIMENSIONAL_CHILD_NODE_DISCARDS("child node discards", false),
         ;
 
         private final String title;
