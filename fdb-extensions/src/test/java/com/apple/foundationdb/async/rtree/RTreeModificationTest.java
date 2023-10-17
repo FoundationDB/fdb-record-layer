@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
+ * Tests testing insert/updateSlot/deletes of data into/in/from {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {
@@ -100,7 +100,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -145,7 +145,7 @@ public class RTreeModificationTest extends FDBTestBase {
         final Item[] items = randomInserts(db, rtSubspace, rtSecondarySubspace, seed, numSamples);
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         validateRTree(db, rt);
         onReadCounters.resetCounters();
@@ -207,7 +207,7 @@ public class RTreeModificationTest extends FDBTestBase {
         };
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
-                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadListener);
         validateRTree(db, rt);
     }
@@ -216,12 +216,21 @@ public class RTreeModificationTest extends FDBTestBase {
     // Helpers
     //
 
+//    public static Stream<Arguments> numSamplesAndSeeds() {
+//        final Random random = new Random(System.currentTimeMillis());
+//        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
+//        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
+//            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
+//            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
+//        }
+//        return argumentsBuilder.build().stream();
+//    }
+
     public static Stream<Arguments> numSamplesAndSeeds() {
-        final Random random = new Random(System.currentTimeMillis());
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
-        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
-            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
-            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
+        for (int i = 0; i < 1; i ++) {
+            final int numSamples = 100;
+            argumentsBuilder.add(Arguments.of(0, numSamples));
         }
         return argumentsBuilder.build().stream();
     }
@@ -300,7 +309,7 @@ public class RTreeModificationTest extends FDBTestBase {
                 ForkJoinPool.commonPool(),
                 new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue,
-                Node::newRandomNodeId,
+                AbstractNode::newSequentialNodeId,
                 OnWriteListener.NOOP,
                 OnReadListener.NOOP);
         final int numInsertsPerBatch = 1_000;

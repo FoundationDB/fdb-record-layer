@@ -83,24 +83,6 @@ public interface NodeSlot {
     Tuple getSlotValue();
 
     /**
-     * Indicates that this slot was updated after it was read from the database. A newly-created node slot is by
-     * definition clean and therefore not dirty.
-     *
-     * @return indicator; {@code true} if this node slot is dirty, {@code false} otherwise
-     */
-    boolean isDirty();
-
-    /**
-     * Returns the original node slot prior to the update if this node slot is dirty, i.e. {@link #isDirty()}
-     * returns {@code true}.
-     *
-     * @return the node slot prior to an update if this node slot is dirty. This method throws an exception
-     * if thew node slot is not dirty.
-     */
-    @Nonnull
-    NodeSlot getOriginalNodeSlot();
-
-    /**
      * Compare this node slot's smallest {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
      * pair. We do not use a proper {@link java.util.Comparator} as we don't want to wrap the pair in another object.
      *

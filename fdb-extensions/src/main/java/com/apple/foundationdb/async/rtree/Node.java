@@ -20,19 +20,18 @@
 
 package com.apple.foundationdb.async.rtree;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
-import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Objects;
 
 /**
  * Abstract base class to capture the common aspects of {@link LeafNode} and {@link IntermediateNode}. All
@@ -40,200 +39,177 @@ import java.util.concurrent.atomic.AtomicLong;
  * have a node id and slots and can be linked up to a parent. Note that while the root node mostly is an
  * intermediate node it can also be a leaf node if the tree is nearly empty.
  */
-public abstract class Node {
-    private static final int nodeIdLength = 16;
-
-    private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
-
-    /**
-     * Only used for debugging to keep node ids readable.
-     */
-    private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
-
+public interface Node {
     @Nonnull
-    private final byte[] id;
+    byte[] getId();
 
-    @Nullable
-    private IntermediateNode parentNode;
-    private int slotIndexInParent;
-
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public Node(@Nonnull final byte[] id, @Nullable final IntermediateNode parentNode, final int slotIndexInParent) {
-        this.id = id;
-        this.parentNode = parentNode;
-        this.slotIndexInParent = slotIndexInParent;
-    }
-
-    @Nonnull
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    public byte[] getId() {
-        return id;
-    }
-
-    public int size() {
+    default int size() {
         return getSlots().size();
     }
 
-    public boolean isEmpty() {
+    default boolean isEmpty() {
         return getSlots().isEmpty();
     }
 
-    public abstract Node replaceSlots(@Nonnull List<? extends NodeSlot> newSlots);
+    @Nonnull
+    List<? extends NodeSlot> getSlots();
 
     @Nonnull
-    public abstract List<? extends NodeSlot> getSlots();
-
-    public abstract Node insertSlot(int slotIndex, @Nonnull NodeSlot slot);
-
-    @Nonnull
-    public abstract List<? extends NodeSlot> getInsertedSlots();
-
-    @Nonnull
-    public abstract List<? extends NodeSlot> getDeletedSlots();
-
-    public abstract Node deleteSlot(int slotIndex);
-
-    public boolean isRoot() {
-        return Arrays.equals(RTree.rootId, id);
-    }
-
-    @Nonnull
-    public abstract Kind getKind();
+    NodeSlot getSlot(int index);
 
     @Nullable
-    public IntermediateNode getParentNode() {
-        return parentNode;
+    ChangeSet getChangeSet();
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node moveInSlots(@Nonnull StorageAdapter storageAdapter, @Nonnull List<? extends NodeSlot> slots);
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node moveOutSlots(@Nonnull StorageAdapter storageAdapter);
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node insertSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot slot);
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node updateSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot updatedSlot);
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node deleteSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
+
+    default boolean isRoot() {
+        return Arrays.equals(RTree.rootId, getId());
     }
 
-    public int getSlotIndexInParent() {
-        return slotIndexInParent;
-    }
+    @Nonnull
+    NodeKind getKind();
 
     @Nullable
-    public ChildSlot getSlotInParent() {
+    IntermediateNode getParentNode();
+
+    int getSlotIndexInParent();
+
+    @Nullable
+    default ChildSlot getSlotInParent() {
+        final IntermediateNode parentNode = getParentNode();
         if (parentNode == null) {
             return null;
         }
+        final int slotIndexInParent = getSlotIndexInParent();
         Verify.verify(slotIndexInParent >= 0);
-        return parentNode.getSlots().get(slotIndexInParent);
+        return parentNode.getSlot(slotIndexInParent);
     }
 
-    public void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent) {
-        this.parentNode = parentNode;
-        this.slotIndexInParent = slotInParent;
-    }
+    void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent);
 
     @Nonnull
-    public abstract Node newOfSameKind(@Nonnull byte[] nodeId);
+    Node newOfSameKind(@Nonnull byte[] nodeId);
 
-    @Override
-    public String toString() {
-        return "[" + getKind().name() + ": id = " + bytesToHex(getId()) + "; parent = " +
-               (getParentNode() == null ? "null" : bytesToHex(getParentNode().getId())) + "; slotInParent = " +
-               getSlotInParent() + "]";
-    }
+    default void validate() {
+        BigInteger lastHilbertValue = null;
+        Tuple lastKey = null;
 
-    /**
-     * Helper method to format bytes as hex strings for logging and debugging.
-     * @param bytes an array of bytes
-     * @return a {@link String} containing the hexadecimal representation of the byte array passed in
-     */
-    @Nonnull
-    private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        // check that all (hilbert values; key pairs) are monotonically increasing
+        for (final NodeSlot nodeSlot : getSlots()) {
+            if (lastHilbertValue != null) {
+                final int hilbertValueCompare = nodeSlot.getSmallestHilbertValue().compareTo(lastHilbertValue);
+                Verify.verify(hilbertValueCompare >= 0,
+                        "smallest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
+                if (hilbertValueCompare == 0) {
+                    Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), lastKey) >= 0,
+                            "smallest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
+                }
+            }
+            lastHilbertValue =  nodeSlot.getSmallestHilbertValue();
+            lastKey = nodeSlot.getSmallestKey();
+            final int hilbertValueCompare = nodeSlot.getLargestHilbertValue().compareTo(lastHilbertValue);
+            Verify.verify(hilbertValueCompare >= 0,
+                    "largest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
+            if (hilbertValueCompare == 0) {
+                Verify.verify(TupleHelpers.compare(nodeSlot.getLargestKey(), lastKey) >= 0,
+                        "largest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
+            }
+
+            lastHilbertValue = nodeSlot.getLargestHilbertValue();
+            lastKey = nodeSlot.getLargestKey();
         }
-        return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
+    }
+
+    default void validateParentNode(@Nullable final IntermediateNode parentNode, @Nullable final ChildSlot childSlotInParentNode) {
+        if (parentNode == null) {
+            // child is root
+            Verify.verify(isRoot());
+            Verify.verify(childSlotInParentNode == null);
+        } else {
+            Objects.requireNonNull(childSlotInParentNode);
+
+            // Recompute the mbr of the child and compare it to the mbr the parent has.
+            final RTree.Rectangle computedMbr = computeMbr(getSlots());
+            Verify.verify(childSlotInParentNode.getMbr().equals(computedMbr),
+                    "computed mbr does not match mbr from node");
+
+            // Verify that the smallest hilbert value in the parent node is indeed the smallest hilbert value of
+            // the left-most child in childNode.
+            Verify.verify(childSlotInParentNode.getSmallestHilbertValue().equals(getSlot(0).getSmallestHilbertValue()),
+                    "expected smallest hilbert value does not match the actual smallest hilbert value of the first child in childNode");
+
+            // Verify that the smallest key in the parent node is indeed the smallest key of
+            // the left-most child in childNode.
+            Verify.verify(TupleHelpers.equals(childSlotInParentNode.getSmallestKey(), getSlot(0).getSmallestKey()),
+                    "expected smallest key does not match the actual smallest key of the first child in childNode");
+
+            // Verify that the largest hilbert value in the parent node is indeed the largest hilbert value of
+            // the right-most child in childNode.
+            Verify.verify(childSlotInParentNode.getLargestHilbertValue().equals(getSlot(size() - 1).getLargestHilbertValue()),
+                    "expected largest hilbert value does not match the actual hilbert value of the last child in childNode");
+
+            // Verify that the largest key in the parent node is indeed the largest key of the right-most\
+            // child in childNode.
+            Verify.verify(TupleHelpers.equals(childSlotInParentNode.getLargestKey(), getSlot(size() - 1).getLargestKey()),
+                    "expected largest key does not match the actual largest key of the last child in childNode");
+        }
     }
 
     /**
-     * Helper method to format the node ids of an insert/update path as a string.
-     * @param node a node that is usually linked up to its parents to form an insert/update path
-     * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
+     * Compute the minimum bounding rectangle (mbr) of a list of slots. This method is used when a node's secondary
+     * attributes need to be recomputed.
+     * @param slots a list of slots
+     * @return a {@link RTree.Rectangle} representing the mbr of the {@link RTree.Point}s of the given slots.
      */
     @Nonnull
-    static String nodeIdPath(@Nullable Node node) {
-        final List<String> nodeIds = Lists.newArrayList();
-        do {
-            if (node != null) {
-                nodeIds.add(bytesToHex(node.getId()));
-                node = node.getParentNode();
+    static RTree.Rectangle computeMbr(@Nonnull final List<? extends NodeSlot> slots) {
+        Verify.verify(!slots.isEmpty());
+        RTree.Rectangle mbr = null;
+        for (final NodeSlot slot : slots) {
+            if (slot instanceof ItemSlot) {
+                final RTree.Point position = ((ItemSlot)slot).getPosition();
+                if (mbr == null) {
+                    mbr = RTree.Rectangle.fromPoint(position);
+                } else {
+                    mbr = mbr.unionWith(position);
+                }
+            }  else if (slot instanceof ChildSlot) {
+                final RTree.Rectangle mbrForSlot = ((ChildSlot)slot).getMbr();
+                if (mbr == null) {
+                    mbr = mbrForSlot;
+                } else {
+                    mbr = mbr.unionWith(mbrForSlot);
+                }
             } else {
-                nodeIds.add("<null>");
+                throw new IllegalStateException("slot of unknown kind");
             }
-        } while (node != null);
-        Collections.reverse(nodeIds);
-        return String.join(", ", nodeIds);
+        }
+        return Objects.requireNonNull(mbr); // cannot be null but compile cannot infer that
     }
 
     /**
-     * Method to create a new node identifier. This method uses {@link UUID#randomUUID()} and should be used in
-     * production to avoid conflicts.
-     * @return a new 16-byte byte array containing a new unique node identifier
+     * A change set for slots. Implemented within implementations of {@link StorageAdapter} to provide specific actions
+     * when a node is written, mostly to avoid re-persisting all slots if not necessary.
      */
-    @Nonnull
-    public static byte[] newRandomNodeId() {
-        final UUID uuid = UUID.randomUUID();
-        final byte[] uuidBytes = new byte[nodeIdLength];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(uuid.getMostSignificantBits())
-                .putLong(uuid.getLeastSignificantBits());
-        return uuidBytes;
-    }
-
-    /**
-     * Method to create a new node identifier. This method uses an internal static {@link AtomicLong} that is
-     * incremented. This method creates monotonically increasing node identifiers which can be shortened when printed
-     * or logged. This way of creating node identifiers should only be used for testing and debugging purposes.
-     * @return a new 16-byte byte array containing a new unique node identifier
-     */
-    @Nonnull
-    public static byte[] newSequentialNodeId() {
-        final long nodeIdAsLong = nodeIdState.getAndIncrement();
-        final byte[] uuidBytes = new byte[nodeIdLength];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(0L)
-                .putLong(nodeIdAsLong);
-        return uuidBytes;
-    }
-
-    /**
-     * Enum to capture the kind of node.
-     */
-    public enum Kind {
-        LEAF((byte)0x00),
-        INTERMEDIATE((byte)0x01);
-
-        private final byte serialized;
-
-        Kind(final byte serialized) {
-            this.serialized = serialized;
-        }
-
-        public byte getSerialized() {
-            return serialized;
-        }
-
-        @Nonnull
-        static Kind fromSerializedNodeKind(byte serializedNodeKind) {
-            final Kind nodeKind;
-            switch (serializedNodeKind) {
-                case 0x00:
-                    nodeKind = Kind.LEAF;
-                    break;
-                case 0x01:
-                    nodeKind = Kind.INTERMEDIATE;
-                    break;
-                default:
-                    throw new IllegalArgumentException("unknown node kind");
-            }
-            Verify.verify(nodeKind.getSerialized() == serializedNodeKind);
-            return nodeKind;
-        }
+    interface ChangeSet {
+        void apply(@Nonnull final Transaction transaction);
     }
 }

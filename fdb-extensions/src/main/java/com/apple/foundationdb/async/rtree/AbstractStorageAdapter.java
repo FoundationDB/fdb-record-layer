@@ -25,6 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -48,7 +49,9 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
         Objects.requireNonNull(nodeSlotIndexAdapter);
         return nodeSlotIndexAdapter.scanIndexForNodeId(transaction, level, hilbertValue, key, isInsertUpdate)
-                .thenCompose(nodeId -> fetchNode(transaction, nodeId));
+                .thenCompose(nodeId -> nodeId == null
+                                       ? CompletableFuture.completedFuture(null)
+                                       : fetchNode(transaction, nodeId));
     }
 
     @Override
@@ -75,37 +78,13 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         nodeSlotIndexAdapter.clearChildSlot(transaction, level, (ChildSlot)nodeSlot);
     }
 
-    @Override
-    public void updateNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level, @Nonnull final Node node) {
-        if (!getConfig().isUseSlotIndex()) {
-            return;
-        }
-
-        // only intermediate nodes need node slot index updates
-        if (!(node instanceof IntermediateNode)) {
-            return;
-        }
-
-        final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-        Objects.requireNonNull(nodeSlotIndexAdapter);
-
-        final IntermediateNode intermediateNode = (IntermediateNode)node;
-        for (final ChildSlot childSlot : intermediateNode.getSlots()) {
-            if (childSlot.isDirty()) {
-                Objects.requireNonNull(childSlot.getOriginalNodeSlot());
-                nodeSlotIndexAdapter.clearChildSlot(transaction, level, childSlot.getOriginalNodeSlot());
-                nodeSlotIndexAdapter.writeChildSlot(transaction, level, childSlot);
-                childSlot.markClean();
-            }
-        }
-    }
-
     @Nonnull
     @Override
     public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, @Nonnull final byte[] nodeId) {
         return getOnWriteListener().onAsyncReadForWrite(fetchNodeInternal(transaction, nodeId).thenApply(this::checkNode));
     }
 
+    @Nonnull
     protected abstract CompletableFuture<Node> fetchNodeInternal(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
 
     /**
@@ -117,9 +96,9 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
      *
      * @return the node that was passed in
      */
-    @Nonnull
-    private <N extends Node> N checkNode(@Nonnull final N node) {
-        if (node.size() < getConfig().getMinM() || node.size() > getConfig().getMaxM()) {
+    @Nullable
+    private <N extends Node> N checkNode(@Nullable final N node) {
+        if (node != null && (node.size() < getConfig().getMinM() || node.size() > getConfig().getMaxM())) {
             if (!node.isRoot()) {
                 throw new IllegalStateException("packing of non-root is out of valid range");
             }

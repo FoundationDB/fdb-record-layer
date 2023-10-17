@@ -106,16 +106,6 @@ interface StorageAdapter {
                                         @Nonnull final NodeSlot nodeSlot);
 
     /**
-     * Updates the node index for all dirty slots in the given node if configuration indicates we should maintain
-     * such an index.
-     *
-     * @param transaction the transaction to use
-     * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-     * @param node the node whose dirty node slots we update the index for
-     */
-    void updateNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level, @Nonnull final Node node);
-
-    /**
      * Persist a node slot.
      *
      * @param transaction the transaction to use
@@ -169,7 +159,7 @@ interface StorageAdapter {
      * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
      * slots. Each slot is represented by a key/value pair in FDB. Each key (common for both leaf and intermediate
      * nodes) starts with an 8-byte node id (which is usually a serialized {@link UUID}) followed by one byte which
-     * indicates the {@link Node.Kind} of node the slot belongs to.
+     * indicates the {@link NodeKind} of node the slot belongs to.
      *
      * @param transaction the transaction to use
      * @param nodeId the node id we should use
@@ -179,4 +169,16 @@ interface StorageAdapter {
      */
     @Nonnull
     CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
+
+    @Nonnull
+    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newInsertChangeSet(@Nonnull N node, int level, @Nonnull List<S> insertedSlots);
+
+    @Nonnull
+    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newUpdateChangeSet(@Nonnull N node, int level, @Nonnull S originalSlot, @Nonnull S updatedSlot);
+
+    @Nonnull
+    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newDeleteChangeSet(@Nonnull N node, int level, @Nonnull List<S> deletedSlots);
 }

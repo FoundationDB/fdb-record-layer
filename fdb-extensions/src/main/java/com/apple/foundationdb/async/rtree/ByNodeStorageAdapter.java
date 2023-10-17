@@ -25,13 +25,13 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -146,7 +146,10 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         final byte[] key = packWithSubspace(nodeId);
         return transaction.get(key)
                 .thenApply(valueBytes -> {
-                    final Node node = fromTuple(nodeId, valueBytes == null ? null : Tuple.fromBytes(valueBytes));
+                    if (valueBytes == null) {
+                        return null;
+                    }
+                    final Node node = fromTuple(nodeId, Tuple.fromBytes(valueBytes));
                     onReadListener.onNodeRead(node);
                     onReadListener.onKeyValueRead(node, key, valueBytes);
                     return node;
@@ -155,15 +158,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    private Node fromTuple(@Nonnull final byte[] nodeId, @Nullable final Tuple tuple) {
-        if (tuple == null) {
-            if (Arrays.equals(RTree.rootId, nodeId)) {
-                return new LeafNode(nodeId, Lists.newArrayList());
-            }
-            throw new IllegalStateException("unable to find node for given node id");
-        }
-
-        final Node.Kind nodeKind = Node.Kind.fromSerializedNodeKind((byte)tuple.getLong(0));
+    private Node fromTuple(@Nonnull final byte[] nodeId, @Nonnull final Tuple tuple) {
+        final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
         final List<Object> nodeSlotObjects = tuple.getNestedList(1);
 
         List<ItemSlot> itemSlots = null;
@@ -197,11 +193,115 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             }
         }
 
-        Verify.verify((nodeKind == Node.Kind.LEAF && itemSlots != null) ||
-                      (nodeKind == Node.Kind.INTERMEDIATE && childSlots != null));
+        Verify.verify((nodeKind == NodeKind.LEAF && itemSlots != null) ||
+                      (nodeKind == NodeKind.INTERMEDIATE && childSlots != null));
 
-        return nodeKind == Node.Kind.LEAF
+        return nodeKind == NodeKind.LEAF
                ? new LeafNode(nodeId, itemSlots)
                : new IntermediateNode(nodeId, childSlots);
+    }
+
+    @Nonnull
+    @Override
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newInsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+        if (node.getChangeSet() != null && level < 0) {
+            return node.getChangeSet();
+        }
+        return new InsertChangeSet<>(node, level, insertedSlots);
+    }
+
+    @Nonnull
+    @Override
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newUpdateChangeSet(@Nonnull final N node, final int level,
+                               @Nonnull final S originalSlot, @Nonnull final S updatedSlot) {
+        if (node.getChangeSet() != null && level < 0) {
+            return node.getChangeSet();
+        }
+        return new UpdateChangeSet<>(node, level, originalSlot, updatedSlot);
+    }
+
+    @Nonnull
+    @Override
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newDeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+        if (node.getChangeSet() != null && level < 0) {
+            return node.getChangeSet();
+        }
+        return new DeleteChangeSet<>(node, level, deletedSlots);
+    }
+
+    private class InsertChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final List<S> insertedSlots;
+
+        public InsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+            super(node.getChangeSet(), node, level);
+            this.insertedSlots = ImmutableList.copyOf(insertedSlots);
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            for (final S insertedSlot : insertedSlots) {
+                if (getPreviousChangeSet() == null) {
+                    writeNode(transaction, getNode());
+                }
+                writeNode(transaction, getNode());
+                if (isUpdateNodeSlotIndex()) {
+                    insertIntoNodeIndexIfNecessary(transaction, getLevel(), insertedSlot);
+                }
+            }
+        }
+    }
+
+    private class UpdateChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final S originalSlot;
+        @Nonnull
+        private final S updatedSlot;
+
+        public UpdateChangeSet(@Nonnull final N node, final int level, @Nonnull final S originalSlot,
+                               @Nonnull final S updatedSlot) {
+            super(node.getChangeSet(), node, level);
+            this.originalSlot = originalSlot;
+            this.updatedSlot = updatedSlot;
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            if (getPreviousChangeSet() == null) {
+                writeNode(transaction, getNode());
+            }
+            if (isUpdateNodeSlotIndex()) {
+                deleteFromNodeIndexIfNecessary(transaction, getLevel(), originalSlot);
+                insertIntoNodeIndexIfNecessary(transaction, getLevel(), updatedSlot);
+            }
+        }
+    }
+
+    private class DeleteChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final List<S> deletedSlots;
+
+        public DeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+            super(node.getChangeSet(), node, level);
+            this.deletedSlots = ImmutableList.copyOf(deletedSlots);
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            for (final S deletedSlot : deletedSlots) {
+                if (getPreviousChangeSet() == null) {
+                    writeNode(transaction, getNode());
+                }
+                if (isUpdateNodeSlotIndex()) {
+                    deleteFromNodeIndexIfNecessary(transaction, getLevel(), deletedSlot);
+                }
+            }
+        }
     }
 }

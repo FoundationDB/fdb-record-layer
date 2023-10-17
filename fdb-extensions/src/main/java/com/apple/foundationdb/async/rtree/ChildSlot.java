@@ -26,9 +26,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.math.BigInteger;
-import java.util.Objects;
 
 /**
  * A child slot that is used by {@link IntermediateNode}s. Holds the id of a child node, as well as the largest
@@ -42,19 +40,16 @@ public class ChildSlot implements NodeSlot {
     @Nonnull
     private final byte[] childId;
     @Nonnull
-    private RTree.Rectangle mbr;
+    private final RTree.Rectangle mbr;
 
     @Nonnull
-    private BigInteger smallestHilbertValue;
+    private final BigInteger smallestHilbertValue;
     @Nonnull
-    private Tuple smallestKey;
+    private final Tuple smallestKey;
     @Nonnull
-    private BigInteger largestHilbertValue;
+    private final BigInteger largestHilbertValue;
     @Nonnull
-    private Tuple largestKey;
-    @Nullable
-    private ChildSlot originalNodeSlot;
-    private boolean isDirty;
+    private final Tuple largestKey;
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
@@ -66,8 +61,6 @@ public class ChildSlot implements NodeSlot {
         this.largestKey = largestKey;
         this.childId = childId;
         this.mbr = mbr;
-        this.originalNodeSlot = null;
-        this.isDirty = false;
     }
 
     @Nonnull
@@ -76,18 +69,10 @@ public class ChildSlot implements NodeSlot {
         return childId;
     }
 
-    public void setSmallestHilbertValue(@Nonnull final BigInteger smallestHilbertValue) {
-        this.smallestHilbertValue = smallestHilbertValue;
-    }
-
     @Nonnull
     @Override
     public BigInteger getSmallestHilbertValue() {
         return smallestHilbertValue;
-    }
-
-    public void setSmallestKey(@Nonnull final Tuple smallestKey) {
-        this.smallestKey = smallestKey;
     }
 
     @Nonnull
@@ -96,28 +81,16 @@ public class ChildSlot implements NodeSlot {
         return smallestKey;
     }
 
-    public void setLargestHilbertValue(@Nonnull final BigInteger largestHilbertValue) {
-        this.largestHilbertValue = largestHilbertValue;
-    }
-
     @Nonnull
     @Override
     public BigInteger getLargestHilbertValue() {
         return largestHilbertValue;
     }
 
-    public void setLargestKey(@Nonnull final Tuple largestKey) {
-        this.largestKey = largestKey;
-    }
-
     @Nonnull
     @Override
     public Tuple getLargestKey() {
         return largestKey;
-    }
-
-    public void setMbr(@Nonnull final RTree.Rectangle mbr) {
-        this.mbr = mbr;
     }
 
     @Nonnull
@@ -135,31 +108,6 @@ public class ChildSlot implements NodeSlot {
     @Override
     public Tuple getSlotValue() {
         return Tuple.from(getChildId(), getMbr().getRanges());
-    }
-
-    public void setOriginalNodeSlotAndMarkDirty(@Nonnull final ChildSlot originalNodeSlot) {
-        this.isDirty = true;
-        Verify.verify(this.originalNodeSlot == null);
-        this.originalNodeSlot = originalNodeSlot;
-    }
-
-    public void markClean() {
-        this.isDirty = false;
-        this.originalNodeSlot = null;
-    }
-
-    @Override
-    public boolean isDirty() {
-        return isDirty;
-    }
-
-    @Nonnull
-    @Override
-    public ChildSlot getOriginalNodeSlot() {
-        if (isDirty) {
-            return Objects.requireNonNull(originalNodeSlot);
-        }
-        throw new IllegalStateException("original slot requested for clean slot");
     }
 
     /**

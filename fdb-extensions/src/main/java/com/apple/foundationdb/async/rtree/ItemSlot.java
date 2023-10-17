@@ -119,17 +119,6 @@ public class ItemSlot implements NodeSlot {
         return Tuple.from(getValue());
     }
 
-    @Override
-    public boolean isDirty() {
-        return false;
-    }
-
-    @Nonnull
-    @Override
-    public ItemSlot getOriginalNodeSlot() {
-        throw new IllegalStateException("original slot requested for clean slot");
-    }
-
     /**
      * Compare this node slot's {@code (hilbertValue, key)} pair with another {@code (hilbertValue, key)}
      * pair. We do not use a proper {@link Comparator} as we don't want to wrap the pair in another object.

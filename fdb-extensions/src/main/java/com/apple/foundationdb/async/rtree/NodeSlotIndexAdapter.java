@@ -68,30 +68,61 @@ class NodeSlotIndexAdapter {
                         final KeyValue keyValue = keyValues.get(0);
                         return CompletableFuture.completedFuture(keyValue.getValue());
                     }
-                    if (!isInsertUpdate) {
-                        // no such node; return null if on the delete path
-                        return CompletableFuture.completedFuture(null);
+
+                    //
+                    // If we are on level > 0, this means that we already have fetched a node on a lower level.
+                    // If we are on insert/update, we may not find a covering node on the next level as it is not
+                    // covering YET (we are in the process of fixing that). If we are, however, on the delete code path,
+                    // there should always be such a node that we can find in the index. The only legitimate reason
+                    // we may not find that index is that we have reached the level below the root node as the root node
+                    // itself is not indexed.
+                    //
+                    if (!isInsertUpdate && level > 0) {
+                        return CompletableFuture.completedFuture(RTree.rootId);
                     }
-                    // if on the insert/update try to fetch the previous node
+
+                    //
+                    // If on the insert/update path OR on delete path with level == 0, try to fetch the previous node.
+                    //
                     return AsyncUtil.collect(transaction.getRange(new Range(secondarySubspace.pack(Tuple.from(level)),
                                     packedKey), 1, true, StreamingMode.EXACT))
                             .thenApply(previousKeyValues -> {
                                 Verify.verify(previousKeyValues.size() <= 1);
+
+                                //
+                                // If there is no previous node on the requested level, return the root node, as the
+                                // root node itself is not part of the index. If we are on level == 0, this means that
+                                // there is only a single root node in the R-tree, or that this R-tree is completely
+                                // empty. (The subsequent fetch will tell).
+                                //
                                 if (previousKeyValues.isEmpty()) {
                                     return RTree.rootId;
                                 }
+
+                                //
+                                // For a delete (level == 0) implied, we know that the largest node on this level, is
+                                // smaller than what we are looking for. That means that the key we are looking for is
+                                // not in the R-tree.
+                                //
+                                if (!isInsertUpdate) {
+                                    return null;
+                                }
+
+                                //
+                                // Return the node we found for insert/update operation.
+                                //
                                 final KeyValue keyValue = previousKeyValues.get(0);
                                 return keyValue.getValue();
                             });
                 });
     }
 
-    void writeChildSlot(final @Nonnull Transaction transaction, final int level,
-                                @Nonnull final ChildSlot childSlot) {
+    void writeChildSlot(@Nonnull final Transaction transaction, final int level,
+                        @Nonnull final ChildSlot childSlot) {
         transaction.set(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)), childSlot.getChildId());
     }
 
-    void clearChildSlot(final @Nonnull Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
+    void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
         transaction.clear(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)));
     }
 

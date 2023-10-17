@@ -29,12 +29,12 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -135,23 +135,13 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
-        for (final NodeSlot deletedSlot : node.getDeletedSlots()) {
-            clearNodeSlot(transaction, node, deletedSlot);
+        final Node.ChangeSet changeSet = node.getChangeSet();
+        if (changeSet == null) {
+            return;
         }
 
-        for (final NodeSlot insertedSlot : node.getInsertedSlots()) {
-            writeNodeSlot(transaction, node, insertedSlot);
-        }
+        changeSet.apply(transaction);
 
-        for (final NodeSlot nodeSlot : node.getSlots()) {
-            if (nodeSlot.isDirty()) {
-                clearNodeSlot(transaction, node, nodeSlot.getOriginalNodeSlot());
-                writeNodeSlot(transaction, node, nodeSlot);
-            }
-        }
-
-        final Node rereadNode = fetchNode(transaction, node.getId()).join();
-        Verify.verify(rereadNode.size() == node.size());
         onWriteListener.onNodeWritten(node);
     }
 
@@ -162,6 +152,9 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithSubspace(nodeId)),
                         ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
                 .thenApply(keyValues -> {
+                    if (keyValues.isEmpty()) {
+                        return null;
+                    }
                     final Node node = fromKeyValues(nodeId, keyValues);
                     onReadListener.onNodeRead(node);
                     keyValues.forEach(keyValue -> onReadListener.onKeyValueRead(node, keyValue.getKey(), keyValue.getValue()));
@@ -183,14 +176,16 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     private Node fromKeyValues(@Nonnull final byte[] nodeId, final List<KeyValue> keyValues) {
         List<ItemSlot> itemSlots = null;
         List<ChildSlot> childSlots = null;
-        Node.Kind nodeKind = null;
+        NodeKind nodeKind = null;
+
+        Verify.verify(!keyValues.isEmpty());
 
         // one key/value pair corresponds to one slot
         for (final KeyValue keyValue : keyValues) {
             final Tuple keyTuple = getSubspace().unpack(keyValue.getKey()).popFront();
             final Tuple valueTuple = Tuple.fromBytes(keyValue.getValue());
 
-            final Node.Kind currentNodeKind = Node.Kind.fromSerializedNodeKind((byte)keyTuple.getLong(0));
+            final NodeKind currentNodeKind = NodeKind.fromSerializedNodeKind((byte)keyTuple.getLong(0));
             if (nodeKind == null) {
                 nodeKind = currentNodeKind;
             } else if (nodeKind != currentNodeKind) {
@@ -198,13 +193,13 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             }
 
             final Tuple slotKeyTuple = keyTuple.popFront();
-            if (nodeKind == Node.Kind.LEAF) {
+            if (nodeKind == NodeKind.LEAF) {
                 if (itemSlots == null) {
                     itemSlots = Lists.newArrayList();
                 }
                 itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple, hilbertValueFunction));
             } else {
-                Verify.verify(nodeKind == Node.Kind.INTERMEDIATE);
+                Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
                 if (childSlots == null) {
                     childSlots = Lists.newArrayList();
                 }
@@ -212,17 +207,10 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             }
         }
 
-        if (nodeKind == null && Arrays.equals(RTree.rootId, nodeId)) {
-            // root node but nothing read -- root node is the only node that can be empty --
-            // this only happens when the R-Tree is completely empty.
-            nodeKind = Node.Kind.LEAF;
-            itemSlots = Lists.newArrayList();
-        }
+        Verify.verify((nodeKind == NodeKind.LEAF && itemSlots != null && childSlots == null) ||
+                      (nodeKind == NodeKind.INTERMEDIATE && itemSlots == null && childSlots != null));
 
-        Verify.verify((nodeKind == Node.Kind.LEAF && itemSlots != null && childSlots == null) ||
-                      (nodeKind == Node.Kind.INTERMEDIATE && itemSlots == null && childSlots != null));
-
-        if (nodeKind == Node.Kind.LEAF &&
+        if (nodeKind == NodeKind.LEAF &&
                 !config.isStoreHilbertValues()) {
             //
             // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
@@ -231,8 +219,93 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             itemSlots.sort(ItemSlot.comparator);
         }
 
-        return nodeKind == Node.Kind.LEAF
+        return nodeKind == NodeKind.LEAF
                ? new LeafNode(nodeId, itemSlots)
                : new IntermediateNode(nodeId, childSlots);
+    }
+
+    @Nonnull
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newInsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+        return new InsertChangeSet<>(node, level, insertedSlots);
+    }
+
+    @Nonnull
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newUpdateChangeSet(@Nonnull final N node, final int level, @Nonnull final S originalSlot, @Nonnull final S updatedSlot) {
+        return new UpdateChangeSet<>(node, level, originalSlot, updatedSlot);
+    }
+
+    @Nonnull
+    public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newDeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+        return new DeleteChangeSet<>(node, level, deletedSlots);
+    }
+
+    private class InsertChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final List<S> insertedSlots;
+
+        public InsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+            super(node.getChangeSet(), node, level);
+            this.insertedSlots = ImmutableList.copyOf(insertedSlots);
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            for (final S insertedSlot : insertedSlots) {
+                writeNodeSlot(transaction, getNode(), insertedSlot);
+                if (isUpdateNodeSlotIndex()) {
+                    insertIntoNodeIndexIfNecessary(transaction, getLevel(), insertedSlot);
+                }
+            }
+        }
+    }
+
+    private class UpdateChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final S originalSlot;
+        @Nonnull
+        private final S updatedSlot;
+
+        public UpdateChangeSet(@Nonnull final N node, final int level, @Nonnull final S originalSlot,
+                               @Nonnull final S updatedSlot) {
+            super(node.getChangeSet(), node, level);
+            this.originalSlot = originalSlot;
+            this.updatedSlot = updatedSlot;
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            clearNodeSlot(transaction, getNode(), originalSlot);
+            writeNodeSlot(transaction, getNode(), updatedSlot);
+            if (isUpdateNodeSlotIndex()) {
+                deleteFromNodeIndexIfNecessary(transaction, getLevel(), originalSlot);
+                insertIntoNodeIndexIfNecessary(transaction, getLevel(), updatedSlot);
+            }
+        }
+    }
+
+    private class DeleteChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
+        @Nonnull
+        private final List<S> deletedSlots;
+
+        public DeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+            super(node.getChangeSet(), node, level);
+            this.deletedSlots = ImmutableList.copyOf(deletedSlots);
+        }
+
+        @Override
+        public void apply(@Nonnull final Transaction transaction) {
+            super.apply(transaction);
+            for (final S deletedSlot : deletedSlots) {
+                clearNodeSlot(transaction, getNode(), deletedSlot);
+                if (isUpdateNodeSlotIndex()) {
+                    deleteFromNodeIndexIfNecessary(transaction, getLevel(), deletedSlot);
+                }
+            }
+        }
     }
 }

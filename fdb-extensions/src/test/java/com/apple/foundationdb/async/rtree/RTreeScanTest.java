@@ -164,7 +164,7 @@ public class RTreeScanTest extends FDBTestBase {
 
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
@@ -212,7 +212,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, Node::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
@@ -353,10 +353,10 @@ public class RTreeScanTest extends FDBTestBase {
 
         @Override
         public void onNodeRead(@Nonnull final Node node) {
-            if (node.getKind() == Node.Kind.LEAF) {
+            if (node.getKind() == NodeKind.LEAF) {
                 readLeafNodesCounter.incrementAndGet();
             } else {
-                Verify.verify(node.getKind() == Node.Kind.INTERMEDIATE);
+                Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
                 readIntermediateNodesCounter.incrementAndGet();
             }
         }
@@ -364,10 +364,10 @@ public class RTreeScanTest extends FDBTestBase {
         @Override
         public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             readSlotCounter.incrementAndGet();
-            if (node.getKind() == Node.Kind.LEAF) {
+            if (node.getKind() == NodeKind.LEAF) {
                 readLeafSlotCounter.incrementAndGet();
             } else {
-                Verify.verify(node.getKind() == Node.Kind.INTERMEDIATE);
+                Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
                 readIntermediateSlotCounter.incrementAndGet();
             }
         }
