@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,60 +42,12 @@ import java.util.function.Function;
  * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
  */
 class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
-    @Nonnull
-    private final RTree.Config config;
-    @Nonnull
-    private final Subspace subspace;
-    @Nullable
-    private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
-    @Nonnull
-    private final Function<RTree.Point, BigInteger> hilbertValueFunction;
-    @Nonnull
-    private final OnWriteListener onWriteListener;
-    @Nonnull
-    private final OnReadListener onReadListener;
-
     public BySlotStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
                                 @Nonnull final Subspace secondarySubspace,
                                 @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
                                 @Nonnull final OnWriteListener onWriteListener,
                                 @Nonnull final OnReadListener onReadListener) {
-        this.config = config;
-        this.subspace = subspace;
-        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
-        this.hilbertValueFunction = hilbertValueFunction;
-        this.onWriteListener = onWriteListener;
-        this.onReadListener = onReadListener;
-    }
-
-    @Override
-    @Nonnull
-    public RTree.Config getConfig() {
-        return config;
-    }
-
-    @Override
-    @Nonnull
-    public Subspace getSubspace() {
-        return subspace;
-    }
-
-    @Override
-    @Nullable
-    public NodeSlotIndexAdapter getNodeSlotIndexAdapter() {
-        return nodeSlotIndexAdapter;
-    }
-
-    @Nonnull
-    @Override
-    public OnWriteListener getOnWriteListener() {
-        return onWriteListener;
-    }
-
-    @Nonnull
-    @Override
-    public OnReadListener getOnReadListener() {
-        return onReadListener;
+        super(config, subspace, secondarySubspace, hilbertValueFunction, onWriteListener, onReadListener);
     }
 
     @Override
@@ -106,11 +57,11 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
 
     private void writeNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
         Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-        keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(config.isStoreHilbertValues()));
+        keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(getConfig().isStoreHilbertValues()));
         final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
         final byte[] packedValue = nodeSlot.getSlotValue().pack();
         transaction.set(packedKey, packedValue);
-        onWriteListener.onKeyValueWritten(node, packedKey, packedValue);
+        getOnWriteListener().onKeyValueWritten(node, packedKey, packedValue);
     }
 
     @Override
@@ -120,14 +71,15 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
 
     private void clearNodeSlot(@Nonnull final Transaction transaction, @Nonnull final Node node, @Nonnull final NodeSlot nodeSlot) {
         Tuple keyTuple = Tuple.from(node.getKind().getSerialized());
-        keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(config.isStoreHilbertValues()));
+        keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(getConfig().isStoreHilbertValues()));
         final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
         transaction.clear(packedKey);
-        onWriteListener.onNodeCleared(node);
+        getOnWriteListener().onNodeCleared(node);
     }
 
     @Override
     public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
+        final OnWriteListener onWriteListener = getOnWriteListener();
         for (final Node node : nodes) {
             writeNode(transaction, node);
             onWriteListener.onNodeWritten(node);
@@ -141,8 +93,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         }
 
         changeSet.apply(transaction);
-
-        onWriteListener.onNodeWritten(node);
+        getOnWriteListener().onNodeWritten(node);
     }
 
     @Nonnull
@@ -156,6 +107,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                         return null;
                     }
                     final Node node = fromKeyValues(nodeId, keyValues);
+                    final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
                     keyValues.forEach(keyValue -> onReadListener.onKeyValueRead(node, keyValue.getKey(), keyValue.getValue()));
                     return node;
@@ -197,7 +149,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                 if (itemSlots == null) {
                     itemSlots = Lists.newArrayList();
                 }
-                itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple, hilbertValueFunction));
+                itemSlots.add(ItemSlot.fromKeyAndValue(slotKeyTuple, valueTuple, getHilbertValueFunction()));
             } else {
                 Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
                 if (childSlots == null) {
@@ -211,7 +163,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                       (nodeKind == NodeKind.INTERMEDIATE && itemSlots == null && childSlots != null));
 
         if (nodeKind == NodeKind.LEAF &&
-                !config.isStoreHilbertValues()) {
+                !getConfig().isStoreHilbertValues()) {
             //
             // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
             // the Hilbert value as fdb does the sorting for us.

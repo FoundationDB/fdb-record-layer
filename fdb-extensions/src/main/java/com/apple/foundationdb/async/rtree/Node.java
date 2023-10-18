@@ -80,6 +80,10 @@ public interface Node {
     @Nonnull
     Node deleteSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
 
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node deleteAllSlots(@Nonnull StorageAdapter storageAdapter, int level);
+
     default boolean isRoot() {
         return Arrays.equals(RTree.rootId, getId());
     }

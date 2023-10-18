@@ -848,7 +848,6 @@ public class RTree {
                 logger.trace("regular insert without splitting; node={}; size={}", targetNode, targetNode.size());
             }
             targetNode.insertSlot(storageAdapter, level - 1, slotIndexInTargetNode, newSlot);
-            //storageAdapter.insertIntoNodeIndexIfNecessary(transaction, level - 1, newSlot);
 
             if (targetNode.getKind() == NodeKind.INTERMEDIATE) {
                 //
@@ -937,7 +936,6 @@ public class RTree {
                 // temporarily overfill targetNode
                 numSlots++;
                 targetNode.insertSlot(storageAdapter, level - 1, slotIndexInTargetNode, newSlot);
-                //storageAdapter.insertIntoNodeIndexIfNecessary(transaction, level - 1, newSlot);
 
                 // sibling nodes are in hilbert value order
                 final Iterator<? extends NodeSlot> slotIterator =
@@ -1046,16 +1044,14 @@ public class RTree {
         final ChildSlot leftChildSlot = new ChildSlot(firstSlotOfLeftNode.getSmallestHilbertValue(), firstSlotOfLeftNode.getSmallestKey(),
                 lastSlotOfLeftNode.getLargestHilbertValue(), lastSlotOfLeftNode.getLargestKey(),
                 leftNode.getId(), Node.computeMbr(leftNode.getSlots()));
-        storageAdapter.insertIntoNodeIndexIfNecessary(transaction, level, leftChildSlot);
         final ChildSlot rightChildSlot = new ChildSlot(firstSlotOfRightNode.getSmallestHilbertValue(), firstSlotOfRightNode.getSmallestKey(),
                 lastSlotOfRightNode.getLargestHilbertValue(), lastSlotOfRightNode.getLargestKey(),
                 rightNode.getId(), Node.computeMbr(rightNode.getSlots()));
-        storageAdapter.insertIntoNodeIndexIfNecessary(transaction, level, rightChildSlot);
 
-        final ArrayList<ChildSlot> rootNodeSlots =
-                Lists.newArrayList(leftChildSlot, rightChildSlot);
         oldRootNode.moveOutSlots(storageAdapter);
-        final IntermediateNode newRootNode = new IntermediateNode(rootId).moveInSlots(storageAdapter, rootNodeSlots);
+        final IntermediateNode newRootNode = new IntermediateNode(rootId)
+                .insertSlot(storageAdapter, level, 0, leftChildSlot)
+                .insertSlot(storageAdapter, level, 1, rightChildSlot);
 
         storageAdapter.writeNodes(transaction, Lists.newArrayList(oldRootNode, newRootNode, leftNode, rightNode));
     }
@@ -1192,7 +1188,6 @@ public class RTree {
                 logger.trace("regular delete; node={}; size={}", targetNode, targetNode.size());
             }
             targetNode.deleteSlot(storageAdapter, level - 1, slotIndexInTargetNode);
-            //storageAdapter.deleteFromNodeIndexIfNecessary(transaction, level - 1, deleteSlot);
 
             if (targetNode.getKind() == NodeKind.INTERMEDIATE) {
                 //
@@ -1260,7 +1255,6 @@ public class RTree {
                 // temporarily underfill targetNode
                 numSlots--;
                 targetNode.deleteSlot(storageAdapter, level - 1, slotIndexInTargetNode);
-                storageAdapter.deleteFromNodeIndexIfNecessary(transaction, level - 1, deleteSlot);
 
                 // sibling nodes are in hilbert value order
                 final Iterator<? extends NodeSlot> slotIterator =
@@ -1361,9 +1355,7 @@ public class RTree {
      */
     private void promoteNodeToRoot(final @Nonnull Transaction transaction, final int level, final IntermediateNode oldRootNode,
                                    final Node toBePromotedNode) {
-        // hold on to the child slot in the old root node for the to-be-promoted node
-        final ChildSlot childSlotInParent = Objects.requireNonNull(toBePromotedNode.getSlotInParent());
-        oldRootNode.moveOutSlots(storageAdapter);
+        oldRootNode.deleteAllSlots(storageAdapter, level);
 
         // hold on to the slots of the to-be-promoted node -- copy them as moveOutSlots() will mutate the slot list
         final List<? extends NodeSlot> newRootSlots = ImmutableList.copyOf(toBePromotedNode.getSlots());
@@ -1373,7 +1365,6 @@ public class RTree {
         // We need to update the node and the new root node in order to clear out the existing slots of the pre-promoted
         // node.
         storageAdapter.writeNodes(transaction, ImmutableList.of(oldRootNode, newRootNode, toBePromotedNode));
-        storageAdapter.deleteFromNodeIndexIfNecessary(transaction, level, childSlotInParent);
     }
 
     //
@@ -1473,7 +1464,6 @@ public class RTree {
                                                                                   final boolean isInsertUpdate) {
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, level, hilbertValue, key, isInsertUpdate)
                 .thenApply(node -> {
-                    System.out.println(level + String.valueOf(isInsertUpdate));
                     Verify.verify(node.getKind() == NodeKind.INTERMEDIATE && node instanceof IntermediateNode);
                     return (IntermediateNode)node;
                 });
@@ -1666,8 +1656,26 @@ public class RTree {
      */
     public void validate(@Nonnull final Database db,
                          final int maxNumNodesToBeValidated) {
-        ArrayDeque<ParentNodeAndChildId> toBeProcessed = new ArrayDeque<>();
-        toBeProcessed.addLast(new ParentNodeAndChildId(null, rootId));
+        //
+        // find the number of levels in this tree
+        //
+        Node node =
+                db.run(tr -> fetchUpdatePathToLeaf(tr, BigInteger.ONE, new Tuple(), true).join());
+        if (node == null) {
+            logger.trace("R-tree is empty.");
+            return;
+        }
+
+        int numLevels = 1;
+        while (node.getParentNode() != null) {
+            numLevels ++;
+            node = node.getParentNode();
+        }
+        Verify.verify(node.isRoot(), "end of update path should be the root");
+        logger.trace("numLevels = {}", numLevels);
+
+        ArrayDeque<ValidationTraversalState> toBeProcessed = new ArrayDeque<>();
+        toBeProcessed.addLast(new ValidationTraversalState(numLevels - 1, null, rootId));
 
         while (!toBeProcessed.isEmpty()) {
             db.run(tr -> validate(tr, maxNumNodesToBeValidated, toBeProcessed).join());
@@ -1683,17 +1691,17 @@ public class RTree {
      *         portion of the tree that was validated is in fact valid, completes with failure otherwise
      */
     @Nonnull
-    private CompletableFuture<ArrayDeque<ParentNodeAndChildId>> validate(@Nonnull final Transaction transaction,
-                                                                         final int maxNumNodesToBeValidated,
-                                                                         @Nonnull final ArrayDeque<ParentNodeAndChildId> toBeProcessed) {
+    private CompletableFuture<ArrayDeque<ValidationTraversalState>> validate(@Nonnull final Transaction transaction,
+                                                                             final int maxNumNodesToBeValidated,
+                                                                             @Nonnull final ArrayDeque<ValidationTraversalState> toBeProcessed) {
         final AtomicInteger numNodesEnqueued = new AtomicInteger(0);
-        final List<CompletableFuture<List<ParentNodeAndChildId>>> working = Lists.newArrayList();
+        final List<CompletableFuture<List<ValidationTraversalState>>> working = Lists.newArrayList();
 
         // Fetch the entire tree.
         return AsyncUtil.whileTrue(() -> {
-            final Iterator<CompletableFuture<List<ParentNodeAndChildId>>> workingIterator = working.iterator();
+            final Iterator<CompletableFuture<List<ValidationTraversalState>>> workingIterator = working.iterator();
             while (workingIterator.hasNext()) {
-                final CompletableFuture<List<ParentNodeAndChildId>> nextFuture = workingIterator.next();
+                final CompletableFuture<List<ValidationTraversalState>> nextFuture = workingIterator.next();
                 if (nextFuture.isDone()) {
                     toBeProcessed.addAll(nextFuture.join());
                     workingIterator.remove();
@@ -1701,12 +1709,13 @@ public class RTree {
             }
             
             while (working.size() <= MAX_CONCURRENT_READS && numNodesEnqueued.get() < maxNumNodesToBeValidated) {
-                final ParentNodeAndChildId currentParentNodeAndChildId = toBeProcessed.pollFirst();
-                if (currentParentNodeAndChildId == null) {
+                final ValidationTraversalState currentValidationTraversalState = toBeProcessed.pollFirst();
+                if (currentValidationTraversalState == null) {
                     break;
                 }
 
-                final IntermediateNode parentNode = currentParentNodeAndChildId.getParentNode();
+                final IntermediateNode parentNode = currentValidationTraversalState.getParentNode();
+                final int level = currentValidationTraversalState.getLevel();
                 final ChildSlot childSlotInParentNode;
                 final int slotIndexInParent;
                 if (parentNode != null) {
@@ -1715,7 +1724,7 @@ public class RTree {
                     ChildSlot childSlot = null;
                     for (slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
                         childSlot = slots.get(slotIndex);
-                        if (Arrays.equals(childSlot.getChildId(), currentParentNodeAndChildId.getChildId())) {
+                        if (Arrays.equals(childSlot.getChildId(), currentValidationTraversalState.getChildId())) {
                             break;
                         }
                     }
@@ -1732,13 +1741,29 @@ public class RTree {
                 }
 
                 final CompletableFuture<Node> fetchedNodeFuture =
-                        onReadListener.onAsyncRead(storageAdapter.fetchNode(transaction, currentParentNodeAndChildId.getChildId())
+                        onReadListener.onAsyncRead(storageAdapter.fetchNode(transaction, currentValidationTraversalState.getChildId())
                                 .thenApply(node -> {
                                     if (parentNode != null) {
                                         Objects.requireNonNull(node);
                                         node.linkToParent(parentNode, slotIndexInParent);
                                     }
                                     return node;
+                                })
+                                .thenCompose(childNode -> {
+                                    if (parentNode != null && getConfig().isUseSlotIndex()) {
+                                        final var childSlot = parentNode.getSlot(slotIndexInParent);
+                                        return storageAdapter.scanNodeIndexAndFetchNode(transaction, level,
+                                                childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), false)
+                                                .thenApply(nodeFromIndex -> {
+                                                    Objects.requireNonNull(nodeFromIndex);
+                                                    if (!Arrays.equals(nodeFromIndex.getId(), childNode.getId())) {
+                                                        logger.warn("corrupt node slot index at level {}, parentNode = {}", level, parentNode);
+                                                        throw new IllegalStateException("corrupt node index");
+                                                    }
+                                                    return childNode;
+                                                });
+                                    }
+                                    return CompletableFuture.completedFuture(childNode);
                                 }));
                 working.add(fetchedNodeFuture.thenApply(childNode -> {
                     if (childNode == null) {
@@ -1752,7 +1777,7 @@ public class RTree {
                     if (childNode.getKind() == NodeKind.INTERMEDIATE) {
                         return ((IntermediateNode)childNode).getSlots()
                                 .stream()
-                                .map(childSlot -> new ParentNodeAndChildId((IntermediateNode)childNode, childSlot.getChildId()))
+                                .map(childSlot -> new ValidationTraversalState(level - 1, (IntermediateNode)childNode, childSlot.getChildId()))
                                 .collect(ImmutableList.toImmutableList());
                     } else {
                         return ImmutableList.of();
@@ -2128,15 +2153,21 @@ public class RTree {
     /**
      * Helper class for the traversal of nodes during tree validation.
      */
-    private static class ParentNodeAndChildId {
+    private static class ValidationTraversalState {
+        final int level;
         @Nullable
         private final IntermediateNode parentNode;
         @Nonnull
         private final byte[] childId;
 
-        public ParentNodeAndChildId(@Nullable final IntermediateNode parentNode, @Nonnull final byte[] childId) {
+        public ValidationTraversalState(final int level, @Nullable final IntermediateNode parentNode, @Nonnull final byte[] childId) {
+            this.level = level;
             this.parentNode = parentNode;
             this.childId = childId;
+        }
+
+        public int getLevel() {
+            return level;
         }
 
         @Nullable

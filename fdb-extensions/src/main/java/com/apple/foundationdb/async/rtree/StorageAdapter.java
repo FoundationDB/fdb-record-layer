@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Storage adapter used for serialization and deserialization of nodes.
  */
-interface StorageAdapter {
+public interface StorageAdapter {
 
     /**
      * Get the {@link RTree.Config} associated with this storage adapter.
@@ -57,18 +57,7 @@ interface StorageAdapter {
      * @return secondary subspace or {@code null} if we do not maintain a node slot index
      */
     @Nullable
-    default Subspace getSecondarySubspace() {
-        final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
-        return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getSecondarySubspace();
-    }
-
-    /**
-     * Get the node slot index adapter used to store a node slot index if in warranted by the {@link RTree.Config}.
-     *
-     * @return aninstance of {@link NodeSlotIndexAdapter} or {@code null} if we do not maintain a node slot index
-     */
-    @Nullable
-    NodeSlotIndexAdapter getNodeSlotIndexAdapter();
+    Subspace getSecondarySubspace();
 
     /**
      * Get the on-write listener.

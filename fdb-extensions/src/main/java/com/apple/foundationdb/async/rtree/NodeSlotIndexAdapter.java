@@ -37,6 +37,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 class NodeSlotIndexAdapter {
+
+    private static final byte[] emptyArray = { };
+
     @Nonnull
     private final Subspace secondarySubspace;
 
@@ -66,7 +69,8 @@ class NodeSlotIndexAdapter {
                     Verify.verify(keyValues.size() <= 1);
                     if (!keyValues.isEmpty()) {
                         final KeyValue keyValue = keyValues.get(0);
-                        return CompletableFuture.completedFuture(keyValue.getValue());
+                        final Tuple indexKeyTuple = Tuple.fromBytes(keyValue.getKey());
+                        return CompletableFuture.completedFuture(getNodeIdFromIndexKeyTuple(indexKeyTuple));
                     }
 
                     //
@@ -112,14 +116,15 @@ class NodeSlotIndexAdapter {
                                 // Return the node we found for insert/update operation.
                                 //
                                 final KeyValue keyValue = previousKeyValues.get(0);
-                                return keyValue.getValue();
+                                final Tuple indexKeyTuple = Tuple.fromBytes(keyValue.getKey());
+                                return getNodeIdFromIndexKeyTuple(indexKeyTuple);
                             });
                 });
     }
 
     void writeChildSlot(@Nonnull final Transaction transaction, final int level,
                         @Nonnull final ChildSlot childSlot) {
-        transaction.set(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)), childSlot.getChildId());
+        transaction.set(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)), emptyArray);
     }
 
     void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
@@ -128,16 +133,22 @@ class NodeSlotIndexAdapter {
 
     @Nonnull
     private Tuple createIndexKeyTuple(final int level, @Nonnull final ChildSlot childSlot) {
-        return createIndexKeyTuple(level, childSlot.getLargestHilbertValue(), childSlot.getLargestKey());
+        return createIndexKeyTuple(level, childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), childSlot.getChildId());
     }
 
     @Nonnull
     private Tuple createIndexKeyTuple(final int level, @Nonnull final BigInteger largestHilbertValue,
-                                      @Nonnull final Tuple largestKey) {
+                                      @Nonnull final Tuple largestKey, @Nonnull final byte[] nodeId) {
         final List<Object> keys = Lists.newArrayList();
         keys.add(level);
         keys.add(largestHilbertValue);
         keys.addAll(largestKey.getItems());
+        keys.add(nodeId);
         return Tuple.fromList(keys);
+    }
+
+    @Nonnull
+    private byte[] getNodeIdFromIndexKeyTuple(final Tuple tuple) {
+        return tuple.getBytes(tuple.size() - 1);
     }
 }

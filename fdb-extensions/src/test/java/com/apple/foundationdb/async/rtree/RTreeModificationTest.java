@@ -120,6 +120,15 @@ public class RTreeModificationTest extends FDBTestBase {
 
                 return j;
             });
+//            System.out.println(i);
+//            validateRTree(db, rt);
+//
+//            final AtomicLong nresults = new AtomicLong(0);
+//            db.run(tr -> {
+//                AsyncUtil.forEachRemaining(rt.scan(tr, mbr -> true, (l, h) -> true), itemSlot -> nresults.incrementAndGet()).join();
+//                return null;
+//            });
+//            Assertions.assertEquals(numSamples - i, nresults.get());
         }
 
         final AtomicLong nresults = new AtomicLong(0);
@@ -216,24 +225,24 @@ public class RTreeModificationTest extends FDBTestBase {
     // Helpers
     //
 
-//    public static Stream<Arguments> numSamplesAndSeeds() {
-//        final Random random = new Random(System.currentTimeMillis());
-//        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
-//        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
-//            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
-//            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
-//        }
-//        return argumentsBuilder.build().stream();
-//    }
-
     public static Stream<Arguments> numSamplesAndSeeds() {
+        final Random random = new Random(System.currentTimeMillis());
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
-        for (int i = 0; i < 1; i ++) {
-            final int numSamples = 100;
-            argumentsBuilder.add(Arguments.of(0, numSamples));
+        for (int i = 0; i < NUM_TEST_RUNS; i ++) {
+            final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
+            argumentsBuilder.add(Arguments.of(random.nextLong(), numSamples));
         }
         return argumentsBuilder.build().stream();
     }
+
+//    public static Stream<Arguments> numSamplesAndSeeds() {
+//        final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
+//        for (int i = 0; i < 1; i ++) {
+//            final int numSamples = 1000;
+//            argumentsBuilder.add(Arguments.of(0, numSamples));
+//        }
+//        return argumentsBuilder.build().stream();
+//    }
 
     public static Stream<Arguments> numSamplesAndNumDeletes() {
         final Random random = new Random(System.currentTimeMillis());

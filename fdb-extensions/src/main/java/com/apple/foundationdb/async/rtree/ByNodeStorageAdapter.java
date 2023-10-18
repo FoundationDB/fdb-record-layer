@@ -30,7 +30,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -40,60 +39,12 @@ import java.util.function.Function;
  * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
  */
 class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
-    @Nonnull
-    private final RTree.Config config;
-    @Nonnull
-    private final Subspace subspace;
-    @Nullable
-    private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
-    @Nonnull
-    private final Function<RTree.Point, BigInteger> hilbertValueFunction;
-    @Nonnull
-    private final OnWriteListener onWriteListener;
-    @Nonnull
-    private final OnReadListener onReadListener;
-
     public ByNodeStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
                                 @Nonnull final Subspace secondarySubspace,
                                 @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
                                 @Nonnull final OnWriteListener onWriteListener,
                                 @Nonnull final OnReadListener onReadListener) {
-        this.config = config;
-        this.subspace = subspace;
-        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
-        this.hilbertValueFunction = hilbertValueFunction;
-        this.onWriteListener = onWriteListener;
-        this.onReadListener = onReadListener;
-    }
-
-    @Override
-    @Nonnull
-    public RTree.Config getConfig() {
-        return config;
-    }
-
-    @Override
-    @Nonnull
-    public Subspace getSubspace() {
-        return subspace;
-    }
-
-    @Override
-    @Nullable
-    public NodeSlotIndexAdapter getNodeSlotIndexAdapter() {
-        return nodeSlotIndexAdapter;
-    }
-
-    @Nonnull
-    @Override
-    public OnWriteListener getOnWriteListener() {
-        return onWriteListener;
-    }
-
-    @Nonnull
-    @Override
-    public OnReadListener getOnReadListener() {
-        return onReadListener;
+        super(config, subspace, secondarySubspace, hilbertValueFunction, onWriteListener, onReadListener);
     }
 
     @Override
@@ -124,11 +75,12 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             final byte[] packedValue = toTuple(node).pack();
             transaction.set(packedKey, packedValue);
         }
-        onWriteListener.onNodeWritten(node);
+        getOnWriteListener().onNodeWritten(node);
     }
 
     @Nonnull
     private Tuple toTuple(@Nonnull final Node node) {
+        final RTree.Config config = getConfig();
         final List<Tuple> slotTuples = Lists.newArrayListWithExpectedSize(node.size());
         for (final NodeSlot nodeSlot : node.getSlots()) {
             final Tuple slotTuple = Tuple.fromStream(
@@ -150,6 +102,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                         return null;
                     }
                     final Node node = fromTuple(nodeId, Tuple.fromBytes(valueBytes));
+                    final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
                     onReadListener.onKeyValueRead(node, key, valueBytes);
                     return node;
@@ -176,7 +129,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                     if (itemSlots == null) {
                         itemSlots = Lists.newArrayListWithExpectedSize(nodeSlotObjects.size());
                     }
-                    itemSlots.add(ItemSlot.fromKeyAndValue(itemSlotKeyTuple, itemSlotValueTuple, hilbertValueFunction));
+                    itemSlots.add(ItemSlot.fromKeyAndValue(itemSlotKeyTuple, itemSlotValueTuple, getHilbertValueFunction()));
                     break;
 
                 case INTERMEDIATE:

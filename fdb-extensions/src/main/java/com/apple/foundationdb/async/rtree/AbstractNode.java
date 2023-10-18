@@ -121,10 +121,7 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
     @Nonnull
     @Override
     public N moveOutSlots(@Nonnull final StorageAdapter storageAdapter) {
-        final N self = getThis();
-        this.changeSet = storageAdapter.newDeleteChangeSet(self, -1, this.nodeSlots);
-        this.nodeSlots = Lists.newArrayList();
-        return self;
+        return deleteAllSlots(storageAdapter, -1);
     }
 
     @Nonnull
@@ -156,6 +153,15 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
         final S narrowedSlot = nodeSlots.get(slotIndex);
         nodeSlots.remove(slotIndex);
         this.changeSet = storageAdapter.newDeleteChangeSet(self, level, ImmutableList.of(narrowedSlot));
+        return self;
+    }
+
+    @Nonnull
+    @Override
+    public N deleteAllSlots(@Nonnull final StorageAdapter storageAdapter, final int level) {
+        final N self = getThis();
+        this.changeSet = storageAdapter.newDeleteChangeSet(self, level, this.nodeSlots);
+        this.nodeSlots = Lists.newArrayList();
         return self;
     }
 

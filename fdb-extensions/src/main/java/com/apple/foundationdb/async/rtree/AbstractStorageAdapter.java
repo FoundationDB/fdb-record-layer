@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -29,11 +30,72 @@ import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Implementations common to all concrete implementations of {@link StorageAdapter}.
  */
 abstract class AbstractStorageAdapter implements StorageAdapter {
+    @Nonnull
+    private final RTree.Config config;
+    @Nonnull
+    private final Subspace subspace;
+    @Nullable
+    private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
+    @Nonnull
+    private final Function<RTree.Point, BigInteger> hilbertValueFunction;
+    @Nonnull
+    private final OnWriteListener onWriteListener;
+    @Nonnull
+    private final OnReadListener onReadListener;
+
+    protected AbstractStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
+                                     @Nonnull final Subspace secondarySubspace,
+                                     @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
+                                     @Nonnull final OnWriteListener onWriteListener,
+                                     @Nonnull final OnReadListener onReadListener) {
+        this.config = config;
+        this.subspace = subspace;
+        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
+        this.hilbertValueFunction = hilbertValueFunction;
+        this.onWriteListener = onWriteListener;
+        this.onReadListener = onReadListener;
+    }
+
+    @Override
+    @Nonnull
+    public RTree.Config getConfig() {
+        return config;
+    }
+
+    @Override
+    @Nonnull
+    public Subspace getSubspace() {
+        return subspace;
+    }
+
+    @Nullable
+    public Subspace getSecondarySubspace() {
+        return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getSecondarySubspace();
+    }
+
+    @Nonnull
+    protected Function<RTree.Point, BigInteger> getHilbertValueFunction() {
+        return hilbertValueFunction;
+    }
+
+    @Override
+    @Nonnull
+    public OnWriteListener getOnWriteListener() {
+        return onWriteListener;
+    }
+
+    @Override
+    @Nonnull
+    public OnReadListener getOnReadListener() {
+        return onReadListener;
+    }
+
     @Nonnull
     public byte[] packWithSubspace(final byte[] key) {
         return getSubspace().pack(key);
@@ -46,7 +108,6 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
                                                              @Nonnull final BigInteger hilbertValue,
                                                              @Nonnull final Tuple key,
                                                              final boolean isInsertUpdate) {
-        final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
         Objects.requireNonNull(nodeSlotIndexAdapter);
         return nodeSlotIndexAdapter.scanIndexForNodeId(transaction, level, hilbertValue, key, isInsertUpdate)
                 .thenCompose(nodeId -> nodeId == null
@@ -61,7 +122,6 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
             return;
         }
 
-        final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
         Objects.requireNonNull(nodeSlotIndexAdapter);
         nodeSlotIndexAdapter.writeChildSlot(transaction, level, (ChildSlot)nodeSlot);
     }
@@ -73,7 +133,6 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
             return;
         }
 
-        final NodeSlotIndexAdapter nodeSlotIndexAdapter = getNodeSlotIndexAdapter();
         Objects.requireNonNull(nodeSlotIndexAdapter);
         nodeSlotIndexAdapter.clearChildSlot(transaction, level, (ChildSlot)nodeSlot);
     }
