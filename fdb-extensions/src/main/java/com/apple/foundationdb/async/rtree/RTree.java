@@ -138,7 +138,7 @@ public class RTree {
      * Indicator if we should maintain a secondary node index consisting of hilbet value and key to speed up
      * update/deletes.
      */
-    public static final boolean DEFAULT_USE_NODE_INDEX = true;
+    public static final boolean DEFAULT_USE_NODE_SLOT_INDEX = true;
 
     /**
      * The minimum number of slots a node has (if not the root node). {@code M} should be chosen in a way that the
@@ -246,8 +246,7 @@ public class RTree {
      * Functional interface to create a {@link StorageAdapter}.
      */
     public interface StorageAdapterCreator {
-        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace,
-                              @Nonnull final Subspace secondarySubspace,
+        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace secondarySubspace,
                               @Nonnull Function<Point, BigInteger> hilbertValueFunction,
                               @Nonnull OnWriteListener onWriteListener,
                               @Nonnull OnReadListener onReadListener);
@@ -257,7 +256,7 @@ public class RTree {
      * Configuration settings for a {@link RTree}.
      */
     public static class Config {
-        private final boolean useSlotIndex;
+        private final boolean useNodeSlotIndex;
         private final int minM;
         private final int maxM;
         private final int splitS;
@@ -267,7 +266,7 @@ public class RTree {
         private final boolean storeHilbertValues;
 
         protected Config() {
-            this.useSlotIndex = DEFAULT_USE_NODE_INDEX;
+            this.useNodeSlotIndex = DEFAULT_USE_NODE_SLOT_INDEX;
             this.minM = DEFAULT_MIN_M;
             this.maxM = DEFAULT_MAX_M;
             this.splitS = DEFAULT_S;
@@ -275,9 +274,9 @@ public class RTree {
             this.storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
         }
 
-        protected Config(final boolean useSlotIndex, final int minM, final int maxM, final int splitS,
+        protected Config(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
                          @Nonnull final Storage storage, final boolean storeHilbertValues) {
-            this.useSlotIndex = useSlotIndex;
+            this.useNodeSlotIndex = useNodeSlotIndex;
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
@@ -285,8 +284,8 @@ public class RTree {
             this.storeHilbertValues = storeHilbertValues;
         }
 
-        public boolean isUseSlotIndex() {
-            return useSlotIndex;
+        public boolean isUseNodeSlotIndex() {
+            return useNodeSlotIndex;
         }
 
         public int getMinM() {
@@ -311,13 +310,13 @@ public class RTree {
         }
 
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(useSlotIndex, minM, maxM, splitS, storage, storeHilbertValues);
+            return new ConfigBuilder(useNodeSlotIndex, minM, maxM, splitS, storage, storeHilbertValues);
         }
 
         @Override
         public String toString() {
             return storage + ", M=" + minM + "-" + maxM + ", S=" + splitS +
-                   (useSlotIndex ? ", slotIndex" : "") +
+                   (useNodeSlotIndex ? ", slotIndex" : "") +
                    (storeHilbertValues ? ", storeHV" : "");
         }
     }
@@ -329,7 +328,7 @@ public class RTree {
      */
     @CanIgnoreReturnValue
     public static class ConfigBuilder {
-        private boolean useSlotIndex = DEFAULT_USE_NODE_INDEX;
+        private boolean useNodeSlotIndex = DEFAULT_USE_NODE_SLOT_INDEX;
         private int minM = DEFAULT_MIN_M;
         private int maxM = DEFAULT_MAX_M;
         private int splitS = DEFAULT_S;
@@ -340,9 +339,9 @@ public class RTree {
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(final boolean useSlotIndex, final int minM, final int maxM, final int splitS,
+        public ConfigBuilder(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
                              @Nonnull final Storage storage, final boolean storeHilbertValues) {
-            this.useSlotIndex = useSlotIndex;
+            this.useNodeSlotIndex = useNodeSlotIndex;
             this.minM = minM;
             this.maxM = maxM;
             this.splitS = splitS;
@@ -396,17 +395,17 @@ public class RTree {
             return this;
         }
 
-        public boolean isUseSlotIndex() {
-            return useSlotIndex;
+        public boolean isUseNodeSlotIndex() {
+            return useNodeSlotIndex;
         }
 
-        public ConfigBuilder setUseSlotIndex(final boolean useSlotIndex) {
-            this.useSlotIndex = useSlotIndex;
+        public ConfigBuilder setUseNodeSlotIndex(final boolean useNodeSlotIndex) {
+            this.useNodeSlotIndex = useNodeSlotIndex;
             return this;
         }
 
         public Config build() {
-            return new Config(useSlotIndex, getMinM(), getMaxM(), getSplitS(), getStorage(), isStoreHilbertValues());
+            return new Config(isUseNodeSlotIndex(), getMinM(), getMaxM(), getSplitS(), getStorage(), isStoreHilbertValues());
         }
     }
 
@@ -485,6 +484,24 @@ public class RTree {
     @Nonnull
     public Config getConfig() {
         return config;
+    }
+
+    /**
+     * Get the on-write listener.
+     * @return the on-write listener
+     */
+    @Nonnull
+    public OnWriteListener getOnWriteListener() {
+        return onWriteListener;
+    }
+
+    /**
+     * Get the on-read listener.
+     * @return the on-read listener
+     */
+    @Nonnull
+    public OnReadListener getOnReadListener() {
+        return onReadListener;
     }
 
     //
@@ -1451,7 +1468,7 @@ public class RTree {
                                                                 @Nonnull final BigInteger hilbertValue,
                                                                 @Nonnull final Tuple key,
                                                                 final boolean isInsertUpdate) {
-        if (config.isUseSlotIndex()) {
+        if (config.isUseNodeSlotIndex()) {
             return scanIndexAndFetchLeafNode(transaction, hilbertValue, key, isInsertUpdate);
         } else {
             return fetchUpdatePathToLeaf(transaction, hilbertValue, key, isInsertUpdate);
@@ -1497,7 +1514,7 @@ public class RTree {
             return CompletableFuture.completedFuture(linkedParentNode);
         }
 
-        Verify.verify(getConfig().isUseSlotIndex());
+        Verify.verify(getConfig().isUseNodeSlotIndex());
         return scanIndexAndFetchIntermediateNode(transaction, level + 1, hilbertValue, key, isInsertUpdate)
                 .thenApply(parentNode -> {
                     final int slotIndexInParent = findChildSlotIndex(parentNode, node.getId());
@@ -1655,6 +1672,32 @@ public class RTree {
     }
 
     /**
+     * Method to compute the depth of this R-tree.
+     * @param transactionContext transaction context to be used
+     * @return the depth of the R-tree
+     */
+    public int depth(@Nonnull final TransactionContext transactionContext) {
+        //
+        // find the number of levels in this tree
+        //
+        Node node =
+                transactionContext.run(tr -> fetchUpdatePathToLeaf(tr, BigInteger.ONE, new Tuple(), true).join());
+        if (node == null) {
+            logger.trace("R-tree is empty.");
+            return 0;
+        }
+
+        int numLevels = 1;
+        while (node.getParentNode() != null) {
+            numLevels ++;
+            node = node.getParentNode();
+        }
+        Verify.verify(node.isRoot(), "end of update path should be the root");
+        logger.trace("numLevels = {}", numLevels);
+        return numLevels;
+    }
+
+    /**
      * Method to validate the Hilbert R-tree.
      * @param db the database to use
      */
@@ -1669,26 +1712,9 @@ public class RTree {
      */
     public void validate(@Nonnull final Database db,
                          final int maxNumNodesToBeValidated) {
-        //
-        // find the number of levels in this tree
-        //
-        Node node =
-                db.run(tr -> fetchUpdatePathToLeaf(tr, BigInteger.ONE, new Tuple(), true).join());
-        if (node == null) {
-            logger.trace("R-tree is empty.");
-            return;
-        }
-
-        int numLevels = 1;
-        while (node.getParentNode() != null) {
-            numLevels ++;
-            node = node.getParentNode();
-        }
-        Verify.verify(node.isRoot(), "end of update path should be the root");
-        logger.trace("numLevels = {}", numLevels);
 
         ArrayDeque<ValidationTraversalState> toBeProcessed = new ArrayDeque<>();
-        toBeProcessed.addLast(new ValidationTraversalState(numLevels - 1, null, rootId));
+        toBeProcessed.addLast(new ValidationTraversalState(depth(db) - 1, null, rootId));
 
         while (!toBeProcessed.isEmpty()) {
             db.run(tr -> validate(tr, maxNumNodesToBeValidated, toBeProcessed).join());
@@ -1762,7 +1788,7 @@ public class RTree {
                                     return node;
                                 })
                                 .thenCompose(childNode -> {
-                                    if (parentNode != null && getConfig().isUseSlotIndex()) {
+                                    if (parentNode != null && getConfig().isUseNodeSlotIndex()) {
                                         final var childSlot = parentNode.getSlot(slotIndexInParent);
                                         return storageAdapter.scanNodeIndexAndFetchNode(transaction, level,
                                                 childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), false)

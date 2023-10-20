@@ -36,7 +36,33 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * Storage adapter that normalizes internal nodes such that each node slot is a key/value pair in the database.
+ * Storage adapter that represents each node as a single key/value pair in the database. That paradigm
+ * greatly simplifies how nodes, node slots, and operations on these data structures are managed. Also, a
+ * node that is serialized into a key/value pair using this storage adapter leaves a significantly smaller
+ * footprint when compared to the multitude of key/value pairs that are serialized/deserialized using
+ * {@link BySlotStorageAdapter}.
+ * <br>
+ * These advantages are offset by the key disadvantage of having to read/deserialize and the serialize/write
+ * the entire node to realize/persist a minute change to one of its slots. That, in turn, may cause a higher
+ * likelihood of conflicting with another transaction.
+ * <br>
+ * Each node is serialized as follows (each {@code (thing)} is a tuple containing {@code thing}):
+ * <pre>
+ * {@code
+ *    key: nodeId: byte[16]
+ *    value: Tuple(nodeKind: Long, slotList: (slot1, ..., slotn])
+ *           slot:
+ *               for leaf nodes:
+ *                   (hilbertValue: BigInteger, itemKey: (point: Tuple(d1, ..., dk),
+ *                    keySuffix: (...)),
+ *                    value: (...))
+ *               for intermediate nodes:
+ *                   (smallestHV: BigInteger, smallestKey: (...),
+ *                    largestHV: BigInteger, largestKey: (...),
+ *                    childId: byte[16],
+ *                    mbr: (minD1, minD2, ..., minDk, maxD1, maxD2, ..., maxDk)))
+ * }
+ * </pre>
  */
 class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
     public ByNodeStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
@@ -48,12 +74,14 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Override
-    public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
+    public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node,
+                                  @Nonnull final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
 
     @Override
-    public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
+    public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node,
+                                  @Nonnull final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
 

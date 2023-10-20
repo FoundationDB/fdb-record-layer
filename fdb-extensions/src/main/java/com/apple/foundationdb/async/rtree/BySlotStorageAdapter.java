@@ -158,18 +158,21 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
+    @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newInsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
         return new InsertChangeSet<>(node, level, insertedSlots);
     }
 
     @Nonnull
+    @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newUpdateChangeSet(@Nonnull final N node, final int level, @Nonnull final S originalSlot, @Nonnull final S updatedSlot) {
         return new UpdateChangeSet<>(node, level, originalSlot, updatedSlot);
     }
 
     @Nonnull
+    @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newDeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
         return new DeleteChangeSet<>(node, level, deletedSlots);

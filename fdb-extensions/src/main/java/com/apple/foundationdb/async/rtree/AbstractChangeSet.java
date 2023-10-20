@@ -21,30 +21,32 @@
 package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.rtree.Node.ChangeSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Abstract base implementations for all {@link com.apple.foundationdb.async.rtree.Node.ChangeSet}s.
- * @param <S>
- * @param <N>
+ * Abstract base implementations for all {@link ChangeSet}s.
+ * @param <S> slot type class
+ * @param <N> node type class (self type)
  */
-public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> implements Node.ChangeSet {
+public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> implements ChangeSet {
     @Nullable
-    private final Node.ChangeSet previousChangeSet;
+    private final ChangeSet previousChangeSet;
 
     @Nonnull
     private final N node;
 
     private final int level;
 
-    AbstractChangeSet(@Nullable final Node.ChangeSet previousChangeSet, @Nonnull final N node, final int level) {
+    AbstractChangeSet(@Nullable final ChangeSet previousChangeSet, @Nonnull final N node, final int level) {
         this.previousChangeSet = previousChangeSet;
         this.node = node;
         this.level = level;
     }
 
+    @Override
     public void apply(@Nonnull final Transaction transaction) {
         if (previousChangeSet != null) {
             previousChangeSet.apply(transaction);
@@ -52,7 +54,7 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
     }
 
     @Nullable
-    public Node.ChangeSet getPreviousChangeSet() {
+    public ChangeSet getPreviousChangeSet() {
         return previousChangeSet;
     }
 
@@ -65,6 +67,14 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
         return level;
     }
 
+    /**
+     * Returns whether this change set needs to also update the node slot index. There are scenarios where we
+     * do not need to update such an index in general. For instance, the user may not want to use such an index.
+     * In addition to that, there are change set implementations that should not update the index even if such and index
+     * is maintained in general. For instance, the moved-in slots were already persisted in the database before the
+     * move-in operation. We should not update the node slot index in such a case.
+     * @return {@code true} if we need to update the node slot index, {@code false} otherwise
+     */
     public boolean isUpdateNodeSlotIndex() {
         return level >= 0;
     }

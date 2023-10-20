@@ -229,7 +229,7 @@ public interface Node {
      * @param slotInParent the slot index indicating the {@link ChildSlot} in the parent node that corresponds to this
      *        node
      */
-    void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent);
+    void linkToParent(@Nonnull IntermediateNode parentNode, int slotInParent);
 
     /**
      * Create a new node that is of the same {@link NodeKind} as this node.
@@ -319,6 +319,6 @@ public interface Node {
      * when a node is written, mostly to avoid re-persisting all slots if not necessary.
      */
     interface ChangeSet {
-        void apply(@Nonnull final Transaction transaction);
+        void apply(@Nonnull Transaction transaction);
     }
 }

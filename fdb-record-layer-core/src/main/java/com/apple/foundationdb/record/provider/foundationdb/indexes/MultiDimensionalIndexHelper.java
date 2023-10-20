@@ -63,6 +63,10 @@ public class MultiDimensionalIndexHelper {
         if (rtreeStorage != null) {
             builder.setStoreHilbertValues(Boolean.parseBoolean(rtreeStoreHilbertValues));
         }
+        final String rtreeUseNodeSlotIndex = index.getOption(IndexOptions.RTREE_USE_NODE_SLOT_INDEX);
+        if (rtreeUseNodeSlotIndex != null) {
+            builder.setUseNodeSlotIndex(Boolean.parseBoolean(rtreeUseNodeSlotIndex));
+        }
 
         return builder.build();
     }

@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * An intermediate node of the tree. An intermediate node holds the holds information about its children nodes that
+ * An intermediate node of the R-tree. An intermediate node holds the holds information about its children nodes that
  * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
  * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
  */

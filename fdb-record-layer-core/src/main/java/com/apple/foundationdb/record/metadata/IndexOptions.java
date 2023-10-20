@@ -203,10 +203,15 @@ public class IndexOptions {
     public static final String RTREE_STORAGE = "rtreeStorage";
 
     /**
-     * Option to indicate whether the tree stores Hilbert values of objects together with the point or not. Hilbert
+     * Option to indicate whether the R-tree stores Hilbert values of objects together with the point or not. Hilbert
      * values can always be recomputed, however, recomputing them incurs a CPU cost.
      */
     public static final String RTREE_STORE_HILBERT_VALUES = "rtreeStoreHilbertValues";
+
+    /**
+     * Option to indicate whether the R-tree manages and uses a secondary index to quickly find the update path.
+     */
+    public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
     private IndexOptions() {
     }

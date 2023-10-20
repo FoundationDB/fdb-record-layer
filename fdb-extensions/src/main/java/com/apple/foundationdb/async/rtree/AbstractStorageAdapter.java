@@ -34,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * Implementations common to all concrete implementations of {@link StorageAdapter}.
+ * Implementations and attributed common to all concrete implementations of {@link StorageAdapter}.
  */
 abstract class AbstractStorageAdapter implements StorageAdapter {
     @Nonnull
@@ -57,7 +57,9 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
                                      @Nonnull final OnReadListener onReadListener) {
         this.config = config;
         this.subspace = subspace;
-        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace, onWriteListener, onReadListener) : null;
+        this.nodeSlotIndexAdapter = config.isUseNodeSlotIndex()
+                                    ? new NodeSlotIndexAdapter(secondarySubspace, onWriteListener, onReadListener)
+                                    : null;
         this.hilbertValueFunction = hilbertValueFunction;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
@@ -76,6 +78,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     }
 
     @Nullable
+    @Override
     public Subspace getSecondarySubspace() {
         return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getSecondarySubspace();
     }
@@ -136,7 +139,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     @Override
     public void insertIntoNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
                                                @Nonnull final NodeSlot nodeSlot) {
-        if (!getConfig().isUseSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
+        if (!getConfig().isUseNodeSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
             return;
         }
 
@@ -147,7 +150,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     @Override
     public void deleteFromNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
                                                @Nonnull final NodeSlot nodeSlot) {
-        if (!getConfig().isUseSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
+        if (!getConfig().isUseNodeSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
             return;
         }
 
@@ -165,7 +168,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     protected abstract CompletableFuture<Node> fetchNodeInternal(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
 
     /**
-     * Method to perform basic invariant check(s) on a newly fetched node.
+     * Method to perform basic invariant check(s) on a newly-fetched node.
      *
      * @param node the node to check
      * @param <N> the type param for the node in order for this method to not be lossy on the type of the node that
@@ -182,4 +185,16 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         }
         return node;
     }
+
+    @Nonnull
+    abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newInsertChangeSet(@Nonnull N node, int level, @Nonnull List<S> insertedSlots);
+
+    @Nonnull
+    abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newUpdateChangeSet(@Nonnull N node, int level, @Nonnull S originalSlot, @Nonnull S updatedSlot);
+
+    @Nonnull
+    abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
+            newDeleteChangeSet(@Nonnull N node, int level, @Nonnull List<S> deletedSlots);
 }

@@ -36,6 +36,48 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Logic to encapsulate interactions with the (optional) node slot index.
+ * <br>
+ * In a Hilbert R-tree, Hilbert values are used to cluster the R-tree and also to define an order among points.
+ * As an additional emerging property, a total order among nodes can also be defined using Hilbert Values as long as
+ * these nodes are on the same <em>level</em> in the R-tree. The level is defined as the distance from the leaf node
+ * level to the node in question. Note that we could also define the level as the distance from the root node as the
+ * R-tree is always balanced; however, it turns out to be advantageous to start with {@code 0} for the leaf level and
+ * increase walking upwards the R-tree.
+ * <br>
+ * All nodes on the same level can be ordered according to the Hilbert Values (and the key) the node covers.
+ * We use the {@code (largest Hilbert Value, largest key)}; the same approach would also work for
+ * {@code (smallest Hilbert Value, smallest key)} as this property is symmetrical. The corresponding
+ * {@code (largest Hilbert Value, largest key)} pair for a node is already stored in the corresponding child slot of
+ * a node's parent node.
+ * <br>
+ * The node slot index is a persisted index defined as {@code (level, largestHilbertValue, largestKey, nodeId) -> empty}
+ * for every node that is not the root node. The root node is not indexed as the root node does not have a
+ * {@code (largest Hilbert Value, largest key)} pair (it could be defined as {@code (MaxHilbertValue, MaxKey)} but
+ * it's not useful to store that.
+ * <br>
+ * Once an R-tree grows beyond a certain size, the number of nodes that need to be fetched for an insert/update/delete
+ * (also called the update path in {@link RTree}) which is bound by {@code O(logM(numRecords)} still can be
+ * substantially higher than the number of nodes that are actually needed to be consulted/written for that
+ * insert/update/delete operation. Using the node slot index, the insert/update/delete logic is able to directly
+ * (and only) fetch the affected leaf node. Only if further adjustments of the R-tree are needed and propagated upwards
+ * the tree, we can again consult the node slot index and fetch the affected intermediate parent node and so on.
+ * In this way, only nodes that truly need to be read/updated are fetched from the database leading to a smaller commit
+ * size.
+ * <br>
+ * For each lookup of the node we need to modify we normally perform exactly one scan of the node slot index to obtain
+ * the proper node id followed by one get/scan (depending on {@link StorageAdapter}) of the primary space
+ * using that node id to fetch the actual node. We cannot assume that the database can do this lookup in constant
+ * time, however, at least we can reason about the number of round trips for an insert/update/delete operation.
+ * The number of round trips is reduced from {@code O(logM(numNodes))} to {@code O(1)}. In reality, using the index
+ * will incur at least three round trips and in general two round trips per level in the R-tree. Depending on the
+ * used {@link com.apple.foundationdb.async.rtree.RTree.Config}, that number may well be higher than the
+ * {@code logM(numNodes)} round trips needed if the node slot index is not used. Together with the addition mutations
+ * needed to maintain the node slot index it may not be useful to use this index at all if the anticipated number of
+ * records stored in the R-tree is not big enough. For the {@link RTree#DEFAULT_CONFIG}, the break even point is
+ * in the 100k records range, for an R-tree whose {@code M} is smaller, the break even point naturally is also smaller.
+ */
 class NodeSlotIndexAdapter {
 
     private static final byte[] emptyArray = { };

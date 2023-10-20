@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -308,9 +309,16 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
         Verify.verify(getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize() >= prefix.size());
-        return super.deleteWhere(tr, prefix);
+        return super.deleteWhere(tr, prefix).thenApply(v -> {
+            // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
+            // store data at the prefix key itself.
+            final Subspace rankSubspace = getSecondarySubspace();
+            final byte[] key = rankSubspace.pack(prefix);
+            tr.clear(key, ByteArrayUtil.strinc(key));
+            return v;
+        });
     }
 
     /**

@@ -39,6 +39,7 @@ public interface StorageAdapter {
 
     /**
      * Get the {@link RTree.Config} associated with this storage adapter.
+     * @return the configuration used by this storage adapter
      */
     @Nonnull
     RTree.Config getConfig();
@@ -82,7 +83,7 @@ public interface StorageAdapter {
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param nodeSlot the {@link NodeSlot} to be inserted
      */
-    void insertIntoNodeIndexIfNecessary(@Nonnull Transaction transaction, final int level, @Nonnull NodeSlot nodeSlot);
+    void insertIntoNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
 
     /**
      * Deletes an entry from the node index if configuration indicates we should maintain such an index.
@@ -91,8 +92,7 @@ public interface StorageAdapter {
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param nodeSlot the {@link NodeSlot} to be deleted
      */
-    void deleteFromNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                        @Nonnull final NodeSlot nodeSlot);
+    void deleteFromNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
 
     /**
      * Persist a node slot.
@@ -113,9 +113,7 @@ public interface StorageAdapter {
     void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull LeafNode node, @Nonnull ItemSlot itemSlot);
 
     /**
-     * Method to (re-)persist all slots for a list of nodes passed in. The method will first clear the range starting
-     * with
-     * the node ids of the nodes passed in and then persist all the nodes slots.
+     * Method to (re-)persist a list of nodes passed in.
      *
      * @param transaction the transaction to use
      * @param nodes a list of nodes to be (re-persisted)
@@ -138,11 +136,9 @@ public interface StorageAdapter {
      * {@link Node} could not be found.
      */
     @Nonnull
-    CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull final ReadTransaction transaction,
-                                                      final int level,
-                                                      @Nonnull final BigInteger hilbertValue,
-                                                      @Nonnull final Tuple key,
-                                                      final boolean isInsertUpdate);
+    CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull ReadTransaction transaction, int level,
+                                                      @Nonnull BigInteger hilbertValue, @Nonnull Tuple key,
+                                                      boolean isInsertUpdate);
 
     /**
      * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
@@ -158,16 +154,4 @@ public interface StorageAdapter {
      */
     @Nonnull
     CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
-
-    @Nonnull
-    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newInsertChangeSet(@Nonnull N node, int level, @Nonnull List<S> insertedSlots);
-
-    @Nonnull
-    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newUpdateChangeSet(@Nonnull N node, int level, @Nonnull S originalSlot, @Nonnull S updatedSlot);
-
-    @Nonnull
-    <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newDeleteChangeSet(@Nonnull N node, int level, @Nonnull List<S> deletedSlots);
 }

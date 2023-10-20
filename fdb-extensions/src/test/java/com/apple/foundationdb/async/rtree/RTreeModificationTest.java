@@ -104,17 +104,11 @@ public class RTreeModificationTest extends FDBTestBase {
         final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), config,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, onWriteCounters,
                 onReadCounters);
-        randomInserts(db, rTree, 0, 500000);
-
-        onWriteCounters.resetCounters();
-        onReadCounters.resetCounters();
-        System.out.println("================== BEFORE INSERT =====================================");
         final long startTs = System.nanoTime();
         final Item[] items = randomInserts(db, rTree, seed, numSamples);
         final long endTs = System.nanoTime();
         onWriteCounters.logCounters();
         onReadCounters.logCounters();
-        System.out.println("================== AFTER INSERT:" + (endTs - startTs) / 1_000_000 + " =====================================");
         validateRTree(db, rTree);
         onWriteCounters.resetCounters();
         onReadCounters.resetCounters();
@@ -246,10 +240,10 @@ public class RTreeModificationTest extends FDBTestBase {
         for (int i = 0; i < NUM_TEST_RUNS; i ++) {
             final int numSamples = random.nextInt(NUM_SAMPLES) + 1;
             final long seed = random.nextLong();
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseSlotIndex(false).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseSlotIndex(true).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseSlotIndex(false).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseSlotIndex(true).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseNodeSlotIndex(false).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseNodeSlotIndex(true).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseNodeSlotIndex(false).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setMinM(16).setMaxM(32).setUseNodeSlotIndex(true).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples));
         }
         return argumentsBuilder.build().stream();
     }
@@ -261,10 +255,10 @@ public class RTreeModificationTest extends FDBTestBase {
             final int numSamples = random.nextInt(NUM_SAMPLES + 1);
             final int numDeletes = random.nextInt(numSamples + 1);
             final long seed = random.nextLong();
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseSlotIndex(false).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples, numDeletes));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseSlotIndex(true).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples, numDeletes));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseSlotIndex(false).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples, numDeletes));
-            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseSlotIndex(true).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples, numDeletes));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseNodeSlotIndex(false).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples, numDeletes));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseNodeSlotIndex(true).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_SLOT).build(), seed, numSamples, numDeletes));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseNodeSlotIndex(false).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples, numDeletes));
+            argumentsBuilder.add(Arguments.of(new RTree.ConfigBuilder().setUseNodeSlotIndex(true).setMinM(4).setMaxM(8).setStorage(RTree.Storage.BY_NODE).build(), seed, numSamples, numDeletes));
         }
         return argumentsBuilder.build().stream();
     }
@@ -283,7 +277,7 @@ public class RTreeModificationTest extends FDBTestBase {
     }
 
     static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final RTree rTree,
-                                         final long seed, int numSamples) {
+                                         final long seed, final int numSamples) {
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
         for (int i = 0; i < numSamples; ++i) {

@@ -27,7 +27,6 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -35,10 +34,9 @@ import java.util.stream.Stream;
  * Abstract base class to define common attributed and to provide common implementations of
  * {@link LeafNode} and {@link IntermediateNode}.
  * @param <S> slot type class
- * @param <N> node type class
+ * @param <N> node type class. This is also called the self type.
  */
 abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> implements Node {
-
     @Nonnull
     private final byte[] id;
 
@@ -62,36 +60,47 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         this.changeSet = null;
     }
 
-    public abstract N getThis();
+    /**
+     * Method that returns {@code this}. This method needs to be overridden in each leaf class (leaf as in final).
+     * The reason this method exists is to trick the Java compiler in treating {@code this} to be of type {@code N}
+     * instead of {@code AbstractNode<>}.
+     * @return {@code this}
+     */
+    protected abstract N getThis();
 
     @Nonnull
+    @Override
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getId() {
         return id;
     }
 
+    /**
+     * Return the slots of this node as a list. Note that the result type is covariant.
+     * @return a list of node slots
+     */
     @Nonnull
     @Override
     public List<S> getSlots() {
         return nodeSlots;
     }
 
+    /**
+     * Return a sub range of the slots of this node as a list. Note that the result type is covariant.
+     * @return a list of node slots
+     */
     @Nonnull
     @Override
     public List<S> getSlots(final int startIndexInclusive, final int endIndexExclusive) {
         return nodeSlots.subList(startIndexInclusive, endIndexExclusive);
     }
 
+    @Override
     public int size() {
         return nodeSlots.size();
     }
 
-    /**
-     * Return if this node does not hold any slots. Note that a node can ony be temporarily empty, for instance when
-     * slots are moved out of a node before other slots get moved in. Such a node must not be persisted as it violates
-     * the invariants of ancR-tree.
-     * @return {@code true} if the node currently does not hold any node slots.
-     */
+    @Override
     public boolean isEmpty() {
         return nodeSlots.isEmpty();
     }
@@ -108,22 +117,33 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return nodeSlots.stream();
     }
 
+    /**
+     * Return the (optional) change set associated with this node as a {@link AbstractChangeSet} instead of
+     * a {@link com.apple.foundationdb.async.rtree.Node.ChangeSet}. Note that the result type is covariant.
+     * @return the change set associated with this node
+     */
     @Nullable
     @Override
     public AbstractChangeSet<S, N> getChangeSet() {
         return changeSet;
     }
 
+    /**
+     * Returns the slot handed in as a slot of type {@code S}. Needs to be implemented in a leaf (final) class.
+     * @param slot a slot
+     * @return the same slot that was passed in, but of type {@code S}
+     */
     @Nonnull
-    public abstract S narrowSlot(@Nonnull final NodeSlot slot);
+    public abstract S narrowSlot(@Nonnull NodeSlot slot);
 
     @Nonnull
     @Override
     public N moveInSlots(@Nonnull final StorageAdapter storageAdapter, @Nonnull final Iterable<? extends NodeSlot> slots) {
+        final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final List<S> narrowedSlots = Streams.stream(slots).map(this::narrowSlot).collect(ImmutableList.toImmutableList());
         nodeSlots.addAll(narrowedSlots);
-        this.changeSet = storageAdapter.newInsertChangeSet(self, -1, narrowedSlots);
+        this.changeSet = abstractStorageAdapter.newInsertChangeSet(self, -1, narrowedSlots);
         return self;
     }
 
@@ -137,10 +157,11 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     @Override
     public N insertSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex,
                         @Nonnull final NodeSlot slot) {
+        final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = narrowSlot(slot);
         nodeSlots.add(slotIndex, narrowedSlot);
-        this.changeSet = storageAdapter.newInsertChangeSet(self, level, ImmutableList.of(narrowedSlot));
+        this.changeSet = abstractStorageAdapter.newInsertChangeSet(self, level, ImmutableList.of(narrowedSlot));
         return self;
     }
 
@@ -148,57 +169,64 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     @Override
     public Node updateSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex,
                            @Nonnull final NodeSlot updatedSlot) {
+        final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = narrowSlot(updatedSlot);
         final S originalSlot = nodeSlots.set(slotIndex, narrowedSlot);
-        this.changeSet = storageAdapter.newUpdateChangeSet(self, level, originalSlot, narrowedSlot);
+        this.changeSet = abstractStorageAdapter.newUpdateChangeSet(self, level, originalSlot, narrowedSlot);
         return self;
     }
 
     @Nonnull
     @Override
     public Node deleteSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex) {
+        final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = nodeSlots.get(slotIndex);
         nodeSlots.remove(slotIndex);
-        this.changeSet = storageAdapter.newDeleteChangeSet(self, level, ImmutableList.of(narrowedSlot));
+        this.changeSet = abstractStorageAdapter.newDeleteChangeSet(self, level, ImmutableList.of(narrowedSlot));
         return self;
     }
 
     @Nonnull
     @Override
     public N deleteAllSlots(@Nonnull final StorageAdapter storageAdapter, final int level) {
+        final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
-        this.changeSet = storageAdapter.newDeleteChangeSet(self, level, this.nodeSlots);
+        this.changeSet = abstractStorageAdapter.newDeleteChangeSet(self, level, this.nodeSlots);
         this.nodeSlots = Lists.newArrayList();
         return self;
     }
 
-    public boolean isRoot() {
-        return Arrays.equals(RTree.rootId, id);
-    }
-
-    @Nonnull
-    public abstract NodeKind getKind();
-
     @Nullable
+    @Override
     public IntermediateNode getParentNode() {
         return parentNode;
     }
 
+    @Override
     public int getSlotIndexInParent() {
         return slotIndexInParent;
     }
 
+    @Override
     public void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent) {
         this.parentNode = parentNode;
         this.slotIndexInParent = slotInParent;
     }
 
+    /**
+     * Method to return a new node of the same {@link NodeKind} as this node. This method's result type is
+     * covariant to return a node of type {@code N}.
+     * @param nodeId node id for the new node
+     * @return a new node of type {@code N}
+     */
     @Nonnull
+    @Override
     public abstract N newOfSameKind(@Nonnull byte[] nodeId);
 
     @Override
+    @Nonnull
     public String toString() {
         return "[" + getKind().name() + ": id = " + NodeHelpers.bytesToHex(getId()) + "; parent = " +
                (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
