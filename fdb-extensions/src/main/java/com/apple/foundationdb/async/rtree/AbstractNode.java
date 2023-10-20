@@ -23,35 +23,21 @@ package com.apple.foundationdb.async.rtree;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Abstract base class to capture the common aspects of {@link LeafNode} and {@link IntermediateNode}. All
- * nodes
- * have a node id and slots and can be linked up to a parent. Note that while the root node mostly is an
- * intermediate node it can also be a leaf node if the tree is nearly empty.
+ * Abstract base class to define common attributed and to provide common implementations of
+ * {@link LeafNode} and {@link IntermediateNode}.
  * @param <S> slot type class
  * @param <N> node type class
  */
-public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> implements Node {
-    private static final int nodeIdLength = 16;
-
-    private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
-
-    /**
-     * Only used for debugging to keep node ids readable.
-     */
-    private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
+abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> implements Node {
 
     @Nonnull
     private final byte[] id;
@@ -84,9 +70,30 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
         return id;
     }
 
+    @Nonnull
     @Override
+    public List<S> getSlots() {
+        return nodeSlots;
+    }
+
+    @Nonnull
+    @Override
+    public List<S> getSlots(final int startIndexInclusive, final int endIndexExclusive) {
+        return nodeSlots.subList(startIndexInclusive, endIndexExclusive);
+    }
+
     public int size() {
-        return getSlots().size();
+        return nodeSlots.size();
+    }
+
+    /**
+     * Return if this node does not hold any slots. Note that a node can ony be temporarily empty, for instance when
+     * slots are moved out of a node before other slots get moved in. Such a node must not be persisted as it violates
+     * the invariants of ancR-tree.
+     * @return {@code true} if the node currently does not hold any node slots.
+     */
+    public boolean isEmpty() {
+        return nodeSlots.isEmpty();
     }
 
     @Nonnull
@@ -95,8 +102,10 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
         return getSlots().get(index);
     }
 
-    public boolean isEmpty() {
-        return getSlots().isEmpty();
+    @Nonnull
+    @Override
+    public Stream<? extends NodeSlot> slotsStream() {
+        return nodeSlots.stream();
     }
 
     @Nullable
@@ -110,9 +119,9 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
 
     @Nonnull
     @Override
-    public N moveInSlots(@Nonnull final StorageAdapter storageAdapter, @Nonnull final List<? extends NodeSlot> slots) {
+    public N moveInSlots(@Nonnull final StorageAdapter storageAdapter, @Nonnull final Iterable<? extends NodeSlot> slots) {
         final N self = getThis();
-        final List<S> narrowedSlots = slots.stream().map(this::narrowSlot).collect(Collectors.toList());
+        final List<S> narrowedSlots = Streams.stream(slots).map(this::narrowSlot).collect(ImmutableList.toImmutableList());
         nodeSlots.addAll(narrowedSlots);
         this.changeSet = storageAdapter.newInsertChangeSet(self, -1, narrowedSlots);
         return self;
@@ -120,7 +129,7 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
 
     @Nonnull
     @Override
-    public N moveOutSlots(@Nonnull final StorageAdapter storageAdapter) {
+    public N moveOutAllSlots(@Nonnull final StorageAdapter storageAdapter) {
         return deleteAllSlots(storageAdapter, -1);
     }
 
@@ -165,12 +174,6 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
         return self;
     }
 
-    @Nonnull
-    @Override
-    public List<S> getSlots() {
-        return nodeSlots;
-    }
-
     public boolean isRoot() {
         return Arrays.equals(RTree.rootId, id);
     }
@@ -197,77 +200,8 @@ public abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S,
 
     @Override
     public String toString() {
-        return "[" + getKind().name() + ": id = " + bytesToHex(getId()) + "; parent = " +
-               (getParentNode() == null ? "null" : bytesToHex(getParentNode().getId())) + "; slotInParent = " +
+        return "[" + getKind().name() + ": id = " + NodeHelpers.bytesToHex(getId()) + "; parent = " +
+               (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
                getSlotInParent() + "]";
-    }
-
-    /**
-     * Method to create a new node identifier. This method uses {@link UUID#randomUUID()} and should be used in
-     * production to avoid conflicts.
-     * @return a new 16-byte byte array containing a new unique node identifier
-     */
-    @Nonnull
-    public static byte[] newRandomNodeId() {
-        final UUID uuid = UUID.randomUUID();
-        final byte[] uuidBytes = new byte[nodeIdLength];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(uuid.getMostSignificantBits())
-                .putLong(uuid.getLeastSignificantBits());
-        return uuidBytes;
-    }
-
-    /**
-     * Method to create a new node identifier. This method uses an internal static {@link AtomicLong} that is
-     * incremented. This method creates monotonically increasing node identifiers which can be shortened when printed
-     * or logged. This way of creating node identifiers should only be used for testing and debugging purposes.
-     * @return a new 16-byte byte array containing a new unique node identifier
-     */
-    @Nonnull
-    public static byte[] newSequentialNodeId() {
-        final long nodeIdAsLong = nodeIdState.getAndIncrement();
-        final byte[] uuidBytes = new byte[nodeIdLength];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(0L)
-                .putLong(nodeIdAsLong);
-        return uuidBytes;
-    }
-
-    /**
-     * Helper method to format bytes as hex strings for logging and debugging.
-     * @param bytes an array of bytes
-     * @return a {@link String} containing the hexadecimal representation of the byte array passed in
-     */
-    @Nonnull
-    private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-        }
-        return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
-    }
-
-    /**
-     * Helper method to format the node ids of an insert/update path as a string.
-     * @param node a node that is usually linked up to its parents to form an insert/update path
-     * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
-     */
-    @Nonnull
-    static String nodeIdPath(@Nullable Node node) {
-        final List<String> nodeIds = Lists.newArrayList();
-        do {
-            if (node != null) {
-                nodeIds.add(bytesToHex(node.getId()));
-                node = node.getParentNode();
-            } else {
-                nodeIds.add("<null>");
-            }
-        } while (node != null);
-        Collections.reverse(nodeIds);
-        return String.join(", ", nodeIds);
     }
 }

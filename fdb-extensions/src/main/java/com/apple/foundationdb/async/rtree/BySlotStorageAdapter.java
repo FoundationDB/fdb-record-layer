@@ -74,26 +74,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         keyTuple = keyTuple.addAll(nodeSlot.getSlotKey(getConfig().isStoreHilbertValues()));
         final byte[] packedKey = keyTuple.pack(packWithSubspace(node.getId()));
         transaction.clear(packedKey);
-        getOnWriteListener().onNodeCleared(node);
-    }
-
-    @Override
-    public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
-        final OnWriteListener onWriteListener = getOnWriteListener();
-        for (final Node node : nodes) {
-            writeNode(transaction, node);
-            onWriteListener.onNodeWritten(node);
-        }
-    }
-
-    private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
-        final Node.ChangeSet changeSet = node.getChangeSet();
-        if (changeSet == null) {
-            return;
-        }
-
-        changeSet.apply(transaction);
-        getOnWriteListener().onNodeWritten(node);
+        getOnWriteListener().onKeyCleared(node, packedKey);
     }
 
     @Nonnull

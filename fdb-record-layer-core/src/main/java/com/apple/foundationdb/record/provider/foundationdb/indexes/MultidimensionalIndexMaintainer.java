@@ -26,10 +26,10 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.rtree.AbstractNode;
 import com.apple.foundationdb.async.rtree.ChildSlot;
 import com.apple.foundationdb.async.rtree.ItemSlot;
 import com.apple.foundationdb.async.rtree.Node;
+import com.apple.foundationdb.async.rtree.NodeHelpers;
 import com.apple.foundationdb.async.rtree.OnReadListener;
 import com.apple.foundationdb.async.rtree.OnWriteListener;
 import com.apple.foundationdb.async.rtree.RTree;
@@ -145,7 +145,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                             final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
                             final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
-                                    RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newRandomNodeId,
+                                    RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
                             final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
@@ -278,7 +278,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                         final Tuple keySuffix = Tuple.fromList(keySuffixParts);
                         final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
                         final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
-                                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newRandomNodeId, new OnWrite(timer),
+                                RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId, new OnWrite(timer),
                                 OnReadListener.NOOP);
                         if (remove) {
                             return rTree.delete(state.transaction, point, keySuffix);
@@ -451,11 +451,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 default:
                     throw new RecordCoreException("unsupported kind of node");
             }
-        }
-
-        @Override
-        public void onNodeCleared(@Nonnull final Node node) {
-
         }
     }
 

@@ -69,7 +69,6 @@ public class RTreeScanTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(RTreeScanTest.class);
 
     private static final int NUM_SAMPLES = 10_000;
-
     private static final int NUM_QUERIES = 100;
     private static Database db;
     private static DirectorySubspace rtSubspace;
@@ -98,8 +97,11 @@ public class RTreeScanTest extends FDBTestBase {
             tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
             return null;
         });
-        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rtSubspace, rtSecondarySubspace, 0L, NUM_SAMPLES / 2);
-        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rtSubspace, rtSecondarySubspace, 0L, NUM_SAMPLES / 2);
+        final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
+                RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
+                OnReadListener.NOOP);
+        final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rTree, 0L, NUM_SAMPLES / 2);
+        final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rTree, 0L, NUM_SAMPLES / 2);
         items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
@@ -163,8 +165,9 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         final OnReadCounters onReadCounters = new OnReadCounters();
+
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
@@ -188,7 +191,7 @@ public class RTreeScanTest extends FDBTestBase {
 
         final double ffPredicate = (double)nresults.get() / NUM_SAMPLES;
         logger.trace("ff of predicate = {}", ffPredicate);
-        final double ffSargable = (double)onReadCounters.getReadSlotCounter() / NUM_SAMPLES;
+        final double ffSargable = (double)(onReadCounters.getReadLeafKeyValueCounter() + onReadCounters.getReadIntermediateKeyValueCounter()) / NUM_SAMPLES;
         logger.trace("ff of sargable = {}", ffSargable);
         final double overread = (ffSargable / ffPredicate - 1d) * 100d;
         logger.trace("over-read = {}%", overread);
@@ -212,7 +215,7 @@ public class RTreeScanTest extends FDBTestBase {
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
         final RTree rt = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
-                RTreeHilbertCurveHelpers::hilbertValue, AbstractNode::newSequentialNodeId, OnWriteListener.NOOP,
+                RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
         db.run(tr -> {
@@ -297,36 +300,42 @@ public class RTreeScanTest extends FDBTestBase {
     }
 
     static class OnReadCounters implements OnReadListener {
-        private final AtomicLong readSlotCounter = new AtomicLong(0);
-        private final AtomicLong readLeafSlotCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateSlotCounter = new AtomicLong(0);
-        private final AtomicLong readNodesCounter = new AtomicLong(0);
-        private final AtomicLong readLeafNodesCounter = new AtomicLong(0);
-        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0);
+        private final AtomicLong readSlotIndexEntryCounter = new AtomicLong(0L);
+        private final AtomicLong readLeafKeyValueCounter = new AtomicLong(0L);
+        private final AtomicLong readLeafKeyValueBytes = new AtomicLong(0L);
+        private final AtomicLong readIntermediateKeyValueCounter = new AtomicLong(0L);
+        private final AtomicLong readIntermediateKeyValueBytes = new AtomicLong(0L);
+        private final AtomicLong readLeafNodesCounter = new AtomicLong(0L);
+        private final AtomicLong readIntermediateNodesCounter = new AtomicLong(0L);
 
         public void resetCounters() {
-            readSlotCounter.set(0L);
-            readLeafSlotCounter.set(0L);
-            readIntermediateSlotCounter.set(0L);
-            readNodesCounter.set(0L);
+            readSlotIndexEntryCounter.set(0L);
+            readLeafKeyValueCounter.set(0L);
+            readLeafKeyValueBytes.set(0L);
+            readIntermediateKeyValueCounter.set(0L);
+            readIntermediateKeyValueBytes.set(0L);
             readLeafNodesCounter.set(0L);
             readIntermediateNodesCounter.set(0L);
         }
 
-        public long getReadSlotCounter() {
-            return readSlotCounter.get();
+        public long getReadSlotIndexEntryCounter() {
+            return readSlotIndexEntryCounter.get();
         }
 
-        public long getReadLeafSlotCounter() {
-            return readLeafSlotCounter.get();
+        public long getReadLeafKeyValueCounter() {
+            return readLeafKeyValueCounter.get();
         }
 
-        public long getReadIntermediateSlotCounter() {
-            return readIntermediateSlotCounter.get();
+        public long getReadLeafKeyValueBytes() {
+            return readLeafKeyValueBytes.get();
         }
 
-        public long getReadNodesCounter() {
-            return readNodesCounter.get();
+        public long getReadIntermediateKeyValueCounter() {
+            return readIntermediateKeyValueCounter.get();
+        }
+
+        public long getReadIntermediateKeyValueBytes() {
+            return readIntermediateKeyValueBytes.get();
         }
 
         public long getReadLeafNodesCounter() {
@@ -338,12 +347,18 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         public void logCounters() {
-            logger.info("num read slots = {}", readSlotCounter.get());
-            logger.info("num read leaf slots = {}", readLeafSlotCounter.get());
-            logger.info("num read intermediate slots = {}", readIntermediateSlotCounter.get());
-            logger.info("num read nodes = {}", readNodesCounter.get());
-            logger.info("num read leaf nodes = {}", readLeafNodesCounter.get());
-            logger.info("num read intermediate nodes = {}", readIntermediateNodesCounter.get());
+            logger.info("num read slot index entries = {}", getReadSlotIndexEntryCounter());
+            logger.info("num read leaf key/values = {}", getReadLeafKeyValueCounter());
+            logger.info("bytes read leaf key/values = {}", getReadLeafKeyValueBytes());
+            logger.info("num read intermediate key/values = {}", getReadIntermediateKeyValueCounter());
+            logger.info("bytes read intermediate key/values = {}", getReadIntermediateKeyValueBytes());
+            logger.info("num read leaf nodes = {}", getReadLeafNodesCounter());
+            logger.info("num read intermediate nodes = {}", getReadIntermediateNodesCounter());
+        }
+
+        @Override
+        public void onSlotIndexEntryRead(@Nonnull final byte[] key) {
+            readSlotIndexEntryCounter.incrementAndGet();
         }
 
         @Override
@@ -362,13 +377,143 @@ public class RTreeScanTest extends FDBTestBase {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
-            readSlotCounter.incrementAndGet();
+        public void onKeyValueRead(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
             if (node.getKind() == NodeKind.LEAF) {
-                readLeafSlotCounter.incrementAndGet();
+                readLeafKeyValueCounter.incrementAndGet();
+                readLeafKeyValueBytes.addAndGet(key.length + value.length);
             } else {
                 Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
-                readIntermediateSlotCounter.incrementAndGet();
+                readIntermediateKeyValueCounter.incrementAndGet();
+                readIntermediateKeyValueBytes.addAndGet(key.length + value.length);
+            }
+        }
+    }
+
+    static class OnWriteCounters implements OnWriteListener {
+        private final AtomicLong slotIndexEntryWrittenCounter = new AtomicLong(0L);
+        private final AtomicLong slotIndexEntryWrittenBytes = new AtomicLong(0L);
+        private final AtomicLong slotIndexEntryClearedBytes = new AtomicLong(0L);
+        private final AtomicLong leafKeyValueWrittenCounter = new AtomicLong(0L);
+        private final AtomicLong leafKeyValueWrittenBytes = new AtomicLong(0L);
+        private final AtomicLong leafKeyValueClearedBytes = new AtomicLong(0L);
+        private final AtomicLong intermediateKeyValueWrittenCounter = new AtomicLong(0L);
+        private final AtomicLong intermediateKeyValueWrittenBytes = new AtomicLong(0L);
+        private final AtomicLong intermediateKeyValueClearedBytes = new AtomicLong(0L);
+        private final AtomicLong leafNodeWrittenCounter = new AtomicLong(0L);
+        private final AtomicLong intermediateNodeWrittenCounter = new AtomicLong(0L);
+
+        public long getSlotIndexEntryWrittenCounter() {
+            return slotIndexEntryWrittenCounter.get();
+        }
+
+        public AtomicLong getSlotIndexEntryWrittenBytes() {
+            return slotIndexEntryWrittenBytes;
+        }
+
+        public AtomicLong getSlotIndexEntryClearedBytes() {
+            return slotIndexEntryClearedBytes;
+        }
+
+        public long getLeafKeyValueWrittenCounter() {
+            return leafKeyValueWrittenCounter.get();
+        }
+
+        public AtomicLong getLeafKeyValueWrittenBytes() {
+            return leafKeyValueWrittenBytes;
+        }
+
+        public AtomicLong getLeafKeyValueClearedBytes() {
+            return leafKeyValueClearedBytes;
+        }
+
+        public long getIntermediateKeyValueWrittenCounter() {
+            return intermediateKeyValueWrittenCounter.get();
+        }
+
+        public AtomicLong getIntermediateKeyValueWrittenBytes() {
+            return intermediateKeyValueWrittenBytes;
+        }
+
+        public AtomicLong getIntermediateKeyValueClearedBytes() {
+            return intermediateKeyValueClearedBytes;
+        }
+
+        public long getLeafNodeWrittenCounter() {
+            return leafNodeWrittenCounter.get();
+        }
+
+        public long getIntermediateNodeWrittenCounter() {
+            return intermediateNodeWrittenCounter.get();
+        }
+
+        public void resetCounters() {
+            slotIndexEntryWrittenCounter.set(0L);
+            slotIndexEntryWrittenBytes.set(0L);
+            slotIndexEntryClearedBytes.set(0L);
+            leafKeyValueWrittenCounter.set(0L);
+            leafKeyValueWrittenBytes.set(0L);
+            leafKeyValueClearedBytes.set(0L);
+            intermediateKeyValueWrittenCounter.set(0L);
+            intermediateKeyValueWrittenBytes.set(0L);
+            intermediateKeyValueClearedBytes.set(0L);
+            leafNodeWrittenCounter.set(0L);
+            intermediateNodeWrittenCounter.set(0L);
+        }
+
+        public void logCounters() {
+            logger.info("num written slot index entries = {}", getSlotIndexEntryWrittenCounter());
+            logger.info("bytes written slot index entries = {}", getSlotIndexEntryWrittenBytes());
+            logger.info("bytes cleared slot index entries = {}", getSlotIndexEntryClearedBytes());
+            logger.info("num written leaf key/values = {}", getLeafKeyValueWrittenCounter());
+            logger.info("bytes written leaf key/values = {}", getLeafKeyValueWrittenBytes());
+            logger.info("bytes cleared leaf key/values = {}", getLeafKeyValueClearedBytes());
+            logger.info("num written intermediate key/values = {}", getIntermediateKeyValueWrittenCounter());
+            logger.info("bytes written intermediate key/values = {}", getIntermediateKeyValueWrittenBytes());
+            logger.info("bytes cleared intermediate key/values = {}", getIntermediateKeyValueClearedBytes());
+            logger.info("num written leaf nodes = {}", getLeafNodeWrittenCounter());
+            logger.info("num written intermediate nodes = {}", getIntermediateNodeWrittenCounter());
+        }
+
+        @Override
+        public void onSlotIndexEntryWritten(@Nonnull final byte[] key) {
+            slotIndexEntryWrittenCounter.incrementAndGet();
+            slotIndexEntryWrittenBytes.addAndGet(key.length);
+        }
+
+        @Override
+        public void onSlotIndexEntryCleared(@Nonnull final byte[] key) {
+            slotIndexEntryClearedBytes.addAndGet(key.length);
+        }
+
+        @Override
+        public void onNodeWritten(@Nonnull final Node node) {
+            if (node.getKind() == NodeKind.LEAF) {
+                leafNodeWrittenCounter.incrementAndGet();
+            } else {
+                Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
+                intermediateNodeWrittenCounter.incrementAndGet();
+            }
+        }
+
+        @Override
+        public void onKeyValueWritten(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+            if (node.getKind() == NodeKind.LEAF) {
+                leafKeyValueWrittenCounter.incrementAndGet();
+                leafKeyValueWrittenBytes.addAndGet(key.length + value.length);
+            } else {
+                Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
+                intermediateKeyValueWrittenCounter.incrementAndGet();
+                intermediateKeyValueWrittenBytes.addAndGet(key.length + value.length);
+            }
+        }
+
+        @Override
+        public void onKeyCleared(@Nonnull final Node node, @Nonnull final byte[] key) {
+            if (node.getKind() == NodeKind.LEAF) {
+                leafKeyValueClearedBytes.addAndGet(key.length);
+            } else {
+                Verify.verify(node.getKind() == NodeKind.INTERMEDIATE);
+                intermediateKeyValueClearedBytes.addAndGet(key.length);
             }
         }
     }

@@ -43,8 +43,15 @@ class NodeSlotIndexAdapter {
     @Nonnull
     private final Subspace secondarySubspace;
 
-    NodeSlotIndexAdapter(@Nonnull final Subspace secondarySubspace) {
+    @Nonnull
+    private final OnWriteListener onWriteListener;
+    @Nonnull
+    private final OnReadListener onReadListener;
+
+    NodeSlotIndexAdapter(@Nonnull final Subspace secondarySubspace, @Nonnull final OnWriteListener onWriteListener, @Nonnull final OnReadListener onReadListener) {
         this.secondarySubspace = secondarySubspace;
+        this.onWriteListener = onWriteListener;
+        this.onReadListener = onReadListener;
     }
 
     @Nonnull
@@ -69,6 +76,7 @@ class NodeSlotIndexAdapter {
                     Verify.verify(keyValues.size() <= 1);
                     if (!keyValues.isEmpty()) {
                         final KeyValue keyValue = keyValues.get(0);
+                        onReadListener.onSlotIndexEntryRead(keyValue.getKey());
                         final Tuple indexKeyTuple = Tuple.fromBytes(keyValue.getKey());
                         return CompletableFuture.completedFuture(getNodeIdFromIndexKeyTuple(indexKeyTuple));
                     }
@@ -103,6 +111,9 @@ class NodeSlotIndexAdapter {
                                     return RTree.rootId;
                                 }
 
+                                final KeyValue previousKeyValue = previousKeyValues.get(0);
+                                onReadListener.onSlotIndexEntryRead(previousKeyValue.getKey());
+
                                 //
                                 // For a delete (level == 0) implied, we know that the largest node on this level, is
                                 // smaller than what we are looking for. That means that the key we are looking for is
@@ -115,8 +126,7 @@ class NodeSlotIndexAdapter {
                                 //
                                 // Return the node we found for insert/update operation.
                                 //
-                                final KeyValue keyValue = previousKeyValues.get(0);
-                                final Tuple indexKeyTuple = Tuple.fromBytes(keyValue.getKey());
+                                final Tuple indexKeyTuple = Tuple.fromBytes(previousKeyValue.getKey());
                                 return getNodeIdFromIndexKeyTuple(indexKeyTuple);
                             });
                 });
@@ -124,11 +134,17 @@ class NodeSlotIndexAdapter {
 
     void writeChildSlot(@Nonnull final Transaction transaction, final int level,
                         @Nonnull final ChildSlot childSlot) {
-        transaction.set(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)), emptyArray);
+        final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
+        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        transaction.set(packedKey, emptyArray);
+        onWriteListener.onSlotIndexEntryWritten(packedKey);
     }
 
     void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
-        transaction.clear(secondarySubspace.pack(createIndexKeyTuple(level, childSlot)));
+        final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
+        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        transaction.clear(packedKey);
+        onWriteListener.onSlotIndexEntryCleared(packedKey);
     }
 
     @Nonnull

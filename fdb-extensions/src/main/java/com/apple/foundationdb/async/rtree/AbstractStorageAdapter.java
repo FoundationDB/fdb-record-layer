@@ -28,6 +28,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -56,7 +57,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
                                      @Nonnull final OnReadListener onReadListener) {
         this.config = config;
         this.subspace = subspace;
-        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace) : null;
+        this.nodeSlotIndexAdapter = config.isUseSlotIndex() ? new NodeSlotIndexAdapter(secondarySubspace, onWriteListener, onReadListener) : null;
         this.hilbertValueFunction = hilbertValueFunction;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
@@ -94,6 +95,23 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     @Nonnull
     public OnReadListener getOnReadListener() {
         return onReadListener;
+    }
+
+    @Override
+    public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
+        for (final Node node : nodes) {
+            writeNode(transaction, node);
+        }
+    }
+
+    protected void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
+        final Node.ChangeSet changeSet = node.getChangeSet();
+        if (changeSet == null) {
+            return;
+        }
+
+        changeSet.apply(transaction);
+        getOnWriteListener().onNodeWritten(node);
     }
 
     @Nonnull

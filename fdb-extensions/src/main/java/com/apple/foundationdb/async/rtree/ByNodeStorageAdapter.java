@@ -49,33 +49,27 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
 
     @Override
     public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-        writeNode(transaction, node);
+        persistNode(transaction, node);
     }
 
     @Override
     public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node, @Nonnull final ItemSlot itemSlot) {
-        writeNode(transaction, node);
+        persistNode(transaction, node);
     }
 
-    @Override
-    public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
-        for (final Node node : nodes) {
-            writeNode(transaction, node);
-        }
-    }
-
-    private void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
+    private void persistNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
         final byte[] packedKey = packWithSubspace(node.getId());
 
         if (node.isEmpty()) {
             // this can only happen when we just deleted the last slot; delete the entire node
             transaction.clear(packedKey);
+            getOnWriteListener().onKeyCleared(node, packedKey);
         } else {
             // updateNodeIndexIfNecessary(transaction, level, node);
             final byte[] packedValue = toTuple(node).pack();
             transaction.set(packedKey, packedValue);
+            getOnWriteListener().onKeyValueWritten(node, packedKey, packedValue);
         }
-        getOnWriteListener().onNodeWritten(node);
     }
 
     @Nonnull
@@ -158,9 +152,6 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newInsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
-        if (node.getChangeSet() != null && level < 0) {
-            return node.getChangeSet();
-        }
         return new InsertChangeSet<>(node, level, insertedSlots);
     }
 
@@ -169,9 +160,6 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newUpdateChangeSet(@Nonnull final N node, final int level,
                                @Nonnull final S originalSlot, @Nonnull final S updatedSlot) {
-        if (node.getChangeSet() != null && level < 0) {
-            return node.getChangeSet();
-        }
         return new UpdateChangeSet<>(node, level, originalSlot, updatedSlot);
     }
 
@@ -179,9 +167,6 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
             newDeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
-        if (node.getChangeSet() != null && level < 0) {
-            return node.getChangeSet();
-        }
         return new DeleteChangeSet<>(node, level, deletedSlots);
     }
 
@@ -197,12 +182,11 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         @Override
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
-            for (final S insertedSlot : insertedSlots) {
-                if (getPreviousChangeSet() == null) {
-                    writeNode(transaction, getNode());
-                }
-                writeNode(transaction, getNode());
-                if (isUpdateNodeSlotIndex()) {
+            if (getPreviousChangeSet() == null) {
+                persistNode(transaction, getNode());
+            }
+            if (isUpdateNodeSlotIndex()) {
+                for (final S insertedSlot : insertedSlots) {
                     insertIntoNodeIndexIfNecessary(transaction, getLevel(), insertedSlot);
                 }
             }
@@ -226,7 +210,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
             if (getPreviousChangeSet() == null) {
-                writeNode(transaction, getNode());
+                persistNode(transaction, getNode());
             }
             if (isUpdateNodeSlotIndex()) {
                 deleteFromNodeIndexIfNecessary(transaction, getLevel(), originalSlot);
@@ -247,11 +231,11 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         @Override
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
-            for (final S deletedSlot : deletedSlots) {
-                if (getPreviousChangeSet() == null) {
-                    writeNode(transaction, getNode());
-                }
-                if (isUpdateNodeSlotIndex()) {
+            if (getPreviousChangeSet() == null) {
+                persistNode(transaction, getNode());
+            }
+            if (isUpdateNodeSlotIndex()) {
+                for (final S deletedSlot : deletedSlots) {
                     deleteFromNodeIndexIfNecessary(transaction, getLevel(), deletedSlot);
                 }
             }

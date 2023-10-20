@@ -21,7 +21,6 @@
 package com.apple.foundationdb.async.rtree;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -30,6 +29,10 @@ import java.util.concurrent.CompletableFuture;
 public interface OnReadListener {
     OnReadListener NOOP = new OnReadListener() {
     };
+
+    default void onSlotIndexEntryRead(@Nonnull final byte[] key) {
+        // nothing
+    }
 
     default <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
         return future;
@@ -40,8 +43,8 @@ public interface OnReadListener {
     }
 
     default void onKeyValueRead(@Nonnull Node node,
-                                @Nullable byte[] key,
-                                @Nullable byte[] value) {
+                                @Nonnull byte[] key,
+                                @Nonnull byte[] value) {
         // nothing
     }
 
