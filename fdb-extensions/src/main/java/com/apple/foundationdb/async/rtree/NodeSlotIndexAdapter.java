@@ -1,0 +1,170 @@
+/*
+ * NodeSlotIndexAdapter.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.async.rtree;
+
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.StreamingMode;
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
+
+import javax.annotation.Nonnull;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+class NodeSlotIndexAdapter {
+
+    private static final byte[] emptyArray = { };
+
+    @Nonnull
+    private final Subspace secondarySubspace;
+
+    @Nonnull
+    private final OnWriteListener onWriteListener;
+    @Nonnull
+    private final OnReadListener onReadListener;
+
+    NodeSlotIndexAdapter(@Nonnull final Subspace secondarySubspace, @Nonnull final OnWriteListener onWriteListener, @Nonnull final OnReadListener onReadListener) {
+        this.secondarySubspace = secondarySubspace;
+        this.onWriteListener = onWriteListener;
+        this.onReadListener = onReadListener;
+    }
+
+    @Nonnull
+    public Subspace getSecondarySubspace() {
+        return secondarySubspace;
+    }
+
+    @Nonnull
+    CompletableFuture<byte[]> scanIndexForNodeId(@Nonnull final ReadTransaction transaction,
+                                                 final int level,
+                                                 @Nonnull final BigInteger hilbertValue,
+                                                 @Nonnull final Tuple key,
+                                                 final boolean isInsertUpdate) {
+        final List<Object> keys = Lists.newArrayList();
+        keys.add(level);
+        keys.add(hilbertValue);
+        keys.addAll(key.getItems());
+        final byte[] packedKey = secondarySubspace.pack(Tuple.fromList(keys));
+        return AsyncUtil.collect(transaction.getRange(new Range(packedKey,
+                        secondarySubspace.pack(Tuple.from(level + 1))), 1, false, StreamingMode.EXACT))
+                .thenCompose(keyValues -> {
+                    Verify.verify(keyValues.size() <= 1);
+                    if (!keyValues.isEmpty()) {
+                        final KeyValue keyValue = keyValues.get(0);
+                        onReadListener.onSlotIndexEntryRead(keyValue.getKey());
+                        final Tuple indexKeyTuple = Tuple.fromBytes(keyValue.getKey());
+                        return CompletableFuture.completedFuture(getNodeIdFromIndexKeyTuple(indexKeyTuple));
+                    }
+
+                    //
+                    // If we are on level > 0, this means that we already have fetched a node on a lower level.
+                    // If we are on insert/update, we may not find a covering node on the next level as it is not
+                    // covering YET (we are in the process of fixing that). If we are, however, on the delete code path,
+                    // there should always be such a node that we can find in the index. The only legitimate reason
+                    // we may not find that index is that we have reached the level below the root node as the root node
+                    // itself is not indexed.
+                    //
+                    if (!isInsertUpdate && level > 0) {
+                        return CompletableFuture.completedFuture(RTree.rootId);
+                    }
+
+                    //
+                    // If on the insert/update path OR on delete path with level == 0, try to fetch the previous node.
+                    //
+                    return AsyncUtil.collect(transaction.getRange(new Range(secondarySubspace.pack(Tuple.from(level)),
+                                    packedKey), 1, true, StreamingMode.EXACT))
+                            .thenApply(previousKeyValues -> {
+                                Verify.verify(previousKeyValues.size() <= 1);
+
+                                //
+                                // If there is no previous node on the requested level, return the root node, as the
+                                // root node itself is not part of the index. If we are on level == 0, this means that
+                                // there is only a single root node in the R-tree, or that this R-tree is completely
+                                // empty. (The subsequent fetch will tell).
+                                //
+                                if (previousKeyValues.isEmpty()) {
+                                    return RTree.rootId;
+                                }
+
+                                final KeyValue previousKeyValue = previousKeyValues.get(0);
+                                onReadListener.onSlotIndexEntryRead(previousKeyValue.getKey());
+
+                                //
+                                // For a delete (level == 0) implied, we know that the largest node on this level, is
+                                // smaller than what we are looking for. That means that the key we are looking for is
+                                // not in the R-tree.
+                                //
+                                if (!isInsertUpdate) {
+                                    return null;
+                                }
+
+                                //
+                                // Return the node we found for insert/update operation.
+                                //
+                                final Tuple indexKeyTuple = Tuple.fromBytes(previousKeyValue.getKey());
+                                return getNodeIdFromIndexKeyTuple(indexKeyTuple);
+                            });
+                });
+    }
+
+    void writeChildSlot(@Nonnull final Transaction transaction, final int level,
+                        @Nonnull final ChildSlot childSlot) {
+        final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
+        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        transaction.set(packedKey, emptyArray);
+        onWriteListener.onSlotIndexEntryWritten(packedKey);
+    }
+
+    void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
+        final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
+        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        transaction.clear(packedKey);
+        onWriteListener.onSlotIndexEntryCleared(packedKey);
+    }
+
+    @Nonnull
+    private Tuple createIndexKeyTuple(final int level, @Nonnull final ChildSlot childSlot) {
+        return createIndexKeyTuple(level, childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), childSlot.getChildId());
+    }
+
+    @Nonnull
+    private Tuple createIndexKeyTuple(final int level, @Nonnull final BigInteger largestHilbertValue,
+                                      @Nonnull final Tuple largestKey, @Nonnull final byte[] nodeId) {
+        final List<Object> keys = Lists.newArrayList();
+        keys.add(level);
+        keys.add(largestHilbertValue);
+        keys.addAll(largestKey.getItems());
+        keys.add(nodeId);
+        return Tuple.fromList(keys);
+    }
+
+    @Nonnull
+    private byte[] getNodeIdFromIndexKeyTuple(final Tuple tuple) {
+        return tuple.getBytes(tuple.size() - 1);
+    }
+}
