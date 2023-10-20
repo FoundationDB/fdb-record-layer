@@ -18,21 +18,9 @@
 package org.apache.lucene.codecs.lucene84;
 
 
-import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.DOC_CODEC;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.MAX_SKIP_LEVELS;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.TERMS_CODEC;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_COMPRESSED_TERMS_DICT_IDS;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_CURRENT;
-import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Arrays;
-
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
+import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PostingsReaderBase;
@@ -52,6 +40,17 @@ import org.apache.lucene.util.BitUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.RamUsageEstimator;
 
+import java.io.IOException;
+import java.util.Arrays;
+
+import static org.apache.lucene.codecs.lucene84.ForUtil.BLOCK_SIZE;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.DOC_CODEC;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.MAX_SKIP_LEVELS;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.TERMS_CODEC;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_COMPRESSED_TERMS_DICT_IDS;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_CURRENT;
+import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
+
 /**
  * Concrete class that reads docId(maybe frq,pos,offset,payloads) list
  * with postings format.
@@ -67,14 +66,11 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     private static final long BASE_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(Lucene84PostingsReader.class);
 
-    private Supplier<IndexInput> docIn;
-    private boolean docInInitialized;
-    private Supplier<IndexInput> posIn;
-    private boolean posInInitialized;
-    private Supplier<IndexInput> payIn;
-    private boolean payInInitialized;
+    private LazyCloseable<IndexInput> docIn;
+    private LazyCloseable<IndexInput> posIn;
+    private LazyCloseable<IndexInput> payIn;
 
-    private Supplier<Integer> version;
+    private LazyOpener<Integer> version;
 
     /**
      * Sole  constructor.
@@ -89,43 +85,23 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
         // such as file truncation.
 
-        String docName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.DOC_EXTENSION);
-        docIn = Suppliers.memoize(() -> {
-            try {
-                docInInitialized = true;
-                return state.directory.openInput(docName, state.context);
-            } catch (IOException ioe) {
-                throw new UncheckedIOException(ioe);
-            }
-        });
-        version = Suppliers.memoize(() -> {
-            try {
-                return CodecUtil.checkIndexHeader(docIn.get(), DOC_CODEC, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
-            } catch (IOException ioe) {
-                throw new UncheckedIOException(ioe);
-            }
-        });
+        String docName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix,
+                Lucene84PostingsFormat.DOC_EXTENSION);
+        docIn = LazyCloseable.supply(() -> state.directory.openInput(docName, state.context));
+        version = LazyOpener.supply(() ->
+                CodecUtil.checkIndexHeader(docIn.get(), DOC_CODEC, VERSION_START, VERSION_CURRENT,
+                        state.segmentInfo.getId(), state.segmentSuffix));
 
         if (state.fieldInfos.hasProx()) {
-            posIn = Suppliers.memoize(() -> {
-                try {
-                    posInInitialized = true;
-                    String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
-                    return state.directory.openInput(proxName, state.context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                }
+            posIn = LazyCloseable.supply(() -> {
+                String proxName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.POS_EXTENSION);
+                return state.directory.openInput(proxName, state.context);
             });
 
             if (state.fieldInfos.hasPayloads() || state.fieldInfos.hasOffsets()) {
-                payIn = Suppliers.memoize(() -> {
-                    try {
-                        payInInitialized = true;
-                        String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
-                        return state.directory.openInput(payName, state.context);
-                    } catch (IOException ioe) {
-                        throw new UncheckedIOException(ioe);
-                    }
+                payIn = LazyCloseable.supply(() -> {
+                    String payName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, Lucene84PostingsFormat.PAY_EXTENSION);
+                    return state.directory.openInput(payName, state.context);
                 });
             }
         }
@@ -186,14 +162,12 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void close() throws IOException {
-        if (docInInitialized) {
-            docIn.get().close();
+        docIn.close();
+        if (posIn != null) {
+            posIn.close();
         }
-        if (posInInitialized) {
-            posIn.get().close();
-        }
-        if (payInInitialized) {
-            payIn.get().close();
+        if (payIn != null) {
+            payIn.close();
         }
     }
 
