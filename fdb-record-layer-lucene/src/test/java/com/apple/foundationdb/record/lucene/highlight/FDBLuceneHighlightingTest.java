@@ -102,6 +102,22 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void highlightedRangeQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, LuceneIndexTestUtils.TEXT_AND_STORED);
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1623L, "Hello record layer", 5));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: 5"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: [4 TO 6]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
     void highlightedSynonymIndex() {
         final String original = "peanut butter and jelly sandwich";
         final String highlighted = "{peanut} butter and jelly sandwich";
