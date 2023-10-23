@@ -38,6 +38,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
@@ -161,7 +162,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
-                    TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
+                    final IndexDeferredMaintenancePolicy deferredMergePolicy = state.store.getIndexDeferredMaintenancePolicy();
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(deferredMergePolicy.shouldAutoMergeDuringCommit())
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
@@ -179,11 +181,28 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     writer = new IndexWriter(directory, indexWriterConfig);
                     writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
                     // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-                    state.store.getIndexDeferredMaintenancePolicy().setMergeRequiredIndexes(state.index);
+                    deferredMergePolicy.setMergeRequiredIndexes(state.index);
                 }
             }
         }
         return writer;
+    }
+
+    private static class FDBTieredMergePolicy extends TieredMergePolicy {
+        final boolean shouldAutoMergeDuringCommit;
+
+        public FDBTieredMergePolicy(final boolean shouldAutoMergeDuringCommit) {
+            this.shouldAutoMergeDuringCommit = shouldAutoMergeDuringCommit;
+        }
+
+        @Override
+        public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
+            if (!shouldAutoMergeDuringCommit && (mergeTrigger == MergeTrigger.FULL_FLUSH || mergeTrigger == MergeTrigger.COMMIT)) {
+                // Here: eventually, this merge will be skipped. Save some resources by avoiding the merge calculation.
+                return null;
+            }
+            return super.findMerges(mergeTrigger, infos, mergeContext);
+        }
     }
 
     @Override
