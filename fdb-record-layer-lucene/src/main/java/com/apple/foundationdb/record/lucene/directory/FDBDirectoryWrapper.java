@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenancePolicy;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
@@ -38,7 +38,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
-import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
@@ -112,16 +111,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
         })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-            if (trigger == MergeTrigger.FULL_FLUSH || trigger == MergeTrigger.CLOSING) {
-                final IndexDeferredMaintenancePolicy indexDeferredMaintenancePolicy = state.store.getIndexDeferredMaintenancePolicy();
-                if (!indexDeferredMaintenancePolicy.shouldAutoMergeDuringCommit()) {
-                    // If this store is being closed, it is too late to use it as a messenger. This flag should also be set
-                    // when the requirements for a "real" merge are met.
-                    indexDeferredMaintenancePolicy.setMergeRequiredIndexes(state.index);
-                    skipMerge(mergeSource, trigger, "deferred merge policy");
-                    return;
-                }
-            }
             long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
@@ -186,23 +175,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
             }
         }
         return writer;
-    }
-
-    private static class FDBTieredMergePolicy extends TieredMergePolicy {
-        final boolean shouldAutoMergeDuringCommit;
-
-        public FDBTieredMergePolicy(final boolean shouldAutoMergeDuringCommit) {
-            this.shouldAutoMergeDuringCommit = shouldAutoMergeDuringCommit;
-        }
-
-        @Override
-        public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
-            if (!shouldAutoMergeDuringCommit && (mergeTrigger == MergeTrigger.FULL_FLUSH || mergeTrigger == MergeTrigger.COMMIT)) {
-                // Here: eventually, this merge will be skipped. Save some resources by avoiding the merge calculation.
-                return null;
-            }
-            return super.findMerges(mergeTrigger, infos, mergeContext);
-        }
     }
 
     @Override
