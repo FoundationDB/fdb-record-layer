@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -162,6 +163,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private void loadProtoExceptRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
             JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
+            syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
+        }
+        for (RecordMetaDataProto.UnnestedRecordType unnestedProto : metaDataProto.getUnnestedRecordTypesList()) {
+            UnnestedRecordTypeBuilder typeBuilder = new UnnestedRecordTypeBuilder(unnestedProto, this);
             syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
         }
 
@@ -1002,6 +1007,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         JoinedRecordTypeBuilder recordType = new JoinedRecordTypeBuilder(name, getNextRecordTypeKey(), this);
         syntheticRecordTypes.put(name, recordType);
         return recordType;
+    }
+
+    public UnnestedRecordTypeBuilder addUnnestedRecordType(@Nonnull String name, @Nonnull String parentTypeName) {
+        if (recordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a record type named " + name);
+        }
+        if (syntheticRecordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a synthetic record type named " + name);
+        }
+        if (!recordTypes.containsKey(parentTypeName)) {
+            throw new MetaDataException("There is no parent stored type named " + parentTypeName);
+        }
+        RecordTypeBuilder parentType = recordTypes.get(parentTypeName);
+        UnnestedRecordTypeBuilder unnestedRecordTypeBuilder = new UnnestedRecordTypeBuilder(name, getNextRecordTypeKey(), this, parentType);
+        syntheticRecordTypes.put(name, unnestedRecordTypeBuilder);
+        return unnestedRecordTypeBuilder;
     }
 
     /**

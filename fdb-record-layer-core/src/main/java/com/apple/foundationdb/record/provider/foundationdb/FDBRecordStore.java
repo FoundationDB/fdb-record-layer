@@ -806,28 +806,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
-        int nconstituents = syntheticRecordType.getConstituents().size();
-        if (nconstituents != primaryKey.size() - 1) {
+        if (syntheticRecordType.getConstituents().size() != primaryKey.size() - 1) {
             throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
         }
-        final Map<String, FDBStoredRecord<? extends Message>> constituents = new ConcurrentHashMap<>(nconstituents);
-        final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
-        for (int i = 0; i < nconstituents; i++) {
-            final SyntheticRecordType.Constituent constituent = syntheticRecordType.getConstituents().get(i);
-            final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
-            if (constituentKey == null) {
-                futures[i] = AsyncUtil.DONE;
-            } else {
-                futures[i] = loadRecordAsync(constituentKey).thenApply(rec -> {
-                    if (rec == null) {
-                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
-                    }
-                    constituents.put(constituent.getName(), rec);
-                    return null;
-                });
-            }
-        }
-        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(syntheticRecordType, constituents));
+        return syntheticRecordType.loadByPrimaryKeyAsync(this, primaryKey);
     }
 
     @Nonnull

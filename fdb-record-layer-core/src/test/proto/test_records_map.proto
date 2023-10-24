@@ -17,6 +17,7 @@ message MapRecord {
     message Entry {
         optional string key = 1;
         optional string value = 2;
+        optional int64 int_value = 3;
     }
     repeated Entry entry = 1;
 }

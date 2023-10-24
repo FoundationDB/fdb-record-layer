@@ -21,12 +21,22 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A <i>synthetic</i> record type is made up of other record types and not actually stored separately in the record store.
@@ -81,6 +91,29 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     @Override
     public boolean isSynthetic() {
         return true;
+    }
+
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey) {
+        int nconstituents = getConstituents().size();
+        final Map<String, FDBStoredRecord<? extends Message>> constituentValues = new ConcurrentHashMap<>(nconstituents);
+        final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
+        for (int i = 0; i < nconstituents; i++) {
+            final SyntheticRecordType.Constituent constituent = getConstituents().get(i);
+            final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
+            if (constituentKey == null) {
+                futures[i] = AsyncUtil.DONE;
+            } else {
+                futures[i] = store.loadRecordAsync(constituentKey).thenApply(rec -> {
+                    if (rec == null) {
+                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
+                    }
+                    constituentValues.put(constituent.getName(), rec);
+                    return null;
+                });
+            }
+        }
+        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(this, constituentValues));
     }
 
     @Override

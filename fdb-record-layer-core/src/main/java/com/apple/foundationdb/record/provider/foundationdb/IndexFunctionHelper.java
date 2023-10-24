@@ -180,9 +180,9 @@ public class IndexFunctionHelper {
         if (recordTypeNames.isEmpty()) {
             return metaData.getUniversalIndexes().stream();
         } else if (recordTypeNames.size() == 1) {
-            return metaData.getRecordType(recordTypeNames.iterator().next()).getIndexes().stream();
+            return metaData.getIndexableRecordType(recordTypeNames.iterator().next()).getIndexes().stream();
         } else {
-            final Set<RecordType> asSet = recordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toSet());
+            final Set<RecordType> asSet = recordTypeNames.stream().map(metaData::getIndexableRecordType).collect(Collectors.toSet());
             return asSet.iterator().next().getMultiTypeIndexes().stream()
                     .filter(i -> asSet.equals(new HashSet<>(metaData.recordTypesForIndex(i))));
         }

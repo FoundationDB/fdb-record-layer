@@ -100,6 +100,13 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     @FunctionalInterface
     public interface RecordMetaDataHook {
         void apply(RecordMetaDataBuilder metaData);
+
+        default RecordMetaDataHook andThen(RecordMetaDataHook hook) {
+            return metaDataBuilder -> {
+                apply(metaDataBuilder);
+                hook.apply(metaDataBuilder);
+            };
+        }
     }
 
     protected static final RecordMetaDataHook NO_HOOK = metadata -> {

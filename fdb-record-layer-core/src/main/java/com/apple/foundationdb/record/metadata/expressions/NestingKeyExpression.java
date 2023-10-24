@@ -121,6 +121,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return child.needsCopyingToPartialRecord();
+    }
+
     @Nonnull
     @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
