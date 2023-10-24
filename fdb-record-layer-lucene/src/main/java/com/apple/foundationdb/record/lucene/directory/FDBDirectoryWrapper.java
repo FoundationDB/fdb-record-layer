@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenancePolicy;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
@@ -111,16 +111,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
         })
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
-            if (trigger == MergeTrigger.FULL_FLUSH || trigger == MergeTrigger.CLOSING) {
-                final IndexDeferredMaintenancePolicy indexDeferredMaintenancePolicy = state.store.getIndexDeferredMaintenancePolicy();
-                if (!indexDeferredMaintenancePolicy.shouldAutoMergeDuringCommit()) {
-                    // If this store is being closed, it is too late to use it as a messenger. This flag should also be set
-                    // when the requirements for a "real" merge are met.
-                    indexDeferredMaintenancePolicy.setMergeRequiredIndexes(state.index);
-                    skipMerge(mergeSource, trigger, "deferred merge policy");
-                    return;
-                }
-            }
             long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
@@ -161,7 +151,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
-                    TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
+                    final IndexDeferredMaintenancePolicy deferredMergePolicy = state.store.getIndexDeferredMaintenancePolicy();
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(deferredMergePolicy.shouldAutoMergeDuringCommit())
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
@@ -179,7 +170,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     writer = new IndexWriter(directory, indexWriterConfig);
                     writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
                     // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-                    state.store.getIndexDeferredMaintenancePolicy().setMergeRequiredIndexes(state.index);
+                    deferredMergePolicy.setMergeRequiredIndexes(state.index);
                 }
             }
         }
