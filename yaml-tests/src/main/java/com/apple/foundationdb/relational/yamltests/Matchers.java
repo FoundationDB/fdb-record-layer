@@ -32,6 +32,7 @@ import de.vandermeer.asciitable.AsciiTable;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -593,6 +594,12 @@ public class Matchers {
         // integer comparison (with possible promotion)
         if (expected instanceof Integer) {
             return matchIntField((Integer) expected, actual, printer);
+        }
+
+        if (expected instanceof String && actual instanceof byte[]) {
+            if (Objects.equals(expected, new String((byte[]) actual, StandardCharsets.UTF_8))) {
+                return ResultSetMatchResult.success();
+            }
         }
 
         // exact comparison.
