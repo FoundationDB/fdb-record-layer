@@ -45,6 +45,7 @@ message ComplexDocument {
     optional int32 score = 6;
     optional string text2 = 7;
     optional bool is_seen = 8;
+    optional double time = 9;
 }
 
 message MapDocument {

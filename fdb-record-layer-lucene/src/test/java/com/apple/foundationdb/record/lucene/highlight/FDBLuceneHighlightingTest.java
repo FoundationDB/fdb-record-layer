@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.highlight;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,8 +60,11 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LU
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,17 +107,64 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void highlightedRangeQuery() {
+    void highlightedNumberRangeQuery() {
         try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, LuceneIndexTestUtils.TEXT_AND_STORED);
-            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1623L, "Hello record layer", 5));
+            rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_STORED_COMPLEX);
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, 12, false, 8.123));
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: 5"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND group: 5"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: [4 TO 6]"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND group: [4 TO 6]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND score: [10 TO 15]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4.913442 TO 8.14234]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
+    void highlightedBooleanRangeQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX);
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, false));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND is_seen: [true TO true]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
+    void highlightedTermRangeQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX);
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, false));
+            assertThrows(RecordCoreException.class, () -> recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND text2: [hello TO hello]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+        }
+    }
+
+    @Test
+    void highlightedTermQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX);
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "inbox", 5, false));
+            assertRecordHighlights(List.of("Hello {record} layer"),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND text2: \"inbox\""), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
         }
     }
