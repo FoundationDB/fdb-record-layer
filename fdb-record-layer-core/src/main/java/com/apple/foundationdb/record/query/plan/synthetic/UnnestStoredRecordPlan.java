@@ -77,10 +77,10 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull final FDBRecordStore store,
-                                                                        @Nonnull final FDBStoredRecord<M> record,
+                                                                        @Nonnull final FDBStoredRecord<M> rec,
                                                                         @Nullable final byte[] continuation,
                                                                         @Nonnull final ExecuteProperties executeProperties) {
-        NestingNode root = new NestingNode(UnnestedRecordType.PARENT_CONSTITUENT, record);
+        NestingNode root = new NestingNode(UnnestedRecordType.PARENT_CONSTITUENT, rec);
         Deque<NestingNode> toProcess = new ArrayDeque<>();
         toProcess.add(root);
         while (!toProcess.isEmpty()) {
