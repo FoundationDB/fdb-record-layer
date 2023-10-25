@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;

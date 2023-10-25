@@ -490,6 +490,7 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
+    @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
     public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
@@ -564,6 +565,7 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
+    @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
     public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> {
         public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -587,5 +589,6 @@ public class MessageHelpers {
             return Objects.equals(getValue(), otherCoercionTrieNode.getValue()) &&
                    Objects.equals(getChildrenMap(), otherCoercionTrieNode.getChildrenMap());
         }
+
     }
 }
