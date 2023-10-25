@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -29,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -76,5 +78,23 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
         return Streams.stream(inPreOrder())
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public boolean equals(final Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof TrieNode)) {
+            return false;
+        }
+        final TrieNode<?, ?, ?> otherTrieNode = (TrieNode<?, ?, ?>)other;
+        return Objects.equals(getValue(), otherTrieNode.getValue()) &&
+               Objects.equals(getChildrenMap(), otherTrieNode.getChildrenMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getValue(), getChildrenMap());
     }
 }

@@ -558,11 +558,6 @@ public class MessageHelpers {
             }
             return nonNullableTest.apply(self, other);
         }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap());
-        }
     }
 
     /**
@@ -578,6 +573,19 @@ public class MessageHelpers {
         @Override
         public CoercionTrieNode getThis() {
             return this;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof CoercionTrieNode)) {
+                return false;
+            }
+            final CoercionTrieNode otherCoercionTrieNode = (CoercionTrieNode)other;
+            return Objects.equals(getValue(), otherCoercionTrieNode.getValue()) &&
+                   Objects.equals(getChildrenMap(), otherCoercionTrieNode.getChildrenMap());
         }
     }
 }
