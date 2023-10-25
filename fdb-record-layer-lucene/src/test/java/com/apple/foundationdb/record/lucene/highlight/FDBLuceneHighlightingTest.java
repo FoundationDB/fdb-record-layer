@@ -103,6 +103,10 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "text: record AND group: BITSET_CONTAINS(1)"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED, fullTextSearch(TEXT_AND_STORED, "group: BITSET_CONTAINS(1)"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
         }
     }
 
@@ -127,6 +131,18 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4.913442 TO 8.14234]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "group: 5"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "score: [10 TO 15]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "time: [4.913442 TO 8.14234]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
         }
     }
 
@@ -142,6 +158,10 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
             assertRecordHighlights(Collections.emptyList(),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND is_seen: [true TO true]"), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
         }
     }
@@ -165,6 +185,10 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND text2: \"inbox\""), null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR));
+            assertRecordHighlights(Collections.emptyList(),
+                    recordStore.fetchIndexRecords(
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text2: \"inbox\""), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
         }
     }
