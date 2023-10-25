@@ -19,19 +19,16 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix hash code instability in `RecordQueryAbstractDataModificationPlan` [(Issue #2325)](https://github.com/FoundationDB/fdb-record-layer/issues/2325)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Rethrow original IOExceptions exceptions in lucene code [(Issue #2293)](https://github.com/FoundationDB/fdb-record-layer/issues/2293)
-* **Bug fix** Add proper clone to LuceneStoredFieldsReader [(Issue #2297)](https://github.com/FoundationDB/fdb-record-layer/issues/2297)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Lucene performance: avoid merge calculation before deferring merge [(Issue #2319)](https://github.com/FoundationDB/fdb-record-layer/issues/2319
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** LuceneLoggerInfoStream should check if trace is enabled in isEnabled [(Issue #2317)](https://github.com/FoundationDB/fdb-record-layer/issues/2317)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -41,6 +38,14 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.418.0
+
+* **Bug fix** Fix hash code instability in `RecordQueryAbstractDataModificationPlan` [(Issue #2325)](https://github.com/FoundationDB/fdb-record-layer/issues/2325)
+* **Bug fix** Rethrow original IOExceptions exceptions in lucene code [(Issue #2293)](https://github.com/FoundationDB/fdb-record-layer/issues/2293)
+* **Bug fix** Add proper clone to LuceneStoredFieldsReader [(Issue #2297)](https://github.com/FoundationDB/fdb-record-layer/issues/2297)
+* **Performance** Lucene performance: avoid merge calculation before deferring merge [(Issue #2319)](https://github.com/FoundationDB/fdb-record-layer/issues/2319
+* **Feature** LuceneLoggerInfoStream should check if trace is enabled in isEnabled [(Issue #2317)](https://github.com/FoundationDB/fdb-record-layer/issues/2317)
 
 ### 3.3.417.0
 
