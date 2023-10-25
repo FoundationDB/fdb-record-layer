@@ -44,7 +44,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -502,19 +501,6 @@ public class MessageHelpers {
             return this;
         }
 
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof TransformationTrieNode)) {
-                return false;
-            }
-            final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
-            return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
-        }
-
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
             if (this == other) {
@@ -557,11 +543,6 @@ public class MessageHelpers {
                 return false;
             }
             return nonNullableTest.apply(self, other);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap());
         }
     }
 

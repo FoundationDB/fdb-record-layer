@@ -19,7 +19,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix hash code instability in `RecordQueryAbstractDataModificationPlan` [(Issue #2325)](https://github.com/FoundationDB/fdb-record-layer/issues/2325)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Rethrow original IOExceptions exceptions in lucene code [(Issue #2293)](https://github.com/FoundationDB/fdb-record-layer/issues/2293)
 * **Bug fix** Add proper clone to LuceneStoredFieldsReader [(Issue #2297)](https://github.com/FoundationDB/fdb-record-layer/issues/2297)

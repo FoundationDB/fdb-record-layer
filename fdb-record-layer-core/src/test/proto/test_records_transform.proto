@@ -73,3 +73,14 @@ message TransformMessageMaxTypes {
   required MessageX x = 2;
   required string z = 3;
 }
+
+message OtherTransformMessageMaxTypes {
+  message MessageB {
+    required string bba = 1;
+    required double bbb = 2;
+    optional string bbc = 3;
+  }
+
+  required string z = 1;
+  required MessageB a = 2;
+}
