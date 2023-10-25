@@ -84,7 +84,10 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
         if (this == other) {
             return true;
         }
-        if (!(other instanceof TrieNode)) {
+        if (other == null) {
+            return false;
+        }
+        if (getClass() != other.getClass()) {
             return false;
         }
         final TrieNode<?, ?, ?> otherTrieNode = (TrieNode<?, ?, ?>)other;

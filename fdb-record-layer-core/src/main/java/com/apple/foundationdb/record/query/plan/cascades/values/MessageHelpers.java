@@ -44,7 +44,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -490,7 +489,6 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
     public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
@@ -501,19 +499,6 @@ public class MessageHelpers {
         @Override
         public TransformationTrieNode getThis() {
             return this;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof TransformationTrieNode)) {
-                return false;
-            }
-            final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
-            return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -565,7 +550,6 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
     public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> {
         public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -576,19 +560,5 @@ public class MessageHelpers {
         public CoercionTrieNode getThis() {
             return this;
         }
-
-        @Override
-        public boolean equals(final Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof CoercionTrieNode)) {
-                return false;
-            }
-            final CoercionTrieNode otherCoercionTrieNode = (CoercionTrieNode)other;
-            return Objects.equals(getValue(), otherCoercionTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), otherCoercionTrieNode.getChildrenMap());
-        }
-
     }
 }
