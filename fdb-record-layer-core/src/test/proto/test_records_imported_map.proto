@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package com.apple.foundationdb.record.importedmaptest;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRecordsImportedMapProto";
+
+import "record_metadata_options.proto";
+import "test_records_map.proto";
+
+message OuterRecord {
+    optional int64 rec_id = 1 [(field).primary_key = true];
+    optional int64 other_id = 2;
+    optional nestedmaptest.MapRecord map = 3;
+}
+
+message RecordTypeUnion {
+    optional OuterRecord _OuterRecord = 1;
+}

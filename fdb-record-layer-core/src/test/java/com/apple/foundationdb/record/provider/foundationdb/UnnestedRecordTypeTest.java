@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
+import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -87,6 +88,13 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     private static RecordMetaData doubleNestedMetaData(@Nonnull RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    private static RecordMetaData importedMetaData(@Nonnull RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsImportedMapProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
@@ -204,6 +212,18 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     void doubleNestedToAndFromProto() {
         final RecordMetaData metaData = doubleNestedMetaData(addDoubleNestedType());
         assertProtoSerializationSuccessful(metaData, DOUBLE_NESTED);
+    }
+
+    @Test
+    void importedMapTypeToAndFromProto() {
+        final RecordMetaData metaData = importedMetaData(addMapType());
+        assertProtoSerializationSuccessful(metaData, UNNESTED_MAP);
+    }
+
+    @Test
+    void importedTwoMapsToAndFromProto() {
+        final RecordMetaData metaData = importedMetaData(addTwoMapsType());
+        assertProtoSerializationSuccessful(metaData, TWO_UNNESTED_MAPS);
     }
 
     private static void assertProtoSerializationSuccessful(RecordMetaData metaData, String unnestedTypeName) {

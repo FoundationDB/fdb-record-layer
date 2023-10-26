@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1430,11 +1431,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (!syntheticRecordTypes.isEmpty()) {
             DescriptorProtos.FileDescriptorProto.Builder fileBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
             fileBuilder.setName("_synthetic");
-            fileBuilder.addDependency(unionDescriptor.getFile().getName());
-            syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder));
+            Set<Descriptors.FileDescriptor> typeDescriptorSources = new LinkedHashSet<>(); // for stable iteration order
+            syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder, typeDescriptorSources));
+            typeDescriptorSources.forEach(source -> fileBuilder.addDependency(source.getName()));
             final Descriptors.FileDescriptor fileDescriptor;
             try {
-                final Descriptors.FileDescriptor[] dependencies = { unionDescriptor.getFile() };
+                final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[typeDescriptorSources.size()];
+                typeDescriptorSources.toArray(dependencies);
                 fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
             } catch (Descriptors.DescriptorValidationException ex) {
                 throw new MetaDataException("Could not build synthesized file descriptor", ex);
