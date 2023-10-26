@@ -368,33 +368,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setMetaDataProvider(metaData);
     }
 
-    private ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
-        return createComplexDocument(docId, text, text2, group, true);
-    }
-
-    private ComplexDocument createComplexDocument(long docId, String text, String text2, int group, boolean isSeen) {
-        return ComplexDocument.newBuilder()
-                .setDocId(docId)
-                .setText(text)
-                .setText2(text2)
-                .setGroup(group)
-                .setIsSeen(isSeen)
-                .build();
-    }
-
-    private TestRecordsTextProto.MapDocument createComplexMapDocument(long docId, String text, String text2, int group) {
-        return TestRecordsTextProto.MapDocument.newBuilder()
-                .setDocId(docId)
-                .setGroup(group)
-                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
-                        .setKey(text2)
-                        .setValue(text)
-                        .setSecondValue("secondValue" + docId)
-                        .setThirdValue("thirdValue" + docId)
-                        .build())
-                .build();
-    }
-
     protected static TestRecordsTextProto.MapDocument createMultiEntryMapDoc(long docId, String text, String text2, String text3,
                                                                     String text4, int group) {
         return TestRecordsTextProto.MapDocument.newBuilder()
@@ -640,8 +613,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
-            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
 
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L)),
                     recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: true"), null, ScanProperties.FORWARD_SCAN));
@@ -659,8 +632,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
-            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
 
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1547L)),
                     recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND NOT is_seen: true"), null, ScanProperties.FORWARD_SCAN));
@@ -678,8 +651,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
-            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
 
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
                     recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN));
@@ -697,8 +670,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
-            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
 
             assertIndexEntryPrimaryKeyTuples(Set.of(),
                     recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND is_seen: true AND is_seen: false"), null, ScanProperties.FORWARD_SCAN));
@@ -715,8 +688,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
 
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_BOOLEAN_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
-            recordStore.saveRecord(createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, ENGINEER_JOKE, "different smoochies", 2, false));
 
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
                     recordStore.scanIndex(TEXT_AND_BOOLEAN_INDEX, fullTextSearch(TEXT_AND_BOOLEAN_INDEX, "\"propose a Vision\" AND (is_seen: true OR is_seen: false)"), null, ScanProperties.FORWARD_SCAN));
@@ -1042,8 +1015,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void testNestedFieldSearch() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
-            recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
-            recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase", 1));
             assertIndexEntryPrimaryKeys(Set.of(1623L),
                     recordStore.scanIndex(MAP_ON_VALUE_INDEX, groupedTextSearch(MAP_ON_VALUE_INDEX, "entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
@@ -1069,8 +1042,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void testMultipleFieldSearch() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
-            recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2L, 1623L)),
                     recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN));
 
@@ -1082,8 +1055,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void testFuzzySearchWithDefaultEdit2() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
-            recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
-            recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2L, 1623L)),
                     recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, fullTextSearch(COMPLEX_MULTIPLE_TEXT_INDEXES, "text:\"Vision\" AND text2:jonleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
 
@@ -1332,7 +1305,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     rebuildIndexMetaData(context, COMPLEX_DOC, index);
                     for (int j = 0; j < 10; j++) {
                         int n = i * 10 + j + 1;
-                        recordStore.saveRecord(createComplexDocument(n, numbersText(n), "", g));
+                        recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(n, numbersText(n), "", g));
                     }
                     context.commit();
                 }
@@ -1346,8 +1319,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            recordStore.saveRecord(createComplexDocument(49, "not here", "", 0));
-            recordStore.saveRecord(createComplexDocument(35, "nor here either", "", 0));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(49, "not here", "", 0));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(35, "nor here either", "", 0));
             context.commit();
         }
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -1680,14 +1653,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
 
             // Write 8 texts and 6 of them contain the key "good"
-            recordStore.saveRecord(createComplexDocument(1623L, "Good morning", "", 1));
-            recordStore.saveRecord(createComplexDocument(1624L, "Good afternoon", "", 1));
-            recordStore.saveRecord(createComplexDocument(1625L, "good evening", "", 1));
-            recordStore.saveRecord(createComplexDocument(1626L, "Good night", "", 1));
-            recordStore.saveRecord(createComplexDocument(1627L, "", "That's really good!", 1));
-            recordStore.saveRecord(createComplexDocument(1628L, "Good day", "I'm good", 1));
-            recordStore.saveRecord(createComplexDocument(1629L, "", "Hello Record Layer", 1));
-            recordStore.saveRecord(createComplexDocument(1630L, "", "Hello FoundationDB!", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Good morning", "", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1624L, "Good afternoon", "", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1625L, "good evening", "", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1626L, "Good night", "", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1627L, "", "That's really good!", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1628L, "Good day", "I'm good", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1629L, "", "Hello Record Layer", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1630L, "", "Hello FoundationDB!", 1));
 
             final RecordQueryPlan luceneIndexPlan =
                     LuceneIndexQueryPlan.of(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE.getName(),
@@ -2118,7 +2091,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms", "boot", "read", "fowl", "fool", "tire", "tire");
             assertThat(text2, hasSize(text.size()));
             for (int i = 0; i < text.size(); ++i) {
-                recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(docId++, text.get(i), text2.get(i), 1));
             }
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", List.of(Pair.of("beaver", "text"), Pair.of("beavers", "text2")));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", List.of(Pair.of("beaver", "text")));
@@ -2364,7 +2337,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void analyzerPerField() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, MULTIPLE_ANALYZER_LUCENE_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
             // text field uses the default SYNONYM analyzer, so "hullo" should have match
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1L, 1623L)),
                     recordStore.scanIndex(MULTIPLE_ANALYZER_LUCENE_INDEX, fullTextSearch(MULTIPLE_ANALYZER_LUCENE_INDEX, "text:hullo"), null, ScanProperties.FORWARD_SCAN));
@@ -2384,7 +2357,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void testSimpleAutoComplete() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, AUTO_COMPLETE_SIMPLE_LUCENE_INDEX);
-            recordStore.saveRecord(createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", 1));
             // text field has auto-complete enabled, so the auto-complete query for "record layer" should have match
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1L, 1623L)),
                     recordStore.scanIndex(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX, autoCompleteBounds(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX, "record layer", ImmutableSet.of("text")), null, ScanProperties.FORWARD_SCAN));

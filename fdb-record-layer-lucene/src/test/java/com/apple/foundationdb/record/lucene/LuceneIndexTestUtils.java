@@ -74,6 +74,17 @@ public class LuceneIndexTestUtils {
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
+    public static final Index TEXT_AND_STORED_COMPLEX = new Index(
+            "Simple$test_stored_complex",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("text2")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("group")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("score")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("time")),
+                    function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap());
+
     public static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                     LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, SynonymAnalyzer.QueryOnlySynonymAnalyzerFactory.ANALYZER_FACTORY_NAME,
@@ -209,5 +220,44 @@ public class LuceneIndexTestUtils {
         returnValue[0] = new String(word);
         returnValue[1] = builder.toString();
         return returnValue;
+    }
+
+    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, int group) {
+        return createComplexDocument(docId, text, text2, group, true);
+    }
+
+    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, int group, boolean isSeen) {
+        return TestRecordsTextProto.ComplexDocument.newBuilder()
+                .setDocId(docId)
+                .setText(text)
+                .setText2(text2)
+                .setGroup(group)
+                .setIsSeen(isSeen)
+                .build();
+    }
+
+    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, long group, int score, boolean isSeen, double time) {
+        return TestRecordsTextProto.ComplexDocument.newBuilder()
+                .setDocId(docId)
+                .setText(text)
+                .setText2(text2)
+                .setGroup(group)
+                .setScore(score)
+                .setIsSeen(isSeen)
+                .setTime(time)
+                .build();
+    }
+
+    public static TestRecordsTextProto.MapDocument createComplexMapDocument(long docId, String text, String text2, int group) {
+        return TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(docId)
+                .setGroup(group)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
+                        .setKey(text2)
+                        .setValue(text)
+                        .setSecondValue("secondValue" + docId)
+                        .setThirdValue("thirdValue" + docId)
+                        .build())
+                .build();
     }
 }
