@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
@@ -139,13 +138,9 @@ public final class SqlTypeSupport {
 
     @Nonnull
     public static StructMetaData recordToMetaData(@Nonnull Type.Record record) throws RelationalException {
-        // Make sure that fields are already sorted
         FieldDescription[] fields = new FieldDescription[record.getFields().size()];
-        int previousFieldIndex = 0;
         for (int i = 0; i < record.getFields().size(); i++) {
             Type.Record.Field field = record.getFields().get(i);
-            Assert.that(field.getFieldIndex() > previousFieldIndex, "Record field's indexes should be monotonically increasing", ErrorCode.INTERNAL_ERROR);
-            previousFieldIndex = field.getFieldIndex();
             final FieldDescription fieldDescription = fieldToDescription(field);
             fields[i] = fieldDescription;
         }

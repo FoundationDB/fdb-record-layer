@@ -41,6 +41,11 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void standardTestsWithProto() throws Exception {
         doRun("standard-tests-proto.yaml");
     }
+
+    @Test
+    public void fieldIndexTestsProto() throws Exception {
+        doRun("field-index-tests-proto.yaml");
+    }
     
     @Test
     public void standardTestsWithMetaData() throws Exception {

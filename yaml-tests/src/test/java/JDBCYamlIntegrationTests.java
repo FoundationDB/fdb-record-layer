@@ -266,6 +266,12 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
+    @Disabled("The field-index-tests-proto.yaml has 'load template' which is not supported")
+    public void fieldIndexTestsProto() throws Exception {
+        doRun("field-index-tests-proto.yaml");
+    }
+
+    @Override
     @Disabled("The standard-tests-proto.yaml has 'load template' which is not supported")
     public void standardTestsWithProto() throws Exception {
         super.standardTestsWithProto();
