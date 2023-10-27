@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.codec.postings.LuceneOptimizedPostingsFormat;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -104,7 +105,7 @@ public class LuceneOptimizedCodec extends Codec {
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
         defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
-        storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
+        storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat();
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
         fieldInfosFormat = new LuceneOptimizedFieldInfosFormat(new LuceneOptimized60FieldInfosFormat());
     }

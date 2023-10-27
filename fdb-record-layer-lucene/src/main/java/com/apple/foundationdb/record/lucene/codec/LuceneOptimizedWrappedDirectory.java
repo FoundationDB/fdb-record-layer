@@ -52,7 +52,7 @@ import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompound
  * stand-alone files.
  *
  */
-class LuceneOptimizedWrappedDirectory extends Directory {
+public class LuceneOptimizedWrappedDirectory extends Directory {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedWrappedDirectory.class);
     private final FDBDirectory fdbDirectory;
     private final Directory wrappedDirectory;

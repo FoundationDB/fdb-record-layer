@@ -35,6 +35,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
+import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
@@ -146,10 +147,12 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     TieredMergePolicy tieredMergePolicy = new TieredMergePolicy()
                             .setMaxMergedSegmentMB(Math.max(0.0, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)));
                     tieredMergePolicy.setNoCFSRatio(1.00);
+                    ConcurrentMergeScheduler scheduler = new FDBDirectoryMergeScheduler(state, mergeDirectoryCount);
+                    scheduler.setMaxMergesAndThreads(1, 1);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(true)
                             .setMergePolicy(tieredMergePolicy)
-                            .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
+                            .setMergeScheduler(scheduler)
                             .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 

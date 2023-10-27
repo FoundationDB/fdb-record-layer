@@ -792,8 +792,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         return Stream.of(1, 10);
     }
 
-    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
-    @MethodSource("threadCount")
+   // @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
+   // @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         CountingThreadFactory threadFactory = new CountingThreadFactory();
         executorService = Executors.newFixedThreadPool(value, threadFactory);

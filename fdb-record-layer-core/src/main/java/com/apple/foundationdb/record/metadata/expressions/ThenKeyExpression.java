@@ -135,7 +135,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
-        return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
+        List<Descriptors.FieldDescriptor> fieldDescriptors = new ArrayList<>();
+        for (int i = 0; i< children.size(); i++) {
+            fieldDescriptors.addAll(children.get(i).validate(descriptor));
+        }
+        return fieldDescriptors;
     }
 
     @Override

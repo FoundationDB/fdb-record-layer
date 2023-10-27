@@ -111,11 +111,14 @@ public interface PlanHashable {
         if (obj instanceof Enum) {
             return ((Enum)obj).name().hashCode();
         }
+        if (obj instanceof List<?>) {
+            return listPlanHash(hashKind, (List<?>)obj);
+        }
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(hashKind, (Iterable<?>)obj);
         }
         if (obj instanceof Object[]) {
-            return objectsPlanHash(hashKind, (Object[])obj);
+            return listPlanHash(hashKind, Arrays.asList((Object[])obj));
         }
         if (obj.getClass().isArray() && obj.getClass().getComponentType().isPrimitive()) {
             return primitiveArrayHash(obj);
@@ -130,6 +133,14 @@ public interface PlanHashable {
         int result = 1;
         for (Object object : objects) {
             result = 31 * result + objectPlanHash(hashKind, object);
+        }
+        return result;
+    }
+
+    static int listPlanHash(@Nonnull PlanHashKind hashKind, @Nonnull List<?> objects) {
+        int result = 1;
+        for (int i=0; i < objects.size(); i++) {
+            result = 31 * result + objectPlanHash(hashKind, objects.get(i));
         }
         return result;
     }

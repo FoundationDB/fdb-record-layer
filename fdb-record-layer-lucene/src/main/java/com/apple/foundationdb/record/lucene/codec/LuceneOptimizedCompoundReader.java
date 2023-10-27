@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.codec.postings.LuceneOptimizedPostingsFormat;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -48,7 +49,7 @@ import java.util.Set;
  *
  * @lucene.experimental
  */
-final class LuceneOptimizedCompoundReader extends CompoundDirectory {
+public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
     private final String segmentName;

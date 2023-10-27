@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
+import com.apple.foundationdb.record.lucene.codec.postings.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
@@ -1090,6 +1090,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             // Save one record and try and search for it
             for (int docId = 0; docId < 100; docId++) {
+                System.out.println("docId " + docId);
                 recordStore.saveRecord(createSimpleDocument(docId, ENGINEER_JOKE, 2));
                 assertEquals(docId + 1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "formulate"), null, ScanProperties.FORWARD_SCAN)
                         .getCount().join());

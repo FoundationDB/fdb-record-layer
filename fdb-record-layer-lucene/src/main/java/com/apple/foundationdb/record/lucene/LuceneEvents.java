@@ -42,6 +42,8 @@ public class LuceneEvents {
         LUCENE_READ_BLOCK("lucene block reads"),
         /** Time to read a schema from Lucene's FDBDirectory. */
         LUCENE_READ_SCHEMA("lucene schema read"),
+        /** Time to read stored fields from Lucene's FDBDirectory. */
+        LUCENE_READ_STORED_FIELDS("lucene stored fields read"),
         /** Time to read a lucene block from FBB loader. */
         LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
         /** Time to list all files from Lucene's FDBDirectory. */
@@ -132,8 +134,12 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_INCREMENT("lucene file counter increment"),
         /** Wait to read a file reference. */
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
+        WAIT_LUCENE_GET_TERM("lucene get term"),
+        WAIT_LUCENE_GET_TERM_METADATA("lucene get term metadata"),
         /** Wait to read schema. */
         WAIT_LUCENE_GET_SCHEMA("lucene get schema"),
+        /** Wait to read stored fields. */
+        WAIT_LUCENE_GET_STORED_FIELDS("lucene get stored fields"),
         /** Wait to read a data block. */
         WAIT_LUCENE_GET_DATA_BLOCK("lucene get data block"),
         /** Wait for lucene to load the file cache. */
@@ -199,6 +205,8 @@ public class LuceneEvents {
         /** Number of file delete operations on the FDBDirectory. */
         LUCENE_DELETE_FILE("lucene delete file", false),
         /** Number of file delete operations on the FDBDirectory. */
+        LUCENE_DELETE_STORED_FIELDS_RANGE("lucene delete stored fields range", false),
+        /** Number of rename file operations on the FDBDirectory. */
         LUCENE_RENAME_FILE("lucene rename file", false),
         ;
 

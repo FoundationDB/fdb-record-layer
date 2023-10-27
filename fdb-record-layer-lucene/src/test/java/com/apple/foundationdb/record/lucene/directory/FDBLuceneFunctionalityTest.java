@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
+import com.apple.foundationdb.record.lucene.codec.postings.LuceneOptimizedPostingsFormat;
 import com.apple.test.Tags;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;

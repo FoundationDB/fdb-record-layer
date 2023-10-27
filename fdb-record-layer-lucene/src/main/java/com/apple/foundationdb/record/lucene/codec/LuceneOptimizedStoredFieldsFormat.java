@@ -20,99 +20,33 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 /**
- * This class provides a Lazy reader implementation to limit the amount of
+ * This class provides a custom KeyValue based reader and writer implementation to limit the amount of
  * data needed to be read from FDB.
  *
  */
 public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
-    private StoredFieldsFormat storedFieldsFormat;
-
-    LuceneOptimizedStoredFieldsFormat(StoredFieldsFormat storedFieldsFormat) {
-        this.storedFieldsFormat = storedFieldsFormat;
+    LuceneOptimizedStoredFieldsFormat() {
     }
 
     @Override
     public StoredFieldsReader fieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) throws IOException {
-        return new LazyStoredFieldsReader(directory, si, fn, context);
+        return new LuceneOptimizedStoredFieldsReader(directory, si, fn);
     }
 
     @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
-        return storedFieldsFormat.fieldsWriter(directory, si, context);
+        return new LuceneOptimizedStoredFieldsWriter(directory, si);
     }
 
-    private class LazyStoredFieldsReader extends StoredFieldsReader {
-        private Supplier<StoredFieldsReader> storedFieldsReader;
-        private boolean initialized;
-        private Directory directory;
-        private SegmentInfo si;
-        private FieldInfos fn;
-        private IOContext context;
-
-        public LazyStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) {
-            this.directory = directory;
-            this.si = si;
-            this.fn = fn;
-            this.context = context;
-            storedFieldsReader = Suppliers.memoize(() -> {
-                try {
-                    return storedFieldsFormat.fieldsReader(directory, si, fn, context);
-                } catch (IOException ioe) {
-                    throw new UncheckedIOException(ioe);
-                } finally {
-                    initialized = true;
-                }
-            });
-        }
-
-        public LazyStoredFieldsReader(LazyStoredFieldsReader lazyStoredFieldsReader) {
-            this(lazyStoredFieldsReader.directory, lazyStoredFieldsReader.si, lazyStoredFieldsReader.fn,
-                    lazyStoredFieldsReader.context);
-        }
-
-        @Override
-        public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-            storedFieldsReader.get().visitDocument(docID, visitor);
-        }
-
-        @Override
-        @SuppressWarnings({"java:S1182", "java:S2975", "PMD.ProperCloneImplementation"})
-        public LazyStoredFieldsReader clone() {
-            return new LazyStoredFieldsReader(this);
-        }
-
-        @Override
-        public void checkIntegrity() throws IOException {
-            if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-                storedFieldsReader.get().checkIntegrity();
-            }
-        }
-
-        @Override
-        public void close() throws IOException {
-            if (initialized) { // Needed to not fetch data...
-                storedFieldsReader.get().close();
-            }
-        }
-
-        @Override
-        public long ramBytesUsed() {
-            return storedFieldsReader.get().ramBytesUsed();
-        }
-    }
 }
