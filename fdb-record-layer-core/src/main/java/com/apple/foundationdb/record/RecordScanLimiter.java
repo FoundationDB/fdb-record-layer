@@ -51,6 +51,8 @@ public interface RecordScanLimiter {
      */
     boolean tryRecordScan();
 
+    public boolean isStopped();
+
     /**
      * Get the record scan limit. In particular, this will return the target
      * number of records that this limiter is being used to enforce.

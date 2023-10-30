@@ -111,6 +111,10 @@ public class CursorLimitManager {
      * @return a reason for a limit that has been exceeded or <code>Optional.empty()</code> if no limit has been exceeded
      */
     public Optional<RecordCursor.NoNextReason> getStoppedReason() {
+        haltedDueToRecordScanLimit = recordScanLimiter != null && recordScanLimiter.isStopped()
+                                     && (usedInitialPass || failOnScanLimitReached);
+        haltedDueToByteScanLimit = byteScanLimiter != null && !byteScanLimiter.hasBytesRemaining() && usedInitialPass;
+        haltedDueToTimeLimit = timeScanLimiter != null && !timeScanLimiter.tryRecordScan() && usedInitialPass;
         if (haltedDueToRecordScanLimit) {
             return SCAN_LIMIT_REACHED;
         } else if (haltedDueToByteScanLimit) {

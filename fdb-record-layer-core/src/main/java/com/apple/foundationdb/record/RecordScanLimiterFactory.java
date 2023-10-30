@@ -89,6 +89,11 @@ public class RecordScanLimiterFactory {
         }
 
         @Override
+        public boolean isStopped() {
+            return allowedRecordScansRemaining.get() <= 0;
+        }
+
+        @Override
         public int getLimit() {
             return originalLimit;
         }
@@ -128,6 +133,11 @@ public class RecordScanLimiterFactory {
         }
 
         @Override
+        public boolean isStopped() {
+            return false;
+        }
+
+        @Override
         public int getLimit() {
             return Integer.MAX_VALUE;
         }
@@ -161,6 +171,11 @@ public class RecordScanLimiterFactory {
         @Override
         public boolean tryRecordScan() {
             return true;
+        }
+
+        @Override
+        public boolean isStopped() {
+            return false;
         }
 
         @Override

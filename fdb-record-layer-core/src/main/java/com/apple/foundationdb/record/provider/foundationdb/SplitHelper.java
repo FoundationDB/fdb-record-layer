@@ -880,18 +880,6 @@ public class SplitHelper {
                         });
                     }
 
-                    if (limitManager.isStopped()) {
-                        final NoNextReason noNextReason = mergeNoNextReason();
-                        if (noNextReason.isSourceExhausted()) {
-                            // Can happen if the limit is reached while reading the final record, so the inner cursor
-                            // completes with SOURCE_EXHAUSTED
-                            nextResult = RecordCursorResult.exhausted();
-                        } else {
-                            nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
-                        }
-                        return nextResult;
-                    }
-
                     if (next == null) { // no next result
                         nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
                         if (LOGGER.isTraceEnabled()) {
