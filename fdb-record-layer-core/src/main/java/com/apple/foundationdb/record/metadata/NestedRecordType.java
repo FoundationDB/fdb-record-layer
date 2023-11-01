@@ -35,7 +35,6 @@ import java.util.Collections;
  */
 @API(API.Status.EXPERIMENTAL)
 public class NestedRecordType extends RecordType {
-
     @API(API.Status.INTERNAL)
     public NestedRecordType(@Nonnull final RecordMetaData metaData,
                             @Nonnull final Descriptors.Descriptor descriptor,

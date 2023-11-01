@@ -112,6 +112,13 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
      */
     @Nonnull
     public static final String PARENT_CONSTITUENT = "__parent";
+    /**
+     * Special field in the synthetic record that contains the positions of all of the nested constituents. It will
+     * contain a nested message field that has one field for all of the constituents (except for the parent constituent)
+     * containing the index of that constituent within the nesting from its parent.
+     */
+    @Nonnull
+    public static final String POSITIONS_FIELD = "__positions";
 
     @Nonnull
     private final List<Nesting> nestings;
@@ -253,8 +260,7 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
                 // For all other constituents, the type name is the record descriptor's full name so that it can be unambiguously looked up
                 builder.addUnnestedConstituents(RecordMetaDataProto.UnnestedRecordType.UnnestedConstituent.newBuilder()
                         .setName(constituent.getName())
-                        .setTypeName(constituent.getRecordType().getDescriptor().getFullName())
-                        .setPrimaryKey(constituent.getRecordType().getPrimaryKey().toKeyExpression()));
+                        .setTypeName(constituent.getRecordType().getDescriptor().getFullName()));
             }
         }
 

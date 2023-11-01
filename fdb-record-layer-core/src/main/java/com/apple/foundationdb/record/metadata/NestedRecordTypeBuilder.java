@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -33,5 +34,10 @@ import javax.annotation.Nonnull;
 public class NestedRecordTypeBuilder extends RecordTypeBuilder {
     public NestedRecordTypeBuilder(@Nonnull final Descriptors.Descriptor descriptor) {
         super(descriptor);
+    }
+
+    @Override
+    public RecordType build(@Nonnull final RecordMetaData metaData) {
+        throw new MetaDataException("attempted to build a nested record type");
     }
 }

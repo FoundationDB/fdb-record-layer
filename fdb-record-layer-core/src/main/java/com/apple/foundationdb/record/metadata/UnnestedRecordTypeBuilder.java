@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -149,7 +150,6 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Synthe
                         .addLogInfo(LogMessageKeys.DESCRIPTION, constituentProto.getName());
             }
             NestedRecordTypeBuilder nestedTypeBuilder = new NestedRecordTypeBuilder(nestedDescriptor);
-            nestedTypeBuilder.setPrimaryKey(KeyExpression.fromProto(constituentProto.getPrimaryKey()));
             addConstituent(constituentProto.getName(), nestedTypeBuilder);
         }
 
@@ -224,7 +224,7 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Synthe
 
     @Nonnull
     public Constituent addNestedConstituent(@Nonnull final String name, @Nonnull Descriptors.Descriptor descriptor, @Nonnull String parent,
-                                            @Nonnull KeyExpression concatExpression, @Nonnull KeyExpression fanOutExpression) {
+                                            @Nonnull KeyExpression fanOutExpression) {
         if (getConstituents().stream().map(Constituent::getName).noneMatch(n -> n.equals(parent))) {
             throw new MetaDataException("unknown parent constituent name")
                     .addLogInfo(LogMessageKeys.EXPECTED, parent)
@@ -232,7 +232,6 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Synthe
                     .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
         }
         NestedRecordTypeBuilder nestedRecordType = new NestedRecordTypeBuilder(descriptor);
-        nestedRecordType.setPrimaryKey(Key.Expressions.function(IndexOfFunctionKeyExpression.NAME, Key.Expressions.concat(Key.Expressions.field(parent).nest(concatExpression), Key.Expressions.field(name))));
         Constituent c = addConstituent(name, nestedRecordType);
         nestings.add(new Nesting(parent, name, fanOutExpression));
         return c;
@@ -245,7 +244,7 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Synthe
                 builder.add(new SyntheticRecordType.Constituent(UnnestedRecordType.PARENT_CONSTITUENT, parentType));
             } else {
                 builder.add(new SyntheticRecordType.Constituent(constituent.getName(),
-                        new NestedRecordType(parentType.getRecordMetaData(), constituent.getRecordType().getDescriptor(), parentType, Objects.requireNonNull(constituent.getRecordType().getPrimaryKey()))));
+                        new NestedRecordType(parentType.getRecordMetaData(), constituent.getRecordType().getDescriptor(), parentType, Key.Expressions.field(UnnestedRecordType.POSITIONS_FIELD).nest(constituent.getName()))));
             }
         }
         return builder.build();
@@ -257,23 +256,48 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Synthe
         List<KeyExpression> subPrimaryKeys = new ArrayList<>(getConstituents().size());
         for (Constituent constituent : getConstituents()) {
             RecordTypeBuilder typeBuilder = constituent.getRecordType();
-            final KeyExpression typePrimaryKey = typeBuilder.getPrimaryKey();
-            if (typePrimaryKey == null) {
-                throw new MetaDataException("constituent primary key is null")
-                        .addLogInfo(LogMessageKeys.RECORD_TYPE, getName())
-                        .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
-            }
-
             if (typeBuilder instanceof NestedRecordTypeBuilder) {
                 // The primary key for nested types encodes the index of the child constituent within the parent. No need to
                 // do any additional nesting
-                subPrimaryKeys.add(typePrimaryKey);
+                subPrimaryKeys.add(Key.Expressions.field(UnnestedRecordType.POSITIONS_FIELD).nest(constituent.getName()));
             } else {
+                final KeyExpression typePrimaryKey = typeBuilder.getPrimaryKey();
+                if (typePrimaryKey == null) {
+                    throw new MetaDataException("constituent primary key is null")
+                            .addLogInfo(LogMessageKeys.RECORD_TYPE, getName())
+                            .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
+                }
                 // Non-nested types need to have their primary key nested within their constituent name
                 subPrimaryKeys.add(Key.Expressions.field(constituent.getName()).nest(typePrimaryKey));
             }
         }
         return Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.list(subPrimaryKeys));
+    }
+
+    @Override
+    public void buildDescriptor(@Nonnull final DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto, @Nonnull final Set<Descriptors.FileDescriptor> sources) {
+        final DescriptorProtos.DescriptorProto.Builder descriptorProto = fileDescriptorProto.addMessageTypeBuilder();
+        descriptorProto.setName(name);
+        addConstituentFields(descriptorProto, sources);
+
+        final DescriptorProtos.DescriptorProto.Builder indexesProto = descriptorProto.addNestedTypeBuilder()
+                .setName("Positions");
+        int indexPosition = 1;
+        for (Constituent constituent : getConstituents()) {
+            if (!constituent.getName().equals(UnnestedRecordType.PARENT_CONSTITUENT)) {
+                indexesProto.addFieldBuilder()
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                        .setName(constituent.getName())
+                        .setNumber(indexPosition++);
+            }
+        }
+        descriptorProto.addFieldBuilder()
+                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                .setTypeName(name + "." + indexesProto.getName())
+                .setName(UnnestedRecordType.POSITIONS_FIELD)
+                .setNumber(getConstituents().size() + 1);
     }
 
     @Nonnull

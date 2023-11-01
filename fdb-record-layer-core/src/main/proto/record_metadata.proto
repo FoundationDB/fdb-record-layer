@@ -220,7 +220,6 @@ message UnnestedRecordType {
   message UnnestedConstituent {
     optional string name = 1;
     optional string type_name = 2;
-    optional KeyExpression primary_key = 3;
   }
 
   message Nesting {

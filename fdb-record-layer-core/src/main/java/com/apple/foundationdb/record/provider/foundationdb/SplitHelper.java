@@ -850,7 +850,7 @@ public class SplitHelper {
             if (nextResult != null && !nextResult.hasNext()) {
                 return CompletableFuture.completedFuture(nextResult);
             }
-            if (limitManager.isStopped()) {
+            if (!limitManager.tryRecordScan()) {
                 final NoNextReason noNextReason = mergeNoNextReason();
                 if (noNextReason.isSourceExhausted()) {
                     // Can happen if the limit is reached while reading the final record, so the inner cursor
@@ -983,7 +983,7 @@ public class SplitHelper {
                         return false;
                     } else {
                         innerNoNextReason = null; // currently, we have a next value
-                        limitManager.tryRecordScan();
+                        // limitManager.tryRecordScan();
                         boolean complete = append(innerResult);
                         return !complete;
                     }

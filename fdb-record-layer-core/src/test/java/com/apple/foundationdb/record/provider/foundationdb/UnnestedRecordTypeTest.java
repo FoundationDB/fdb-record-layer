@@ -73,8 +73,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     private static final String DOUBLE_NESTED = "DoubleNested";
 
     @Nonnull
-    private static final KeyExpression ENTRIES_CONCAT = field("map").nest(field("entry", FanType.Concatenate));
-    @Nonnull
     private static final KeyExpression ENTRIES_FAN_OUT = field("map").nest(field("entry", FanType.FanOut));
     @Nonnull
     private static final String INNER_FOO_OUTER_INNER_BAR_INDEX = "innerFooOuterInnerBar";

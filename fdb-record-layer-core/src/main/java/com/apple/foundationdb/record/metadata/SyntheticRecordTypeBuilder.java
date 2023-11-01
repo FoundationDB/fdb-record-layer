@@ -163,6 +163,10 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
     public void buildDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
         final DescriptorProtos.DescriptorProto.Builder descriptorProto = fileDescriptorProto.addMessageTypeBuilder();
         descriptorProto.setName(name);
+        addConstituentFields(descriptorProto, sources);
+    }
+
+    protected void addConstituentFields(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
         int fieldNumber = 0;
         for (Constituent constituent : constituents) {
             descriptorProto.addFieldBuilder()

@@ -118,7 +118,6 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
     private static final String OUTER = TestRecordsNestedMapProto.OuterRecord.getDescriptor().getName();
     private static final String OUTER_WITH_ENTRIES = "OuterWithEntries";
     private static final String OUTER_WITH_TWO_ENTRIES = "OuterWithTwoEntries";
-    private static final KeyExpression CONCAT_ENTRY_EXPR = field("map").nest(field("entry", KeyExpression.FanType.Concatenate));
     private static final KeyExpression ENTRY_EXPR = field("map").nest(field("entry", KeyExpression.FanType.FanOut));
 
     private static final String NESTED_CONCAT = "nestedConcat";
@@ -153,7 +152,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_ENTRIES, OUTER);
             typeBuilder.addNestedConstituent("entry", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, CONCAT_ENTRY_EXPR, ENTRY_EXPR);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
         };
     }
 
@@ -161,9 +160,9 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_TWO_ENTRIES, OUTER);
             typeBuilder.addNestedConstituent("e1", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, CONCAT_ENTRY_EXPR, ENTRY_EXPR);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
             typeBuilder.addNestedConstituent("e2", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, CONCAT_ENTRY_EXPR, ENTRY_EXPR);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
         };
     }
 
