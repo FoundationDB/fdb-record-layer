@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.TieredMergePolicy;
@@ -28,9 +30,11 @@ import java.io.IOException;
 
 class FDBTieredMergePolicy extends TieredMergePolicy {
     final boolean shouldAutoMergeDuringCommit;
+    final FDBRecordContext context;
 
-    public FDBTieredMergePolicy(final boolean shouldAutoMergeDuringCommit) {
+    public FDBTieredMergePolicy(final boolean shouldAutoMergeDuringCommit, FDBRecordContext context) {
         this.shouldAutoMergeDuringCommit = shouldAutoMergeDuringCommit;
+        this.context = context;
     }
 
     boolean isAutoMergeDuringCommit(MergeTrigger mergeTrigger) {
@@ -44,7 +48,10 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
             // Here: skip it. The merge should be performed later by the user.
             return null;
         }
-        return super.findMerges(mergeTrigger, infos, mergeContext);
+        long startTime = System.nanoTime();
+        final MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
+        context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
+        return spec;
     }
 }
 

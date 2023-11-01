@@ -57,7 +57,9 @@ public class LuceneEvents {
         /** Number of documents returned from a single Lucene spellcheck scan. */
         LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
         /** Number of merge calls to the FDBDirectory. */
-        LUCENE_MERGE("Lucene merge")
+        LUCENE_MERGE("Lucene merge"),
+        /** Number of find merge calls (calculation of lucene's required merges). */
+        LUCENE_FIND_MERGES("Lucene find merges"),
         ;
 
         private final String title;
