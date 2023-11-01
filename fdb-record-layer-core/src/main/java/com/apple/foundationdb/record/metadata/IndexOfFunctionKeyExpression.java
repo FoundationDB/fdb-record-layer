@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.util.HashUtils;
-import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * Function key expression that computes the index of an item within a list. This key expression takes
+ * Function key expression that computes the first index of an item within a list. This key expression takes
  * two arguments:
  *
  * <ol>
@@ -45,7 +44,7 @@ import java.util.List;
  *
  * <p>
  * It returns a single column, which will contain the (zero-indexed) position of the scalar object
- * within the list. For example, on a message like:
+ * within the list or {@code null} if the element is not in the list. For example, on a message like:
  * </p>
  *
  * <pre>{@code
@@ -57,7 +56,7 @@ import java.util.List;
  *
  * <p>
  * Then the expression <code>function({@value #NAME}, concat(field("foo", FanType.Concatenate), field("bar")))</code>
- * would return the position of the <code>bar</code> field within the <code>foo</code> field.
+ * would return the first position of the <code>bar</code> field within the <code>foo</code> field.
  * </p>
  */
 @SuppressWarnings("squid:S1845") // allow constant NAME to shadow name field in abstract parent
@@ -125,7 +124,7 @@ public class IndexOfFunctionKeyExpression extends FunctionKeyExpression {
      * @see FunctionKeyExpression.Factory
      * @see FunctionKeyExpression.Registry
      */
-    @AutoService(Factory.class)
+    // @AutoService(Factory.class)
     @API(API.Status.INTERNAL)
     public static class IndexOfFunctionKeyExpressionFactory implements Factory {
         private static final List<FunctionKeyExpression.Builder> BUILDERS = List.of(new Builder());
