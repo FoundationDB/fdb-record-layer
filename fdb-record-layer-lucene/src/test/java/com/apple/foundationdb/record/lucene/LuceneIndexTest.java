@@ -1184,12 +1184,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         if (primaryKeySegmentIndexEnabled) {
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), greaterThan(10));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
         } else {
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1242,8 +1242,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.deleteRecord(Tuple.from(1624L)));
             assertIndexEntryPrimaryKeys(Set.of(1623L),
                     recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
         }
         timer.reset();
         try (FDBRecordContext context = openContext()) {
@@ -1253,8 +1253,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.deleteRecord(Tuple.from(1547L)));
             assertIndexEntryPrimaryKeys(Set.of(1623L, 1624L),
                     recordStore.scanIndex(index, fullTextSearch(index, "way"), null, ScanProperties.FORWARD_SCAN));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(1));
             recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 2));
             assertIndexEntryPrimaryKeys(Set.of(1623L, 1624L, 1547L),
                     recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
@@ -1332,8 +1332,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     new HashSet<>(recordStore.scanIndex(index, groupedTextSearch(index, "text:here", 0L), null, ScanProperties.FORWARD_SCAN)
                             .map(IndexEntry::getPrimaryKey).asList().join()));
         }
-        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
-        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(2));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(2));
     }
 
     private String numbersText(int i) {

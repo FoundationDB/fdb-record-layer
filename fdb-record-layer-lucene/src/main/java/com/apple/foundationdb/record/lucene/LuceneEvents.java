@@ -56,6 +56,12 @@ public class LuceneEvents {
         LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
         /** Number of documents returned from a single Lucene spellcheck scan. */
         LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
+        /** Number of times new document is added. */
+        LUCENE_ADD_DOCUMENT("lucene add document"),
+        /** Number of times query is needed for document delete. */
+        LUCENE_DELETE_DOCUMENT_BY_QUERY("lucene delete document by query"),
+        /** Number of times primary key index used for document delete. */
+        LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY("lucene delete document by primary key"),
         /** Number of merge calls to the FDBDirectory. */
         LUCENE_MERGE("Lucene merge"),
         /** Number of find merge calls (calculation of lucene's required merges). */
@@ -92,7 +98,7 @@ public class LuceneEvents {
      */
     @SuppressWarnings("squid:S1144")    // Until there are some actual detail events.
     public enum DetailEvents implements StoreTimer.DetailEvent {
-        ;            
+        ;
 
         private final String title;
         private final String logKey;
@@ -204,10 +210,6 @@ public class LuceneEvents {
         LUCENE_DELETE_FILE("lucene delete file", false),
         /** Number of file delete operations on the FDBDirectory. */
         LUCENE_RENAME_FILE("lucene rename file", false),
-        /** Number of times query is needed for document delete. */
-        LUCENE_DELETE_DOCUMENT_BY_QUERY("lucene delete document by query", false),
-        /** Number of times primary key index used for document delete. */
-        LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY("lucene delete document by primary key", false),
         /** Number of documents merged. */
         LUCENE_MERGE_DOCUMENTS("lucene merge document", false),
         /** Number of segments merged. */
