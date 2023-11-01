@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.RTree;
+import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -162,18 +162,25 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                         changedOptions.remove(IndexOptions.RTREE_SPLIT_S);
                     }
                     if (changedOptions.contains(IndexOptions.RTREE_STORAGE)) {
-                        if (Objects.equals(oldOptions.getStorage(), newOptions.getStorage())) {
+                        if (!Objects.equals(oldOptions.getStorage(), newOptions.getStorage())) {
                             throw new MetaDataException("rtree storage changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
                         changedOptions.remove(IndexOptions.RTREE_STORAGE);
                     }
                     if (changedOptions.contains(IndexOptions.RTREE_STORE_HILBERT_VALUES)) {
-                        if (oldOptions.isStoreHilbertValues() == newOptions.isStoreHilbertValues()) {
+                        if (oldOptions.isStoreHilbertValues() != newOptions.isStoreHilbertValues()) {
                             throw new MetaDataException("rtree store Hilbert values changed",
                                     LogMessageKeys.INDEX_NAME, index.getName());
                         }
                         changedOptions.remove(IndexOptions.RTREE_STORE_HILBERT_VALUES);
+                    }
+                    if (changedOptions.contains(IndexOptions.RTREE_USE_NODE_SLOT_INDEX)) {
+                        if (oldOptions.isUseNodeSlotIndex() != newOptions.isUseNodeSlotIndex()) {
+                            throw new MetaDataException("rtree use node slot index changed",
+                                    LogMessageKeys.INDEX_NAME, index.getName());
+                        }
+                        changedOptions.remove(IndexOptions.RTREE_USE_NODE_SLOT_INDEX);
                     }
                 }
                 super.validateChangedOptions(oldIndex, changedOptions);

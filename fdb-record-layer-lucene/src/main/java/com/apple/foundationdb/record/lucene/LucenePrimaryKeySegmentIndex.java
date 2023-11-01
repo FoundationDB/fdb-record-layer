@@ -166,6 +166,7 @@ public class LucenePrimaryKeySegmentIndex {
      * @param storedFieldsWriter normal field writer
      * @param si segment info for current writer
      * @return a wrapped writer
+     * @throws IOException thrown by called methods
      */
     @Nonnull
     public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {

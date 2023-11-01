@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.rtree.RTree;
 
 import java.util.Collections;
 import java.util.Map;
@@ -174,14 +175,14 @@ public class IndexOptions {
 
     /**
      * Minimum number of slots in a node of an R-tree (except for the root node for which that minimum number may be as
-     * low as {@code 0}. See {@link  com.apple.foundationdb.async.RTree#DEFAULT_S} for suggestions on how to set this
+     * low as {@code 0}. See {@link  RTree#DEFAULT_S} for suggestions on how to set this
      * option as well as {@link #RTREE_MAX_M}. Be aware that the following inequality must hold
      * {@code MAX_M / MIN_M >= (S + 1) / S}.
      */
     public static final String RTREE_MIN_M = "rtreeMinimumM";
 
     /**
-     * Maximum number of slots in a node of an R-tree. See {@link  com.apple.foundationdb.async.RTree#DEFAULT_S}
+     * Maximum number of slots in a node of an R-tree. See {@link  RTree#DEFAULT_S}
      * for suggestions on how to set this option.  Be aware that the following inequality must hold
      * {@code MAX_M / MIN_M >= (S + 1) / S}.
      */
@@ -196,16 +197,21 @@ public class IndexOptions {
 
     /**
      * The R-tree storage format. Available options are {@code BY_SLOT}
-     * (see {@link com.apple.foundationdb.async.RTree.Storage#BY_SLOT}) and {@code BY_NODE}
-     * (see {@link com.apple.foundationdb.async.RTree.Storage#BY_NODE}).
+     * (see {@link RTree.Storage#BY_SLOT}) and {@code BY_NODE}
+     * (see {@link RTree.Storage#BY_NODE}).
      */
     public static final String RTREE_STORAGE = "rtreeStorage";
 
     /**
-     * Option to indicate whether the tree stores Hilbert values of objects together with the point or not. Hilbert
+     * Option to indicate whether the R-tree stores Hilbert values of objects together with the point or not. Hilbert
      * values can always be recomputed, however, recomputing them incurs a CPU cost.
      */
     public static final String RTREE_STORE_HILBERT_VALUES = "rtreeStoreHilbertValues";
+
+    /**
+     * Option to indicate whether the R-tree manages and uses a secondary index to quickly find the update path.
+     */
+    public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
     private IndexOptions() {
     }
