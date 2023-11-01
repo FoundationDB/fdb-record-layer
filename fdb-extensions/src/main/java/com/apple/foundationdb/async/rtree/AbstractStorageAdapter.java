@@ -34,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * Implementations and attributed common to all concrete implementations of {@link StorageAdapter}.
+ * Implementations and attributes common to all concrete implementations of {@link StorageAdapter}.
  */
 abstract class AbstractStorageAdapter implements StorageAdapter {
     @Nonnull
@@ -51,14 +51,14 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     private final OnReadListener onReadListener;
 
     protected AbstractStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
-                                     @Nonnull final Subspace secondarySubspace,
+                                     @Nonnull final Subspace nodeSlotIndexSubspace,
                                      @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
                                      @Nonnull final OnWriteListener onWriteListener,
                                      @Nonnull final OnReadListener onReadListener) {
         this.config = config;
         this.subspace = subspace;
         this.nodeSlotIndexAdapter = config.isUseNodeSlotIndex()
-                                    ? new NodeSlotIndexAdapter(secondarySubspace, onWriteListener, onReadListener)
+                                    ? new NodeSlotIndexAdapter(nodeSlotIndexSubspace, onWriteListener, onReadListener)
                                     : null;
         this.hilbertValueFunction = hilbertValueFunction;
         this.onWriteListener = onWriteListener;
@@ -80,7 +80,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     @Nullable
     @Override
     public Subspace getSecondarySubspace() {
-        return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getSecondarySubspace();
+        return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getNodeSlotIndexSubspace();
     }
 
     @Nonnull

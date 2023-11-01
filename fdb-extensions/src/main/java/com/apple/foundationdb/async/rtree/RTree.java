@@ -232,12 +232,12 @@ public class RTree {
         }
 
         @Nonnull
-        public StorageAdapter newStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
-                                                @Nonnull final Subspace secondarySubspace,
-                                                @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
-                                                @Nonnull final OnWriteListener onWriteListener,
-                                                @Nonnull final OnReadListener onReadListener) {
-            return storageAdapterCreator.create(config, subspace, secondarySubspace,
+        private StorageAdapter newStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
+                                                 @Nonnull final Subspace nodeSlotIndexSubspace,
+                                                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
+                                                 @Nonnull final OnWriteListener onWriteListener,
+                                                 @Nonnull final OnReadListener onReadListener) {
+            return storageAdapterCreator.create(config, subspace, nodeSlotIndexSubspace,
                     hilbertValueFunction, onWriteListener, onReadListener);
         }
     }
@@ -245,8 +245,8 @@ public class RTree {
     /**
      * Functional interface to create a {@link StorageAdapter}.
      */
-    public interface StorageAdapterCreator {
-        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace secondarySubspace,
+    private interface StorageAdapterCreator {
+        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace nodeSlotIndexSubspace,
                               @Nonnull Function<Point, BigInteger> hilbertValueFunction,
                               @Nonnull OnWriteListener onWriteListener,
                               @Nonnull OnReadListener onReadListener);
@@ -434,7 +434,7 @@ public class RTree {
     /**
      * Initialize a new R-tree.
      * @param subspace the subspace where the r-tree is stored
-     * @param secondarySubspace the subspace where the node index (if used is stored)
+     * @param nodeSlotIndexSubspace the subspace where the node index (if used is stored)
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
      * @param hilbertValueFunction function to compute the Hilbert value for a {@link Point}
@@ -442,14 +442,14 @@ public class RTree {
      * @param onWriteListener an on-write listener to be called after writes take place
      * @param onReadListener an on-read listener to be called after reads take place
      */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Subspace secondarySubspace,
+    public RTree(@Nonnull final Subspace subspace, @Nonnull final Subspace nodeSlotIndexSubspace,
                  @Nonnull final Executor executor, @Nonnull final Config config,
                  @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
                  @Nonnull final Supplier<byte[]> nodeIdSupplier,
                  @Nonnull final OnWriteListener onWriteListener,
                  @Nonnull final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
-                .newStorageAdapter(config, subspace, secondarySubspace, hilbertValueFunction, onWriteListener,
+                .newStorageAdapter(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener,
                         onReadListener);
         this.executor = executor;
         this.config = config;
@@ -464,7 +464,7 @@ public class RTree {
      * @return r-tree subspace
      */
     @Nonnull
-    public StorageAdapter getStorageAdapter() {
+    StorageAdapter getStorageAdapter() {
         return storageAdapter;
     }
 
@@ -1464,10 +1464,10 @@ public class RTree {
     }
 
     @Nonnull
-    public CompletableFuture<LeafNode> fetchPathForModification(@Nonnull final Transaction transaction,
-                                                                @Nonnull final BigInteger hilbertValue,
-                                                                @Nonnull final Tuple key,
-                                                                final boolean isInsertUpdate) {
+    private CompletableFuture<LeafNode> fetchPathForModification(@Nonnull final Transaction transaction,
+                                                                 @Nonnull final BigInteger hilbertValue,
+                                                                 @Nonnull final Tuple key,
+                                                                 final boolean isInsertUpdate) {
         if (config.isUseNodeSlotIndex()) {
             return scanIndexAndFetchLeafNode(transaction, hilbertValue, key, isInsertUpdate);
         } else {
@@ -1494,8 +1494,16 @@ public class RTree {
                                                                                   @Nonnull final BigInteger hilbertValue,
                                                                                   @Nonnull final Tuple key,
                                                                                   final boolean isInsertUpdate) {
+        Verify.verify(level > 0);
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, level, hilbertValue, key, isInsertUpdate)
                 .thenApply(node -> {
+                    //
+                    // Note that there is no non-error scenario where node can be null here; either the node is
+                    // not in the node slot index but is the root node which has already been resolved and fetched OR
+                    // this node is a legitimate parent node of a node we know must exist as level > 0. If node were
+                    // null here, it would mean that there is a node that is not the root but its parent is not in
+                    // the R-tree.
+                    //
                     Verify.verify(node.getKind() == NodeKind.INTERMEDIATE && node instanceof IntermediateNode);
                     return (IntermediateNode)node;
                 });
@@ -2012,7 +2020,7 @@ public class RTree {
      * {@link #fetchNextPathToLeaf(ReadTransaction, TraversalState, BigInteger, Tuple, Predicate, BiPredicate)}) and wraps
      * intermediate {@link TraversalState}s created by these methods.
      */
-    public class LeafIterator implements AsyncIterator<LeafNode> {
+    private class LeafIterator implements AsyncIterator<LeafNode> {
         @Nonnull
         private final ReadTransaction readTransaction;
         @Nonnull
@@ -2098,7 +2106,7 @@ public class RTree {
         @Nullable
         private Iterator<ItemSlot> currenLeafItemsIterator;
 
-        public ItemSlotIterator(@Nonnull final AsyncIterator<LeafNode> leafIterator) {
+        private ItemSlotIterator(@Nonnull final AsyncIterator<LeafNode> leafIterator) {
             this.leafIterator = leafIterator;
             this.currentLeafNode = null;
             this.currenLeafItemsIterator = null;

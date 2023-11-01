@@ -1,5 +1,5 @@
 /*
- * Node.java
+ * NodeHelpers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -43,6 +43,10 @@ public class NodeHelpers {
      * Only used for debugging to keep node ids readable.
      */
     private static final AtomicLong nodeIdState = new AtomicLong(1); // skip the root which is always 0
+
+    private NodeHelpers() {
+        // nothing
+    }
 
     /**
      * Method to create a new node identifier. This method uses {@link UUID#randomUUID()} and should be used in

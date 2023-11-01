@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Storage adapter used for serialization and deserialization of nodes.
  */
-public interface StorageAdapter {
+interface StorageAdapter {
 
     /**
      * Get the {@link RTree.Config} associated with this storage adapter.
@@ -122,7 +122,7 @@ public interface StorageAdapter {
 
     /**
      * Scan the node slot index for the given Hilbert Value/key pair and return the appropriate {@link Node}.
-     * Note that this method requires a node lot index to be maintained.
+     * Note that this method requires a node slot index to be maintained.
      *
      * @param transaction the transaction to use
      * @param level the level we should search counting upwards starting from level {@code 0} for the leaf node

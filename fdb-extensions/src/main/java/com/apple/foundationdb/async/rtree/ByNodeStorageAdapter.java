@@ -66,11 +66,11 @@ import java.util.function.Function;
  */
 class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
     public ByNodeStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
-                                @Nonnull final Subspace secondarySubspace,
+                                @Nonnull final Subspace nodeSlotIndexSubspace,
                                 @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
                                 @Nonnull final OnWriteListener onWriteListener,
                                 @Nonnull final OnReadListener onReadListener) {
-        super(config, subspace, secondarySubspace, hilbertValueFunction, onWriteListener, onReadListener);
+        super(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener, onReadListener);
     }
 
     @Override
@@ -210,6 +210,12 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         @Override
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
+
+            //
+            // If this change set is the first, we persist the node, don't persist the node otherwise. This is a
+            // performance optimization to avoid writing and rewriting the node for each change set in the chain
+            // of change sets.
+            //
             if (getPreviousChangeSet() == null) {
                 persistNode(transaction, getNode());
             }
@@ -237,6 +243,12 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         @Override
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
+
+            //
+            // If this change set is the first, we persist the node, don't persist the node otherwise. This is a
+            // performance optimization to avoid writing and rewriting the node for each change set in the chain
+            // of change sets.
+            //
             if (getPreviousChangeSet() == null) {
                 persistNode(transaction, getNode());
             }
@@ -259,6 +271,12 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         @Override
         public void apply(@Nonnull final Transaction transaction) {
             super.apply(transaction);
+
+            //
+            // If this change set is the first, we persist the node, don't persist the node otherwise. This is a
+            // performance optimization to avoid writing and rewriting the node for each change set in the chain
+            // of change sets.
+            //
             if (getPreviousChangeSet() == null) {
                 persistNode(transaction, getNode());
             }

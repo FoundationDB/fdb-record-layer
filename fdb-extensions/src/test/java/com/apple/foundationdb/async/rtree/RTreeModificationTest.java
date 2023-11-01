@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
- * Tests testing insert/updateSlot/deletes of data into/in/from {@link RTree}s.
+ * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
 public class RTreeModificationTest extends FDBTestBase {

@@ -43,11 +43,11 @@ import java.util.function.Function;
  */
 class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
     public BySlotStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
-                                @Nonnull final Subspace secondarySubspace,
+                                @Nonnull final Subspace nodeSlotIndexSubspace,
                                 @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
                                 @Nonnull final OnWriteListener onWriteListener,
                                 @Nonnull final OnReadListener onReadListener) {
-        super(config, subspace, secondarySubspace, hilbertValueFunction, onWriteListener, onReadListener);
+        super(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener, onReadListener);
     }
 
     @Override

@@ -55,7 +55,7 @@ import java.util.concurrent.CompletableFuture;
  * The node slot index is a persisted index defined as {@code (level, largestHilbertValue, largestKey, nodeId) -> empty}
  * for every node that is not the root node. The root node is not indexed as the root node does not have a
  * {@code (largest Hilbert Value, largest key)} pair (it could be defined as {@code (MaxHilbertValue, MaxKey)} but
- * it's not useful to store that.
+ * it's not useful to store that).
  * <br>
  * Once an R-tree grows beyond a certain size, the number of nodes that need to be fetched for an insert/update/delete
  * (also called the update path in {@link RTree}) which is bound by {@code O(logM(numRecords)} still can be
@@ -83,22 +83,23 @@ class NodeSlotIndexAdapter {
     private static final byte[] emptyArray = { };
 
     @Nonnull
-    private final Subspace secondarySubspace;
+    private final Subspace nodeSlotIndexSubspace;
 
     @Nonnull
     private final OnWriteListener onWriteListener;
     @Nonnull
     private final OnReadListener onReadListener;
 
-    NodeSlotIndexAdapter(@Nonnull final Subspace secondarySubspace, @Nonnull final OnWriteListener onWriteListener, @Nonnull final OnReadListener onReadListener) {
-        this.secondarySubspace = secondarySubspace;
+    NodeSlotIndexAdapter(@Nonnull final Subspace nodeSlotIndexSubspace, @Nonnull final OnWriteListener onWriteListener,
+                         @Nonnull final OnReadListener onReadListener) {
+        this.nodeSlotIndexSubspace = nodeSlotIndexSubspace;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
     }
 
     @Nonnull
-    public Subspace getSecondarySubspace() {
-        return secondarySubspace;
+    public Subspace getNodeSlotIndexSubspace() {
+        return nodeSlotIndexSubspace;
     }
 
     @Nonnull
@@ -111,9 +112,9 @@ class NodeSlotIndexAdapter {
         keys.add(level);
         keys.add(hilbertValue);
         keys.addAll(key.getItems());
-        final byte[] packedKey = secondarySubspace.pack(Tuple.fromList(keys));
+        final byte[] packedKey = nodeSlotIndexSubspace.pack(Tuple.fromList(keys));
         return AsyncUtil.collect(transaction.getRange(new Range(packedKey,
-                        secondarySubspace.pack(Tuple.from(level + 1))), 1, false, StreamingMode.EXACT))
+                        nodeSlotIndexSubspace.pack(Tuple.from(level + 1))), 1, false, StreamingMode.WANT_ALL))
                 .thenCompose(keyValues -> {
                     Verify.verify(keyValues.size() <= 1);
                     if (!keyValues.isEmpty()) {
@@ -138,8 +139,8 @@ class NodeSlotIndexAdapter {
                     //
                     // If on the insert/update path OR on delete path with level == 0, try to fetch the previous node.
                     //
-                    return AsyncUtil.collect(transaction.getRange(new Range(secondarySubspace.pack(Tuple.from(level)),
-                                    packedKey), 1, true, StreamingMode.EXACT))
+                    return AsyncUtil.collect(transaction.getRange(new Range(nodeSlotIndexSubspace.pack(Tuple.from(level)),
+                                    packedKey), 1, true, StreamingMode.WANT_ALL))
                             .thenApply(previousKeyValues -> {
                                 Verify.verify(previousKeyValues.size() <= 1);
 
@@ -177,14 +178,14 @@ class NodeSlotIndexAdapter {
     void writeChildSlot(@Nonnull final Transaction transaction, final int level,
                         @Nonnull final ChildSlot childSlot) {
         final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
-        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        final byte[] packedKey = nodeSlotIndexSubspace.pack(indexKeyTuple);
         transaction.set(packedKey, emptyArray);
         onWriteListener.onSlotIndexEntryWritten(packedKey);
     }
 
     void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
         final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
-        final byte[] packedKey = secondarySubspace.pack(indexKeyTuple);
+        final byte[] packedKey = nodeSlotIndexSubspace.pack(indexKeyTuple);
         transaction.clear(packedKey);
         onWriteListener.onSlotIndexEntryCleared(packedKey);
     }

@@ -31,7 +31,7 @@ import java.util.List;
  * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
  * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
  */
-public class IntermediateNode extends AbstractNode<ChildSlot, IntermediateNode> {
+class IntermediateNode extends AbstractNode<ChildSlot, IntermediateNode> {
     public IntermediateNode(@Nonnull final byte[] id) {
         this(id, Lists.newArrayList());
     }

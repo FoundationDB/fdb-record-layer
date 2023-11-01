@@ -29,11 +29,7 @@ import java.util.List;
 /**
  * A leaf node of the R-tree. A leaf node holds the actual data in {@link ItemSlot}s.
  */
-public class LeafNode extends AbstractNode<ItemSlot, LeafNode> {
-    public LeafNode(@Nonnull final byte[] id) {
-        this(id, Lists.newArrayList());
-    }
-
+class LeafNode extends AbstractNode<ItemSlot, LeafNode> {
     public LeafNode(@Nonnull final byte[] id,
                     @Nonnull final List<ItemSlot> itemSlots) {
         this(id, itemSlots, null, -1);

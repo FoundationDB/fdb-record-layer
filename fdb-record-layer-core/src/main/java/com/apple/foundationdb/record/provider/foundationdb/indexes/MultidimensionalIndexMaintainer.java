@@ -92,6 +92,8 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
+    private static final byte nodeSlotIndexSubspaceIndicator = 0x00;
+    @Nonnull
     private final RTree.Config config;
 
     public MultidimensionalIndexMaintainer(IndexMaintainerState state) {
@@ -119,7 +121,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final ScanProperties innerScanProperties = scanProperties.with(ExecuteProperties::clearSkipAndLimit);
         final CursorLimitManager cursorLimitManager = new CursorLimitManager(state.context, innerScanProperties);
         final Subspace indexSubspace = getIndexSubspace();
-        final Subspace secondarySubspace = getSecondarySubspace();
+        final Subspace nodeSlotIndexSubspace = getNodeSlotIndexSubspace();
         final FDBStoreTimer timer = Objects.requireNonNull(state.context.getTimer());
 
         //
@@ -130,14 +132,14 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, mDScanBounds, innerScanProperties),
                         (prefixTuple, innerContinuation) -> {
                             final Subspace rtSubspace;
-                            final Subspace rtSecondarySubspace;
+                            final Subspace rtNodeSlotIndexSubspace;
                             if (prefixTuple != null) {
                                 Verify.verify(prefixTuple.size() == prefixSize);
                                 rtSubspace = indexSubspace.subspace(prefixTuple);
-                                rtSecondarySubspace = secondarySubspace.subspace(prefixTuple);
+                                rtNodeSlotIndexSubspace = nodeSlotIndexSubspace.subspace(prefixTuple);
                             } else {
                                 rtSubspace = indexSubspace;
-                                rtSecondarySubspace = secondarySubspace;
+                                rtNodeSlotIndexSubspace = nodeSlotIndexSubspace;
                             }
 
                             final Continuation parsedContinuation = Continuation.fromBytes(innerContinuation);
@@ -145,7 +147,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     parsedContinuation == null ? null : parsedContinuation.getLastHilbertValue();
                             final Tuple lastKey = parsedContinuation == null ? null : parsedContinuation.getLastKey();
 
-                            final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
+                            final RTree rTree = new RTree(rtSubspace, rtNodeSlotIndexSubspace, getExecutor(), config,
                                     RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
@@ -248,20 +250,20 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final int prefixSize = dimensionsKeyExpression.getPrefixSize();
         final int dimensionsSize = dimensionsKeyExpression.getDimensionsSize();
         final Subspace indexSubspace = getIndexSubspace();
-        final Subspace secondarySubspace = getSecondarySubspace();
+        final Subspace nodeSlotIndexSubspace = getNodeSlotIndexSubspace();
         final Map<Subspace, CompletableFuture<Void>> rankFutures = Maps.newHashMapWithExpectedSize(indexEntries.size());
         for (final IndexEntry indexEntry : indexEntries) {
             final var indexKeyItems = indexEntry.getKey().getItems();
             final Tuple prefixKey = Tuple.fromList(indexKeyItems.subList(0, prefixSize));
 
             final Subspace rtSubspace;
-            final Subspace rtSecondarySubspace;
+            final Subspace rtNodeSlotIndexSubspace;
             if (prefixSize > 0) {
                 rtSubspace = indexSubspace.subspace(prefixKey);
-                rtSecondarySubspace = secondarySubspace.subspace(prefixKey);
+                rtNodeSlotIndexSubspace = nodeSlotIndexSubspace.subspace(prefixKey);
             } else {
                 rtSubspace = indexSubspace;
-                rtSecondarySubspace = secondarySubspace;
+                rtNodeSlotIndexSubspace = nodeSlotIndexSubspace;
             }
 
             // It is unsafe to have two concurrent updates to the same R-tree, so ensure that at most
@@ -278,7 +280,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                         keySuffixParts.addAll(primaryKeyParts);
                         final Tuple keySuffix = Tuple.fromList(keySuffixParts);
                         final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
-                        final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, getExecutor(), config,
+                        final RTree rTree = new RTree(rtSubspace, rtNodeSlotIndexSubspace, getExecutor(), config,
                                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId, new OnWrite(timer),
                                 OnReadListener.NOOP);
                         if (remove) {
@@ -314,11 +316,16 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
             // store data at the prefix key itself.
-            final Subspace rankSubspace = getSecondarySubspace();
-            final byte[] key = rankSubspace.pack(prefix);
+            final Subspace nodeSlotIndexSubspace = getNodeSlotIndexSubspace();
+            final byte[] key = nodeSlotIndexSubspace.pack(prefix);
             tr.clear(key, ByteArrayUtil.strinc(key));
             return v;
         });
+    }
+
+    @Nonnull
+    private Subspace getNodeSlotIndexSubspace() {
+        return getSecondarySubspace().subspace(Tuple.from(nodeSlotIndexSubspaceIndicator));
     }
 
     /**
