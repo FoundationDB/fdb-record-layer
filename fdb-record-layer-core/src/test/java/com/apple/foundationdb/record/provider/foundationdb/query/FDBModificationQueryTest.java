@@ -70,6 +70,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -796,6 +797,14 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
                     plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            var plan1 = getUpdateArrayPlan(cascadesPlanner);
+            var plan2 = getUpdateArrayPlan(cascadesPlanner);
+            Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
+                    plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     private RecordQueryPlan getUpdatePlan(final CascadesPlanner cascadesPlanner) {
@@ -831,6 +840,52 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
                             "RestaurantReviewer",
                             reviewerType,
+                            ImmutableMap.of(updatePath, updateValue))));
+
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+    }
+
+    private RecordQueryPlan getUpdateArrayPlan(final CascadesPlanner cascadesPlanner) {
+        return cascadesPlanner.planGraph(
+                () -> {
+                    final var recordDescriptor = TestRecords4Proto.RestaurantRecord.getDescriptor();
+                    final var recordType = Type.Record.fromDescriptor(recordDescriptor);
+
+                    final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+
+                    var qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                    qun,
+                                    recordType)));
+
+                    var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var rest_no =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(rest_no, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+
+                    final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("reviews", -1)));
+                    final var updateValue = LightArrayConstructorValue.of(
+                            RecordConstructorValue.ofUnnamed(List.of(LiteralValue.ofScalar(1), LiteralValue.ofScalar(34))),
+                            RecordConstructorValue.ofUnnamed(List.of(LiteralValue.ofScalar(2), LiteralValue.ofScalar(14)))
+                    );
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
+                            "RestaurantRecord",
+                            recordType,
                             ImmutableMap.of(updatePath, updateValue))));
 
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
