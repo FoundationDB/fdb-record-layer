@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
@@ -103,7 +104,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED_MAP, OUTER);
             typeBuilder.addNestedConstituent("map_entry", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_CONCAT, ENTRIES_FAN_OUT);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_FAN_OUT);
         };
     }
 
@@ -111,9 +112,9 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(TWO_UNNESTED_MAPS, OUTER);
             typeBuilder.addNestedConstituent("entry_one", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_CONCAT, ENTRIES_FAN_OUT);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_FAN_OUT);
             typeBuilder.addNestedConstituent("entry_two", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_CONCAT, ENTRIES_FAN_OUT);
+                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRIES_FAN_OUT);
         };
     }
 
@@ -121,11 +122,11 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         return metaDataBuilder -> {
             final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(DOUBLE_NESTED, OUTER);
             typeBuilder.addNestedConstituent("middle", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, field("many_middle", FanType.Concatenate), field("many_middle", FanType.FanOut));
+                    UnnestedRecordType.PARENT_CONSTITUENT, field("many_middle", FanType.FanOut));
             typeBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(),
-                    "middle", field("inner", FanType.Concatenate), field("inner", FanType.FanOut));
+                    "middle", field("inner", FanType.FanOut));
             typeBuilder.addNestedConstituent("outer_inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, field("inner", FanType.Concatenate), field("inner", FanType.FanOut));
+                    UnnestedRecordType.PARENT_CONSTITUENT, field("inner", FanType.FanOut));
         };
     }
 
@@ -142,6 +143,21 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
                         .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder().setKey("wid").setValue("get"))
                 )
                 .build();
+    }
+
+    private TestRecordsNestedMapProto.OuterRecord sampleMapRecordWithDuplicateEntries() {
+        return TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                .setRecId(1415L)
+                .setMap(TestRecordsNestedMapProto.MapRecord.newBuilder()
+                        .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder().setKey("foo").setValue("bar"))
+                        .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder().setKey("wow").setValue("zaa"))
+                        .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder().setKey("foo").setValue("bar"))
+                )
+                .build();
+    }
+
+    private Collection<TestRecordsNestedMapProto.OuterRecord> sampleMapRecords() {
+        return List.of(sampleMapRecord(), sampleMapRecordWithDuplicateEntries());
     }
 
     private TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedRecord() {
@@ -271,19 +287,20 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
 
-            TestRecordsNestedMapProto.OuterRecord outerRecord = sampleMapRecord();
-            FDBStoredRecord<Message> stored = recordStore.saveRecord(outerRecord);
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                FDBStoredRecord<Message> stored = recordStore.saveRecord(outerRecord);
 
-            for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
-                final TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
-                final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i));
-                FDBSyntheticRecord synthetic = recordStore.loadSyntheticRecord(syntheticPrimaryKey).join();
-                assertNotNull(synthetic);
-                assertEquals(syntheticPrimaryKey, synthetic.getPrimaryKey());
-                assertEquals(syntheticPrimaryKey, unnestedType.getPrimaryKey().evaluateMessageSingleton(synthetic, synthetic.getRecord()).toTuple());
+                for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
+                    final TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
+                    final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i));
+                    FDBSyntheticRecord synthetic = recordStore.loadSyntheticRecord(syntheticPrimaryKey).join();
+                    assertNotNull(synthetic);
+                    assertEquals(syntheticPrimaryKey, synthetic.getPrimaryKey());
+                    assertEquals(syntheticPrimaryKey, unnestedType.getPrimaryKey().evaluateMessageSingleton(synthetic, synthetic.getRecord()).toTuple());
 
-                assertEquals(outerRecord, synthetic.getConstituent(UnnestedRecordType.PARENT_CONSTITUENT).getRecord());
-                assertEquals(entry, synthetic.getConstituent("map_entry").getRecord());
+                    assertEquals(outerRecord, synthetic.getConstituent(UnnestedRecordType.PARENT_CONSTITUENT).getRecord());
+                    assertEquals(entry, synthetic.getConstituent("map_entry").getRecord());
+                }
             }
 
             commit(context);
@@ -298,23 +315,24 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
 
-            TestRecordsNestedMapProto.OuterRecord outerRecord = sampleMapRecord();
-            FDBStoredRecord<Message> stored = recordStore.saveRecord(outerRecord);
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                FDBStoredRecord<Message> stored = recordStore.saveRecord(outerRecord);
 
-            for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
-                final TestRecordsNestedMapProto.MapRecord.Entry entry1 = outerRecord.getMap().getEntry(i);
-                for (int j = 0; j < outerRecord.getMap().getEntryCount(); j++) {
-                    final TestRecordsNestedMapProto.MapRecord.Entry entry2 = outerRecord.getMap().getEntry(j);
+                for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
+                    final TestRecordsNestedMapProto.MapRecord.Entry entry1 = outerRecord.getMap().getEntry(i);
+                    for (int j = 0; j < outerRecord.getMap().getEntryCount(); j++) {
+                        final TestRecordsNestedMapProto.MapRecord.Entry entry2 = outerRecord.getMap().getEntry(j);
 
-                    final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i), Tuple.from(j));
-                    FDBSyntheticRecord synthetic = recordStore.loadSyntheticRecord(syntheticPrimaryKey).join();
-                    assertNotNull(synthetic);
-                    assertEquals(syntheticPrimaryKey, synthetic.getPrimaryKey());
-                    assertEquals(syntheticPrimaryKey, unnestedType.getPrimaryKey().evaluateMessageSingleton(synthetic, synthetic.getRecord()).toTuple());
+                        final Tuple syntheticPrimaryKey = Tuple.from(unnestedType.getRecordTypeKey(), stored.getPrimaryKey(), Tuple.from(i), Tuple.from(j));
+                        FDBSyntheticRecord synthetic = recordStore.loadSyntheticRecord(syntheticPrimaryKey).join();
+                        assertNotNull(synthetic);
+                        assertEquals(syntheticPrimaryKey, synthetic.getPrimaryKey());
+                        assertEquals(syntheticPrimaryKey, unnestedType.getPrimaryKey().evaluateMessageSingleton(synthetic, synthetic.getRecord()).toTuple());
 
-                    assertEquals(outerRecord, synthetic.getConstituent(UnnestedRecordType.PARENT_CONSTITUENT).getRecord());
-                    assertEquals(entry1, synthetic.getConstituent("entry_one").getRecord());
-                    assertEquals(entry2, synthetic.getConstituent("entry_two").getRecord());
+                        assertEquals(outerRecord, synthetic.getConstituent(UnnestedRecordType.PARENT_CONSTITUENT).getRecord());
+                        assertEquals(entry1, synthetic.getConstituent("entry_one").getRecord());
+                        assertEquals(entry2, synthetic.getConstituent("entry_two").getRecord());
+                    }
                 }
             }
 
