@@ -372,8 +372,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                 "RestaurantRecord",
-                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
     }
 
@@ -416,8 +415,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                             "RestaurantRecord",
-                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                            TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 },
                 Optional.empty(),
@@ -523,7 +521,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
                                 "RestaurantRecord",
                                 restaurantType,
-                                TestRecords4Proto.RestaurantRecord.getDescriptor(),
                                 ImmutableMap.of(updatePath, updateValue))));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
@@ -718,7 +715,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         final var innerQun = Quantifier.existential(GroupExpressionRef.of(new UpdateExpression(qun,
                                 "RestaurantRecord",
                                 restaurantType,
-                                TestRecords4Proto.RestaurantRecord.getDescriptor(),
                                 ImmutableMap.of(namePath, LiteralValue.ofScalar("McDonald's")))));
 
                         graphExpansionBuilder = GraphExpansion.builder();
@@ -729,8 +725,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                                 "RestaurantRecord",
-                                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                                TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                     },
@@ -836,7 +831,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
                             "RestaurantReviewer",
                             reviewerType,
-                            TestRecords4Proto.RestaurantReviewer.getDescriptor(),
                             ImmutableMap.of(updatePath, updateValue))));
 
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));

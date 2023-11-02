@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,11 +72,10 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
-                                  @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final TransformationTrieNode transformationsTrie,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, targetRecordType, targetType, targetDescriptor, transformationsTrie, coercionsTrie, computationValue);
+        super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue);
     }
 
     @Override
@@ -103,7 +101,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
-                getTargetDescriptor(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
                 getComputationValue().translateCorrelations(translationMap));
@@ -141,7 +138,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         return new RecordQueryUpdatePlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
                 getTargetType(),
-                getTargetDescriptor(),
                 getTransformationsTrie(),
                 getCoercionTrie(),
                 getComputationValue());
@@ -207,7 +203,6 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * @param inner an input value to transform
      * @param targetRecordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
-     * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param transformMap a map of field paths to values.
      * @param computationValue a value to be computed based on the {@code inner} and
      *        {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
@@ -217,14 +212,12 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     public static RecordQueryUpdatePlan updatePlan(@Nonnull final Quantifier.Physical inner,
                                                    @Nonnull final String targetRecordType,
                                                    @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                    @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
                                                    @Nonnull final Value computationValue) {
         final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
                 targetRecordType,
                 targetType,
-                targetDescriptor,
                 transformationsTrie,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), transformationsTrie),
                 computationValue);
