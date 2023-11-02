@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -565,7 +564,14 @@ public class MessageHelpers {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, getChildrenMap() == null ? ImmutableSet.of() : getChildrenMap().keySet(), getChildren());
+            if (getChildrenMap() == null) {
+                return 0;
+            }
+            int hashCode = 0;
+            for (var entry : getChildrenMap().entrySet()) {
+                hashCode += 31 * PlanHashable.objectsPlanHash(hashKind, entry.getKey(), entry.getValue());
+            }
+            return hashCode;
         }
     }
 }
