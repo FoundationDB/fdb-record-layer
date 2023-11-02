@@ -118,7 +118,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("num_value_3_indexed")))));
             assertEquals(-625770219, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2121134346, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-174493486, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(762284175, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
             List<TestRecords1Proto.MySimpleRecord> results = recordStore.executeQuery(plan)

@@ -176,12 +176,12 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1229687959, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(495674893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1229687959, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(495674893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
@@ -216,12 +216,12 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             assertThat(plan, scan(unbounded()));
             assertEquals(2, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1305688464, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(689631052, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1305688464, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, scan(unbounded()));
             assertEquals(2, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-690292541, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(689631052, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-690292541, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 

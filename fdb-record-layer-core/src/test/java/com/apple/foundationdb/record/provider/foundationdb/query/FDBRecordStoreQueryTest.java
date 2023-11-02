@@ -258,7 +258,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
                 assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(-1229687959, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(495674893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(-1229687959, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 assertMatchesExactly(plan,
@@ -266,7 +266,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
                 assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(495674893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(667716470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             byte[] continuation = null;
@@ -723,7 +723,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                                 ).where(recordTypes(containsAll(ImmutableSet.of("MultiRecordOne", "MultiRecordTwo"))))
                         ).where(queryComponents(only(equalsObject(Query.field("element").oneOfThem().greaterThan("A"))))));
                 assertEquals(-663593392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(626586243, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-1389737221, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(787396136, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 // Cascades planner correctly identifies that the requested record types match the index onetwo$element.

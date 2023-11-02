@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class VariadicFunctionValue extends AbstractValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Scalar-Function-Value");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Variadic-Function-Value");
 
     @Nonnull
     private final PhysicalOperator operation;

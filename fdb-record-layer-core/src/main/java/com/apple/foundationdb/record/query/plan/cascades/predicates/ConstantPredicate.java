@@ -119,11 +119,6 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     }
 
     @Override
-    public int planHash() {
-        return value == null ? 2 : (value ? 0 : 1);
-    }
-
-    @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:

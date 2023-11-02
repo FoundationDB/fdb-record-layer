@@ -344,6 +344,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
             case LEGACY:
                 return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
             case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, flowedType, commonPrimaryKey);
             default:

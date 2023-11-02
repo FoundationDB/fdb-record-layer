@@ -324,7 +324,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computePlanHashForContinuation() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType, transformationsTrie, coercionTrie);
     }
 
     private int computeRegularPlanHashWithoutLiterals() {
