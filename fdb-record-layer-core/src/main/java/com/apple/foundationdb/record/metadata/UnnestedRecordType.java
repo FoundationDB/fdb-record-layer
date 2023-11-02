@@ -35,9 +35,12 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -105,7 +108,7 @@ import java.util.concurrent.CompletableFuture;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.Constituent> {
+public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.NestedConstituent> {
     /**
      * The name of the constituent referring to the stored record. All other constituents should ultimately be
      * derived from unnesting a repeated fields on this constituent.
@@ -121,57 +124,39 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
     public static final String POSITIONS_FIELD = "__positions";
 
     @Nonnull
-    private final List<Nesting> nestings;
+    private final NestedConstituent parentConstituent;
 
-    /**
-     * One of the relationships nesting one constituent within another.
-     */
-    public static class Nesting {
-        @Nonnull
-        private final Constituent parentConstituent;
-        @Nonnull
-        private final Constituent childConstituent;
+    public static class NestedConstituent extends SyntheticRecordType.Constituent {
+        @Nullable
+        private final NestedConstituent parent;
         @Nonnull
         private final KeyExpression nestingExpression;
 
-        Nesting(@Nonnull Constituent parentConstituent, @Nonnull Constituent childConstituent, @Nonnull KeyExpression nestingExpression) {
-            this.parentConstituent = parentConstituent;
-            this.childConstituent = childConstituent;
+        NestedConstituent(@Nonnull final String name, @Nonnull final RecordType recordType,
+                                    @Nullable final NestedConstituent parent,
+                                    @Nonnull KeyExpression nestingExpression) {
+            super(name, recordType);
+            this.parent = parent;
             this.nestingExpression = nestingExpression;
         }
 
-        /**
-         * The constituent representing the outer record in the nesting.
-         *
-         * @return the parent constituent
-         */
-        @Nonnull
-        public Constituent getParentConstituent() {
-            return parentConstituent;
+        @Nullable
+        public NestedConstituent getParent() {
+            return parent;
         }
 
-        /**
-         * The constituent representing the inner record in the nesting.
-         *
-         * @return the child constituent
-         */
-        @Nonnull
-        public Constituent getChildConstituent() {
-            return childConstituent;
+        @Nullable
+        public String getParentName() {
+            return parent == null ? null : parent.getName();
         }
 
-        /**
-         * The key expression representing how child elements can be extracted from the
-         * parent constituent. This should generally be a key expression with fan type
-         * {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType#FanOut}.
-         * This expression will be evaluated against elements from the parent constituent to
-         * produce elements of the child constituent.
-         *
-         * @return the key expression linking parent records to child records
-         */
         @Nonnull
         public KeyExpression getNestingExpression() {
             return nestingExpression;
+        }
+
+        public boolean isParent() {
+            return parent == null;
         }
     }
 
@@ -182,20 +167,18 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
                                  @Nonnull final Object recordTypeKey,
                                  @Nonnull final List<Index> indexes,
                                  @Nonnull final List<Index> multiTypeIndexes,
-                                 @Nonnull final List<Constituent> constituents,
-                                 @Nonnull final List<Nesting> nestings) {
+                                 @Nonnull final List<NestedConstituent> constituents
+                                 /*@Nonnull final List<Nesting> nestings*/) {
         super(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, constituents);
-        this.nestings = nestings;
+        this.parentConstituent = constituents.stream()
+                .filter(NestedConstituent::isParent)
+                .findFirst()
+                .orElseThrow(() -> new MetaDataException("unnested record type missing parent constituent"));
     }
 
-    /**
-     * Get the list of nested relationships between constituents in this synthetic record type.
-     *
-     * @return a list of nestings explaining how different constituents in this type are related
-     */
     @Nonnull
-    public List<Nesting> getNestings() {
-        return nestings;
+    public NestedConstituent getParentConstituent() {
+        return parentConstituent;
     }
 
     @Override
@@ -210,14 +193,14 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
             boolean foundMore = true;
             while (foundMore) {
                 foundMore = false;
-                for (Nesting nesting : nestings) {
-                    if (constituentValues.containsKey(nesting.getParentConstituent().getName())
-                            && !constituentValues.containsKey(nesting.getChildConstituent().getName())) {
+                for (NestedConstituent constituent : getConstituents()) {
+                    if (!constituent.isParent() && constituentValues.containsKey(constituent.getParentName())
+                            && !constituentValues.containsKey(constituent.getName())) {
                         foundMore = true;
-                        FDBStoredRecord<?> parentRecord = constituentValues.get(nesting.getParentConstituent().getName());
-                        List<Key.Evaluated> childElems = nesting.getNestingExpression().evaluate(parentRecord);
+                        FDBStoredRecord<?> parentRecord = constituentValues.get(constituent.getParentName());
+                        List<Key.Evaluated> childElems = constituent.getNestingExpression().evaluate(parentRecord);
 
-                        int childConstituentIndex = getConstituents().indexOf(nesting.getChildConstituent());
+                        int childConstituentIndex = getConstituents().indexOf(constituent);
                         int childElemIndex = (int) primaryKey.getNestedTuple(childConstituentIndex + 1).getLong(0);
                         if (childElemIndex >= childElems.size()) {
                             throw new RecordCoreException("child element position is too large")
@@ -226,11 +209,11 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
                         Key.Evaluated childElem = childElems.get(childElemIndex);
                         Message childMessage = childElem.getObject(0, Message.class);
                         FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder()
-                                .setRecordType(nesting.getChildConstituent().getRecordType())
+                                .setRecordType(constituent.getRecordType())
                                 .setRecord(childMessage)
                                 .setPrimaryKey(Tuple.from(childElemIndex))
                                 .build();
-                        constituentValues.put(nesting.getChildConstituent().getName(), childRecord);
+                        constituentValues.put(constituent.getName(), childRecord);
                     }
                 }
             }
@@ -251,32 +234,34 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
                 .setName(getName())
                 .setRecordTypeKey(LiteralKeyExpression.toProtoValue(getRecordTypeKey()));
 
-        // Avoid serializing the parent constituent name so that it can be changed in the code without invalidating serialized structures
-        for (Constituent constituent : getConstituents()) {
-            if (PARENT_CONSTITUENT.equals(constituent.getName())) {
-                // Parent is somewhat special. The parent type name should be the record type's name
-                builder.addUnnestedConstituents(RecordMetaDataProto.UnnestedRecordType.UnnestedConstituent.newBuilder()
-                        .setTypeName(constituent.getRecordType().getName()));
-            } else {
-                // For all other constituents, the type name is the record descriptor's full name so that it can be unambiguously looked up
-                builder.addUnnestedConstituents(RecordMetaDataProto.UnnestedRecordType.UnnestedConstituent.newBuilder()
-                        .setName(constituent.getName())
-                        .setTypeName(constituent.getRecordType().getDescriptor().getFullName()));
-            }
+        final Iterator<NestedConstituent> constituentIterator = getConstituents().iterator();
+        if (!constituentIterator.hasNext()) {
+            throw new MetaDataException("constituents should not be empty");
         }
 
-        for (Nesting nesting : getNestings()) {
-            var nestingBuilder = RecordMetaDataProto.UnnestedRecordType.Nesting.newBuilder();
-            if (!PARENT_CONSTITUENT.equals(nesting.getParentConstituent().getName())) {
-                nestingBuilder.setParent(nesting.getParentConstituent().getName());
-            }
-            if (!PARENT_CONSTITUENT.equals(nesting.getChildConstituent().getName())) {
-                nestingBuilder.setChild(nesting.getChildConstituent().getName());
-            }
-            nestingBuilder.setNestingExpression(nesting.getNestingExpression().toKeyExpression());
-            builder.addNestings(nestingBuilder);
+        // Extract the parent type from the first constituent. This must be the first constituent
+        final NestedConstituent parentConstituent = constituentIterator.next();
+        if (!parentConstituent.isParent()) {
+            throw new MetaDataException("parent constituent in unnested record type should be first")
+                    .addLogInfo(LogMessageKeys.CONSTITUENT, parentConstituent.getName())
+                    .addLogInfo(LogMessageKeys.EXPECTED, UnnestedRecordType.PARENT_CONSTITUENT);
         }
+        builder.setParentTypeName(parentConstituent.getRecordType().getName());
 
+        // All other constituents should be serialized as nested constituents
+        while (constituentIterator.hasNext()) {
+            NestedConstituent constituent = constituentIterator.next();
+            if (constituent.isParent()) {
+                throw new MetaDataException("parent constituent in unnested record type should be first")
+                        .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName())
+                        .addLogInfo(LogMessageKeys.EXPECTED, UnnestedRecordType.PARENT_CONSTITUENT);
+            }
+            builder.addNestedConstituentsBuilder()
+                    .setName(constituent.getName())
+                    .setParent(Objects.requireNonNull(constituent.getParentName()))
+                    .setTypeName(constituent.getRecordType().getDescriptor().getFullName())
+                    .setNestingExpression(constituent.getNestingExpression().toKeyExpression());
+        }
         return builder.build();
     }
 }

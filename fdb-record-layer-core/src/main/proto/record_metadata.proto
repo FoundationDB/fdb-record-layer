@@ -216,20 +216,16 @@ message JoinedRecordType {
 message UnnestedRecordType {
   optional string name = 1;
   optional Value record_type_key = 2;
+  optional string parent_type_name = 3;
 
-  message UnnestedConstituent {
+  message NestedConstituent {
     optional string name = 1;
-    optional string type_name = 2;
+    optional string parent = 2;
+    optional string type_name = 3;
+    optional KeyExpression nesting_expression = 4;
   }
 
-  message Nesting {
-    optional string parent = 1;
-    optional string child = 2;
-    optional KeyExpression nesting_expression = 3;
-  }
-
-  repeated UnnestedConstituent unnested_constituents = 3;
-  repeated Nesting nestings = 4;
+  repeated NestedConstituent nested_constituents = 4;
 }
 
 ///////////////////////////////////////////////////

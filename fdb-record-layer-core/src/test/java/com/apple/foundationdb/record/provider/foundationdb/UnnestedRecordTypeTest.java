@@ -257,23 +257,16 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         assertSame(outerTypeFromProto, parentConstituent.getRecordType(), "parent constituent had incorrect object");
 
         assertEquals(type.getConstituents().size(), typeFromProto.getConstituents().size(), "types should have same number of constituents");
-        for (SyntheticRecordType.Constituent constituent : type.getConstituents()) {
-            SyntheticRecordType.Constituent constituentFromProto = typeFromProto.getConstituents().stream()
+        for (UnnestedRecordType.NestedConstituent constituent : type.getConstituents()) {
+            UnnestedRecordType.NestedConstituent constituentFromProto = typeFromProto.getConstituents().stream()
                     .filter(c -> c.getName().equals(constituent.getName()))
                     .findFirst()
                     .orElseGet(() -> fail("missing constituent " + constituent.getName()));
             // Descriptors may not be equal because protobuf descriptors don't implement a simple equals, but they should
             // serialize to the same thing
             assertEquals(constituent.getRecordType().getDescriptor().toProto(), constituentFromProto.getRecordType().getDescriptor().toProto());
-        }
-
-        assertEquals(type.getNestings().size(), typeFromProto.getNestings().size());
-        for (int i = 0; i < type.getNestings().size(); i++) {
-            UnnestedRecordType.Nesting nesting = type.getNestings().get(i);
-            UnnestedRecordType.Nesting nestingFromProto = typeFromProto.getNestings().get(i);
-            assertEquals(nesting.getParentConstituent().getName(), nestingFromProto.getParentConstituent().getName());
-            assertEquals(nesting.getChildConstituent().getName(), nestingFromProto.getChildConstituent().getName());
-            assertEquals(nesting.getNestingExpression(), nestingFromProto.getNestingExpression());
+            assertEquals(constituent.getParentName(), constituentFromProto.getParentName());
+            assertEquals(constituent.getNestingExpression(), constituentFromProto.getNestingExpression());
         }
     }
 

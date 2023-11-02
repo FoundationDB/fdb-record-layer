@@ -227,11 +227,7 @@ public class SyntheticRecordPlanner {
             } else if (recordType instanceof UnnestedRecordType) {
                 // In an unnested record type, only the parent provides a real record
                 UnnestedRecordType unnestedRecordType = (UnnestedRecordType)recordType;
-                result.add(unnestedRecordType.getConstituents().stream()
-                        .filter(c -> UnnestedRecordType.PARENT_CONSTITUENT.equals(c.getName()))
-                        .findAny()
-                        .map(SyntheticRecordType.Constituent::getRecordType)
-                        .orElseThrow());
+                result.add(unnestedRecordType.getParentConstituent().getRecordType());
             } else {
                 throw unknownSyntheticType(recordType);
             }

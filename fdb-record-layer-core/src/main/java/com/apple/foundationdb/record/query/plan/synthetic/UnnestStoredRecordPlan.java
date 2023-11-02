@@ -85,7 +85,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         toProcess.add(root);
         while (!toProcess.isEmpty()) {
             NestingNode next = toProcess.pollFirst();
-            for (UnnestedRecordType.Nesting nesting : recordType.getNestings()) {
+            for (UnnestedRecordType.NestedConstituent nesting : recordType.getConstituents()) {
                 next.processNesting(nesting, toProcess);
             }
         }
@@ -122,8 +122,8 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             this.storedRecord = storedRecord;
         }
 
-        public boolean processNesting(@Nonnull UnnestedRecordType.Nesting nesting, final Deque<NestingNode> toProcess) {
-            if (!constituentName.equals(nesting.getParentConstituent().getName())) {
+        public boolean processNesting(@Nonnull UnnestedRecordType.NestedConstituent nesting, final Deque<NestingNode> toProcess) {
+            if (!constituentName.equals(nesting.getParentName())) {
                 return false;
             }
             List<Key.Evaluated> evaluatedList = nesting.getNestingExpression().evaluate(storedRecord);
@@ -131,10 +131,10 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
                 Key.Evaluated evaluated = evaluatedList.get(i);
                 Message childMessage = evaluated.getObject(0, Message.class);
                 FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder(childMessage)
-                        .setRecordType(nesting.getChildConstituent().getRecordType())
+                        .setRecordType(nesting.getRecordType())
                         .setPrimaryKey(Tuple.from(i))
                         .build();
-                addChild(nesting.getChildConstituent().getName(), childRecord, toProcess);
+                addChild(nesting.getName(), childRecord, toProcess);
             }
             return true;
         }
