@@ -199,6 +199,7 @@ public class UnnestedRecordType extends SyntheticRecordType<SyntheticRecordType.
     }
 
     @Override
+    @Nonnull
     @API(API.Status.INTERNAL)
     public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey) {
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
