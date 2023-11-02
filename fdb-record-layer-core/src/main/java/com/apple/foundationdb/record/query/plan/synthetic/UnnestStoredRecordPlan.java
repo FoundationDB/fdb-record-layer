@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.synthetic;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.Key;
@@ -47,6 +49,8 @@ import java.util.Map;
 import java.util.Set;
 
 class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("UnnestStoredRecordPlan");
+
     @Nonnull
     private final UnnestedRecordType recordType;
     @Nonnull
@@ -59,7 +63,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
 
     @Override
     public int planHash(@Nonnull final PlanHashMode hashMode) {
-        return 0;
+        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, recordType.getName(), storedRecordType.getName());
     }
 
     @Nonnull
