@@ -24,14 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -320,14 +323,14 @@ public class IndexAggregateFunctionCall {
      * Helper method to extract a set of key expressions that are bound through some comparison in the
      * query component passed in.
      * @param queryComponent the query component
-     * @param predicate a predicate used for filtering each encountered {@link FieldWithComparison}
+     * @param predicate a predicate used for filtering each encountered {@link ComponentWithComparison}
      * @return a set of {@link KeyExpression}s where each element is a key expression of a field (i.e. a
      * {@link com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression}) or a simple nesting field
      * (i.e. a {@link com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression}) that is bound
      * through some comparison
      */
     @Nonnull
-    public static Set<KeyExpression> extractFieldPaths(@Nonnull QueryComponent queryComponent, @Nonnull final Predicate<FieldWithComparison> predicate) {
+    public static Set<KeyExpression> extractFieldPaths(@Nonnull QueryComponent queryComponent, @Nonnull final Predicate<ComponentWithComparison> predicate) {
         if (queryComponent instanceof BaseField) {
             final BaseField baseField = (BaseField)queryComponent;
             if (baseField instanceof NestedField) {
@@ -339,10 +342,22 @@ public class IndexAggregateFunctionCall {
             }
             if (baseField instanceof FieldWithComparison) {
                 final FieldWithComparison fieldWithComparison = (FieldWithComparison)baseField;
-
                 if (predicate.test(fieldWithComparison)) {
                     return ImmutableSet.of(Key.Expressions.field(fieldWithComparison.getFieldName()));
                 }
+            }
+            if (baseField instanceof OneOfThemWithComparison) {
+                final OneOfThemWithComparison oneOfThemWithComparison = (OneOfThemWithComparison)baseField;
+                if (predicate.test(oneOfThemWithComparison)) {
+                    return ImmutableSet.of(Key.Expressions.field(oneOfThemWithComparison.getFieldName(), KeyExpression.FanType.FanOut));
+                }
+            }
+            if (baseField instanceof OneOfThemWithComponent) {
+                OneOfThemWithComponent oneOfThemWithComponent = (OneOfThemWithComponent)baseField;
+                final Set<KeyExpression> nestedExpressions = extractFieldPaths(oneOfThemWithComponent.getChild(), predicate);
+                return nestedExpressions.stream()
+                        .map(nestedExpression -> Key.Expressions.field(oneOfThemWithComponent.getFieldName(), KeyExpression.FanType.FanOut).nest(nestedExpression))
+                        .collect(ImmutableSet.toImmutableSet());
             }
             return ImmutableSet.of();
         } else if (queryComponent instanceof AndComponent) {
