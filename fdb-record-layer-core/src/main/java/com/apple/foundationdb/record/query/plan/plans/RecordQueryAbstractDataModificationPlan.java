@@ -95,8 +95,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
-    @Nonnull
-    private final Descriptors.Descriptor targetDescriptor;
 
     /**
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
@@ -130,7 +128,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
-                                                      @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                       @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
                                                       @Nonnull final Value computationValue) {
@@ -138,7 +135,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.innerFlowedType = inner.getFlowedObjectType();
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
-        this.targetDescriptor = targetDescriptor;
         this.transformationsTrie = transformationsTrie;
         this.coercionTrie = coercionTrie;
         this.computationValue = computationValue;
@@ -153,11 +149,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     public Type.Record getTargetType() {
         return targetType;
-    }
-
-    @Nonnull
-    public Descriptors.Descriptor getTargetDescriptor() {
-        return targetDescriptor;
     }
 
     @Nullable
@@ -194,9 +185,9 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-
+        final var targetDescriptor = store.getRecordMetaData().getRecordType(targetRecordType).getDescriptor();
         return results
-                .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult)))
+                .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
                 .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
@@ -213,7 +204,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nullable
     @SuppressWarnings("unchecked")
-    public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final QueryResult queryResult) {
+    public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
+                                              @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
                 context.withBinding(inner.getAlias(), queryResult),

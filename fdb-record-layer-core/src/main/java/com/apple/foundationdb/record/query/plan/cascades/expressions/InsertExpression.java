@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -58,20 +57,16 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
-    @Nonnull
-    private final Descriptors.Descriptor targetDescriptor;
 
     @Nonnull
     private final Value resultValue;
 
     public InsertExpression(@Nonnull final Quantifier.ForEach inner,
                             @Nonnull final String targetRecordType,
-                            @Nonnull final Type.Record targetType,
-                            @Nonnull final Descriptors.Descriptor targetDescriptor) {
+                            @Nonnull final Type.Record targetType) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
-        this.targetDescriptor = targetDescriptor;
         this.resultValue = new QueriedValue(targetType);
     }
 
@@ -96,7 +91,7 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     @Override
     public InsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new InsertExpression(inner, targetRecordType, targetType, targetDescriptor);
+        return new InsertExpression(inner, targetRecordType, targetType);
     }
 
     @Nonnull
@@ -111,7 +106,6 @@ public class InsertExpression implements RelationalExpressionWithChildren, Plann
         return RecordQueryInsertPlan.insertPlan(physicalInner,
                 targetRecordType,
                 targetType,
-                targetDescriptor,
                 makeComputationValue(targetType));
     }
 

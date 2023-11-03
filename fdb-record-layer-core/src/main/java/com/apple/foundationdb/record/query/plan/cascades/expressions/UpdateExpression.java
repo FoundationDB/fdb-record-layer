@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -69,8 +68,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     private final String targetRecordType;
     @Nonnull
     private final Type.Record targetType;
-    @Nonnull
-    private final Descriptors.Descriptor targetDescriptor;
 
     @Nonnull
     private final Value resultValue;
@@ -87,12 +84,10 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     public UpdateExpression(@Nonnull final Quantifier.ForEach inner,
                             @Nonnull final String targetRecordType,
                             @Nonnull final Type.Record targetType,
-                            @Nonnull final Descriptors.Descriptor targetDescriptor,
                             @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
-        this.targetDescriptor = targetDescriptor;
         this.resultValue = new QueriedValue(computeResultType(inner.getFlowedObjectType(), targetType));
         this.transformMap = ImmutableMap.copyOf(transformMap);
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
@@ -136,7 +131,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         for (final var entry : transformMap.entrySet()) {
             translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
         }
-        return new UpdateExpression(inner, targetRecordType, targetType, targetDescriptor, translatedTransformMapBuilder.build());
+        return new UpdateExpression(inner, targetRecordType, targetType, translatedTransformMapBuilder.build());
     }
 
     @Nonnull
@@ -151,7 +146,6 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         return RecordQueryUpdatePlan.updatePlan(physicalInner,
                 targetRecordType,
                 targetType,
-                targetDescriptor,
                 transformMap,
                 makeComputationValue(physicalInner, targetType));
     }
