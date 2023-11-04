@@ -27,15 +27,16 @@ import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.TieredMergePolicy;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 
 @ParametersAreNonnullByDefault
 class FDBTieredMergePolicy extends TieredMergePolicy {
-    private final IndexDeferredMaintenancePolicy deferredPolicy;
+    @Nullable private final IndexDeferredMaintenancePolicy deferredPolicy;
     private final FDBRecordContext context;
 
-    public FDBTieredMergePolicy(IndexDeferredMaintenancePolicy deferredPolicy, FDBRecordContext context) {
+    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenancePolicy deferredPolicy, FDBRecordContext context) {
         this.deferredPolicy = deferredPolicy;
         this.context = context;
     }
@@ -45,32 +46,33 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
                mergeTrigger == MergeTrigger.COMMIT;
     }
 
+    private int specSize(@Nullable MergeSpecification spec) {
+        return spec != null && spec.merges != null ? spec.merges.size() : 0;
+    }
+
     @Override
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
+        if (deferredPolicy == null) {
+            return super.findMerges(mergeTrigger, infos, mergeContext);
+        }
         if (!deferredPolicy.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
             // Here: skip it. The merge should be performed later by the user.
             return null;
         }
         long startTime = System.nanoTime();
-        final MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
+        MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
         context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
-        final int diluteLevel = deferredPolicy.getDiluteLevel();
-        if (diluteLevel > 0) {
-            final int size = spec.merges.size();
-            final int newSize = Math.max(1, size >> diluteLevel);
-            if (size <= newSize) {
-                // Here: cannot dilute (could also happen normally at the tail of a merge session)
-                deferredPolicy.setDilutedResults(IndexDeferredMaintenancePolicy.DilutedResults.NOT_DILUTED);
-            } else {
-                // Here: dilute needed. However, cannot dilute the original spec - must create a new one.
-                deferredPolicy.setDilutedResults(IndexDeferredMaintenancePolicy.DilutedResults.HAS_MORE);
-                MergeSpecification dilutedSpec = new MergeSpecification();
-                for (int i = 0; i < newSize; i++) {
-                    dilutedSpec.add(spec.merges.get(i));
-                }
-                return dilutedSpec;
+        final long mergesLimit = deferredPolicy.getMergesLimit();
+        int originSpecSize = specSize(spec);
+        deferredPolicy.setMergesFound(originSpecSize);
+        if (mergesLimit > 0 && originSpecSize > 0 && mergesLimit < originSpecSize) {
+            MergeSpecification dilutedSpec = new MergeSpecification();
+            for (int i = 0; i < mergesLimit; i++) {
+                dilutedSpec.add(spec.merges.get(i));
             }
+            spec = dilutedSpec;
         }
+        deferredPolicy.setMergesTried(specSize(spec));
         return spec;
     }
 }

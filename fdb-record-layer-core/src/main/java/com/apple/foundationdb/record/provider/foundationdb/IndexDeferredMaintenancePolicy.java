@@ -32,19 +32,9 @@ import java.util.Set;
 public class IndexDeferredMaintenancePolicy {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = true;
-    private int diluteLevel = -1;
-    private DilutedResults dilutedResults = DilutedResults.ALL_DONE;
-
-    /**
-     * If the merge caller sets dilute level to a non-negative number, the merge implementation is responsible
-     * to handle these values correctly.
-     */
-    public enum DilutedResults {
-        // Note that ALL_DONE and CANNOT_DILUTE are only distinguished for debugging purpose
-        ALL_DONE,  // No dilution was requested
-        HAS_MORE, // Merges were diluted - the caller should call again
-        NOT_DILUTED, // Merges cannot be diluted - could be the last chunk if an iteration
-    }
+    private long mergesLimit = 0;
+    private long mergesFound;
+    private long mergesTried;
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -84,39 +74,27 @@ public class IndexDeferredMaintenancePolicy {
         this.autoMergeDuringCommit = autoMergeDuringCommit;
     }
 
-    /**
-     * Dilute level is:
-     * negative: do not apply any dilution logic.
-     * zero: do not dilute, but may be diluted in case of failure.
-     * positive: attempt dilute of num-merges / (2 ^ dilute-level)
-     * @return dilute level
-     */
-    public int getDiluteLevel() {
-        return diluteLevel;
+    public long getMergesLimit() {
+        return mergesLimit;
     }
 
-    /**
-     * See {@link #getDiluteLevel()}.
-     * @param diluteLevel dilute level
-     */
-    public void setDiluteLevel(final int diluteLevel) {
-        this.diluteLevel = diluteLevel;
+    public void setMergesLimit(final long mergesLimit) {
+        this.mergesLimit = mergesLimit;
     }
 
-    /**
-     * If the merge caller sets dilute level to a non-negative number, the return value should indicate if there are more
-     * merges to merge, or if the merges cannot be diluted..
-     * @return dilute result.
-     */
-    public DilutedResults getDilutedResults() {
-        return dilutedResults;
+    public long getMergesFound() {
+        return mergesFound;
     }
 
-    /**
-     * See {@link #getDiluteLevel()}.
-     * @param dilutedResults dilute results.
-     */
-    public void setDilutedResults(final DilutedResults dilutedResults) {
-        this.dilutedResults = dilutedResults;
+    public void setMergesFound(final long mergesFound) {
+        this.mergesFound = mergesFound;
+    }
+
+    public long getMergesTried() {
+        return mergesTried;
+    }
+
+    public void setMergesTried(final long mergesTried) {
+        this.mergesTried = mergesTried;
     }
 }

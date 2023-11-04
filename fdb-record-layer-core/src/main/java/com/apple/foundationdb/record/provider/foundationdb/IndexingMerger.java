@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -50,7 +49,7 @@ import java.util.function.Function;
 public class IndexingMerger {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingMerger.class);
     private final Index index;
-    private int diluteLevel = 0;
+    private long mergesLimit = 0;
     private int mergeSuccesses = 0;
     private final IndexingCommon common;
 
@@ -82,33 +81,33 @@ public class IndexingMerger {
                                 .thenCompose(store -> {
                                     final IndexDeferredMaintenancePolicy policy = store.getIndexDeferredMaintenancePolicy();
                                     policyRef.set(policy);
-                                    policy.setDiluteLevel(diluteLevel);
+                                    policy.setMergesLimit(mergesLimit);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
                     final IndexDeferredMaintenancePolicy policy = policyRef.get();
-                    final IndexDeferredMaintenancePolicy.DilutedResults dilutedResults = policy.getDilutedResults();
                     if (e == null) {
-                        if (diluteLevel > 0 && ++mergeSuccesses > 3) {
+                        if (mergesLimit > 0 && mergeSuccesses > 3) {
                             mergeSuccesses = 0;
-                            diluteLevel --;
+                            mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
                         }
+                        mergeSuccesses++;
                         // Here: no error, stop the iteration unless has more
-                        tellLogger("Success", dilutedResults);
-                        return dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.HAS_MORE ?
-                               AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                        tellLogger("Success", policy);
+                        final boolean hasMore = policy.getMergesFound() > policy.getMergesTried();
+                        return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
                     }
                     // Here: got exception.
-                    if (0 > iterationLimit.decrementAndGet() || dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.NOT_DILUTED) {
-                        tellLogger("Gave up merge dilution", dilutedResults);
+                    if (0 > iterationLimit.decrementAndGet() || policy.getMergesTried() < 2) {
+                        tellLogger("Gave up merge dilution", policy);
                     } else {
                         final FDBException ex = IndexingBase.findException(e, FDBException.class);
                         if (ex != null && !lessenWorkCodes.contains(ex.getCode())) {
                             // Here: this exception might be resolved by reducing the load
-                            diluteLevel++;
-                            tellLogger("Merges diluted", dilutedResults);
+                            mergesLimit = policy.getMergesTried() / 2;
+                            tellLogger("Merges diluted", policy);
                             return AsyncUtil.READY_TRUE; // and retry
                         }
                     }
@@ -118,12 +117,13 @@ public class IndexingMerger {
                 ), common.getRunner().getExecutor());
     }
 
-    void tellLogger(String msg, @Nullable IndexDeferredMaintenancePolicy.DilutedResults dilutedResults) {
+    void tellLogger(String msg, final IndexDeferredMaintenancePolicy policy) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("IndexMerge: " + msg,
                     LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.DILUTE_LEVEL, diluteLevel,
-                    LogMessageKeys.DILUTE_RESULTS, dilutedResults
+                    LogMessageKeys.INDEX_MERGES_LIMIT, policy.getMergesLimit(),
+                    LogMessageKeys.INDEX_MERGES_FOUND, policy.getMergesFound(),
+                    LogMessageKeys.INDEX_MERGES_TRIED, policy.getMergesTried()
                     ));
         }
     }
