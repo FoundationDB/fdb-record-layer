@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * Implement an index merge.
@@ -51,7 +52,7 @@ public class IndexingMerger {
     private final Index index;
     private int diluteLevel = 0;
     private int mergeSuccesses = 0;
-    protected final IndexingCommon common;
+    private final IndexingCommon common;
 
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
@@ -75,9 +76,8 @@ public class IndexingMerger {
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     CompletableFuture<Void> mergeIndex() {
         final AtomicInteger iterationLimit = new AtomicInteger(1000);
-        CompletableFuture<Void> ret = new CompletableFuture<>();
         AtomicReference<IndexDeferredMaintenancePolicy> policyRef = new AtomicReference<>();
-        AsyncUtil.whileTrue(() ->
+        return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
                                     final IndexDeferredMaintenancePolicy policy = store.getIndexDeferredMaintenancePolicy();
@@ -95,13 +95,13 @@ public class IndexingMerger {
                             mergeSuccesses = 0;
                             diluteLevel --;
                         }
-                        // Here: no error, stop the iteration if all done
+                        // Here: no error, stop the iteration unless has more
                         tellLogger("Success", dilutedResults);
-                        return dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.ALL_DONE ?
-                               AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE;
+                        return dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.HAS_MORE ?
+                               AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
                     }
                     // Here: got exception.
-                    if (0 > iterationLimit.decrementAndGet() || dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.CANNOT_DILUTE) {
+                    if (0 > iterationLimit.decrementAndGet() || dilutedResults == IndexDeferredMaintenancePolicy.DilutedResults.NOT_DILUTED) {
                         tellLogger("Gave up merge dilution", dilutedResults);
                     } else {
                         final FDBException ex = IndexingBase.findException(e, FDBException.class);
@@ -113,18 +113,9 @@ public class IndexingMerger {
                         }
                     }
                     // Here: this exception will not be recovered by dilution. Throw it.
-                    ret.completeExceptionally(common.getRunner().getDatabase().mapAsyncToSyncException(e));
-                    return AsyncUtil.READY_FALSE; // and stop the iteration
-                }).thenApply(foobar -> {
-                    return false;
-                }
-                ), common.getRunner().getExecutor()).whenComplete((ignore, e) -> {
-                    if (e != null) {
-                        // Just update ret and ignore the returned future.
-                        ret.completeExceptionally(common.getRunner().getDatabase().mapAsyncToSyncException(e));
-                    }
-                });
-        return ret;
+                    throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
+                }).thenCompose(Function.identity()
+                ), common.getRunner().getExecutor());
     }
 
     void tellLogger(String msg, @Nullable IndexDeferredMaintenancePolicy.DilutedResults dilutedResults) {

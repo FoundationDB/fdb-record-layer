@@ -152,7 +152,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     final IndexDeferredMaintenancePolicy deferredMergePolicy = state.store.getIndexDeferredMaintenancePolicy();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(deferredMergePolicy.shouldAutoMergeDuringCommit(), state.context)
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(deferredMergePolicy, state.context)
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);

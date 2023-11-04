@@ -40,9 +40,10 @@ public class IndexDeferredMaintenancePolicy {
      * to handle these values correctly.
      */
     public enum DilutedResults {
-        ALL_DONE,
-        HAS_MORE,
-        CANNOT_DILUTE,
+        // Note that ALL_DONE and CANNOT_DILUTE are only distinguished for debugging purpose
+        ALL_DONE,  // No dilution was requested
+        HAS_MORE, // Merges were diluted - the caller should call again
+        NOT_DILUTED, // Merges cannot be diluted - could be the last chunk if an iteration
     }
 
     /**
