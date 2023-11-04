@@ -32,6 +32,18 @@ import java.util.Set;
 public class IndexDeferredMaintenancePolicy {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = true;
+    private int diluteLevel = -1;
+    private DilutedResults dilutedResults = DilutedResults.ALL_DONE;
+
+    /**
+     * If the merge caller sets dilute level to a non-negative number, the merge implementation is responsible
+     * to handle these values correctly.
+     */
+    public enum DilutedResults {
+        ALL_DONE,
+        HAS_MORE,
+        CANNOT_DILUTE,
+    }
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -69,5 +81,41 @@ public class IndexDeferredMaintenancePolicy {
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
         this.autoMergeDuringCommit = autoMergeDuringCommit;
+    }
+
+    /**
+     * Dilute level is:
+     * negative: do not apply any dilution logic.
+     * zero: do not dilute, but may be diluted in case of failure.
+     * positive: attempt dilute of num-merges / (2 ^ dilute-level)
+     * @return dilute level
+     */
+    public int getDiluteLevel() {
+        return diluteLevel;
+    }
+
+    /**
+     * See {@link #getDiluteLevel()}.
+     * @param diluteLevel dilute level
+     */
+    public void setDiluteLevel(final int diluteLevel) {
+        this.diluteLevel = diluteLevel;
+    }
+
+    /**
+     * If the merge caller sets dilute level to a non-negative number, the return value should indicate if there are more
+     * merges to merge, or if the merges cannot be diluted..
+     * @return dilute result.
+     */
+    public DilutedResults getDilutedResults() {
+        return dilutedResults;
+    }
+
+    /**
+     * See {@link #getDiluteLevel()}.
+     * @param dilutedResults dilute results.
+     */
+    public void setDilutedResults(final DilutedResults dilutedResults) {
+        this.dilutedResults = dilutedResults;
     }
 }

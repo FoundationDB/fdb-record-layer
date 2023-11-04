@@ -110,6 +110,8 @@ public enum LogMessageKeys {
     INDEX_STATE,
     TARGET_INDEX_NAME,
     TARGET_INDEX_STATE,
+    DILUTE_LEVEL,
+    DILUTE_RESULTS,
     VALUE_KEY,
     PRIMARY_KEY,
     VALUE,

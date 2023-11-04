@@ -61,6 +61,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -106,6 +107,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private long lastTypeStampCheckMillis;
+    private Map<String, IndexingMerger> indexingMergerMap = null;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
@@ -948,10 +950,20 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
         return AsyncUtil.whenAll(indexSet.stream()
-                .map(index2 -> getRunner().runAsync(context ->
-                        openRecordStore(context).thenCompose(store ->
-                    store.getIndexMaintainer(index2).mergeIndex()
-                ))).collect(Collectors.toList()));
+                .map(index -> getIndexingMerger(index).mergeIndex()
+        ).collect(Collectors.toList()));
+    }
+
+    private synchronized IndexingMerger getIndexingMerger(Index index) {
+        if (indexingMergerMap == null) {
+            indexingMergerMap = new HashMap<>();
+        }
+        IndexingMerger merger = indexingMergerMap.get(index.getName());
+        if (merger == null) {
+            merger = new IndexingMerger(index, common);
+            indexingMergerMap.put(index.getName(), merger);
+        }
+        return merger;
     }
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
