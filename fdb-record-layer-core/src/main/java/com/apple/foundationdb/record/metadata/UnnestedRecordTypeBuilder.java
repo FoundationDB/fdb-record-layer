@@ -51,6 +51,9 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
     @Nonnull
     private final RecordTypeBuilder parentTypeBuilder;
 
+    /**
+     * Builder variant of {@link UnnestedRecordTypeBuilder.NestedConstituent}.
+     */
     public static class NestedConstituent extends SyntheticRecordTypeBuilder.Constituent {
         @Nullable
         private final String parentName;
@@ -79,14 +82,8 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
         }
 
         @Nonnull
-        @Override
-        protected SyntheticRecordType.Constituent build(@Nonnull final RecordMetaData metaData) {
-            throw new RecordCoreException("unimplemented");
-        }
-
-        @Nonnull
-        public UnnestedRecordType.NestedConstituent build(@Nonnull final RecordMetaData metaData,
-                                                          @Nonnull final Map<String, UnnestedRecordType.NestedConstituent> soFar) {
+        UnnestedRecordType.NestedConstituent build(@Nonnull final RecordMetaData metaData,
+                                                   @Nonnull final Map<String, UnnestedRecordType.NestedConstituent> soFar) {
             final String name = getName();
             if (isParent()) {
                 if (!UnnestedRecordType.PARENT_CONSTITUENT.equals(name)) {

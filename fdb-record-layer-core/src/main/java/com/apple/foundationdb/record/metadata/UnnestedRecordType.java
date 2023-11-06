@@ -126,6 +126,12 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Nonnull
     private final NestedConstituent parentConstituent;
 
+    /**
+     * A {@link SyntheticRecordType.Constituent} representing an element in an unnested record. This encodes
+     * both the name of the nested messages making up the synthetic type and the relationship between them.
+     * There should always be one {@linkplain #isParent() parent} constituent, and all other cnstituents
+     * are linked to a different constituent via a {@linkplain #getNestingExpression() nesting expression}.
+     */
     public static class NestedConstituent extends SyntheticRecordType.Constituent {
         @Nullable
         private final NestedConstituent parent;
@@ -140,21 +146,47 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
             this.nestingExpression = nestingExpression;
         }
 
+        /**
+         * The immediate parent of this constituent. If this is the record's
+         * {@linkplain #isParent() parent constituent}, this will return {@code null}.
+         *
+         * @return this constituent's parent
+         */
         @Nullable
         public NestedConstituent getParent() {
             return parent;
         }
 
+        /**
+         * Get the name of this constituent's {@linkplain #getParent() parent}. This will
+         * return {@code null} if the parent is {@code null}.
+         *
+         * @return the name of this constituent's parent of {@code null}
+         */
         @Nullable
         public String getParentName() {
             return parent == null ? null : parent.getName();
         }
 
+        /**
+         * Expression that can generate instances of this constituent when evaluated on an instance
+         * of its parent. For the type's {@linkplain #isParent() parent constituent}, this is unused.
+         *
+         * @return an expression linking the parent constituent to this constituent
+         */
         @Nonnull
         public KeyExpression getNestingExpression() {
             return nestingExpression;
         }
 
+        /**
+         * Whether this is the parent of the record type. This should be {@code true} for exactly
+         * one constituent on the type. This parent should be some {@link FDBStoredRecord} of a type
+         * defined in the meta-data, and all other constituents should be derived by evaluating the
+         * {@linkplain #getNestingExpression() nesting expression} on the parent constituent.
+         *
+         * @return whether this is the single parent constituent
+         */
         public boolean isParent() {
             return parent == null;
         }
@@ -176,6 +208,13 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                 .orElseThrow(() -> new MetaDataException("unnested record type missing parent constituent"));
     }
 
+    /**
+     * Get the constituent of this type which represents the base {@link FDBStoredRecord}. All other
+     * constituents should be nested messages (potentially nested recursively multiple layers) defined
+     * on this constituent.
+     *
+     * @return the parent constituent of this type
+     */
     @Nonnull
     public NestedConstituent getParentConstituent() {
         return parentConstituent;

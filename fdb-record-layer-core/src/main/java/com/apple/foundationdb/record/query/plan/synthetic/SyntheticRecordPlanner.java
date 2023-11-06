@@ -115,6 +115,9 @@ public class SyntheticRecordPlanner {
         if (syntheticRecordType instanceof JoinedRecordType) {
             return forType((JoinedRecordType)syntheticRecordType);
         }
+        if (syntheticRecordType instanceof UnnestedRecordType) {
+            return forType((UnnestedRecordType)syntheticRecordType);
+        }
         throw unknownSyntheticType(syntheticRecordType);
     }
 
@@ -142,6 +145,16 @@ public class SyntheticRecordPlanner {
             }
             return createByType(byType);
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public SyntheticRecordFromStoredRecordPlan forType(@Nonnull UnnestedRecordType unnestedRecordType) {
+        if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
+            throw mismatchedMetaData();
+        }
+        UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
+        return new UnnestStoredRecordPlan(unnestedRecordType, parentConstituent.getRecordType());
     }
 
     /**

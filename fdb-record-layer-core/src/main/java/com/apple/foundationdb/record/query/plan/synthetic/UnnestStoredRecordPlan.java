@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -48,7 +49,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Plan that takes a stored record and explodes out nested repeated elements as specified by the constituents
+ * of an {@link UnnestedRecordType}. Each {@link UnnestedRecordType} should have a single stored record, and
+ * then the other constituents can be constructed by exploding nested repeated elements (as specified by the
+ * {@linkplain UnnestedRecordType.NestedConstituent#getNestingExpression() nesting expression} on the
+ * constituent). This will produce a cursor that produces one element for each such un-nesting.
+ */
+@API(API.Status.INTERNAL)
 class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
+    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("UnnestStoredRecordPlan");
 
     @Nonnull

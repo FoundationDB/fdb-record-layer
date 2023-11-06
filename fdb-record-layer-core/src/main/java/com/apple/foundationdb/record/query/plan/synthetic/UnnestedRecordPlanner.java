@@ -20,11 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.synthetic;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Sub-planner used by the {@link SyntheticRecordPlanner} for constructing {@link UnnestedRecordType}s.
+ */
+@API(API.Status.INTERNAL)
 class UnnestedRecordPlanner {
     @Nonnull
     private final UnnestedRecordType recordType;

@@ -71,11 +71,6 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
         public RecordTypeBuilder getRecordType() {
             return recordType;
         }
-
-        @Nonnull
-        protected SyntheticRecordType.Constituent build(@Nonnull RecordMetaData metaData) {
-            return new SyntheticRecordType.Constituent(name, metaData.getRecordType(recordType.getName()));
-        }
     }
 
     protected SyntheticRecordTypeBuilder(@Nonnull String name, @Nonnull Object recordTypeKey, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
