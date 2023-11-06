@@ -94,7 +94,7 @@ import java.util.concurrent.CompletableFuture;
  * do this with an unnested type. We associate two constituents with the type: one of them, {@code "parent"},
  * is used to refer to the {@code OuterType}. The other, {@code "child"}, can be used to refer to the results of the
  * {@code nested_repeated} field:
- * </p
+ * </p>
  *
  * <pre> {@code
  * var typeBuilder = metaDataBuilder.addUnnestedRecordType(typeName);
