@@ -1,5 +1,5 @@
 /*
- * test_records_imported_map.proto
+ * test_records_doubly_imported_map_helper.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,20 +20,13 @@
 
 syntax = "proto2";
 
-package com.apple.foundationdb.record.importedmaptest;
+package com.apple.foundationdb.record.doubly.imported.map.helper;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsImportedMapProto";
+option java_outer_classname = "TestRecordsDoublyImportedMapHelperProto";
 
-import "record_metadata_options.proto";
 import "test_records_map.proto";
 
-message OuterRecord {
-    optional int64 rec_id = 1 [(field).primary_key = true];
-    optional int64 other_id = 2;
-    optional nestedmaptest.MapRecord map = 3;
-}
-
-message RecordTypeUnion {
-    optional OuterRecord _OuterRecord = 1;
+message MapRecord {
+    repeated nestedmaptest.MapRecord.Entry entry = 1; // import from test_records_map.proto
 }

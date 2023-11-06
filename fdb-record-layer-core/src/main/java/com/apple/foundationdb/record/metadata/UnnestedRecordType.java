@@ -93,7 +93,17 @@ import java.util.concurrent.CompletableFuture;
  * If we want to retain the original order but we only want one entry per {@code NestedInnerMessage}, we can
  * do this with an unnested type. We associate two constituents with the type: one of them, {@code "parent"},
  * is used to refer to the {@code OuterType}. The other, {@code "child"}, can be used to refer to the results of the
- * {@code nested_repeated} field. Then the expression:
+ * {@code nested_repeated} field:
+ * </p
+ *
+ * <pre> {@code
+ * var typeBuilder = metaDataBuilder.addUnnestedRecordType(typeName);
+ * typeBuilder.addParentConstituent("parent", metaDataBuilder.getRecordType("OuterType"));
+ * typeBuilder.addNestedConstituent("child", NestedInnerMessage.getDescriptor(), "parent", field("nested_repeated", FanType.FanOut));
+ * }</pre>
+ *
+ * <p>
+ * Then one can define an index on the expression:
  * </p>
  *
  * <pre>
@@ -104,6 +114,42 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Will contain precisely one entry for every {@code NestedInnerMessage} (like the second expression) and the fields
  * will be in the same order as the original expression.
+ * </p>
+ *
+ * <h2>Primary Keys</h2>
+ *
+ * <p>
+ * The primary key structure for this record type is similar to other {@link SyntheticRecordType}s, but unlike s
+ * {@link JoinedRecordType}, where every constituent is a member of a proper {@link RecordType} which has a well-defined
+ * primary key, the non-parent constituents of an {@code UnnestedRecordType} do not have their own primary key
+ * expression to evaluate. For this reason, each synthetic record's primary key consists of:
+ * </p>
+ *
+ * <ol>
+ *     <li>The record type key</li>
+ *     <li>Then the parent constituent record's primary key as a nested {@link Tuple}</li>
+ *     <li>For each nested record constituent, a single nested {@link Tuple} containing the index of
+ *          the constituent within the list of values returned by evaluating the nesting expression against the
+ *          constituent's parent</li>
+ * </ol>
+ *
+ * <p>
+ * For example, using the {@code OuterType} as above, if the {@code OuterType}'s primary key is on
+ * {@code field("other_field")}, and its primary key might conceptually look something like:
+ * </p>
+ *
+ * <pre>
+ * Tuple.from(
+ *     type.getRecordTypeKey(),
+ *     Tuple.from(outerMessage.getOtherField()),
+ *     Tuple.from(outerMessage.getNestedRepeatedList().indexOf(nestedInnerMessage))
+ * )
+ * </pre>
+ *
+ * <p>
+ * Note that if the same value appears multiple times for the same nested constituent, each occurrence is given
+ * its own index and so it will generate a different {@link FDBSyntheticRecord}. Note that this also means that
+ * if the order of the elements changes, then the synthetic records will similarly be changed.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)

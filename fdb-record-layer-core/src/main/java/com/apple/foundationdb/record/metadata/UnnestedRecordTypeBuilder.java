@@ -193,14 +193,6 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
                 }
             }
         }
-        for (Descriptors.FileDescriptor publicDependency : fileDescriptor.getPublicDependencies()) {
-            if (seen.add(publicDependency)) {
-                Descriptors.Descriptor found = findDescriptorByName(publicDependency, fullName, seen);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
         return null;
     }
 

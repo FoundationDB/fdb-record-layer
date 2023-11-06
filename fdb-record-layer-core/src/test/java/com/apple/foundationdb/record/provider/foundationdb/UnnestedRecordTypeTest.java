@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
+import com.apple.foundationdb.record.TestRecordsDoublyImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -109,9 +110,17 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private static RecordMetaData importedMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData importedMapMetaData(@Nonnull RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsImportedMapProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private static RecordMetaData doublyImportedMapMetaData(@Nonnull RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsDoublyImportedMapProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
@@ -119,7 +128,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("unused") // used as parameter supplier to parameterized test
     @Nonnull
     private static Stream<Function<RecordMetaDataHook, RecordMetaData>> mapMetaDataSuppliers() {
-        return Stream.of(UnnestedRecordTypeTest::mapMetaData, UnnestedRecordTypeTest::importedMetaData);
+        return Stream.of(UnnestedRecordTypeTest::mapMetaData, UnnestedRecordTypeTest::importedMapMetaData, UnnestedRecordTypeTest::doublyImportedMapMetaData);
     }
 
     @Nonnull
@@ -307,11 +316,29 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
+    private static TestRecordsDoublyImportedMapProto.OuterRecord asDoubleImported(@Nonnull TestRecordsNestedMapProto.OuterRecord outerRecord) {
+        // Copy the outer record into an imported outer record. Note that because the map type is imported, the map
+        // field can just be copied over
+        var builder = TestRecordsDoublyImportedMapProto.OuterRecord.newBuilder()
+                .setRecId(outerRecord.getRecId())
+                .setOtherId(outerRecord.getOtherId());
+
+        var mapBuilder = builder.getMapBuilder();
+        for (TestRecordsNestedMapProto.MapRecord.Entry entry : outerRecord.getMap().getEntryList()) {
+            mapBuilder.addEntry(entry);
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
     private static Message convertOuterRecord(@Nonnull RecordMetaData metaData, @Nonnull TestRecordsNestedMapProto.OuterRecord outerRecord) {
         if (metaData.getRecordsDescriptor() == TestRecordsNestedMapProto.getDescriptor()) {
             return outerRecord;
         } else if (metaData.getRecordsDescriptor() == TestRecordsImportedMapProto.getDescriptor()) {
             return asImported(outerRecord);
+        } else if (metaData.getRecordsDescriptor() == TestRecordsDoublyImportedMapProto.getDescriptor()) {
+            return asDoubleImported(outerRecord);
         } else {
             return fail("unknown records descriptor: " + metaData.getRecordsDescriptor());
         }
@@ -351,13 +378,25 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
 
     @Test
     void importedMapTypeToAndFromProto() {
-        final RecordMetaData metaData = importedMetaData(addMapType());
+        final RecordMetaData metaData = importedMapMetaData(addMapType());
         assertProtoSerializationSuccessful(metaData, UNNESTED_MAP);
     }
 
     @Test
     void importedTwoMapsToAndFromProto() {
-        final RecordMetaData metaData = importedMetaData(addTwoMapsType());
+        final RecordMetaData metaData = importedMapMetaData(addTwoMapsType());
+        assertProtoSerializationSuccessful(metaData, TWO_UNNESTED_MAPS);
+    }
+
+    @Test
+    void doubleImportedMapTypeToAndFromProto() {
+        final RecordMetaData metaData = doublyImportedMapMetaData(addMapType());
+        assertProtoSerializationSuccessful(metaData, UNNESTED_MAP);
+    }
+
+    @Test
+    void doubleImportedTwoMapsToAndFromProto() {
+        final RecordMetaData metaData = doublyImportedMapMetaData(addTwoMapsType());
         assertProtoSerializationSuccessful(metaData, TWO_UNNESTED_MAPS);
     }
 
@@ -393,7 +432,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
 
     @Test
     void leavingOutParentTypeFails() {
-        assertMetaDataFails(TestRecordsNestedMapProto.getDescriptor(), "unnested record missing parent type",
+        assertMetaDataFails(TestRecordsNestedMapProto.getDescriptor(), "unnested record type missing parent type",
                 metaDataBuilder -> metaDataBuilder.addUnnestedRecordType("foo"));
     }
 
