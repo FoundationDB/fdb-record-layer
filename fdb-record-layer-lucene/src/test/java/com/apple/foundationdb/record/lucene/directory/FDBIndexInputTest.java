@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test to FDBIndexInput functionality.
@@ -63,6 +64,20 @@ public class FDBIndexInputTest extends FDBDirectoryBaseTest {
         byte[] expectedAfterSeek = new byte[expected.length - 256];
         ByteBuffer.wrap(expected, 256, expected.length - 256).get(expectedAfterSeek);
         assertArrayEquals(expectedAfterSeek, actual);
+    }
+
+    @Test
+    void testWriteReadWithOffset() throws Exception {
+        FDBIndexOutput output = new FDBIndexOutput(FILE_NAME, directory);
+        byte[] expected = new byte[randomInt(0) * 7 + randomInt(10)];
+        int offset = random.nextInt(expected.length - 1);
+        random.nextBytes(expected);
+        output.writeBytes(expected, offset, expected.length - offset);
+        output.close();
+        FDBIndexInput input = new FDBIndexInput(FILE_NAME, directory);
+        byte[] actual = new byte[expected.length - offset];
+        input.readBytes(actual, 0, actual.length);
+        assertEquals(actual.length, expected.length - offset);
     }
 
 }

@@ -195,9 +195,13 @@ public final class FDBIndexOutput extends IndexOutput {
                     LuceneLogMessageKeys.LENGTH, length));
         }
         crc.update(bytes, offset, length);
+        final int blockSizeInt = (int) blockSize;
         int bytesWritten = 0;
         while (bytesWritten < length) {
-            int toWrite = (int) (length - bytesWritten + (currentSize % blockSize) > blockSize ? blockSize - (currentSize % blockSize) : length - bytesWritten);
+            int toWrite = Math.min(
+                    length - bytesWritten, // the total leftover bytes to write
+                    (blockSizeInt - (currentSize % blockSizeInt)) // the free space in this buffer
+            );
             buffer.put(bytes, bytesWritten + offset, toWrite);
             bytesWritten += toWrite;
             currentSize += toWrite;
