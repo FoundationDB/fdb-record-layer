@@ -104,7 +104,7 @@ public class LuceneOptimizedCodec extends Codec {
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
         defaultPostingsFormat = new LuceneOptimizedPostingsFormat(new Lucene84PostingsFormat());
         defaultDocValuesFormat = new LuceneOptimizedDocValuesFormat(new Lucene80DocValuesFormat());
-        storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat(baseCodec.storedFieldsFormat());
+        storedFieldsFormat = new LuceneOptimizedStoredFieldsFormat();
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
         fieldInfosFormat = new LuceneOptimizedFieldInfosFormat(new LuceneOptimized60FieldInfosFormat());
     }
