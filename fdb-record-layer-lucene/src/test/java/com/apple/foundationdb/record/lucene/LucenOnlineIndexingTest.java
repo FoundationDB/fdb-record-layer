@@ -635,4 +635,33 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(loopCounter > 1);
         // Observed: 70 => 13, 13 => 2, 2 => 2
     }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3, 400})
+    void luceneOnlineIndexingTestMergesLimit(int mergesLimit) {
+        // emulate repeating merge until until unchanged with different merges limits
+        Index index = SIMPLE_TEXT_SUFFIXES;
+        boolean needMerge = populateDataSplitSegments(index, 40, 7);
+        assertTrue(needMerge);
+
+        int loopCounter = 0;
+        for (boolean allDone = false; !allDone; loopCounter++) {
+            int oldLength = listFiles(index).length;
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setInitialMergesCountLimit(mergesLimit)
+                            .build())
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+            int newLength = listFiles(index).length;
+            LOGGER.debug("Merge test with limits: merges_limit: " + mergesLimit + " number of files: old=" + oldLength + " new=" + newLength +
+                         " needMerge=" + recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes());
+
+            allDone = oldLength <= newLength;
+        }
+        assertTrue(loopCounter > 1);
+    }
 }

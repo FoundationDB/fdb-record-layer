@@ -66,6 +66,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         int originSpecSize = specSize(spec);
         deferredPolicy.setMergesFound(originSpecSize);
         if (mergesLimit > 0 && originSpecSize > 0 && mergesLimit < originSpecSize) {
+            // Note: should not dilute merges in the spec object, must create a new one
             MergeSpecification dilutedSpec = new MergeSpecification();
             for (int i = 0; i < mergesLimit; i++) {
                 dilutedSpec.add(spec.merges.get(i));

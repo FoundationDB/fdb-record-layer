@@ -960,7 +960,7 @@ public abstract class IndexingBase {
         }
         IndexingMerger merger = indexingMergerMap.get(index.getName());
         if (merger == null) {
-            merger = new IndexingMerger(index, common);
+            merger = new IndexingMerger(index, common, policy.getInitialMergesCountLimit());
             indexingMergerMap.put(index.getName(), merger);
         }
         return merger;

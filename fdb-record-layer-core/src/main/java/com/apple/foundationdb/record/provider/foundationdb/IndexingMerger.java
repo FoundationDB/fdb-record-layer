@@ -49,7 +49,7 @@ import java.util.function.Function;
 public class IndexingMerger {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingMerger.class);
     private final Index index;
-    private long mergesLimit = 0;
+    private long mergesLimit;
     private int mergeSuccesses = 0;
     private final IndexingCommon common;
 
@@ -63,18 +63,19 @@ public class IndexingMerger {
             FDBError.COMMIT_READ_INCOMPLETE.code(),
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
-    public IndexingMerger(final Index index,  IndexingCommon common) {
+    public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
         this.common = common;
+        this.mergesLimit = initialMergesCountLimit;
     }
 
-    protected CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     CompletableFuture<Void> mergeIndex() {
-        final AtomicInteger iterationLimit = new AtomicInteger(1000);
+        final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenancePolicy> policyRef = new AtomicReference<>();
         return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
@@ -89,7 +90,7 @@ public class IndexingMerger {
                 ).handle((ignore, e) -> {
                     final IndexDeferredMaintenancePolicy policy = policyRef.get();
                     if (e == null) {
-                        if (mergesLimit > 0 && mergeSuccesses > 3) {
+                        if (mergesLimit > 0 && mergeSuccesses > 2) {
                             mergeSuccesses = 0;
                             mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
                         }
@@ -100,11 +101,11 @@ public class IndexingMerger {
                         return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
                     }
                     // Here: got exception.
-                    if (0 > iterationLimit.decrementAndGet() || policy.getMergesTried() < 2) {
+                    if (0 > failureCountLimit.decrementAndGet() || policy.getMergesTried() < 2) {
                         tellLogger("Gave up merge dilution", policy);
                     } else {
                         final FDBException ex = IndexingBase.findException(e, FDBException.class);
-                        if (ex != null && !lessenWorkCodes.contains(ex.getCode())) {
+                        if (ex != null && lessenWorkCodes.contains(ex.getCode())) {
                             // Here: this exception might be resolved by reducing the load
                             mergesLimit = policy.getMergesTried() / 2;
                             tellLogger("Merges diluted", policy);

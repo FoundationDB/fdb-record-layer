@@ -74,26 +74,50 @@ public class IndexDeferredMaintenancePolicy {
         this.autoMergeDuringCommit = autoMergeDuringCommit;
     }
 
+    /**
+     * Limit the number of merges that may be attempted in a single transaction.
+     * @return the max merges allowed
+     */
     public long getMergesLimit() {
         return mergesLimit;
     }
 
+    /**
+     * Set by the caller - see {@link #getMergesLimit()}.
+     * @param mergesLimit the max merges allowed
+     */
     public void setMergesLimit(final long mergesLimit) {
         this.mergesLimit = mergesLimit;
     }
 
+    /**
+     * Report the number of merges found.
+     * @return number of merges found
+     */
     public long getMergesFound() {
         return mergesFound;
     }
 
+    /**
+     * Set by the merger - see {@link #getMergesFound()}.
+     * @param mergesFound number of merges found
+     */
     public void setMergesFound(final long mergesFound) {
         this.mergesFound = mergesFound;
     }
 
+    /**
+     * Report the number of merges attempted in a single transaction.
+     * @return number of merges tried
+     */
     public long getMergesTried() {
         return mergesTried;
     }
 
+    /**
+     * Set by the merger - see {@link #getMergesTried()}.
+     * @param mergesTried number of merges tried
+     */
     public void setMergesTried(final long mergesTried) {
         this.mergesTried = mergesTried;
     }
