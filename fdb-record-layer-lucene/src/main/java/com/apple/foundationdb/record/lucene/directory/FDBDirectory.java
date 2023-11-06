@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
@@ -109,6 +110,7 @@ public class FDBDirectory extends Directory  {
     private static final int DATA_SUBSPACE = 2;
     private static final int SCHEMA_SUBSPACE = 3;
     private static final int PRIMARY_KEY_SUBSPACE = 4;
+    private static final int STORED_FIELDS_SUBSPACE = 5;
     public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
@@ -116,6 +118,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
     private final Subspace schemaSubspace;
+    private final Subspace storedFieldsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -184,6 +187,7 @@ public class FDBDirectory extends Directory  {
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.schemaSubspace = subspace.subspace(Tuple.from(SCHEMA_SUBSPACE));
+        this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -400,6 +404,34 @@ public class FDBDirectory extends Directory  {
         return value.length;
     }
 
+    public CompletableFuture<Integer> writeStoredFields(@Nonnull final Tuple keyTuple, @Nonnull final byte[] value) {
+        return CompletableFuture.supplyAsync( () -> {
+            byte[] key = storedFieldsSubspace.pack(keyTuple);
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
+            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("Write lucene stored fields data",
+                        LuceneLogMessageKeys.DATA_SIZE, value.length,
+                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+            }
+            context.ensureActive().set(key, value);
+            return value.length;
+        });
+    }
+
+    public CompletableFuture<Void> deleteStoredFields(@Nonnull final Tuple keyTuple) {
+        return CompletableFuture.supplyAsync( () -> {
+            byte[] key = storedFieldsSubspace.pack(keyTuple);
+            context.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS_RANGE);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(getLogMessage("Delete Stored Fields Data",
+                        LuceneLogMessageKeys.RESOURCE, keyTuple.toString()));
+            }
+            context.ensureActive().clear(Range.startsWith(key));
+            return null;
+        });
+    }
+
     /**
      * Reads known data from the directory.
      * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
@@ -470,6 +502,15 @@ public class FDBDirectory extends Directory  {
                         .thenApply(LuceneSerializer::decode));
     }
 
+    public byte[] readStoredFields(Tuple key) throws IOException {
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS, readStoredFieldsAsync(key));
+    }
+
+    private CompletableFuture<byte[]> readStoredFieldsAsync(Tuple key) {
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
+                context.ensureActive().get(storedFieldsSubspace.pack(key)));
+    }
+
     private CompletableFuture<byte[]> readSchemaAsync(List<Long> bitSetWords) {
         return context.instrument(LuceneEvents.Events.LUCENE_READ_SCHEMA,
                 context.ensureActive().get(schemaSubspace.pack(Tuple.from(bitSetWords))));
@@ -506,6 +547,11 @@ public class FDBDirectory extends Directory  {
         } finally {
             context.record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
+    }
+
+    public AsyncIterable<KeyValue> scanStoredFields(Tuple keyTuple) {
+        return context.ensureActive()
+                .getRange(storedFieldsSubspace.subspace(keyTuple).range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR);
     }
 
     private CompletableFuture<Void> loadFileReferenceCacheForMemoization() {
@@ -586,7 +632,6 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void deleteFile(@Nonnull String name) throws IOException {
-
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("deleteFile",
                     LuceneLogMessageKeys.FILE_NAME, name));
