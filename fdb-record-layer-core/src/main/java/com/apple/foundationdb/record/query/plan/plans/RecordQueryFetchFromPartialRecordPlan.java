@@ -217,7 +217,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), fetchIndexRecords);
+        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION), fetchIndexRecords);
     }
 
     @Override

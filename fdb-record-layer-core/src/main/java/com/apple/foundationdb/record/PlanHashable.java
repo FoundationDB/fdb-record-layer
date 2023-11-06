@@ -28,20 +28,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A more stable version of {@link Object#hashCode}.
  * The planHash semantics are different than {@link Object#hashCode} in a few ways:
  * <UL>
- *     <LI>{@link #planHash()} values should be stable across runtime instance changes. The reason is that these values can be used to validate
- *     outstanding continuations, and a change in hash value caused by an application restart or refactoring will invalidate all those
- *     outstanding continuations</LI>
- *     <LI>{@link #planHash()} supports multiple flavors of hash calculations (See {@link PlanHashKind}). The various kinds of plan hash algorithms
- *     are used for different purposes and include/exclude different parts of the target query plan</LI>
- *     <LI>{@link #planHash()} is meant to imply a certain identity of a plan, and reflects on the entire structure of the plan.
- *     The intent is to be able to correlate various plans for "identity" (using different definitions for this identity as
- *     specified by {@link PlanHashKind}). This requirement drives a desire to reduce collisions as much as possible since
- *     not in all cases can we actually use "equals" to verify identity (e.g. log messages)</LI>
+ *     <LI>{@link #planHash(PlanHashKind)} values should be stable across runtime instance changes. The reason is that
+ *     these values can be used to validate outstanding continuations, and a change in hash value caused by an
+ *     application restart or refactoring will invalidate all those outstanding continuations</LI>
+ *     <LI>{@link #planHash(PlanHashKind)} supports multiple flavors of hash calculations (See {@link PlanHashKind}).
+ *     The various kinds of plan hash algorithms are used for different purposes and include/exclude different parts of
+ *     the target query plan</LI>
+ *     <LI>{@link #planHash(PlanHashKind)} is meant to imply a certain identity of a plan, and reflects on the entire
+ *     structure of the plan. The intent is to be able to correlate various plans for "identity" (using different
+ *     definitions for this identity as specified by {@link PlanHashKind}). This requirement drives a desire to reduce
+ *     collisions as much as possible since not in all cases can we actually use "equals" to verify identity
+ *     (e.g. log messages)</LI>
  * </UL>
  */
 @API(API.Status.UNSTABLE)
@@ -62,6 +65,13 @@ public interface PlanHashable {
      */
     int planHash(@Nonnull PlanHashKind hashKind);
 
+    /**
+     * Parameterless overload of planHash(). This method delegates to the {@link #planHash(PlanHashKind)}. This method
+     * is deprecated. In order to achieve the same result, use {@link #planHash(PlanHashKind)} directly passing in
+     * {@link PlanHashKind#LEGACY}.
+     * @return a stable ash code using {@link PlanHashKind#LEGACY}
+     */
+    @Deprecated(forRemoval = true)
     default int planHash() {
         return planHash(PlanHashKind.LEGACY);
     }
@@ -111,6 +121,9 @@ public interface PlanHashable {
         if (obj instanceof Enum) {
             return ((Enum)obj).name().hashCode();
         }
+        if (obj instanceof Set) {
+            return setsPlanHash(hashKind, (Set<?>)obj);
+        }
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(hashKind, (Iterable<?>)obj);
         }
@@ -130,6 +143,14 @@ public interface PlanHashable {
         int result = 1;
         for (Object object : objects) {
             result = 31 * result + objectPlanHash(hashKind, object);
+        }
+        return result;
+    }
+
+    static int setsPlanHash(@Nonnull PlanHashKind hashKind, @Nonnull Set<?> objects) {
+        int result = 1;
+        for (Object object : objects) {
+            result += 31 * objectPlanHash(hashKind, object);
         }
         return result;
     }

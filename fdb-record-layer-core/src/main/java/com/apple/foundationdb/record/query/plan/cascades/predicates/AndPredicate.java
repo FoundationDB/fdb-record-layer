@@ -86,7 +86,7 @@ public class AndPredicate extends AndOrPredicate {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION), super.hashCodeWithoutChildren());
     }
 
     @Override

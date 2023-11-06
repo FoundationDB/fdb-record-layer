@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -1669,7 +1670,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS);
-            assertEquals(-687982540, luceneIndexPlan.planHash());
+            assertEquals(-687982540, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
 
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
@@ -1721,7 +1722,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD));
-            assertEquals(-1626985233, luceneIndexPlan.planHash());
+            assertEquals(-1626985233, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1765,7 +1766,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             MAP_ON_VALUE_INDEX_STORED_FIELDS);
-            assertEquals(-1008465729, luceneIndexPlan.planHash());
+            assertEquals(-1008465729, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1814,7 +1815,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             MAP_ON_VALUE_INDEX_STORED_FIELDS);
-            assertEquals(1532371150, luceneIndexPlan.planHash());
+            assertEquals(1532371150, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -1939,7 +1940,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS);
-            assertEquals(-42167700, luceneIndexPlan.planHash());
+            assertEquals(-42167700, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();
@@ -2661,7 +2662,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             false,
                             null,
                             ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD));
-            assertEquals(planHash, luceneIndexPlan.planHash());
+            assertEquals(planHash, luceneIndexPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             final List<FDBQueriedRecord<Message>> results =
                     recordStore.executeQuery(luceneIndexPlan, null, ExecuteProperties.SERIAL_EXECUTE)
                             .asList().get();

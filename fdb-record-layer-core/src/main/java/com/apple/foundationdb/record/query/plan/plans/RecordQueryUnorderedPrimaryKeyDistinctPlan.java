@@ -171,7 +171,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.planHash();
+        return BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION);
     }
 
     @Override

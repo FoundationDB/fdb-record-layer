@@ -559,7 +559,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITAND [1]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 3, odd],[1, 3, odd]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 4, odd],[1, 4, odd]]"))))))));
-            assertEquals(1000204717, queryPlan.planHash());
+            assertEquals(1000204717, queryPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -584,7 +584,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3)));
             assertThat(queryPlan, coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
-            assertEquals(1188586655, queryPlan.planHash());
+            assertEquals(1188586655, queryPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -637,7 +637,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                             indexName("rec_no_by_str_num2"),
                             indexScanType(IndexScanType.BY_GROUP),
                             bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
-            assertEquals(1188586655, queryPlan.planHash());
+            assertEquals(1188586655, queryPlan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(Optional.empty(),
                     ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
                             recordQuery, BITMAP_VALUE_REC_NO_BY_STR, IndexQueryabilityFilter.FALSE));

@@ -176,7 +176,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash());
+        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION));
     }
 
     @Override

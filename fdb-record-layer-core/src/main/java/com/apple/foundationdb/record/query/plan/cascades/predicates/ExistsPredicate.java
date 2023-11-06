@@ -129,7 +129,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Override
     public int hashCodeWithoutChildren() {
-        return planHash();
+        return planHash(PlanHashKind.FOR_CONTINUATION);
     }
 
     @Override

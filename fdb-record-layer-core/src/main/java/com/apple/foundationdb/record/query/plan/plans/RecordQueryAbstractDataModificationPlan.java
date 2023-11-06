@@ -308,7 +308,8 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, coercionTrie, computationValue);
+        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION), targetRecordType, targetType,
+                transformationsTrie, coercionTrie, computationValue);
     }
 
     @Override

@@ -115,9 +115,9 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
     }
 
     /**
-     * Base implementation of {@link #planHash}.
-     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
-     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * Base implementation of {@link #planHash(PlanHashKind)}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashKind)}
+     * so that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
      * @param hashKind the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)

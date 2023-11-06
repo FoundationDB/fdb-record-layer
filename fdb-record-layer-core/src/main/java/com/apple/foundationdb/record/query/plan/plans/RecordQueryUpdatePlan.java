@@ -145,7 +145,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION), super.hashCodeWithoutChildren());
     }
 
     @Override

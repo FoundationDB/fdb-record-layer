@@ -1229,7 +1229,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         unorderedPrimaryKeyDistinctPlan(
                                 indexPlan().where(indexName("ind")).and(scanComparisons(range("[EQUALS $__in_repeater__0]"))))
                 ).where(inValuesList(equalsObject(ls))));
-        assertEquals(503365582, plan.planHash());
+        assertEquals(503365582, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(2L))),
                 TestHelpers::assertDiscardedNone));
