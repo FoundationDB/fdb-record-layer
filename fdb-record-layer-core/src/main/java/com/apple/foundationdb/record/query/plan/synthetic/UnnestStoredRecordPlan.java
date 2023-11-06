@@ -94,7 +94,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
                                                                         @Nonnull final FDBStoredRecord<M> rec,
                                                                         @Nullable final byte[] continuation,
                                                                         @Nonnull final ExecuteProperties executeProperties) {
-        NestingNode root = new NestingNode(UnnestedRecordType.PARENT_CONSTITUENT, rec);
+        NestingNode root = new NestingNode(recordType.getParentConstituent(), rec);
         Deque<NestingNode> toProcess = new ArrayDeque<>();
         toProcess.add(root);
         while (!toProcess.isEmpty()) {
@@ -121,7 +121,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
 
     private static class NestingNode {
         @Nonnull
-        private final String constituentName;
+        private final UnnestedRecordType.NestedConstituent constituent;
         @Nonnull
         private final FDBStoredRecord<?> storedRecord;
         @Nullable
@@ -131,13 +131,13 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         @Nullable
         private List<String> keys; // children map keys (stored in a list to ensure a stable ordering)
 
-        public NestingNode(@Nonnull String constituentName, @Nonnull FDBStoredRecord<?> storedRecord) {
-            this.constituentName = constituentName;
+        public NestingNode(@Nonnull UnnestedRecordType.NestedConstituent constituent, @Nonnull FDBStoredRecord<?> storedRecord) {
+            this.constituent = constituent;
             this.storedRecord = storedRecord;
         }
 
         public boolean processNesting(@Nonnull UnnestedRecordType.NestedConstituent nesting, final Deque<NestingNode> toProcess) {
-            if (!constituentName.equals(nesting.getParentName())) {
+            if (!constituent.getName().equals(nesting.getParentName())) {
                 return false;
             }
             List<Key.Evaluated> evaluatedList = nesting.getNestingExpression().evaluate(storedRecord);
@@ -148,15 +148,16 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
                         .setRecordType(nesting.getRecordType())
                         .setPrimaryKey(Tuple.from(i))
                         .build();
-                addChild(nesting.getName(), childRecord, toProcess);
+                addChild(nesting, childRecord, toProcess);
             }
             return true;
         }
 
-        private void addChild(String childName, FDBStoredRecord<?> childRecord, Deque<NestingNode> toProcess) {
+        private void addChild(UnnestedRecordType.NestedConstituent childConstituent, FDBStoredRecord<?> childRecord, Deque<NestingNode> toProcess) {
             if (children == null) {
                 children = new HashMap<>();
             }
+            final String childName = childConstituent.getName();
             final List<NestingNode> childList;
             if (children.containsKey(childName)) {
                 childList = children.get(childName);
@@ -165,7 +166,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
                 children.put(childName, childList);
                 keys = null;
             }
-            NestingNode newChild = new NestingNode(childName, childRecord);
+            NestingNode newChild = new NestingNode(childConstituent, childRecord);
             childList.add(newChild);
             toProcess.addLast(newChild);
         }
@@ -192,7 +193,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
          * @param constituentMap constituent map to populate with this node's value
          */
         public void initializeState(@Nonnull Map<String, FDBStoredRecord<?>> constituentMap) {
-            constituentMap.put(constituentName, storedRecord);
+            constituentMap.put(constituent.getName(), storedRecord);
             if (children != null) {
                 if (state == null) {
                     state = Maps.newHashMapWithExpectedSize(children.size());

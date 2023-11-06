@@ -49,7 +49,9 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<UnnestedRecordTypeBuilder.NestedConstituent> {
     @Nonnull
-    private final RecordTypeBuilder parentTypeBuilder;
+    private static final String INTERNAL_PREFIX = "__";
+    @Nullable
+    private RecordTypeBuilder parentTypeBuilder;
 
     /**
      * Builder variant of {@link UnnestedRecordTypeBuilder.NestedConstituent}.
@@ -60,8 +62,8 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
         @Nonnull
         private final KeyExpression nestingExpression;
 
-        protected NestedConstituent(@Nonnull final String name, @Nonnull final RecordTypeBuilder recordType,
-                                    @Nullable final String parentName, @Nonnull KeyExpression nestingExpression) {
+        private NestedConstituent(@Nonnull final String name, @Nonnull final RecordTypeBuilder recordType,
+                                  @Nullable final String parentName, @Nonnull KeyExpression nestingExpression) {
             super(name, recordType);
             this.parentName = parentName;
             this.nestingExpression = nestingExpression;
@@ -86,14 +88,10 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
                                                    @Nonnull final Map<String, UnnestedRecordType.NestedConstituent> soFar) {
             final String name = getName();
             if (isParent()) {
-                if (!UnnestedRecordType.PARENT_CONSTITUENT.equals(name)) {
-                    throw new MetaDataException("unnexpected name for parent constituent")
-                            .addLogInfo(LogMessageKeys.CONSTITUENT, name);
-                }
                 RecordType recordType = metaData.getRecordType(getRecordType().getName());
                 return new UnnestedRecordType.NestedConstituent(name, recordType, null, nestingExpression);
             } else {
-                if (UnnestedRecordType.PARENT_CONSTITUENT.equals(name) || UnnestedRecordType.POSITIONS_FIELD.equals(name)) {
+                if (name.startsWith(INTERNAL_PREFIX)) {
                     throw new MetaDataException("reserved name cannot be used for constituent")
                             .addLogInfo(LogMessageKeys.CONSTITUENT, name);
                 }
@@ -119,43 +117,52 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
 
     /**
      * Internal constructor for creating {@link UnnestedRecordTypeBuilder}s. To create a type and add it to a
-     * meta-data object, use {@link RecordMetaDataBuilder#addUnnestedRecordType(String, String)}.
+     * meta-data object, use {@link RecordMetaDataBuilder#addUnnestedRecordType(String)}.
      *
      * @param name name of the type
      * @param recordTypeKey record type key for the type
      * @param metaDataBuilder meta-data object this will be defined on
-     * @param parentTypeBuilder the stored record type that other constituents will be extracted from
-     * @see RecordMetaDataBuilder#addUnnestedRecordType(String, String)
+     * @see RecordMetaDataBuilder#addUnnestedRecordType(String)
      */
     @API(API.Status.INTERNAL)
-    public UnnestedRecordTypeBuilder(@Nonnull final String name, @Nonnull Object recordTypeKey, @Nonnull final RecordMetaDataBuilder metaDataBuilder, @Nonnull RecordTypeBuilder parentTypeBuilder) {
+    public UnnestedRecordTypeBuilder(@Nonnull final String name, @Nonnull Object recordTypeKey, @Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         super(name, recordTypeKey, metaDataBuilder);
-        this.parentTypeBuilder = parentTypeBuilder;
-        // Parent constituent is always present
-        addConstituent(new NestedConstituent(UnnestedRecordType.PARENT_CONSTITUENT, parentTypeBuilder, null, EmptyKeyExpression.EMPTY));
     }
 
     @API(API.Status.INTERNAL)
     public UnnestedRecordTypeBuilder(@Nonnull RecordMetaDataProto.UnnestedRecordType typeProto, @Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
 
-        String parentTypeName = typeProto.getParentTypeName();
-        this.parentTypeBuilder = metaDataBuilder.getRecordType(parentTypeName);
-        addConstituent(new NestedConstituent(UnnestedRecordType.PARENT_CONSTITUENT, parentTypeBuilder, null, EmptyKeyExpression.EMPTY));
-
-        // Now that we've found the parent, go through again and look for the non-parents. This does involve searching
-        // through the file to find descriptors by name
-        final Descriptors.FileDescriptor fileDescriptor = parentTypeBuilder.getDescriptor().getFile();
+        // Deserialize each of the constituents
+        final Descriptors.FileDescriptor fileDescriptor = metaDataBuilder.getUnionDescriptor().getFile();
         for (RecordMetaDataProto.UnnestedRecordType.NestedConstituent constituentProto : typeProto.getNestedConstituentsList()) {
-            @Nullable Descriptors.Descriptor nestedDescriptor = findDescriptorByName(fileDescriptor, constituentProto.getTypeName());
-            if (nestedDescriptor == null) {
-                throw new MetaDataException("missing descriptor for nested constituent")
-                        .addLogInfo(LogMessageKeys.EXPECTED, constituentProto.getTypeName())
-                        .addLogInfo(LogMessageKeys.DESCRIPTION, constituentProto.getName());
+            final String constituentName = constituentProto.getName();
+            String parentConstituent = constituentProto.getParent();
+            if (parentConstituent.isEmpty()) {
+                // For the parent constituent (i.e., the constituent with no parent set), there is
+                if (parentTypeBuilder != null) {
+                    throw new MetaDataException("duplicate parent types found in unnested record type")
+                            .addLogInfo(LogMessageKeys.RECORD_TYPE, getName())
+                            .addLogInfo(LogMessageKeys.CONSTITUENT, constituentName);
+                }
+                if (constituentProto.hasNestingExpression()) {
+                    throw new MetaDataException("parent constituent should not have a nesting expression")
+                            .addLogInfo(LogMessageKeys.RECORD_TYPE, getName())
+                            .addLogInfo(LogMessageKeys.CONSTITUENT, constituentName);
+                }
+                parentTypeBuilder = metaDataBuilder.getRecordType(constituentProto.getTypeName());
+                addConstituent(newConstituent(constituentName, parentTypeBuilder, null, EmptyKeyExpression.EMPTY));
+            } else {
+                @Nullable Descriptors.Descriptor nestedDescriptor = findDescriptorByName(fileDescriptor, constituentProto.getTypeName());
+                if (nestedDescriptor == null) {
+                    throw new MetaDataException("missing descriptor for nested constituent")
+                            .addLogInfo(LogMessageKeys.EXPECTED, constituentProto.getTypeName())
+                            .addLogInfo(LogMessageKeys.CONSTITUENT, constituentName);
+                }
+                NestedRecordTypeBuilder nestedTypeBuilder = new NestedRecordTypeBuilder(nestedDescriptor);
+                KeyExpression nestingExpression = KeyExpression.fromProto(constituentProto.getNestingExpression());
+                addConstituent(newConstituent(constituentName, nestedTypeBuilder, parentConstituent, nestingExpression));
             }
-            NestedRecordTypeBuilder nestedTypeBuilder = new NestedRecordTypeBuilder(nestedDescriptor);
-            KeyExpression nestingExpression = KeyExpression.fromProto(constituentProto.getNestingExpression());
-            addConstituent(new NestedConstituent(constituentProto.getName(), nestedTypeBuilder, constituentProto.getParent(), nestingExpression));
         }
     }
 
@@ -220,8 +227,35 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
     }
 
     @Nonnull
-    public NestedConstituent addNestedConstituent(@Nonnull final String name, @Nonnull Descriptors.Descriptor descriptor, @Nonnull String parent,
-                                                  @Nonnull KeyExpression fanOutExpression) {
+    private NestedConstituent newConstituent(@Nonnull final String name, @Nonnull final RecordTypeBuilder recordType, @Nullable String parentName, @Nonnull KeyExpression nestingExpression) {
+        if (name.startsWith(INTERNAL_PREFIX)) {
+            throw new MetaDataException("cannot create constituent with reserved prefix \"" + INTERNAL_PREFIX + "\"")
+                    .addLogInfo(LogMessageKeys.CONSTITUENT, name)
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
+        }
+        return new NestedConstituent(name, recordType, parentName, nestingExpression);
+    }
+
+    @Nonnull
+    public NestedConstituent addParentConstituent(@Nonnull final String name, @Nonnull RecordTypeBuilder recordType) {
+        if (parentTypeBuilder != null) {
+            throw new MetaDataException("cannot add duplicate parent type to unnested record type")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, getName())
+                    .addLogInfo(LogMessageKeys.OLD_RECORD_TYPE, parentTypeBuilder.getName())
+                    .addLogInfo(LogMessageKeys.NEW_RECORD_TYPE, recordType.getName());
+        }
+        if (!getConstituents().isEmpty()) {
+            throw new MetaDataException("parent must be added as first constituent")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
+        }
+        parentTypeBuilder = recordType;
+        NestedConstituent constituent = newConstituent(name, recordType, null, EmptyKeyExpression.EMPTY);
+        addConstituent(constituent);
+        return constituent;
+    }
+
+    @Nonnull
+    public NestedConstituent addNestedConstituent(@Nonnull final String name, @Nonnull Descriptors.Descriptor descriptor, @Nonnull String parent, @Nonnull KeyExpression nestingExpression) {
         if (getConstituents().stream().map(Constituent::getName).noneMatch(n -> n.equals(parent))) {
             throw new MetaDataException("unknown parent constituent name")
                     .addLogInfo(LogMessageKeys.EXPECTED, parent)
@@ -229,7 +263,7 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
                     .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
         }
         NestedRecordTypeBuilder nestedRecordType = new NestedRecordTypeBuilder(descriptor);
-        NestedConstituent constituent = new NestedConstituent(name, nestedRecordType, parent, fanOutExpression);
+        NestedConstituent constituent = newConstituent(name, nestedRecordType, parent, nestingExpression);
         addConstituent(constituent);
         return constituent;
     }
@@ -241,8 +275,12 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
         RecordMetaData metaData = parentType.getRecordMetaData();
         for (NestedConstituent constituent : getConstituents()) {
             UnnestedRecordType.NestedConstituent built = constituent.build(metaData, soFar);
+            if (soFar.put(built.getName(), built) != null) {
+                throw new MetaDataException("duplicate constituents in unnested record type share name")
+                        .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName())
+                        .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
+            }
             builder.add(built);
-            soFar.put(built.getName(), built);
         }
         return builder.build();
     }
@@ -280,8 +318,8 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
         final DescriptorProtos.DescriptorProto.Builder indexesProto = descriptorProto.addNestedTypeBuilder()
                 .setName("Positions");
         int indexPosition = 1;
-        for (Constituent constituent : getConstituents()) {
-            if (!constituent.getName().equals(UnnestedRecordType.PARENT_CONSTITUENT)) {
+        for (NestedConstituent constituent : getConstituents()) {
+            if (!constituent.isParent()) {
                 indexesProto.addFieldBuilder()
                         .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                         .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -300,6 +338,10 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
     @Nonnull
     @Override
     public UnnestedRecordType build(@Nonnull final RecordMetaData metaData, @Nonnull final Descriptors.FileDescriptor fileDescriptor) {
+        if (parentTypeBuilder == null) {
+            throw new MetaDataException("unnested record type missing parent type")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, getName());
+        }
         RecordType parentType = metaData.getRecordType(parentTypeBuilder.getName());
         List<UnnestedRecordType.NestedConstituent> builtConstituents = buildConstituents(parentType);
         Descriptors.Descriptor descriptor = fileDescriptor.findMessageTypeByName(name);

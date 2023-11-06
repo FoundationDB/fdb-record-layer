@@ -216,7 +216,6 @@ message JoinedRecordType {
 message UnnestedRecordType {
   optional string name = 1;
   optional Value record_type_key = 2;
-  optional string parent_type_name = 3;
 
   message NestedConstituent {
     optional string name = 1;
@@ -225,7 +224,7 @@ message UnnestedRecordType {
     optional KeyExpression nesting_expression = 4;
   }
 
-  repeated NestedConstituent nested_constituents = 4;
+  repeated NestedConstituent nested_constituents = 3;
 }
 
 ///////////////////////////////////////////////////

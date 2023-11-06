@@ -1010,18 +1010,21 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return recordType;
     }
 
-    public UnnestedRecordTypeBuilder addUnnestedRecordType(@Nonnull String name, @Nonnull String parentTypeName) {
+    /**
+     * Add a new {@link UnnestedRecordTypeBuilder}.
+     * @param name the name of the new record type
+     * @return a new uninitialized unnested record type
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public UnnestedRecordTypeBuilder addUnnestedRecordType(@Nonnull String name) {
         if (recordTypes.containsKey(name)) {
             throw new MetaDataException("There is already a record type named " + name);
         }
         if (syntheticRecordTypes.containsKey(name)) {
             throw new MetaDataException("There is already a synthetic record type named " + name);
         }
-        if (!recordTypes.containsKey(parentTypeName)) {
-            throw new MetaDataException("There is no parent stored type named " + parentTypeName);
-        }
-        RecordTypeBuilder parentType = recordTypes.get(parentTypeName);
-        UnnestedRecordTypeBuilder unnestedRecordTypeBuilder = new UnnestedRecordTypeBuilder(name, getNextRecordTypeKey(), this, parentType);
+        UnnestedRecordTypeBuilder unnestedRecordTypeBuilder = new UnnestedRecordTypeBuilder(name, getNextRecordTypeKey(), this);
         syntheticRecordTypes.put(name, unnestedRecordTypeBuilder);
         return unnestedRecordTypeBuilder;
     }

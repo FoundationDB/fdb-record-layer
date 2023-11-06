@@ -37,7 +37,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,14 +91,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>
  * If we want to retain the original order but we only want one entry per {@code NestedInnerMessage}, we can
- * do this with an unnested type. We associate two constituents with the type: one of them, <code>{@value PARENT_CONSTITUENT}</code>,
+ * do this with an unnested type. We associate two constituents with the type: one of them, {@code "parent"},
  * is used to refer to the {@code OuterType}. The other, {@code "child"}, can be used to refer to the results of the
  * {@code nested_repeated} field. Then the expression:
  * </p>
  *
  * <pre>
  *
- * concat(field("child").nest("a"), field({@value PARENT_CONSTITUENT}).nest("other_field"), field("child").nest("b"))
+ * concat(field("child").nest("a"), field("parent").nest("other_field"), field("child").nest("b"))
  * </pre>
  *
  * <p>
@@ -109,12 +108,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.NestedConstituent> {
-    /**
-     * The name of the constituent referring to the stored record. All other constituents should ultimately be
-     * derived from unnesting a repeated fields on this constituent.
-     */
-    @Nonnull
-    public static final String PARENT_CONSTITUENT = "__parent";
     /**
      * Special field in the synthetic record that contains the positions of all of the nested constituents. It will
      * contain a nested message field that has one field for all of the constituents (except for the parent constituent)
@@ -227,7 +220,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
             Map<String, FDBStoredRecord<?>> constituentValues = new HashMap<>();
-            constituentValues.put(PARENT_CONSTITUENT, storedRecord);
+            constituentValues.put(getParentConstituent().getName(), storedRecord);
 
             boolean foundMore = true;
             while (foundMore) {
@@ -273,33 +266,24 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                 .setName(getName())
                 .setRecordTypeKey(LiteralKeyExpression.toProtoValue(getRecordTypeKey()));
 
-        final Iterator<NestedConstituent> constituentIterator = getConstituents().iterator();
-        if (!constituentIterator.hasNext()) {
-            throw new MetaDataException("constituents should not be empty");
-        }
+        for (NestedConstituent constituent : getConstituents()) {
+            RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder constituentBuilder = builder.addNestedConstituentsBuilder()
+                    .setName(constituent.getName());
 
-        // Extract the parent type from the first constituent. This must be the first constituent
-        final NestedConstituent parentConstituent = constituentIterator.next();
-        if (!parentConstituent.isParent()) {
-            throw new MetaDataException("parent constituent in unnested record type should be first")
-                    .addLogInfo(LogMessageKeys.CONSTITUENT, parentConstituent.getName())
-                    .addLogInfo(LogMessageKeys.EXPECTED, UnnestedRecordType.PARENT_CONSTITUENT);
-        }
-        builder.setParentTypeName(parentConstituent.getRecordType().getName());
-
-        // All other constituents should be serialized as nested constituents
-        while (constituentIterator.hasNext()) {
-            NestedConstituent constituent = constituentIterator.next();
             if (constituent.isParent()) {
-                throw new MetaDataException("parent constituent in unnested record type should be first")
-                        .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName())
-                        .addLogInfo(LogMessageKeys.EXPECTED, UnnestedRecordType.PARENT_CONSTITUENT);
+                // For the parent constituent, only include the record's type name so that it can be looked up
+                // from the meta-data's list of types at deserialization time
+                constituentBuilder
+                        .setTypeName(constituent.getRecordType().getName());
+            } else {
+                // For all other constituents, the type name is the full name so that it can be resolved
+                // using protobuf resolution rules at deserialization time. Also, include the parent
+                // and nesting information
+                constituentBuilder
+                        .setTypeName(constituent.getRecordType().getDescriptor().getFullName())
+                        .setParent(Objects.requireNonNull(constituent.getParentName()))
+                        .setNestingExpression(constituent.getNestingExpression().toKeyExpression());
             }
-            builder.addNestedConstituentsBuilder()
-                    .setName(constituent.getName())
-                    .setParent(Objects.requireNonNull(constituent.getParentName()))
-                    .setTypeName(constituent.getRecordType().getDescriptor().getFullName())
-                    .setNestingExpression(constituent.getNestingExpression().toKeyExpression());
         }
         return builder.build();
     }

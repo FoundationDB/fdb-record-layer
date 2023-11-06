@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -115,6 +114,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
+    private static final String PARENT_CONSTITUENT = "parent";
     private static final String OUTER = TestRecordsNestedMapProto.OuterRecord.getDescriptor().getName();
     private static final String OUTER_WITH_ENTRIES = "OuterWithEntries";
     private static final String OUTER_WITH_TWO_ENTRIES = "OuterWithTwoEntries";
@@ -150,19 +150,21 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static RecordMetaDataHook addUnnestedType() {
         return metaDataBuilder -> {
-            UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_ENTRIES, OUTER);
+            UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_ENTRIES);
+            typeBuilder.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType(OUTER));
             typeBuilder.addNestedConstituent("entry", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
+                    PARENT_CONSTITUENT, ENTRY_EXPR);
         };
     }
 
     private static RecordMetaDataHook addDoubleUnnestedType() {
         return metaDataBuilder -> {
-            UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_TWO_ENTRIES, OUTER);
+            UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(OUTER_WITH_TWO_ENTRIES);
+            typeBuilder.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType(OUTER));
             typeBuilder.addNestedConstituent("e1", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
+                    PARENT_CONSTITUENT, ENTRY_EXPR);
             typeBuilder.addNestedConstituent("e2", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
-                    UnnestedRecordType.PARENT_CONSTITUENT, ENTRY_EXPR);
+                    PARENT_CONSTITUENT, ENTRY_EXPR);
         };
     }
 
@@ -187,11 +189,11 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private static Index unnestedKeyOtherValue() {
-        return new Index(UNNESTED_KEY_OTHER_VALUE, concat(field("entry").nest("key"), field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id"), field("entry").nest("value")));
+        return new Index(UNNESTED_KEY_OTHER_VALUE, concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("other_id"), field("entry").nest("value")));
     }
 
     private static Index doubleUnnestedKeys() {
-        return new Index(DOUBLE_UNNESTED_KEYS, concat(field("e1").nest("key"), field("e2").nest("key"), field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id")));
+        return new Index(DOUBLE_UNNESTED_KEYS, concat(field("e1").nest("key"), field("e2").nest("key"), field(PARENT_CONSTITUENT).nest("other_id")));
     }
 
     private static Index countByKey() {
@@ -255,7 +257,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private static Index bitmapValueByKeyOtherUnnested() {
-        return new Index(BITMAP_VALUE_KEY_OTHER_UNNESTED, field("entry").nest("int_value").groupBy(concat(field("entry").nest("key"), field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id"))), IndexTypes.BITMAP_VALUE);
+        return new Index(BITMAP_VALUE_KEY_OTHER_UNNESTED, field("entry").nest("int_value").groupBy(concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("other_id"))), IndexTypes.BITMAP_VALUE);
     }
 
     private static QueryComponent oneEntryEquals(String keyParam, String valueParam) {
@@ -599,7 +601,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertMatchesExactly(plan, planMatcher);
 
-            final KeyExpression recIdExpr = field(UnnestedRecordType.PARENT_CONSTITUENT).nest("rec_id");
+            final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");
             final KeyExpression keyAndValueExpr = field("entry").nest(concatenateFields("key", "value"));
             for (String key : keys) {
                 EvaluationContext evaluationContext = EvaluationContext.forBinding(keyParam, key);
@@ -657,7 +659,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
                         indexPlan()
                                 .where(indexName(UNNESTED_KEY_AND_VALUE))
                                 .and(scanComparisons(range("[EQUALS $key]")))
-                ).where(queryComponents(only(PrimitiveMatchers.equalsObject(Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter("other"))))))
+                ).where(queryComponents(only(PrimitiveMatchers.equalsObject(Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter("other"))))))
         );
     }
 
@@ -699,16 +701,16 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(OUTER_WITH_ENTRIES)
                     .setFilter(Query.and(
                             Query.field("entry").matches(Query.field("key").equalsParameter(keyParam)),
-                            Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParam))))
+                            Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParam))))
                     .setRequiredResults(List.of(field("entry").nest("value")))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             assertMatchesExactly(plan, planMatcher);
 
-            final KeyExpression recIdExpr = field(UnnestedRecordType.PARENT_CONSTITUENT).nest("rec_id");
+            final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");
 
             final KeyExpression keyAndValueExpr = field("entry").nest(concatenateFields("key", "value"));
-            final KeyExpression otherExpr = field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id");
+            final KeyExpression otherExpr = field(PARENT_CONSTITUENT).nest("other_id");
             for (String key : keys) {
                 Set<TestRecordsNestedMapProto.OuterRecord> recordsWithKey = byKey(data, key);
                 for (long otherId : otherIds) {
@@ -792,8 +794,8 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
                             Query.field("e1").matches(Query.field("key").equalsParameter(key1Param)),
                             Query.field("e2").matches(Query.field("key").equalsParameter(key2Param))))
                     .setRequiredResults(List.of(
-                            field(UnnestedRecordType.PARENT_CONSTITUENT).nest("rec_id"),
-                            field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id"),
+                            field(PARENT_CONSTITUENT).nest("rec_id"),
+                            field(PARENT_CONSTITUENT).nest("other_id"),
                             field("e1").nest("value"),
                             field("e2").nest("value")
                     ))
@@ -801,10 +803,10 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertMatchesExactly(plan, planMatcher);
 
-            final KeyExpression recIdExpr = field(UnnestedRecordType.PARENT_CONSTITUENT).nest("rec_id");
+            final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");
             final KeyExpression entry1Expr = field("e1").nest(concatenateFields("key", "value"));
             final KeyExpression entry2Expr = field("e2").nest(concatenateFields("key", "value"));
-            final KeyExpression otherExpr = field(UnnestedRecordType.PARENT_CONSTITUENT).nest("other_id");
+            final KeyExpression otherExpr = field(PARENT_CONSTITUENT).nest("other_id");
 
             for (String key1 : keys) {
                 Set<TestRecordsNestedMapProto.OuterRecord> recordsWithKey = byKey(data, key1);
@@ -1097,7 +1099,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(OUTER_WITH_ENTRIES)
                     .setFilter(Query.and(
                             Query.field("entry").matches(Query.field("key").equalsParameter(keyParameter)),
-                            Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParameter))
+                            Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParameter))
                     ))
                     .setRequiredResults(List.of(field("entry").nest("int_value")))
                     .build();
@@ -1135,8 +1137,8 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
         // Construct a top-level OR with two expressions, each of which is on a nested field
         bitmapValueQueryOnKeyAndTwoOthersUnnested((other1Parameter, other2Parameter) ->
                 Query.or(
-                        Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(other1Parameter)),
-                        Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(other2Parameter))
+                        Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(other1Parameter)),
+                        Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(other2Parameter))
                 )
         );
     }
@@ -1144,7 +1146,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     void bitmapValueQueryOnKeyAndTwoOthersUnnestedWithOrsNested() {
         // Nest the OR into one child predicate
-        bitmapValueQueryOnKeyAndTwoOthersUnnested((other1Parameter, other2Parameter) -> Query.field(UnnestedRecordType.PARENT_CONSTITUENT).matches(
+        bitmapValueQueryOnKeyAndTwoOthersUnnested((other1Parameter, other2Parameter) -> Query.field(PARENT_CONSTITUENT).matches(
                 Query.or(
                         Query.field("other_id").equalsParameter(other1Parameter),
                         Query.field("other_id").equalsParameter(other2Parameter)

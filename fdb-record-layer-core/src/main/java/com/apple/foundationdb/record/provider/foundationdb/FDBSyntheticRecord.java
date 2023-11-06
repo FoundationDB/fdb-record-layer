@@ -92,11 +92,13 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         }
 
         if (recordType instanceof UnnestedRecordType) {
+            final UnnestedRecordType unnestedRecordType = (UnnestedRecordType) recordType;
+            final String parentName = unnestedRecordType.getParentConstituent().getName();
             Descriptors.FieldDescriptor positionsField = recordType.getDescriptor().findFieldByName(UnnestedRecordType.POSITIONS_FIELD);
             Descriptors.Descriptor positionsDescriptor = positionsField.getMessageType();
             DynamicMessage.Builder positionsBuilder = DynamicMessage.newBuilder(positionsDescriptor);
             for (Map.Entry<String, FDBStoredRecord<? extends Message>> constituent : constituents.entrySet()) {
-                if (UnnestedRecordType.PARENT_CONSTITUENT.equals(constituent.getKey())) {
+                if (parentName.equals(constituent.getKey())) {
                     continue;
                 }
                 long index = constituent.getValue().getPrimaryKey().getLong(0);
