@@ -106,8 +106,8 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, defaultField, search, isParameter);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, defaultField, search, isParameter);
     }
 
     @Override

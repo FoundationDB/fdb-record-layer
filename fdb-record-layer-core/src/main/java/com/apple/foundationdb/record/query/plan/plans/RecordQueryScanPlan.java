@@ -339,16 +339,16 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
+                return comparisons.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes, flowedType, commonPrimaryKey);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisons, reverse, recordTypes, flowedType, commonPrimaryKey);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
     }
 

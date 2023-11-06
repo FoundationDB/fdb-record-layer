@@ -53,8 +53,8 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return super.planHash(hashKind) + timeWindow.planHash(hashKind);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return super.planHash(mode) + timeWindow.planHash(mode);
     }
 
     @Nonnull

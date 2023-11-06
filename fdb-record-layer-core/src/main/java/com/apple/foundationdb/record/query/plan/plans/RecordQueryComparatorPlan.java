@@ -156,7 +156,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                         referencePlanIndex,
                         abortOnComparisonFailure,
                         this::toString,
-                        () -> planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS))
+                        () -> planHash(PlanHashable.CURRENT_FOR_CONTINUATION)) //TODO remove this use of a plan hash
                 .skipThenLimit(parentExecuteProperties.getSkip(), parentExecuteProperties.getReturnedRowLimit());
     }
 
@@ -225,8 +225,8 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), getComparisonKey(), referencePlanIndex, isReverse());
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getComparisonKey(), referencePlanIndex, isReverse());
     }
 
     @Override

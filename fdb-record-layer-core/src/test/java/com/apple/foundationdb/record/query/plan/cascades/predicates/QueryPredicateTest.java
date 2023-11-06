@@ -76,7 +76,7 @@ public class QueryPredicateTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
             return 0;
         }
 

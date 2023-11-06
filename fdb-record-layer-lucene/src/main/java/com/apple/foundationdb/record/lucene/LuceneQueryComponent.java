@@ -219,8 +219,8 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, type, query);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, type, query);
     }
 
     @Override

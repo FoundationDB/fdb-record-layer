@@ -93,8 +93,8 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.iterablePlanHash(hashKind, children);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.iterablePlanHash(mode, children);
     }
 
     @Override

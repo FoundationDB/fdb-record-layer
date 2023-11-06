@@ -102,7 +102,7 @@ class BooleanValueTest {
     static class ThrowsValue extends AbstractValue implements BooleanValue {
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
             return 0;
         }
 

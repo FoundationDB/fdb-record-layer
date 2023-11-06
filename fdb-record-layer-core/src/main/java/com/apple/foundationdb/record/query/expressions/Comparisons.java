@@ -909,16 +909,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, comparand);
+                    return type.name().hashCode() + PlanHashable.objectPlanHash(mode, comparand);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, comparand);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, comparand);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type);
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -1184,19 +1184,19 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode() + (isCorrelation() ? 0 : parameter.hashCode());
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
                     if (isCorrelation()) {
-                        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                        return PlanHashable.objectsPlanHash(mode, BASE_HASH, type);
                     } else {
-                        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
+                        return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, parameter);
                     }
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -1369,14 +1369,14 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type);
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -1540,16 +1540,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return type.name().hashCode() + PlanHashable.iterablePlanHash(hashKind, comparand) + PlanHashable.objectPlanHash(hashKind, javaType);
+                    return type.name().hashCode() + PlanHashable.iterablePlanHash(mode, comparand) + PlanHashable.objectPlanHash(mode, javaType);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, comparand, javaType);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, comparand, javaType);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, javaType);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, javaType);
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -1654,15 +1654,15 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode();
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type);
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -1735,8 +1735,8 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
         }
 
         @Override
@@ -1925,16 +1925,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return PlanHashable.objectsPlanHash(hashKind, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                    return PlanHashable.objectsPlanHash(mode, type, getComparand(), tokenizerName, fallbackTokenizerName);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
                 default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
         }
 
@@ -2004,16 +2004,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return super.planHash(hashKind) * 31 + maxDistance;
+                    return super.planHash(mode) * 31 + maxDistance;
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), maxDistance);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), maxDistance);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode));
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
             }
         }
 
@@ -2127,15 +2127,15 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return super.planHash(hashKind) * (strict ? -1 : 1);
+                    return super.planHash(mode) * (strict ? -1 : 1);
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), strict);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), strict);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
             }
         }
 
@@ -2229,15 +2229,15 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return inner.planHash(hashKind);
+                    return inner.planHash(mode);
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, inner);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, inner);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
             }
         }
 
@@ -2319,8 +2319,8 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.planHash(hashKind, function, originalComparison);
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            return PlanHashable.planHash(mode, function, originalComparison);
         }
 
         @Override

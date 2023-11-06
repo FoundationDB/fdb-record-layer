@@ -386,12 +386,12 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
-                        typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
-                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))),
                         descendantPlans(
                                 indexPlan()
                                         .where(indexName("RestaurantRecord$name"))
-                                        .and(scanComparisons(range("[[name],[name]]")))));
+                                        .and(scanComparisons(range("[[name],[name]]")))),
+                        typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
         assertMatchesExactly(plan.getPlan(), planMatcher);
     }

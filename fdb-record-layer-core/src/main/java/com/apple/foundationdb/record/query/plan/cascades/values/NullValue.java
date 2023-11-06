@@ -82,18 +82,18 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, resultType);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, resultType);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
     }
 
@@ -114,7 +114,6 @@ public class NullValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
         if (!type.isNullable()) {

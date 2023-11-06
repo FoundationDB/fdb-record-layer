@@ -176,17 +176,17 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashKind.FOR_CONTINUATION));
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
     }
 

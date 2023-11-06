@@ -243,8 +243,8 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             }
 
             @Override
-            public int planHash(@Nonnull final PlanHashKind hashKind) {
-                return comparisonKeyExpression.planHash(hashKind);
+            public int planHash(@Nonnull final PlanHashMode mode) {
+                return comparisonKeyExpression.planHash(mode);
             }
         }
 
@@ -311,8 +311,8 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             }
 
             @Override
-            public int planHash(@Nonnull final PlanHashKind hashKind) {
-                return PlanHashable.planHash(hashKind, comparisonKeyValues);
+            public int planHash(@Nonnull final PlanHashMode mode) {
+                return PlanHashable.planHash(mode, comparisonKeyValues);
             }
         }
     }

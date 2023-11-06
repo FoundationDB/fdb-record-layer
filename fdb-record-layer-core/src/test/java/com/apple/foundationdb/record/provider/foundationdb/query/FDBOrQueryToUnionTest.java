@@ -149,9 +149,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan, planMatcher);
 
             assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(-1584186103, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-357068519, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(964023338, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186103, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-357068519, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -163,9 +162,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan, planMatcher);
 
             assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(725509258, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1513305480, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-192213623, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(725509258, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1513305480, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -174,9 +172,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan, planMatcher);
 
             assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(-2067012572, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1784357954, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1189517485, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012572, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1784357954, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         Set<Long> seen = new HashSet<>();
@@ -282,9 +279,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactlyInAnyOrder(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1974122514, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1183017387, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1883761494, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1974122514, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1183017387, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -298,9 +294,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1912003491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1070595610, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-369851503, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1912003491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1070595610, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -393,9 +388,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(504228282, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1520996708, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2080970598, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(504228282, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1520996708, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -410,9 +404,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-948815552, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2075944345, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1515970455, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-948815552, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-2075944345, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -422,9 +415,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1299166123, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-700473135, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-140499245, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1299166123, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-700473135, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -478,9 +470,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-627934247, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(502710007, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1718649364, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-627934247, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(502710007, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -492,9 +483,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-2080978081, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1200736250, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1878291689, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2080978081, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1200736250, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -503,9 +493,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1930405164, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1650830816, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-434891459, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1930405164, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1650830816, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -561,9 +550,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-417814093, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1082480572, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(233155848, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-417814093, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1082480572, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -577,9 +565,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1891881268, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2056249763, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-923081113, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1891881268, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2056249763, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -589,10 +576,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-673254486, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(991016881, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1988313995, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-
+            assertEquals(-673254486, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(991016881, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -655,9 +640,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(removesDuplicates ? 1864525478 : -1635262164, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     unorderedUnionPlan(
@@ -669,9 +653,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(removesDuplicates ? 1558364455 : -1941423187, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(removesDuplicates ? -289015345 : 506164309, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(removesDuplicates ? 1558364455 : -1941423187, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -739,13 +722,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan, planMatcher);
 
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(removesDuplicates ? 1864525478 : -1635262164, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(removesDuplicates ? 1864525478 : -1635262164, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -822,9 +803,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(2006798704, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1476903216, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1759380882, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2006798704, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1476903216, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -833,9 +813,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(Key.Expressions.field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1721396731, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1374663850, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1092186184, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1721396731, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1374663850, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -901,9 +880,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         }
         assertMatchesExactly(plan, planMatcher);
 
-        assertEquals(removesDuplicates ? -1216499257 : -1216499264, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(removesDuplicates ? 610131412 : 1405311066, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(removesDuplicates ? 1591758672 : -1908028970, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(removesDuplicates ? -1216499257 : -1216499264, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(removesDuplicates ? 610131412 : 1405311066, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -962,9 +940,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(concat(Key.Expressions.field("str_value_indexed"), field("num_value_3_indexed"), field("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-664830657, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1572009327, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1251823795, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-664830657, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1572009327, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -977,9 +954,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-3043538, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-142082973, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1329051201, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-3043538, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-142082973, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1033,9 +1009,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1412961915, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(258619931, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1414232579, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1412961915, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(258619931, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1048,9 +1023,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(2142773918, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(21338461, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1651514049, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2142773918, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(21338461, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1084,9 +1058,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1412961915, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(258435419, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1414417091, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1412961915, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(258435419, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1099,9 +1072,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(2142773918, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(21153949, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1651698561, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2142773918, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(21153949, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
@@ -1138,26 +1110,20 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
         assertTrue(plan1.semanticEquals(plan2));
         if (shouldPushFetchAboveUnionToIntersection && !(planner instanceof CascadesPlanner)) {
-            assertEquals(-1584186103, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-357068519, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(964023338, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(-91575587, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1919956247, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(78160824, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186103, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-357068519, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-91575587, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1919956247, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
-            assertEquals(725509258, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1513305480, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-192213623, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(-2076847522, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1218774088, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1078076137, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(725509258, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1513305480, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-2076847522, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1218774088, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(-2067012572, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1784357954, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1189517485, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(600484528, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(221470226, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-2075379999, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012572, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1784357954, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(600484528, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(221470226, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         
         Set<Long> seen = new HashSet<>();
@@ -1221,26 +1187,20 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertTrue(plan1.semanticEquals(plan2));
         
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
-            assertEquals(770691035, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1890796442, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(55660884, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(1289607451, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-29394342, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1772831508, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(770691035, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1890796442, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(1289607451, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-29394342, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
-            assertEquals(-1214580900, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(734559481, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1100576077, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(-695664484, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1185631303, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(616594547, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1214580900, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(734559481, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-695664484, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1185631303, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(723665474, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-330673401, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2129158337, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(184229634, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2044103111, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-448638335, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(723665474, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-330673401, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(184229634, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2044103111, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         Set<Long> seen = new HashSet<>();
@@ -1306,9 +1266,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(concat(field("num_value_2"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1659601413, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1344221020, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1474039530, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1659601413, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1344221020, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1320,9 +1279,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(1677471422, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(164376971, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1914561173, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1677471422, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(164376971, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1373,9 +1331,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKey(primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1584186334, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-351348461, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(969743396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186334, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-351348461, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1387,9 +1344,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(725509027, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1507585422, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-186493565, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(725509027, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1507585422, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -1398,9 +1354,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-2067012605, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1790078012, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1183797427, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012605, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1790078012, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1456,9 +1411,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))
                             .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
             assertMatchesExactly(plan, planMatcher);
-            assertEquals(-2074065439, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1146901452, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1940448631, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2074065439, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1146901452, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1469,9 +1423,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]"))))))
                                     .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
-            assertEquals(1208367290, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1704665614, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(497048401, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1208367290, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1704665614, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1530,9 +1483,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(comparisonKey(primaryKey("MySimpleRecord")));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(273143386, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1919034675, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1703645950, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(273143386, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1919034675, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1546,9 +1498,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     .where(comparisonKeyValues(exactlyInAnyOrder(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1974122290, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2099150219, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1883761494, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1974122290, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2099150219, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1603,9 +1554,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             .where(queryComponents(exactly(equalsObject(orComponent))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1108620348, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1573180943, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1553701984, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1108620348, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     predicatesFilterPlan(
@@ -1618,9 +1568,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 4)))))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-2131629164, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-715191475, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-250630880, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2131629164, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-715191475, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1719,9 +1668,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     )));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1829743477, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1168128533, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1840217393, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1829743477, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1168128533, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1738,9 +1686,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                     )));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1002673308, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(658371925, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-628249445, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1002673308, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(658371925, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
@@ -1770,9 +1717,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-1608004667, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-291254354, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(969743396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1608004667, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-291254354, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1783,9 +1729,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(701690694, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1447491315, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-186493565, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(701690694, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1447491315, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
@@ -1812,9 +1757,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             filterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))).where(queryComponents(exactly(equalsObject(Query.field("num_value_2").equalsValue(3))))));
 
             assertMatchesExactly(plan, planMatcher);
-            assertEquals(-91578519, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1329489138, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1714281445, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-91578519, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1329489138, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnValuesPlan(
@@ -1829,9 +1773,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(2082208238, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1572133935, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(976433220, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2082208238, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1572133935, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

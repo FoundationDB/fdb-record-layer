@@ -274,8 +274,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, evaluableRange);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, evaluableRange);
     }
 
     @Override
@@ -534,10 +534,10 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
             int hashCode = 0;
             for (final var compilableComparison : compilableComparisons) {
-                hashCode += 31 * compilableComparison.planHash(hashKind);
+                hashCode += 31 * compilableComparison.planHash(mode);
             }
             return hashCode;
         }

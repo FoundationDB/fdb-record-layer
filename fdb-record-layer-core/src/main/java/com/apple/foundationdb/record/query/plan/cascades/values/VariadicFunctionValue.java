@@ -114,12 +114,12 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, operation);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operation);
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, operation, children);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operation, children);
     }
 
     @Override
@@ -145,7 +145,6 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
                                      @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() >= 2);
@@ -227,7 +226,7 @@ public class VariadicFunctionValue extends AbstractValue {
     public enum ComparisonFunction {
         GREATEST,
         LEAST,
-        COALESCE;
+        COALESCE
     }
 
     /**

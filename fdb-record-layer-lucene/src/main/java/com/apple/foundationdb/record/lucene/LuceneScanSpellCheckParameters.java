@@ -63,8 +63,8 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, scanType, groupComparisons, key, isParameter);
+    public int planHash(@Nonnull PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, key, isParameter);
     }
 
     @Nonnull

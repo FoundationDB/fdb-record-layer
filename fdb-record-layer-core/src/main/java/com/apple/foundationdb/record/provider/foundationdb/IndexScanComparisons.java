@@ -89,8 +89,8 @@ public class IndexScanComparisons implements IndexScanParameters {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
-        return scanType.planHash(hashKind) + scanComparisons.planHash(hashKind);
+    public int planHash(@Nonnull PlanHashMode mode) {
+        return scanType.planHash(mode) + scanComparisons.planHash(mode);
     }
 
     @Override

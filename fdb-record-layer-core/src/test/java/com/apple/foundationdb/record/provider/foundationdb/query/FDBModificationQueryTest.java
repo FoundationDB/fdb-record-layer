@@ -792,8 +792,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             openNestedRecordStore(context);
             var plan1 = getUpdatePlan(cascadesPlanner);
             var plan2 = getUpdatePlan(cascadesPlanner);
-            Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
-                    plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {

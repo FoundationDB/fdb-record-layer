@@ -87,8 +87,8 @@ public class RecordQuerySortKey implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, key, reverse);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, key, reverse);
     }
 
     @Override
