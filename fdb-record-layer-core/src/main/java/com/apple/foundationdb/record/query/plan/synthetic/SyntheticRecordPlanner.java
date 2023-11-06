@@ -190,7 +190,7 @@ public class SyntheticRecordPlanner {
                     if (syntheticRecordType instanceof JoinedRecordType) {
                         subPlan = forJoinConstituent((JoinedRecordType)syntheticRecordType, (JoinedRecordType.JoinConstituent)constituent);
                     } else if (syntheticRecordType instanceof UnnestedRecordType) {
-                        subPlan = forUnnestedConstituent((UnnestedRecordType) syntheticRecordType, constituent);
+                        subPlan = forUnnestedConstituent((UnnestedRecordType) syntheticRecordType, (UnnestedRecordType.NestedConstituent) constituent);
                     } else {
                         throw unknownSyntheticType(syntheticRecordType);
                     }
@@ -306,10 +306,20 @@ public class SyntheticRecordPlanner {
         return new JoinedRecordPlanner(joinedRecordType, queryPlanner).plan(joinConstituent);
     }
 
+    /**
+     * Construct a plan for generating synthetic records from the parent constituent of an unnested record type.
+     * This will un-nest nested constituents from the stored record and construct synthetic records joining the
+     * parent record with its named nested elements.
+     *
+     * @param unnestedRecordType the unnested record type
+     * @param constituent the parent constituent of the unnested record type
+     * @return a plan that generates synthetic records from un-nesting stored records
+     * @see UnnestedRecordType
+     */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // want pointer equality for record meta-data object
     public SyntheticRecordFromStoredRecordPlan forUnnestedConstituent(@Nonnull UnnestedRecordType unnestedRecordType,
-                                                                      @Nonnull SyntheticRecordType.Constituent constituent) {
+                                                                      @Nonnull UnnestedRecordType.NestedConstituent constituent) {
         if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }

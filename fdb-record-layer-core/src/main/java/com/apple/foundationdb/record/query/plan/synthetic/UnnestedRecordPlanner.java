@@ -21,7 +21,8 @@
 package com.apple.foundationdb.record.query.plan.synthetic;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 
 import javax.annotation.Nonnull;
@@ -38,7 +39,12 @@ class UnnestedRecordPlanner {
         this.recordType = recordType;
     }
 
-    public SyntheticRecordFromStoredRecordPlan plan(SyntheticRecordType.Constituent constituent) {
+    public SyntheticRecordFromStoredRecordPlan plan(UnnestedRecordType.NestedConstituent constituent) {
+        if (!constituent.isParent()) {
+            throw new RecordCoreArgumentException("Can only create synthetic records for parent constituent")
+                    .addLogInfo(LogMessageKeys.EXPECTED, recordType.getParentConstituent().getName())
+                    .addLogInfo(LogMessageKeys.ACTUAL, constituent.getName());
+        }
         return new UnnestStoredRecordPlan(recordType, constituent.getRecordType());
     }
 }

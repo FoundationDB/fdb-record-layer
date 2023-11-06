@@ -1,5 +1,5 @@
 /*
- * FDBMapQueryTest.java
+ * FDBNestedRepeatedQueryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -110,10 +110,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Test class for issuing queries on a record type with a map-like field.
+ * Test class for issuing queries on a record type with a nested repeated field. In most tests, this is to emulate
+ * map-like behavior.
  */
 @Tag(Tags.RequiresFDB)
-class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     private static final String PARENT_CONSTITUENT = "parent";
     private static final String OUTER = TestRecordsNestedMapProto.OuterRecord.getDescriptor().getName();
     private static final String OUTER_WITH_ENTRIES = "OuterWithEntries";
@@ -463,7 +464,7 @@ class FDBMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void filterOnBothKeyAndValueWithCoveringIndex() {
-        // Note that it we should be able to push down the filter on the value column to the index,
+        // Note that we should be able to push down the filter on the value column to the index,
         // though it would have to be executed as a residual filter. Effectively:
         //
         // Fetch(Covering(Index(mapValueInValue [EQUALS $key])) | (map.entry.value EQUALS $value)))
