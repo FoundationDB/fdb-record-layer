@@ -81,6 +81,22 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         return currentRow;
     }
 
+    @Nullable
+    @Override
+    public NoNextRowReason noNextRowReason() {
+        if (currentRow != null) {
+            return null;
+        }
+        if (currentCursor.hasNext()) {
+            return null;
+        }
+        if (currentCursor.terminatedEarly()) {
+            return NoNextRowReason.EXEC_LIMIT_REACHED;
+        } else {
+            return NoNextRowReason.NO_MORE_ROWS;
+        }
+    }
+
     @Override
     public void close() throws SQLException {
         try {

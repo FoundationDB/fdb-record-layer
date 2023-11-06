@@ -113,6 +113,26 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         return this;
     }
 
+    public ResultSetAssert hasNoNextRowReasonAsNoMoreRows() {
+        isNotNull();
+        try {
+            Assertions.assertThat(actual.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    public ResultSetAssert hasNoNextRowReasonAsExecLimit() {
+        isNotNull();
+        try {
+            Assertions.assertThat(actual.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
     public RelationalStructAssert row() {
         try {
             RelationalResultSetMetaData metaData = actual.getMetaData();

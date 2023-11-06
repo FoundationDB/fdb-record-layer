@@ -377,7 +377,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 .setTimeLimit(options.getOption(Options.Name.EXECUTION_TIME_LIMIT))
                 .setScannedBytesLimit(options.getOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT))
                 .setScannedRecordsLimit(options.getOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT))
-                .setFailOnScanLimitReached(true)
+                .setFailOnScanLimitReached(false)
                 .build();
     }
 

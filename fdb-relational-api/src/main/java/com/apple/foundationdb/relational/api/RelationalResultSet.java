@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -50,6 +51,21 @@ import java.util.Map;
  */
 public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruct {
 
+    enum NoNextRowReason {
+        /**
+         * This happens when there are potentially more results that match the user query but the resultSet "cannot"
+         * continue owing to the execution limit being met in the current transaction.
+         */
+        EXEC_LIMIT_REACHED,
+        /**
+         * This could happen in case there are no more matching rows that satisfy the query. It also covers the case
+         * when the user specify the {@code LIMIT} clause that curtails the resultSet to the requested number of rows.
+         * In the later case, however, the accompanied {@code continuation} does not denote the "end" and hence can be
+         * used to continue ahead.
+         */
+        NO_MORE_ROWS
+    }
+
     @Override
     RelationalResultSetMetaData getMetaData() throws SQLException;
 
@@ -61,6 +77,11 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
      */
     @Nonnull
     Continuation getContinuation() throws SQLException;
+
+    @Nullable
+    default NoNextRowReason noNextRowReason() throws SQLException {
+        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
 
     /*Unsupported Operations*/
     @ExcludeFromJacocoGeneratedReport

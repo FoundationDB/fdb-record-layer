@@ -25,14 +25,12 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.RelationalStatementRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -45,6 +43,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.List;
 
 public class ExecutePropertyTests {
+
+    /**
+     * Tests here primarily evaluates the {@link RelationalResultSet} in light of the execution limits imposed on the
+     * connection and query. The execution limits can be the limit on time, scanned number of bytes and scanned number
+     * rows. In the current setup, these limits are not strictly enforced by some of the plan execution cursors, for
+     * instance see {@link com.apple.foundationdb.record.provider.foundationdb.SplitHelper.KeyValueUnsplitter}. Hence,
+     * an execution that has a scanned number of rows limit set can actually end up returning slightly more than that.
+     * <p>
+     * Some of the tests here are based on that fact and hard-code the mapping between prescribed limit and actual
+     * returned number of result.
+     * <p>
+     * TODO (Sanitize ExecutePropertyTest in Relational)
+     */
 
     private static final String schemaTemplate = "CREATE TABLE FOO(a bigint, name string, PRIMARY KEY(A))";
 
@@ -74,9 +85,9 @@ public class ExecutePropertyTests {
 
     private static List<Arguments> hitLimitOptions() {
         return List.of(
-                Arguments.of(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1, 1),
-                Arguments.of(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT, 5L, 1),
-                Arguments.of(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2, 2),
+                Arguments.of(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1, 2),
+                Arguments.of(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT, 5L, 2),
+                Arguments.of(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2, 3),
                 Arguments.of(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 7, 7)
         );
     }
@@ -131,11 +142,15 @@ public class ExecutePropertyTests {
                         final RelationalResultSet rs2 = ps2.executeQuery()) {
                     Assertions.assertThat(rs1.next()).isTrue();
                     Assertions.assertThat(rs1.next()).isTrue();
+                    Assertions.assertThat(rs1.next()).isTrue();
                     Assertions.assertThat(rs2.next()).isTrue();
                     Assertions.assertThat(rs2.next()).isTrue();
-                    RelationalAssertions.assertThrowsSqlException(rs1::next).hasErrorCode(ErrorCode.SCAN_LIMIT_REACHED);
+                    Assertions.assertThat(rs1.next()).isFalse();
                     Assertions.assertThat(rs2.next()).isTrue();
-                    RelationalAssertions.assertThrowsSqlException(rs2::next).hasErrorCode(ErrorCode.SCAN_LIMIT_REACHED);
+                    Assertions.assertThat(rs2.next()).isTrue();
+                    Assertions.assertThat(rs2.next()).isFalse();
+                    Assertions.assertThat(rs1.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+                    Assertions.assertThat(rs2.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
                 }
             }
         }
@@ -143,7 +158,7 @@ public class ExecutePropertyTests {
 
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransaction() throws Exception {
-        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
         try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
@@ -152,14 +167,17 @@ public class ExecutePropertyTests {
                 try (final RelationalResultSet rs = ps.executeQuery()) {
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isTrue();
-                }
-                try (final RelationalResultSet rs = ps.executeQuery()) {
-                    Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.next()).isTrue();
                 }
                 try (final RelationalResultSet rs = ps.executeQuery()) {
                     Assertions.assertThat(rs.next()).isTrue();
-                    RelationalAssertions.assertThrowsSqlException(rs::next).hasErrorCode(ErrorCode.SCAN_LIMIT_REACHED);
+                    Assertions.assertThat(rs.next()).isTrue();
+                }
+                try (final RelationalResultSet rs = ps.executeQuery()) {
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.next()).isFalse();
+                    Assertions.assertThat(rs.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
                 }
             }
         }
@@ -167,8 +185,8 @@ public class ExecutePropertyTests {
 
     @Test
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
-        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
-        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build())) {
+        statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
+        try (var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             conn.beginTransaction();
@@ -178,7 +196,10 @@ public class ExecutePropertyTests {
                     Assertions.assertThat(rs.next()).isTrue();
                 }
                 try (final RelationalResultSet rs = ps.executeQuery()) {
-                    RelationalAssertions.assertThrowsSqlException(rs::next).hasErrorCode(ErrorCode.SCAN_LIMIT_REACHED);
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.next()).isTrue();
+                    Assertions.assertThat(rs.next()).isFalse();
+                    Assertions.assertThat(rs.noNextRowReason()).isEqualTo(RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
                 }
             }
         }

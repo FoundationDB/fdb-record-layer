@@ -27,6 +27,8 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -60,21 +62,11 @@ public class CursorTest {
             CursorTest.class,
             TestSchemas.restaurant());
 
-    @RegisterExtension
-    @Order(2)
-    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
-            .withOptions(Options.NONE)
-            .withSchema("TEST_SCHEMA");
-
-    @RegisterExtension
-    @Order(3)
-    public final RelationalStatementRule statement = new RelationalStatementRule(connection);
-
     @Test
-    public void canIterateOverAllResults() throws SQLException {
-        havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
+    public void canIterateOverAllResults() throws SQLException, RelationalException {
+        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
             // 1/2 scan all records
-            try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
+            try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
             } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -83,15 +75,15 @@ public class CursorTest {
     }
 
     @Test
-    public void canIterateWithContinuation() throws SQLException {
-        havingInsertedRecordsDo(10, (Iterable<Message> records, RelationalStatement s) -> {
+    public void canIterateWithContinuation() throws SQLException, RelationalException {
+        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
             // 1/2 scan all records
             List<Row> actual = new ArrayList<>();
             StructMetaData metaData = null;
             try {
                 Continuation cont = ContinuationImpl.BEGIN;
                 while (!cont.atEnd()) {
-                    try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(),
+                    try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(),
                             Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
                         metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
                         while (resultSet.next()) {
@@ -110,10 +102,9 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEdgesOfRecordCollection() throws SQLException {
-
-        havingInsertedRecordsDo(3, (Iterable<Message> records, RelationalStatement s) -> {
-            try (RelationalResultSet resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
+    public void continuationOnEdgesOfRecordCollection() throws SQLException, RelationalException {
+        insertRecordsAndTest(3, (Iterable<Message> records, RelationalConnection conn) -> {
+            try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertEquals(ContinuationImpl.BEGIN, continuation, "Incorrect starting continuation!");
@@ -122,7 +113,7 @@ public class CursorTest {
                 boolean called = false;
                 while (resultSet.next()) {
                     called = true;
-                    Row resumedRow = readFirstRecordWithContinuation(s, continuation);
+                    Row resumedRow = readFirstRecordWithContinuation(conn.createStatement(), continuation);
                     Row mainRow = ResultSetTestUtils.currentRow(resultSet);
                     RelationalStructAssert.assertThat(new ImmutableRowStruct(mainRow, smd)).isEqualTo(new ImmutableRowStruct(resumedRow, smd));
 
@@ -145,11 +136,12 @@ public class CursorTest {
     }
 
     @Test
-    public void continuationOnEmptyCollection() throws SQLException {
-        havingInsertedRecordsDo(0, (Iterable<Message> records, RelationalStatement s) -> {
+    public void continuationOnEmptyCollection() throws SQLException, RelationalException {
+        insertRecordsAndTest(0, (Iterable<Message> records, RelationalConnection conn) -> {
             RelationalResultSet resultSet = null;
             try {
-                resultSet = s.executeScan("RESTAURANT", new KeySet(), Options.NONE);
+                resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE);
+                Assertions.assertFalse(resultSet.next());
                 Continuation continuation = resultSet.getContinuation();
                 Assertions.assertEquals(0, continuation.getUnderlyingBytes().length);
                 Assertions.assertTrue(continuation.atEnd());
@@ -169,27 +161,114 @@ public class CursorTest {
         });
     }
 
+    @Test
+    public void continuationWithReturnRowLimit() throws SQLException, RelationalException {
+        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
+            Continuation continuation;
+            try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT limit 5")) {
+                Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                for (int i = 0; i < 5; i++) {
+                    resultSetAssert.hasNextRow();
+                }
+                resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
+                continuation = resultSet.getContinuation();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
+                preparedStatement.setBytes("param", continuation.serialize());
+                try (final var resultSet = preparedStatement.executeQuery()) {
+                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                    for (int i = 0; i < 5; i++) {
+                        resultSetAssert.hasNextRow();
+                    }
+                    resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Test
+    public void continuationWithScanRowLimit() throws SQLException, RelationalException {
+        insertAndReturnRecords(10);
+        Continuation continuation;
+        int numRowsReturned = 0;
+        // 1. Iterate over and count the rows returned before the scan rows limit is hit
+        try (final var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+            conn.setSchema(database.getSchemaName());
+            conn.beginTransaction();
+            try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
+                Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                while (true) {
+                    if (resultSet.next()) {
+                        numRowsReturned++;
+                    } else {
+                        Assertions.assertEquals(resultSet.noNextRowReason(), RelationalResultSet.NoNextRowReason.EXEC_LIMIT_REACHED);
+                        continuation = resultSet.getContinuation();
+                        break;
+                    }
+                }
+            }
+        }
+        // 2. Further count the rows in other execution without limits and see if total number of rows is 10
+        try (final var conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema(database.getSchemaName());
+            conn.beginTransaction();
+            try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
+                preparedStatement.setBytes("param", continuation.serialize());
+                try (final var resultSet = preparedStatement.executeQuery()) {
+                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    while (true) {
+                        if (resultSet.next()) {
+                            numRowsReturned++;
+                        } else {
+                            Assertions.assertEquals(resultSet.noNextRowReason(), RelationalResultSet.NoNextRowReason.NO_MORE_ROWS);
+                            Assertions.assertEquals(10, numRowsReturned);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // helper methods
 
-    private void havingInsertedRecordsDo(int numRecords,
-                                         BiConsumer<Iterable<Message>, RelationalStatement> test) throws SQLException {
-        // 1/2 add all records to table insert_test.main.Restaurant.RESTAURANT
-        Iterable<Message> records = Utils.generateRestaurantRecords(numRecords, statement);
-        final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RESTAURANT");
-        Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
-                .map(m -> {
-                    try {
-                        return dataBuilder.convertMessage(m);
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .collect(Collectors.toList());
-        int count = statement.executeInsert("RESTAURANT", convertedRecords);
-        Assertions.assertEquals(numRecords, count);
+    private void insertRecordsAndTest(int numRecords,
+                                      BiConsumer<Iterable<Message>, RelationalConnection> test) throws SQLException, RelationalException {
+        final var records = insertAndReturnRecords(numRecords);
+        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            con.setSchema(database.getSchemaName());
+            con.beginTransaction();
+            test.accept(records, con);
+        }
+    }
 
-        // 2/2 test logic follows
-        test.accept(records, statement);
+    private Iterable<Message> insertAndReturnRecords(int numRecords) throws SQLException, RelationalException {
+        Iterable<Message> records;
+        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            con.setSchema(database.getSchemaName());
+            con.beginTransaction();
+            final var statement = con.createStatement();
+            records = Utils.generateRestaurantRecords(numRecords, statement);
+            final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RESTAURANT");
+            Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
+                    .map(m -> {
+                        try {
+                            return dataBuilder.convertMessage(m);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .collect(Collectors.toList());
+            int count = statement.executeInsert("RESTAURANT", convertedRecords);
+            Assertions.assertEquals(numRecords, count);
+        }
+        return records;
     }
 
     private Row readFirstRecordWithContinuation(RelationalStatement s, Continuation c) throws SQLException, RelationalException {

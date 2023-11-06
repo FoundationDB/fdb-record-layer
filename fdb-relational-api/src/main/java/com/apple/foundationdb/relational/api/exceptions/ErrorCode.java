@@ -139,7 +139,7 @@ public enum ErrorCode {
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded
     TOO_MANY_COLUMNS("54011"),
-    SCAN_LIMIT_REACHED("54F01"),
+    EXECUTION_LIMIT_REACHED("54F01"),
 
     // Class 55 - Object Not In Prerequisite State
     STATEMENT_CLOSED("55F00"),
