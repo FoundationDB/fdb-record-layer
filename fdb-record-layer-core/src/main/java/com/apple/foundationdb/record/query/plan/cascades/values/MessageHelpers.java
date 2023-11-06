@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -550,7 +551,7 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> {
+    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> implements PlanHashable {
         public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
@@ -559,6 +560,18 @@ public class MessageHelpers {
         @Override
         public CoercionTrieNode getThis() {
             return this;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            if (getChildrenMap() == null) {
+                return 0;
+            }
+            int hashCode = 0;
+            for (var entry : getChildrenMap().entrySet()) {
+                hashCode += 31 * PlanHashable.objectsPlanHash(hashKind, entry.getKey(), entry.getValue());
+            }
+            return hashCode;
         }
     }
 }
