@@ -141,7 +141,6 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
             case LEGACY:
                 return 2;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

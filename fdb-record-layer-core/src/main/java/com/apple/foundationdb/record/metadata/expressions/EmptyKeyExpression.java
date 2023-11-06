@@ -129,7 +129,6 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
             case LEGACY:
                 return 0;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

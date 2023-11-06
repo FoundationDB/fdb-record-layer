@@ -563,15 +563,11 @@ public class MessageHelpers {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
             if (getChildrenMap() == null) {
                 return 0;
             }
-            int hashCode = 0;
-            for (var entry : getChildrenMap().entrySet()) {
-                hashCode += 31 * PlanHashable.objectsPlanHash(hashKind, entry.getKey(), entry.getValue());
-            }
-            return hashCode;
+            return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
     }
 }

@@ -208,7 +208,6 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
             case LEGACY:
                 return getKeysSource().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH, getKeysSource());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -283,7 +282,6 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 case LEGACY:
                     return hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, primaryKeys);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -348,7 +346,6 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 case LEGACY:
                     return hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, parameter);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

@@ -156,7 +156,6 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
             case LEGACY:
                 return getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return super.basePlanHash(mode, BASE_HASH, comparison);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

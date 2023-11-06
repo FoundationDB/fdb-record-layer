@@ -208,7 +208,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             case LEGACY:
                 return getInnerPlan().planHash(mode) + conjunctedPredicate.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 // Not using baseSource, since it uses Object.hashCode()
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), conjunctedPredicate);
             default:

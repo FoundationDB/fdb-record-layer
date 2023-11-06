@@ -232,7 +232,6 @@ public class QueryRecordFunction<T> implements PlanHashable {
             case LEGACY:
                 return function.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (additionalCondition == null) {
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, function);
                 } else {

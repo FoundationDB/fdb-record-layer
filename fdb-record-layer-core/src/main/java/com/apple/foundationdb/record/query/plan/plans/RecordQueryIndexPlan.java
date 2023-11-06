@@ -519,7 +519,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             case LEGACY:
                 return indexName.hashCode() + scanParameters.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 int planHash;
                 if (scanParameters instanceof IndexScanComparisons) {
                     // Keep hash stable for change in representation.

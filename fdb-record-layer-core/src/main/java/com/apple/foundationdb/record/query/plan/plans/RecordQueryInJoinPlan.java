@@ -217,7 +217,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                 }
                 // fall through
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (internal == Bindings.Internal.IN) {
                     return PlanHashable.objectsPlanHash(mode,
                             baseHash,

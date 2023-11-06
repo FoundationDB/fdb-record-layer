@@ -130,7 +130,6 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
             case LEGACY:
                 return super.basePlanHash(mode, BASE_HASH) + comparisonKeyFunction.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return super.basePlanHash(mode, BASE_HASH, comparisonKeyFunction);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

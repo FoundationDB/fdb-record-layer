@@ -226,7 +226,6 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
             case LEGACY:
                 return 13 + 7 * getChild().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

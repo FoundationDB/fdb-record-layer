@@ -133,8 +133,6 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 if (internal == Bindings.Internal.IN) {
                     return super.basePlanHash(mode, BASE_HASH, inSource.getValues());
                 }
-                // fall through
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return super.basePlanHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " not supported");

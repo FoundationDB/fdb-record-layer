@@ -142,7 +142,6 @@ public class QueryComponentPredicate extends AbstractQueryPredicate implements L
             case LEGACY:
                 return queryComponent.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH, queryComponent);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

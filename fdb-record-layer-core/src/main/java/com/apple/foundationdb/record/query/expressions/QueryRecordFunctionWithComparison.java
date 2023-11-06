@@ -224,7 +224,6 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             case LEGACY:
                 return function.planHash(mode) + getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH, function, getComparison());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

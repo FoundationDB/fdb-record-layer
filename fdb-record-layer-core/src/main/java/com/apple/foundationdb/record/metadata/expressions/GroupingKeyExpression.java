@@ -204,7 +204,6 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
             case LEGACY:
                 return getWholeKey().planHash(mode) + groupedCount;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getWholeKey(), groupedCount);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

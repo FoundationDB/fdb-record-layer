@@ -59,8 +59,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS;
-
 /**
  * A query plan that performs transformations on the incoming record according to a set of transformation instructions
  * in conjunction with a target {@link Type} and a target {@link com.google.protobuf.Descriptors.Descriptor} which both
@@ -124,8 +122,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     private final Supplier<Integer> planHashForContinuationSupplier;
-    @Nonnull
-    private final Supplier<Integer> planHashForWithoutLiteralsSupplier;
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
@@ -145,7 +141,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
-        this.planHashForWithoutLiteralsSupplier = Suppliers.memoize(this::computeRegularPlanHashWithoutLiterals);
     }
 
     @Nonnull
@@ -315,12 +310,11 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Override
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
             case FOR_CONTINUATION:
                 return planHashForContinuationSupplier.get();
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return planHashForWithoutLiteralsSupplier.get();
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
@@ -329,12 +323,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     private int computePlanHashForContinuation() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getInnerPlan(),
                 targetRecordType, transformationsTrie, coercionTrie);
-    }
-
-    private int computeRegularPlanHashWithoutLiterals() {
-        // TODO phase out STRUCTURAL_WITHOUT_LITERALS
-        return PlanHashable.objectsPlanHash(new PlanHashMode(STRUCTURAL_WITHOUT_LITERALS, PlanHashable.CURRENT),
-                BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
     }
 
     @Nonnull

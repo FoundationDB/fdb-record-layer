@@ -171,7 +171,6 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
             case LEGACY:
                 return getInnerPlan().planHash(mode) + getConjunctedFilter().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH, getInnerPlan(), getConjunctedFilter());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

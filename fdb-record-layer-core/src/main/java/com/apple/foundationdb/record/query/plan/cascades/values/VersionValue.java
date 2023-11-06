@@ -115,7 +115,6 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.planHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

@@ -240,7 +240,6 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
             case LEGACY:
                 return getInnerKey().planHash(mode) + splitPoint;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerKey(), splitPoint);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

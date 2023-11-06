@@ -107,7 +107,6 @@ public abstract class WindowedValue extends AbstractValue {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, baseHash, getName(), partitioningValues, argumentValues, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

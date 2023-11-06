@@ -83,7 +83,6 @@ public abstract class RecordFunction<T> implements PlanHashable, QueryHashable {
             case LEGACY:
                 return name.hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, baseHash, name, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");

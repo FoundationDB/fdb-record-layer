@@ -129,7 +129,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             case LEGACY:
                 return getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparison());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -213,7 +212,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
                 case LEGACY:
                     return PlanHashable.objectPlanHash(mode, recordTypeName);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, recordTypeName);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

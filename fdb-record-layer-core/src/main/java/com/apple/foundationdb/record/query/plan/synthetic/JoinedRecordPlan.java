@@ -112,7 +112,6 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
                 case LEGACY:
                     return constituent.getName().hashCode() + PlanHashable.planHash(mode, bindingPlans);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, constituent.getName(), bindingPlans);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -186,7 +185,6 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
                 case LEGACY:
                     return name.hashCode() + expression.planHash(mode) + (singleton ? 1 : 0);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, name, expression, singleton);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -339,7 +337,6 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             case LEGACY:
                 return PlanHashable.objectsPlanHash(mode, joinedRecordType.getName(), joinedTypes, queries);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, joinedRecordType.getName(), joinedTypes, queries);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

@@ -363,7 +363,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 // https://github.com/FoundationDB/fdb-record-layer/issues/677
                 return fieldName.hashCode() + fanType.name().hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, fieldName, fanType);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

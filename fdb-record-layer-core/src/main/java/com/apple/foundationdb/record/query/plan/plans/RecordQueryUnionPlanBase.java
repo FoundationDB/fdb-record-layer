@@ -185,7 +185,6 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
             case LEGACY:
                 return PlanHashable.planHash(mode, getQueryPlanChildren()) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, baseHash, getQueryPlanChildren(), reverse, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

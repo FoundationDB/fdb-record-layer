@@ -130,7 +130,6 @@ public class IndexAggregateFunction implements PlanHashable {
             case LEGACY:
                 return name.hashCode() + operand.planHash(mode) + Objects.hashCode(index);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, name, operand, index);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

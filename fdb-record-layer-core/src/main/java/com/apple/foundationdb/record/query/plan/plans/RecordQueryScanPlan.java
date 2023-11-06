@@ -345,8 +345,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 return comparisons.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisons, reverse, recordTypes, commonPrimaryKey);
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisons, reverse, recordTypes, flowedType, commonPrimaryKey);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }

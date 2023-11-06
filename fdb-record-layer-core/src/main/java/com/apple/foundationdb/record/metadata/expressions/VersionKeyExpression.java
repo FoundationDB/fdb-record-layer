@@ -132,7 +132,6 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
             case LEGACY:
                 return 1;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");

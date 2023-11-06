@@ -437,7 +437,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             case LEGACY:
                 return PlanHashable.planHash(mode, equalityComparisons) + PlanHashable.planHashUnordered(mode, inequalityComparisons);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 // TODO: Discuss why these should be unordered...
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, equalityComparisons,
                         PlanHashable.planHashUnordered(mode, inequalityComparisons));

@@ -217,7 +217,6 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getWholeKey(), prefixSize, dimensionsSize);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

@@ -198,7 +198,6 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             case LEGACY:
                 return getJoined().planHash(mode) + splitSize;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getJoined(), splitSize);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

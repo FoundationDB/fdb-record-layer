@@ -124,8 +124,6 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
             case LEGACY:
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, value);
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(mode, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }

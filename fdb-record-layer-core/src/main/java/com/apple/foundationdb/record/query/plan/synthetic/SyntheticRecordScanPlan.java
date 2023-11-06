@@ -116,7 +116,6 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
             case LEGACY:
                 return seedPlan.planHash(mode) + fromSeedPlan.planHash(mode) + (needDistinct ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, seedPlan, fromSeedPlan, needDistinct);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

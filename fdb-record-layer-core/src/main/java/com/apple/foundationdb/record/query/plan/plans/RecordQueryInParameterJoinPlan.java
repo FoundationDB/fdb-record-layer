@@ -129,7 +129,6 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                 }
                 // fall through
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (internal == Bindings.Internal.IN) {
                     return super.basePlanHash(mode, BASE_HASH, inParameterSource().getParameterName());
                 }

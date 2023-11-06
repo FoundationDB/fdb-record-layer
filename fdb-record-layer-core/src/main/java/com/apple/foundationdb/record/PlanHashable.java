@@ -29,11 +29,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * A more stable version of {@link Object#hashCode}.
- * The planHash semantics are different than {@link Object#hashCode} in a few ways:
+ * The planHash semantics are different from {@link Object#hashCode} in a few ways:
  * <UL>
  *     <LI>{@link #planHash(PlanHashKind)} values should be stable across runtime instance changes. The reason is that
  *     these values can be used to validate outstanding continuations, and a change in hash value caused by an
@@ -55,8 +56,7 @@ public interface PlanHashable {
      */
     enum PlanHashKind {
         LEGACY,                       // The original plan hash kind. Here for backwards compatibility, will be removed in the future
-        FOR_CONTINUATION,             // Continuation validation plan hash kind: include children, literals and markers. Used for continuation validation
-        STRUCTURAL_WITHOUT_LITERALS   // The hash used for query matching: skip all literals and markers
+        FOR_CONTINUATION              // Continuation validation plan hash kind: include children, literals and markers. Used for continuation validation
     }
 
     /**
@@ -265,6 +265,9 @@ public interface PlanHashable {
         if (mode.getKind() != PlanHashKind.LEGACY && obj instanceof Set) {
             return setsPlanHash(mode, (Set<?>)obj);
         }
+        if (mode.getKind() != PlanHashKind.LEGACY && obj instanceof Map) {
+            return mapsPlanHash(mode, (Map<?, ?>)obj);
+        }
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(mode, (Iterable<?>)obj);
         }
@@ -303,6 +306,14 @@ public interface PlanHashable {
         int result = 1;
         for (Object object : objects) {
             result += 31 * objectPlanHash(mode, object);
+        }
+        return result;
+    }
+
+    static int mapsPlanHash(@Nonnull final PlanHashMode mode, @Nonnull final Map<?, ?> map) {
+        int result = 1;
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            result += 31 * objectsPlanHash(mode, entry.getKey(), entry.getValue());
         }
         return result;
     }

@@ -786,7 +786,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void planHashCodeIsCalculatedCorrectly() throws Exception {
+    void testStablePlanHash() throws Exception {
         final var cascadesPlanner = setUp();
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
@@ -800,8 +800,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             openNestedRecordStore(context);
             var plan1 = getUpdateArrayPlan(cascadesPlanner);
             var plan2 = getUpdateArrayPlan(cascadesPlanner);
-            Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
-                    plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

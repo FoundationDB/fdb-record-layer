@@ -129,7 +129,6 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
             case LEGACY:
                 return fieldName.hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, baseHash, fieldName, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

@@ -98,7 +98,6 @@ abstract class BaseRepeatedField extends BaseField {
             case LEGACY:
                 return super.basePlanHash(mode, baseHash) + emptyMode.ordinal();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return super.basePlanHash(mode, baseHash, emptyMode, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

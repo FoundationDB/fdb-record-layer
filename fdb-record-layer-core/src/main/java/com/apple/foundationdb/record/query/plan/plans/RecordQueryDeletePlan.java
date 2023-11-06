@@ -180,10 +180,10 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     @Override
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan());
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

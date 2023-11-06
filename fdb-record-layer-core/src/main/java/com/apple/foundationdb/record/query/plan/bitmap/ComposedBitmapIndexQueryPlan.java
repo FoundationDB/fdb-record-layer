@@ -165,7 +165,6 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
             case LEGACY:
                 return PlanHashable.planHash(mode, indexPlans) + composer.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlans, composer);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -303,7 +302,6 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case LEGACY:
                     return position;
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, position);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -366,7 +364,6 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case LEGACY:
                     return PlanHashable.planHash(mode, children) + operator().hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return  PlanHashable.objectsPlanHash(mode, BASE_HASH, children, operator());
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -547,7 +544,6 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case LEGACY:
                     return child.planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

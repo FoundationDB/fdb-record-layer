@@ -226,7 +226,6 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
             case LEGACY:
                 return getChild().planHash(mode) + PlanHashable.planHash(mode, ranks);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), ranks);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -337,7 +336,6 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 case LEGACY:
                     return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(mode, comparisons);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     // TODO: Use function.planHash()?
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, bindingName, function.getName(), comparisons);
                 default:

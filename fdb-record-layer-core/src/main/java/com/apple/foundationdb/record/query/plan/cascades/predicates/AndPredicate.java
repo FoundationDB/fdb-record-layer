@@ -94,7 +94,6 @@ public class AndPredicate extends AndOrPredicate {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 List<PlanHashable> hashables = new ArrayList<>(getChildren().size() + 1);
                 hashables.add(BASE_HASH);
                 hashables.addAll(getChildren());

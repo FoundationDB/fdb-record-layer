@@ -209,7 +209,6 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
             case LEGACY:
                 return PlanHashable.planHash(mode, getQueryPlanChildren()) + comparisonKeyFunction.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getQueryPlanChildren(), comparisonKeyFunction, reverse);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");

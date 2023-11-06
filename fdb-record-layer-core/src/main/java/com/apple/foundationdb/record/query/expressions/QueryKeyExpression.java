@@ -316,7 +316,6 @@ public class QueryKeyExpression {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, SIMPLE_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
@@ -400,7 +399,6 @@ public class QueryKeyExpression {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     return PlanHashable.objectsPlanHash(mode, PARAMETER_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
