@@ -44,6 +44,8 @@ public class FDBLuceneFileReference {
     private final ByteString content;
 
     private long fieldInfosId;
+    @Nonnull
+    private ByteString fieldInfosBitSet;
 
     @SuppressWarnings("deprecation")
     private static ByteString getContentFromProto(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
@@ -56,26 +58,27 @@ public class FDBLuceneFileReference {
 
     private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getActualSize(), protoMessage.getBlockSize(),
-                getContentFromProto(protoMessage), protoMessage.getFieldInfosId());
+                getContentFromProto(protoMessage), protoMessage.getFieldInfosId(), protoMessage.getFieldInfosBitset());
     }
 
     public FDBLuceneFileReference(final long id, final byte[] content) {
-        this(id, content.length, 1, content.length, ByteString.copyFrom(content), 0);
+        this(id, content.length, 1, content.length, ByteString.copyFrom(content), 0, ByteString.EMPTY);
     }
 
 
     public FDBLuceneFileReference(long id, long size, long actualSize, long blockSize) {
-        this(id, size, actualSize, blockSize, ByteString.EMPTY, 0);
+        this(id, size, actualSize, blockSize, ByteString.EMPTY, 0, ByteString.EMPTY);
     }
 
     private FDBLuceneFileReference(long id, long size, long actualSize, long blockSize,
-                                   @Nonnull ByteString content, final long fieldInfosId) {
+                                   @Nonnull ByteString content, final long fieldInfosId, final @Nonnull ByteString fieldInfosBitSet) {
         this.id = id;
         this.size = size;
         this.actualSize = actualSize;
         this.blockSize = blockSize;
         this.content = content;
         this.fieldInfosId = fieldInfosId;
+        this.fieldInfosBitSet = fieldInfosBitSet;
     }
 
     public long getId() {
@@ -111,6 +114,9 @@ public class FDBLuceneFileReference {
         if (this.fieldInfosId != 0) {
             builder.setFieldInfosId(this.fieldInfosId);
         }
+        if (!this.fieldInfosBitSet.isEmpty()) {
+            builder.setFieldInfosBitset(this.fieldInfosBitSet);
+        }
         return builder.build().toByteArray();
     }
 
@@ -134,5 +140,14 @@ public class FDBLuceneFileReference {
 
     public long getFieldInfosId() {
         return fieldInfosId;
+    }
+
+    public void setFieldInfosBitSet(ByteString bitSet) {
+        this.fieldInfosBitSet = bitSet;
+    }
+
+    @Nonnull
+    public ByteString getFieldInfosBitSet() {
+        return fieldInfosBitSet;
     }
 }

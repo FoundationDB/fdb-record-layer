@@ -83,6 +83,8 @@ public class LuceneOptimizedCodec extends Codec {
         }
     };
 
+    public static final Codec CODEC = new LuceneOptimizedCodec();
+
     /**
      * Instantiates a new codec.
      */
