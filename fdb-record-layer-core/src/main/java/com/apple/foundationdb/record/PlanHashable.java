@@ -36,15 +36,15 @@ import java.util.Set;
  * A more stable version of {@link Object#hashCode}.
  * The planHash semantics are different from {@link Object#hashCode} in a few ways:
  * <UL>
- *     <LI>{@link #planHash(PlanHashKind)} values should be stable across runtime instance changes. The reason is that
+ *     <LI>{@link #planHash(PlanHashMode)} values should be stable across runtime instance changes. The reason is that
  *     these values can be used to validate outstanding continuations, and a change in hash value caused by an
  *     application restart or refactoring will invalidate all those outstanding continuations</LI>
- *     <LI>{@link #planHash(PlanHashKind)} supports multiple flavors of hash calculations (See {@link PlanHashKind}).
+ *     <LI>{@link #planHash(PlanHashMode)} supports multiple flavors of hash calculations (See {@link PlanHashMode}).
  *     The various kinds of plan hash algorithms are used for different purposes and include/exclude different parts of
  *     the target query plan</LI>
- *     <LI>{@link #planHash(PlanHashKind)} is meant to imply a certain identity of a plan, and reflects on the entire
+ *     <LI>{@link #planHash(PlanHashMode)} is meant to imply a certain identity of a plan, and reflects on the entire
  *     structure of the plan. The intent is to be able to correlate various plans for "identity" (using different
- *     definitions for this identity as specified by {@link PlanHashKind}). This requirement drives a desire to reduce
+ *     definitions for this identity as specified by {@link PlanHashMode}). This requirement drives a desire to reduce
  *     collisions as much as possible since not in all cases can we actually use "equals" to verify identity
  *     (e.g. log messages)</LI>
  * </UL>
@@ -60,22 +60,28 @@ public interface PlanHashable {
     }
 
     /**
-     * This is the current version.
+     * A mode for a plan hash which captures both kind and version. One reason we use an enum here is to force
+     * implementors to declare a new version, and to avoid greater than/less than comparisons. In reality
+     * (the future will tell), we only want at most two versions to not be deprecated.
      */
-    PlanHashVersion CURRENT = PlanHashVersion.V0;
+    enum PlanHashMode {
+        VL0(PlanHashKind.LEGACY, 0),
+        VC0(PlanHashKind.FOR_CONTINUATION, 0);
 
-    /**
-     * A version for a plan hash. The reason we use an enum here is to force implementors to declare a new version,
-     * and to avoid greater than/less than comparisons. In reality (the future will tell), we only want at most two
-     * versions to not be deprecated.
-     */
-    enum PlanHashVersion {
-        V0(0);
-
+        private final PlanHashKind kind;
         private final int numericVersion;
 
-        PlanHashVersion(int numericVersion) {
+        PlanHashMode(final PlanHashKind kind, final int numericVersion) {
+            this.kind = kind;
             this.numericVersion = numericVersion;
+        }
+
+        /**
+         * Get the plan hash kind associated with this mode.
+         * @return the plan hash kind
+         */
+        public PlanHashKind getKind() {
+            return kind;
         }
 
         /**
@@ -89,38 +95,8 @@ public interface PlanHashable {
         }
     }
 
-    PlanHashMode CURRENT_LEGACY = new PlanHashMode(PlanHashKind.LEGACY, CURRENT);
-    PlanHashMode CURRENT_FOR_CONTINUATION = new PlanHashMode(PlanHashKind.FOR_CONTINUATION, CURRENT);
-
-    /**
-     * A plan hash kind together with a version.
-     */
-    class PlanHashMode {
-        @Nonnull
-        private final PlanHashKind kind;
-        @Nonnull
-        private final PlanHashVersion version;
-
-        public PlanHashMode(@Nonnull final PlanHashKind kind, @Nonnull final PlanHashVersion version) {
-            this.kind = kind;
-            this.version = version;
-        }
-
-        @Nonnull
-        public PlanHashKind getKind() {
-            return kind;
-        }
-
-        @Nonnull
-        public PlanHashVersion getVersion() {
-            return version;
-        }
-
-        @Nonnull
-        public String name() {
-            return getKind().name();
-        }
-    }
+    PlanHashMode CURRENT_LEGACY = PlanHashMode.VL0;
+    PlanHashMode CURRENT_FOR_CONTINUATION = PlanHashMode.VC0;
 
     @Nonnull
     private static PlanHashMode currentHashMode(@Nonnull final PlanHashKind kind) {
