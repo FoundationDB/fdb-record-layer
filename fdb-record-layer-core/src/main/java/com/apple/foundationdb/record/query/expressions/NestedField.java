@@ -129,7 +129,7 @@ public class NestedField extends BaseNestedField {
             case FOR_CONTINUATION:
                 return super.basePlanHash(mode, BASE_HASH, getChild());
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

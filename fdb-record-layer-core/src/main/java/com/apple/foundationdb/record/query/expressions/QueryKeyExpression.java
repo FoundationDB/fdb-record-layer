@@ -318,7 +318,7 @@ public class QueryKeyExpression {
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, SIMPLE_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -401,7 +401,7 @@ public class QueryKeyExpression {
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, PARAMETER_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

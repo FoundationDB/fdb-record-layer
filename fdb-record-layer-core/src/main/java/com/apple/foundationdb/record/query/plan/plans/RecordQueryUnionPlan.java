@@ -132,7 +132,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
             case FOR_CONTINUATION:
                 return super.basePlanHash(mode, BASE_HASH, comparisonKeyFunction);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -116,7 +116,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
             case FOR_CONTINUATION:
                 return PlanHashable.planHash(mode, BASE_HASH, getChild());
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

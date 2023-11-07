@@ -154,7 +154,7 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getIndexName(), getPrefixComparisons(), covering);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

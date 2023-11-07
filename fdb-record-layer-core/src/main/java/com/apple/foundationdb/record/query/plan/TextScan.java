@@ -552,7 +552,7 @@ public class TextScan implements PlanHashable {
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, index.getName(), textComparison, groupingComparisons, suffixComparisons);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 }

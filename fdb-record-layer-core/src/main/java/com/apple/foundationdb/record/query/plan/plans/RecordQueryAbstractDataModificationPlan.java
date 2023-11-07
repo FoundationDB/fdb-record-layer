@@ -310,13 +310,13 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Override
-    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
+            case LEGACY:
             case FOR_CONTINUATION:
                 return planHashForContinuationSupplier.get();
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

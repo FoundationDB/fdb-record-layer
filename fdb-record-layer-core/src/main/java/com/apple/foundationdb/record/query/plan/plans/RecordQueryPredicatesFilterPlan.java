@@ -211,7 +211,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 // Not using baseSource, since it uses Object.hashCode()
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), conjunctedPredicate);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

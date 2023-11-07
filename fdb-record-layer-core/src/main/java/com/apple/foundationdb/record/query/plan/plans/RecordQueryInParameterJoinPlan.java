@@ -134,7 +134,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                 }
                 return super.basePlanHash(mode, BASE_HASH);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -100,7 +100,7 @@ public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), timeWindow);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 }

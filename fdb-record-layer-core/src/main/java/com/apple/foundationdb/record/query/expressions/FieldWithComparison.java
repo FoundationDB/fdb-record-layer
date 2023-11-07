@@ -137,7 +137,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
             case FOR_CONTINUATION:
                 return super.basePlanHash(mode, BASE_HASH, getComparison());
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

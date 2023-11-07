@@ -210,7 +210,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
             case FOR_CONTINUATION:
                 return PlanHashable.planHash(mode, BASE_HASH, getKeysSource());
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -284,7 +284,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, primaryKeys);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }
@@ -348,7 +348,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, parameter);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }

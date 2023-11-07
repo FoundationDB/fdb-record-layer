@@ -309,13 +309,13 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
-    @SuppressWarnings("SwitchStatementWithTooFewBranches")
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
+            case LEGACY:
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

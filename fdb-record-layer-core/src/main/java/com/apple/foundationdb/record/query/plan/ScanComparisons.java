@@ -441,7 +441,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, equalityComparisons,
                         PlanHashable.planHashUnordered(mode, inequalityComparisons));
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -158,7 +158,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
             case FOR_CONTINUATION:
                 return super.basePlanHash(mode, BASE_HASH, comparison);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

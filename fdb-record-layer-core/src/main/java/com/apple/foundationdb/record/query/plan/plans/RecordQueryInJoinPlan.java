@@ -228,7 +228,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                 }
                 return PlanHashable.objectsPlanHash(mode, baseHash, getInnerPlan(), inSource, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

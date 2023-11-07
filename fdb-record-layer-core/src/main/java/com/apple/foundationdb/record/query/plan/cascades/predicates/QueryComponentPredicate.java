@@ -144,7 +144,7 @@ public class QueryComponentPredicate extends AbstractQueryPredicate implements L
             case FOR_CONTINUATION:
                 return PlanHashable.planHash(mode, BASE_HASH, queryComponent);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

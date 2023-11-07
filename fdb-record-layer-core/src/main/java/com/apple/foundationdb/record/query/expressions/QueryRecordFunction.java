@@ -238,7 +238,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, function, additionalCondition);
                 }
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

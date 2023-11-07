@@ -198,7 +198,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInner(), getComparisonKey());
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

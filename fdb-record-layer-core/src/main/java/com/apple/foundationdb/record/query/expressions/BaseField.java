@@ -131,7 +131,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, baseHash, fieldName, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

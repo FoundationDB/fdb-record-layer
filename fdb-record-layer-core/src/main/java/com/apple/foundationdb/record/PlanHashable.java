@@ -56,7 +56,7 @@ public interface PlanHashable {
      */
     enum PlanHashKind {
         LEGACY,                       // The original plan hash kind. Here for backwards compatibility, will be removed in the future
-        FOR_CONTINUATION              // Continuation validation plan hash kind: include children, literals and markers. Used for continuation validation
+        FOR_CONTINUATION,             // Continuation validation plan hash kind: include children, literals and markers. Used for continuation validation
     }
 
     /**

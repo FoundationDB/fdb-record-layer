@@ -2002,7 +2002,7 @@ public class Comparisons {
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), maxDistance);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -2123,7 +2123,7 @@ public class Comparisons {
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), strict);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -2223,7 +2223,7 @@ public class Comparisons {
                     return inner.planHash(mode);
                 case FOR_CONTINUATION:
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

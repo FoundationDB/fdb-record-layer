@@ -211,7 +211,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getQueryPlanChildren(), comparisonKeyFunction, reverse);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

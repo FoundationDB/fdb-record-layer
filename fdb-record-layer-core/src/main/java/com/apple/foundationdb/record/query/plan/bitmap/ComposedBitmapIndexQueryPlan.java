@@ -167,7 +167,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlans, composer);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -304,7 +304,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, position);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -366,7 +366,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case FOR_CONTINUATION:
                     return  PlanHashable.objectsPlanHash(mode, BASE_HASH, children, operator());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -546,7 +546,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                 case FOR_CONTINUATION:
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

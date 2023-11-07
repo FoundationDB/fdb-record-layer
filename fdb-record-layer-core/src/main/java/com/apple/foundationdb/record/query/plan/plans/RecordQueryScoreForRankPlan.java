@@ -228,7 +228,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), ranks);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -339,7 +339,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                     // TODO: Use function.planHash()?
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, bindingName, function.getName(), comparisons);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }

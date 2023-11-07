@@ -117,7 +117,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
             case FOR_CONTINUATION:
                 return PlanHashable.planHash(mode, BASE_HASH);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

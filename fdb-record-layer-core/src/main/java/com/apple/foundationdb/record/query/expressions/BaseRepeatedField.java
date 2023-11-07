@@ -100,7 +100,7 @@ abstract class BaseRepeatedField extends BaseField {
             case FOR_CONTINUATION:
                 return super.basePlanHash(mode, baseHash, emptyMode, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -206,7 +206,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getWholeKey(), groupedCount);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

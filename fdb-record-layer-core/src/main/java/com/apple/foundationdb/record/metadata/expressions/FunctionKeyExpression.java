@@ -296,7 +296,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, baseHash, getName(), getArguments(), hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

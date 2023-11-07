@@ -90,9 +90,11 @@ public class NullValue extends AbstractValue implements LeafValue {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
+                // We do hash result type here as the type (not being of type NULL) is always the direct result of
+                // type inference (target in an UPDATE or similar) or an explicit cast.
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, resultType);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -139,7 +139,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
             default:
-                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
