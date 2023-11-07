@@ -1531,14 +1531,15 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         LOGGER.info(KeyValueLogMessage.of("planned query",
                         TestLogMessageKeys.QUERY, query,
                         LogMessageKeys.PLAN, plan,
-                        TestLogMessageKeys.PLAN_HASH, plan.planHash()));
+                        TestLogMessageKeys.PLAN_HASH, plan.planHash(PlanHashable.CURRENT_LEGACY)));
         assertThat(plan, planMatcher);
         if (planHash == 0) {
             LOGGER.warn(KeyValueLogMessage.of("unset plan hash",
-                            TestLogMessageKeys.PLAN_HASH, plan.planHash(),
+                            TestLogMessageKeys.PLAN_HASH, plan.planHash(PlanHashable.CURRENT_LEGACY),
                             LogMessageKeys.FILTER, filter));
         } else {
-            assertEquals(planHash, plan.planHash(), "Mismatched hash for: " + filter);
+            assertEquals(planHash, plan.planHash(PlanHashable.CURRENT_LEGACY),
+                    "Mismatched hash for: " + filter);
         }
         return recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey);
     }
@@ -1974,9 +1975,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null)
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
-            assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1101247748, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1215587201, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(814602491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1101247748, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -1987,9 +1987,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
-            assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1513880131, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1570861632, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1032989149, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1513880131, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
 
@@ -2002,9 +2001,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) -> [doc_id: KEY[1]])
             plan = planner.plan(query);
             assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
-            assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-786467136, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1191665211, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(814602491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-786467136, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -2016,9 +2014,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
-            assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(893372281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(836390780, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1032989149, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(893372281, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
 
@@ -2032,9 +2029,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
-            assertEquals(-1328921799, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(390154904, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-611539723, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1328921799, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(390154904, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -2045,14 +2041,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) | group EQUALS 0
             plan = planner.plan(query);
-            System.out.println(plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            System.out.println(plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            System.out.println(plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            System.out.println(plan.planHash(PlanHashable.CURRENT_LEGACY));
+            System.out.println(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))))));
-            assertEquals(792432470, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-879354804, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-545069279, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(792432470, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-879354804, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 2L), primaryKeys);
 
@@ -2070,9 +2064,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Fetch(Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()) | group EQUALS 0
             plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
-            assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1101247748, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1215587201, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(814602491, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1101247748, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             List<Tuple> idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
                         final Object docId = record.getRecord().getField(docIdDescriptor);
@@ -2091,9 +2084,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null)
             plan = planner.plan(query);
             assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
-            assertEquals(-1359010536, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1017914160, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1074895661, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1359010536, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1017914160, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
                         final Object docId = record.getRecord().getField(docIdDescriptor);
@@ -2433,9 +2425,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                     groupingBounds(hasTupleString("[[0],[0]]")),
                     textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
-            assertEquals(822541560, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1798902497, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(770172924, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(822541560, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1798902497, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             List<ComplexDocument> results = recordStore.executeQuery(plan)
                     .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList()
@@ -2460,9 +2451,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                     groupingBounds(hasTupleString("[[0],[0]]")),
                     textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
-            assertEquals(822541560, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1798902497, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(770172924, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(822541560, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1798902497, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             results = recordStore.executeQuery(plan)
                     .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList()

@@ -160,15 +160,14 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, indexPlans) + composer.planHash(hashKind);
+                return PlanHashable.planHash(mode, indexPlans) + composer.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexPlans, composer);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlans, composer);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -298,15 +297,14 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                     return position;
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, position);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, position);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -361,15 +359,14 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         abstract byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result);
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return PlanHashable.planHash(hashKind, children) + operator().hashCode();
+                    return PlanHashable.planHash(mode, children) + operator().hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return  PlanHashable.objectsPlanHash(hashKind, BASE_HASH, children, operator());
+                    return  PlanHashable.objectsPlanHash(mode, BASE_HASH, children, operator());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -542,15 +539,14 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return child.planHash(hashKind);
+                    return child.planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, child);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

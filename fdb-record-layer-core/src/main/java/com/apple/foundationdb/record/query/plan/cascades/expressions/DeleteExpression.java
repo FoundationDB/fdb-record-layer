@@ -95,7 +95,7 @@ public class DeleteExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     public RecordQueryDeletePlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
-        return RecordQueryDeletePlan.deletePlan(physicalInner, targetRecordType);
+        return RecordQueryDeletePlan.deletePlan(physicalInner);
     }
 
     @Override

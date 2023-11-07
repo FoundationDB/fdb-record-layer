@@ -127,15 +127,14 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
                 return 1;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH);
             default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
         }
     }
 

@@ -62,7 +62,7 @@ import java.util.function.Supplier;
 /**
  * A query plan that performs transformations on the incoming record according to a set of transformation instructions
  * in conjunction with a target {@link Type} and a target {@link com.google.protobuf.Descriptors.Descriptor} which both
- * together define a set of instructions for type promotion as well as for protobuf coercion. All transformations and
+ * together define a set of instructions for type promotion and for protobuf coercion. All transformations and
  * type coercions are applied in one pass to each record. The resulting record is of the target type and is encoded
  * using the target protobuf {@link com.google.protobuf.Descriptors.Descriptor}. That record is then handed to an
  * abstract method that can implement a mutation to the store.
@@ -122,8 +122,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
 
     @Nonnull
     private final Supplier<Integer> planHashForContinuationSupplier;
-    @Nonnull
-    private final Supplier<Integer> planHashForWithoutLiteralsSupplier;
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
@@ -143,7 +141,6 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
-        this.planHashForWithoutLiteralsSupplier = Suppliers.memoize(this::computeRegularPlanHashWithoutLiterals);
     }
 
     @Nonnull
@@ -308,27 +305,24 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), targetRecordType, targetType, transformationsTrie, coercionTrie, computationValue);
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), targetRecordType, targetType,
+                transformationsTrie, coercionTrie, computationValue);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
+            case LEGACY:
             case FOR_CONTINUATION:
                 return planHashForContinuationSupplier.get();
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return planHashForWithoutLiteralsSupplier.get();
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
     private int computePlanHashForContinuation() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
-    }
-
-    private int computeRegularPlanHashWithoutLiterals() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS, BASE_HASH, getInnerPlan(), targetRecordType, targetType, transformationsTrie, coercionTrie);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getInnerPlan(),
+                targetRecordType, transformationsTrie, coercionTrie);
     }
 
     @Nonnull

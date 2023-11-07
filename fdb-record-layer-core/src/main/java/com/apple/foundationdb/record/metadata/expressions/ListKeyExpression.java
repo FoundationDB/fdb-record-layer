@@ -167,7 +167,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Override
     public int versionColumns() {
-        return children.stream().mapToInt(child -> child.versionColumns()).sum();
+        return children.stream().mapToInt(KeyExpression::versionColumns).sum();
     }
 
     @Override
@@ -217,15 +217,14 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, getChildren());
+                return PlanHashable.planHash(mode, getChildren());
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

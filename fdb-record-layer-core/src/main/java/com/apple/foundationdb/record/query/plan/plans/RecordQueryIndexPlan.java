@@ -224,7 +224,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 !store.getContext().getAPIVersion().isAtLeast(APIVersion.API_VERSION_7_1)) {
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn(KeyValueLogMessage.of("Index remote fetch can only be used with API_VERSION of at least 7.1. Falling back to regular scan.",
-                        LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
+                        LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION)));
             }
             fetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
         }
@@ -256,7 +256,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 } catch (Exception ex) {
                     if (LOGGER.isWarnEnabled()) {
                         LOGGER.warn(KeyValueLogMessage.of("Remote Fetch execution failed, falling back to Index scan",
-                                LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)), ex);
+                                LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION)), ex);
                     }
                     return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
                 }
@@ -514,23 +514,22 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return indexName.hashCode() + scanParameters.planHash(hashKind) + (reverse ? 1 : 0);
+                return indexName.hashCode() + scanParameters.planHash(mode) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 int planHash;
                 if (scanParameters instanceof IndexScanComparisons) {
                     // Keep hash stable for change in representation.
                     // TODO: If there is another event that changes hashes or they become less critical in tests, this can be removed.
-                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getScanComparisons(), reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, getScanType(), getScanComparisons(), reverse, strictlySorted);
                 } else {
-                    planHash = PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
                 }
                 return planHash;
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
     }
 
@@ -665,7 +664,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     private void logDebug(final String staticMessage) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.of(staticMessage,
-                    LogMessageKeys.PLAN_HASH, planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)));
+                    LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION)));
         }
     }
 

@@ -197,8 +197,8 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getKey());
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), getKey());
     }
 
     @Override

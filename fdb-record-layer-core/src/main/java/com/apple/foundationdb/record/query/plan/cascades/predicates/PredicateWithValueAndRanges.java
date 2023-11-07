@@ -175,7 +175,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
         throw new RecordCoreException("this method should not ever be reached");
     }
 

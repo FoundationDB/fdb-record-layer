@@ -107,15 +107,14 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return constituent.getName().hashCode() + PlanHashable.planHash(hashKind, bindingPlans);
+                    return constituent.getName().hashCode() + PlanHashable.planHash(mode, bindingPlans);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, constituent.getName(), bindingPlans);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, constituent.getName(), bindingPlans);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
 
         }
@@ -181,15 +180,14 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return name.hashCode() + expression.planHash(hashKind) + (singleton ? 1 : 0);
+                    return name.hashCode() + expression.planHash(mode) + (singleton ? 1 : 0);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, name, expression, singleton);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, name, expression, singleton);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }
@@ -334,15 +332,14 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.objectsPlanHash(hashKind, joinedRecordType.getName(), joinedTypes, queries);
+                return PlanHashable.objectsPlanHash(mode, joinedRecordType.getName(), joinedTypes, queries);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, joinedRecordType.getName(), joinedTypes, queries);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, joinedRecordType.getName(), joinedTypes, queries);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 }

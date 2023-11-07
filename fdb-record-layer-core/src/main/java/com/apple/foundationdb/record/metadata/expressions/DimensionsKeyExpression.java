@@ -213,14 +213,13 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getWholeKey(), prefixSize, dimensionsSize);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getWholeKey(), prefixSize, dimensionsSize);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

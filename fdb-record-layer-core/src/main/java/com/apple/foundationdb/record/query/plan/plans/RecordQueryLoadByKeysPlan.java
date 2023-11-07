@@ -203,15 +203,14 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getKeysSource().planHash(hashKind);
+                return getKeysSource().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, getKeysSource());
+                return PlanHashable.planHash(mode, BASE_HASH, getKeysSource());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -278,15 +277,14 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                     return hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, primaryKeys);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, primaryKeys);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }
@@ -343,15 +341,14 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
                     return hashCode();
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, parameter);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, parameter);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }

@@ -79,12 +79,8 @@ public class InValuesSource extends InSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        if (hashKind == PlanHashKind.STRUCTURAL_WITHOUT_LITERALS) {
-            return baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE);
-        } else {
-            return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE), values);
-        }
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_IN_VALUES_SOURCE), values);
     }
 
     @Override

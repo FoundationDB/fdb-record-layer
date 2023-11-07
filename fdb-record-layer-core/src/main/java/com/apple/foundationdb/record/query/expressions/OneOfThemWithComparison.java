@@ -151,15 +151,14 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getComparison().planHash(hashKind);
+                return getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return super.basePlanHash(hashKind, BASE_HASH, comparison);
+                return super.basePlanHash(mode, BASE_HASH, comparison);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -40,9 +40,7 @@ import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
- * A value representing the quantifier as an object.
- *
- * For example, this is used to represent non-nested repeated fields.
+ * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
 public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
@@ -108,12 +106,12 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
     @Override

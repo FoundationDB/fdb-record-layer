@@ -62,7 +62,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      * If created by the heuristic recursive descent planner (the old planner), it is expected that the binding it
      * creates for the evaluation of the inner is participating in the plan hash. Unfortunately, this cannot be
      * done when using the Cascades planner as the planner uses identifiers that are not stable across plannings.
-     *
+     * <br>
      * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
      * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
      */
@@ -196,30 +196,29 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     /**
-     * Base implementation of {@link #planHash}.
-     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
-     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * Base implementation of {@link #planHash(PlanHashMode)}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
+     * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
-     * @param hashKind the plan hash kind to use
+     * @param mode the plan hash mode to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
     @SuppressWarnings("fallthrough")
-    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
-        switch (hashKind) {
+    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+        switch (mode.getKind()) {
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
-                    return getInnerPlan().planHash(hashKind) +
+                    return getInnerPlan().planHash(mode) +
                            inSource.getBindingName().hashCode() +
                            (inSource.isSorted() ? 1 : 0) +
                            (inSource.isReverse() ? 1 : 0);
                 }
                 // fall through
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (internal == Bindings.Internal.IN) {
-                    return PlanHashable.objectsPlanHash(hashKind,
+                    return PlanHashable.objectsPlanHash(mode,
                             baseHash,
                             getInnerPlan(),
                             inSource.getBindingName(),
@@ -227,9 +226,9 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                             inSource.isReverse(),
                             hashables);
                 }
-                return PlanHashable.objectsPlanHash(hashKind, baseHash, getInnerPlan(), inSource, hashables);
+                return PlanHashable.objectsPlanHash(mode, baseHash, getInnerPlan(), inSource, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

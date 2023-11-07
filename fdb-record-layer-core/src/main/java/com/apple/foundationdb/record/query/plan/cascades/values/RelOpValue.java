@@ -224,12 +224,13 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, comparisonType);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, comparisonType);
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisonType, StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisonType,
+                StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
     }
 
     @Nonnull

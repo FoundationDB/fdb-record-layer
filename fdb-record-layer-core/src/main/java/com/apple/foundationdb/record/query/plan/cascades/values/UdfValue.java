@@ -59,7 +59,7 @@ public abstract class UdfValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashMode hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, this.getClass().getCanonicalName(), children);
     }
 
@@ -90,6 +90,6 @@ public abstract class UdfValue extends AbstractValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, this.getClass().getCanonicalName());
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, this.getClass().getCanonicalName());
     }
 }

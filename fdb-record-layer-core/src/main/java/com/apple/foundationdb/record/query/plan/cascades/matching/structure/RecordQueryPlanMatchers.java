@@ -716,14 +716,6 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <M extends RecordQueryDeletePlan> BindingMatcher<M> deleteTarget(@Nonnull BindingMatcher<? extends String> downstream) {
-        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryDeletePlan.class,
-                Extractor.of(RecordQueryDeletePlan::getTargetRecordType, name -> "target(" + name + ")"),
-                downstream);
-    }
-
-    @Nonnull
     public static BindingMatcher<RecordQueryInsertPlan> insertPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryInsertPlan.class, exactlyPlans(downstream));
     }

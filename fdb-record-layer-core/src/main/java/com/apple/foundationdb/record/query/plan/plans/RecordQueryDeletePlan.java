@@ -74,8 +74,6 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
 
     @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
-    private final String targetRecordType;
 
     @Nonnull
     private final Supplier<Value> resultValueSupplier;
@@ -83,10 +81,8 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
-    protected RecordQueryDeletePlan(@Nonnull final Quantifier.Physical inner,
-                                    @Nonnull final String targetRecordType) {
+    protected RecordQueryDeletePlan(@Nonnull final Quantifier.Physical inner) {
         this.inner = inner;
-        this.targetRecordType = targetRecordType;
         this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
@@ -145,15 +141,13 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     public RecordQueryDeletePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryDeletePlan(
-                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getTargetRecordType());
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Nonnull
     @Override
     public RecordQueryDeletePlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
-        return new RecordQueryDeletePlan(Quantifier.physical(childRef),
-                getTargetRecordType());
+        return new RecordQueryDeletePlan(Quantifier.physical(childRef));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -168,11 +162,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
         if (this == other) {
             return true;
         }
-        if (getClass() != other.getClass()) {
-            return false;
-        }
-        final RecordQueryDeletePlan otherDeletePlan = (RecordQueryDeletePlan)other;
-        return getTargetRecordType().equals(otherDeletePlan.getTargetRecordType());
+        return getClass() == other.getClass();
     }
 
     @Override
@@ -186,17 +176,17 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     }
 
     private int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), targetRecordType);
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, getInnerPlan(), targetRecordType);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -215,11 +205,6 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
-    }
-
-    @Nonnull
-    public String getTargetRecordType() {
-        return targetRecordType;
     }
 
     @Override
@@ -246,7 +231,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
                                 getResultType(),
-                                ImmutableList.of(getTargetRecordType())),
+                                ImmutableList.of()),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(
@@ -260,13 +245,10 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     /**
      * Factory method to create a {@link RecordQueryInsertPlan}.
      * @param inner an input value to transform
-     * @param recordType the name of the record type this delete modifies
      * @return a newly created {@link RecordQueryInsertPlan}
      */
     @Nonnull
-    public static RecordQueryDeletePlan deletePlan(@Nonnull final Quantifier.Physical inner,
-                                                   @Nonnull final String recordType) {
-        return new RecordQueryDeletePlan(inner,
-                recordType);
+    public static RecordQueryDeletePlan deletePlan(@Nonnull final Quantifier.Physical inner) {
+        return new RecordQueryDeletePlan(inner);
     }
 }

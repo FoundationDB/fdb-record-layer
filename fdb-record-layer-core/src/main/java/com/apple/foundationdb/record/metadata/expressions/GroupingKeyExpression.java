@@ -199,15 +199,14 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getWholeKey().planHash(hashKind) + groupedCount;
+                return getWholeKey().planHash(mode) + groupedCount;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getWholeKey(), groupedCount);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getWholeKey(), groupedCount);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

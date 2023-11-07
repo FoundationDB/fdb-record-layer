@@ -356,17 +356,16 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
                 // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
                 // https://github.com/FoundationDB/fdb-record-layer/issues/677
                 return fieldName.hashCode() + fanType.name().hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldName, fanType);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, fieldName, fanType);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

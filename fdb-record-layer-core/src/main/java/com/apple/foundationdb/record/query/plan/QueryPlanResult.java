@@ -61,17 +61,12 @@ public class QueryPlanResult implements PlanHashable {
 
     /**
      * To make transition from RecordQueryPlan to QueryPlanResult smoother, this implements PlanHashable.
-     * @param hashKind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
+     * @param mode the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
      * @return plan hash for the underlying plan.
      */
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return plan.planHash(hashKind);
-    }
-
-    @Override
-    public int planHash() {
-        return plan.planHash();
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return plan.planHash(mode);
     }
 
     @Override

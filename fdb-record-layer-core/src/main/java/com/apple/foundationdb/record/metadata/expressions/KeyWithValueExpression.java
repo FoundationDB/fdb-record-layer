@@ -235,15 +235,14 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getInnerKey().planHash(hashKind) + splitPoint;
+                return getInnerKey().planHash(mode) + splitPoint;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerKey(), splitPoint);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerKey(), splitPoint);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

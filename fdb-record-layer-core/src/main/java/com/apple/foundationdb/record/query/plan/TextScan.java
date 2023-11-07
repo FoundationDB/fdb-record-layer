@@ -93,7 +93,7 @@ public class TextScan implements PlanHashable {
     @Nonnull
     private final Comparisons.TextComparison textComparison;
     @Nullable
-    private ScanComparisons suffixComparisons;
+    private final ScanComparisons suffixComparisons;
 
     public TextScan(@Nonnull Index index,
                     @Nullable ScanComparisons groupingComparisons,
@@ -545,15 +545,14 @@ public class TextScan implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
+                return PlanHashable.planHash(mode, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, index.getName(), textComparison, groupingComparisons, suffixComparisons);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, index.getName(), textComparison, groupingComparisons, suffixComparisons);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 }

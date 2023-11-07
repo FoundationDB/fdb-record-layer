@@ -510,8 +510,8 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
-            return super.basePlanHash(hashKind, BASE_HASH);
+        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return super.basePlanHash(mode, BASE_HASH);
         }
 
         @Override

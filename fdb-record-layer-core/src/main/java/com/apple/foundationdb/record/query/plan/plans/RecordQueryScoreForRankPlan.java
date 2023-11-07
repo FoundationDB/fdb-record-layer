@@ -221,15 +221,14 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getChild().planHash(hashKind) + PlanHashable.planHash(hashKind, ranks);
+                return getChild().planHash(mode) + PlanHashable.planHash(mode, ranks);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), ranks);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), ranks);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -332,16 +331,15 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(hashKind, comparisons);
+                    return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(mode, comparisons);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
                     // TODO: Use function.planHash()?
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, bindingName, function.getName(), comparisons);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, bindingName, function.getName(), comparisons);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
     }

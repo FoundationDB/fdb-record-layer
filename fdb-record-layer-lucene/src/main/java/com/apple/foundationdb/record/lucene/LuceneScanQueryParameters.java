@@ -101,9 +101,9 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
+    public int planHash(@Nonnull PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(
-                hashKind,
+                mode,
                 BASE_HASH,
                 scanType,
                 groupComparisons,

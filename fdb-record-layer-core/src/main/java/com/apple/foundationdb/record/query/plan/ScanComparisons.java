@@ -432,16 +432,16 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, equalityComparisons) + PlanHashable.planHashUnordered(hashKind, inequalityComparisons);
+                return PlanHashable.planHash(mode, equalityComparisons) + PlanHashable.planHashUnordered(mode, inequalityComparisons);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 // TODO: Discuss why these should be unordered...
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, equalityComparisons, PlanHashable.planHashUnordered(hashKind, inequalityComparisons));
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, equalityComparisons,
+                        PlanHashable.planHashUnordered(mode, inequalityComparisons));
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

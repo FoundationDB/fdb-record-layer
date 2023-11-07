@@ -217,19 +217,18 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), fetchIndexRecords);
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), fetchIndexRecords);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return 13 + 7 * getChild().planHash(hashKind);
+                return 13 + 7 * getChild().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

@@ -89,9 +89,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
         // Index(MySimpleRecord$num_value_3_indexed [[0],[1]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
-        assertEquals(1869980849, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(876021686, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-2083489995, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1869980849, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(876021686, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -184,14 +183,12 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
             //  Some query plans include redundant filtering operations even when the index is a complete specification (https://github.com/FoundationDB/fdb-record-layer/issues/2)
             // Fetch(Covering(...) | num_value_3_indexed EQUALS 3)
             assertThat(plan, fetch(filter(filter, coveringIndexScan(matcher))));
-            assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1632715349, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1418679945, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-766201402, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1632715349, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             assertThat(plan, matcher);
-            assertEquals(681699231, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1692140528, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(463756249, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(681699231, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1692140528, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -240,9 +237,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 bounds(anyOf(combinations.stream()
                         .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
                         .collect(Collectors.toList()))))));
-        assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-81379784, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1715241633, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(241654378, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(-81379784, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

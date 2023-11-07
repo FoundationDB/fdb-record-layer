@@ -61,8 +61,8 @@ public class SortedInParameterSource extends InParameterSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE), super.planHash(hashKind), isReverse);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE), super.planHash(mode), isReverse);
     }
 
     @Override

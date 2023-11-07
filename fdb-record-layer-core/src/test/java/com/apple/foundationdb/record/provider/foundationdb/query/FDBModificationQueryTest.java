@@ -78,7 +78,6 @@ import java.util.function.Function;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deletePlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deleteTarget;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
@@ -153,9 +152,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
-                    deletePlan(
-                            typeFilterPlan(scanPlan()))
-                            .where(deleteTarget(equalsObject("RestaurantRecord"))));
+                    deletePlan(typeFilterPlan(scanPlan())));
 
             // dry run delete 1 record
             var resultValues = fetchResultValues(context, plan, record -> {
@@ -789,22 +786,22 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void planHashCodeIsCalculatedCorrectly() throws Exception {
+    void testStablePlanHash() throws Exception {
         final var cascadesPlanner = setUp();
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
             var plan1 = getUpdatePlan(cascadesPlanner);
             var plan2 = getUpdatePlan(cascadesPlanner);
-            Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
-                    plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
             var plan1 = getUpdateArrayPlan(cascadesPlanner);
             var plan2 = getUpdateArrayPlan(cascadesPlanner);
-            Assertions.assertEquals(plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS),
-                    plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

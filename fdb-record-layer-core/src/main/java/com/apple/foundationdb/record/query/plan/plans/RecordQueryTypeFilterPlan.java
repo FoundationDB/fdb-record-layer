@@ -52,8 +52,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -164,15 +166,14 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + PlanHashable.stringHashUnordered(recordTypes);
+                return getInnerPlan().planHash(mode) + stringHashUnordered(recordTypes);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), PlanHashable.stringHashUnordered(recordTypes));
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), stringHashUnordered(recordTypes));
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -219,5 +220,15 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+    private static int stringHashUnordered(@Nonnull Iterable<String> strings) {
+        // TODO just use AbstractSet.hashCode() instead which prevents the sorting. We need plan hash rolling for that.
+        final ArrayList<Integer> hashes = new ArrayList<>();
+        for (String str : strings) {
+            hashes.add(str != null ? str.hashCode() : 0);
+        }
+        hashes.sort(Comparator.naturalOrder());
+        return PlanHashable.combineHashes(hashes);
     }
 }

@@ -273,8 +273,8 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), inSources, comparisonKeyFunction);
+    public int planHash(@Nonnull PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), inSources, comparisonKeyFunction);
     }
 
     @Nonnull

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -174,8 +175,8 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
             final RecordQueryPlan plan = planner.plan(rq);
             final RecordQueryPlan notPlan = planner.plan(notQuery);
-            Assertions.assertEquals(71592145, plan.planHash());
-            Assertions.assertEquals(-1378983311, notPlan.planHash());
+            Assertions.assertEquals(71592145, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            Assertions.assertEquals(-1378983311, notPlan.planHash(PlanHashable.CURRENT_LEGACY));
         }
     }
 }

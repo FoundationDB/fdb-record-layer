@@ -261,8 +261,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
     }
 
     @Nonnull

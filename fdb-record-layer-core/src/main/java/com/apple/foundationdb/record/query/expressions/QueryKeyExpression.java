@@ -311,15 +311,14 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
+                    return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, SIMPLE_COMPARISON_BASE_HASH, super.planHash(hashKind), getKeyExpression());
+                    return PlanHashable.objectsPlanHash(mode, SIMPLE_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 
@@ -395,15 +394,14 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
+                    return super.planHash(mode) + getKeyExpression().planHash(mode);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, PARAMETER_COMPARISON_BASE_HASH, super.planHash(hashKind), getKeyExpression());
+                    return PlanHashable.objectsPlanHash(mode, PARAMETER_COMPARISON_BASE_HASH, super.planHash(mode), getKeyExpression());
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

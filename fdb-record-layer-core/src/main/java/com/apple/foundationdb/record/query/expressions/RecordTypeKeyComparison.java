@@ -124,15 +124,14 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getComparison().planHash(hashKind);
+                return getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getComparison());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparison());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
@@ -208,15 +207,14 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
                 case LEGACY:
-                    return PlanHashable.objectPlanHash(hashKind, recordTypeName);
+                    return PlanHashable.objectPlanHash(mode, recordTypeName);
                 case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, recordTypeName);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, recordTypeName);
                 default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                    throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
         }
 

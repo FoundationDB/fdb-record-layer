@@ -189,14 +189,13 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getResultValue());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), getResultValue());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.name() + " is not supported");
         }
     }
 

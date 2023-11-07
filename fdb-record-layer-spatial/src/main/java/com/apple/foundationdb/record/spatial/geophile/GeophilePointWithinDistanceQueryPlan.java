@@ -146,16 +146,15 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
         // TODO: Is this right?
-        switch (hashKind) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.objectsPlanHash(hashKind, getIndexName(), getPrefixComparisons(), centerLatitude, centerLongitude, distance, covering);
+                return PlanHashable.objectsPlanHash(mode, getIndexName(), getPrefixComparisons(), centerLatitude, centerLongitude, distance, covering);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getIndexName(), getPrefixComparisons(), covering);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getIndexName(), getPrefixComparisons(), covering);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

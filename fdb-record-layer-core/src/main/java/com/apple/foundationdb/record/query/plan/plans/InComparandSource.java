@@ -54,8 +54,8 @@ public class InComparandSource extends InSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_COMPARAND_SOURCE), comparison);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_IN_COMPARAND_SOURCE), comparison);
     }
 
     @Override

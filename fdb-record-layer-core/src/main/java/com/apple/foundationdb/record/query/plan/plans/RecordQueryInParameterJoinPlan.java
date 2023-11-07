@@ -121,21 +121,20 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     @SuppressWarnings("fallthrough")
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
-                    return super.basePlanHash(hashKind, BASE_HASH) + inParameterSource().getParameterName().hashCode();
+                    return super.basePlanHash(mode, BASE_HASH) + inParameterSource().getParameterName().hashCode();
                 }
                 // fall through
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (internal == Bindings.Internal.IN) {
-                    return super.basePlanHash(hashKind, BASE_HASH, inParameterSource().getParameterName());
+                    return super.basePlanHash(mode, BASE_HASH, inParameterSource().getParameterName());
                 }
-                return super.basePlanHash(hashKind, BASE_HASH);
+                return super.basePlanHash(mode, BASE_HASH);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

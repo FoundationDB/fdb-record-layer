@@ -85,7 +85,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that plans do not use write-only indexes.
      * Verify that re-marking the index as readable makes the planner use the index again.
-     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and
+     *       queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
     void queryWithWriteOnly() throws Exception {
@@ -117,9 +118,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             // Scan(<,>) | [MySimpleRecord] | num_value_3_indexed GREATER_THAN_OR_EQUALS 5
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("num_value_3_indexed")))));
-            assertEquals(-625770219, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2121134346, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(762284175, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-625770219, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1419498076, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             List<TestRecords1Proto.MySimpleRecord> results = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
@@ -146,9 +146,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                     bounds(hasTupleString("[[5],>")))));
-            assertEquals(1008857208, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-2059042342, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1347749581, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1008857208, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-2059042342, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             List<TestRecords1Proto.MySimpleRecord> results = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
@@ -163,7 +162,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that the planner does not use disabled indexes.
      * Verify that re-enabling the index makes the planner use it again.
-     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and
+     *       queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
     void queryWithDisabled() throws Exception {
@@ -189,11 +189,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("str_value_indexed")))));
             if (planner instanceof RecordQueryPlanner) {
-                assertEquals(423324477, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(423324477, plan.planHash(PlanHashable.CURRENT_LEGACY));
             // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(1148834070, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
-                assertEquals(-857033912, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-857033912, plan.planHash(PlanHashable.CURRENT_LEGACY));
             }
 
             List<Long> keys = recordStore.executeQuery(plan)
@@ -216,9 +216,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"),
                     bounds(hasTupleString("[[not_actually_indexed],[not_actually_indexed]]")))));
-            assertEquals(-1270285984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1743736786, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(9136435, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1270285984, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1743736786, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             List<Long> keys = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get();
@@ -231,7 +230,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that write-only aggregate indexes are not used by the planner.
      * Verify that re-allowing reads to those indexes allows the planner to use them.
-     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and
+     *       queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @Test
     void queryAggregateWithWriteOnly() throws Exception {
@@ -295,7 +295,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that disabled aggregate indexes are not used by the planner.
      * Verify that re-enabling those indexes allows the planner to use them.
-     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled
+     *       (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @Test
     void queryAggregateWithDisabled() throws Exception {
@@ -356,7 +357,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that disabled aggregate indexes are not used by the planner.
      * Verify that re-enabling those indexes allows the planner to use them.
-     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and
+     *       queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @Test
     void queryAggregateWithFilteredIndex() throws Exception {
@@ -528,11 +530,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-223683738, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-1504042127, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504042127, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -558,9 +560,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use prohibited index", plan2, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
-        assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(994464666, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1531627068, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1573180774, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(994464666, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -600,11 +601,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("universal_num_value_2")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(-709761689, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-709761689, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1366919407, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(1167696604, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1167696604, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()
@@ -616,9 +617,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use prohibited index", plan2, descendant(indexScan("universal_num_value_2")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
-        assertEquals(-1692774119, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-781900729, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-441174742, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1692774119, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(-781900729, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     /**
@@ -650,11 +650,11 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-223683738, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-1504042127, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1504042127, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         }
 
         RecordQuery query2 = RecordQuery.newBuilder()
@@ -667,9 +667,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use any index", plan2, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
-        assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(994464666, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1531627068, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1573180774, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(994464666, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         RecordQuery query3 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -682,9 +681,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan3 = planner.plan(query3);
         assertThat("should use allowed index despite index queryability filter", plan3, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan3.hasRecordScan(), "should not use record scan");
-        assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(994464666, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1531627068, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1573180774, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(994464666, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 
     @Nonnull

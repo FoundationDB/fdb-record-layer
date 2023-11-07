@@ -62,6 +62,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
         this(function, null);
     }
 
+    @Nonnull
     public RecordFunction<T> getFunction() {
         return function;
     }
@@ -226,19 +227,18 @@ public class QueryRecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return function.planHash(hashKind);
+                return function.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 if (additionalCondition == null) {
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, function);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, function);
                 } else {
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, function, additionalCondition);
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, function, additionalCondition);
                 }
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

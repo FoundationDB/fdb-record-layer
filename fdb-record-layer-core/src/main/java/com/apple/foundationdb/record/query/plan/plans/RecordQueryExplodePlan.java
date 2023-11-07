@@ -109,11 +109,6 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public boolean isStrictlySorted() {
-        return false;
-    }
-
-    @Override
     public RecordQueryExplodePlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return this;
     }
@@ -214,14 +209,13 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getResultValue());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getResultValue());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 
