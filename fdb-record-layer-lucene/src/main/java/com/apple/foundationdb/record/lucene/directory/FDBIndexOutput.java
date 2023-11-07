@@ -64,6 +64,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
     private static final int POOL_SIZE = 100;
     private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
+    private final Object writeLock = new Object();
 
     static {
         BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
@@ -147,11 +148,13 @@ public final class FDBIndexOutput extends IndexOutput {
 
     @Override
     public void writeByte(final byte b) {
-        buffer.put(b);
-        crc.update(b);
-        currentSize++;
-        if (currentSize % blockSize == 0) {
-            flush();
+        synchronized (writeLock) {
+            buffer.put(b);
+            crc.update(b);
+            currentSize++;
+            if (currentSize % blockSize == 0) {
+                flush();
+            }
         }
     }
 
@@ -197,16 +200,18 @@ public final class FDBIndexOutput extends IndexOutput {
         crc.update(bytes, offset, length);
         final int blockSizeInt = (int) blockSize;
         int bytesWritten = 0;
-        while (bytesWritten < length) {
-            int toWrite = Math.min(
-                    length - bytesWritten, // the total leftover bytes to write
-                    (blockSizeInt - (currentSize % blockSizeInt)) // the free space in this buffer
-            );
-            buffer.put(bytes, bytesWritten + offset, toWrite);
-            bytesWritten += toWrite;
-            currentSize += toWrite;
-            if (currentSize % blockSize == 0) {
-                flush();
+        synchronized (writeLock) {
+            while (bytesWritten < length) {
+                int toWrite = Math.min(
+                        length - bytesWritten, // the total leftover bytes to write
+                        (blockSizeInt - (currentSize % blockSizeInt)) // the free space in this buffer
+                );
+                buffer.put(bytes, bytesWritten + offset, toWrite);
+                bytesWritten += toWrite;
+                currentSize += toWrite;
+                if (currentSize % blockSize == 0) {
+                    flush();
+                }
             }
         }
     }
