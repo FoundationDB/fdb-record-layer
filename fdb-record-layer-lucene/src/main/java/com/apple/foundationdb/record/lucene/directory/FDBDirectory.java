@@ -45,6 +45,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
@@ -147,6 +148,8 @@ public class FDBDirectory extends Directory  {
     private final Supplier<CompletableFuture<Map<Long, byte[]>>> allFieldInfosSupplier;
 
     private final AtomicLong fileSequenceCounter;
+
+    public static final long GLOBAL_FIELD_INFOS_ID = -2;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
     private final boolean compressionEnabled;
@@ -288,36 +291,32 @@ public class FDBDirectory extends Directory  {
         return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
 
-    public long getFieldInfoId(final String entriesFile) {
-        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
-                getFDBLuceneFileReferenceAsync(entriesFile).thenApply(reference -> {
-                    if (reference == null) {
-                        throw new RecordCoreException("Reference not found")
-                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
-                    }
-                    long id = reference.getFieldInfosId();
-                    if (id == 0) {
-                        throw new RecordCoreException("Reference does not have FieldInfosId")
-                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
-                    }
-                    return id;
-                }));
-    }
-
-    public void setFieldInfoId(final String entriesFile, final long id) {
+    public void setFieldInfoId(final String filename, final long id, final ByteString bitSet) {
         context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
-                getFDBLuceneFileReferenceAsync(entriesFile).thenAccept(reference -> {
+                getFDBLuceneFileReferenceAsync(filename).thenAccept(reference -> {
                     if (reference == null) {
                         throw new RecordCoreException("Reference not found")
-                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, entriesFile);
+                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, filename);
                     }
                     reference.setFieldInfosId(id);
-                    writeFDBLuceneFileReference(entriesFile, reference);
+                    reference.setFieldInfosBitSet(bitSet);
+                    writeFDBLuceneFileReference(filename, reference);
                 }));
     }
 
     public long writeFieldInfo(byte[] value) {
-        final long id = getIncrement();
+        long id;
+        if (context.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                allFieldInfosSupplier.get().thenApply(Map::isEmpty))) {
+            id = GLOBAL_FIELD_INFOS_ID;
+        } else {
+            id = getIncrement();
+        }
+        return writeFieldInfo(value, id);
+    }
+
+    public long writeFieldInfo(byte[] value, long id) {
         byte[] key = fieldInfosSubspace.pack(id);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
@@ -337,6 +336,16 @@ public class FDBDirectory extends Directory  {
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
                 allFieldInfosSupplier.get().thenApply(allFieldInfos -> allFieldInfos.get(id)));
+    }
+
+    public byte[] readGlobalFieldInfos() {
+        return context.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                allFieldInfosSupplier.get().thenApply(allFieldInfos -> allFieldInfos.get(GLOBAL_FIELD_INFOS_ID)));
+    }
+
+    public long updateGlobalFieldInfos(final byte[] fieldInfos) {
+        return writeFieldInfo(fieldInfos, GLOBAL_FIELD_INFOS_ID);
     }
 
     private CompletableFuture<Map<Long, byte[]>> loadAllFieldInfos() {
@@ -382,7 +391,7 @@ public class FDBDirectory extends Directory  {
      */
     public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
         final byte[] fileReferenceBytes = reference.getBytes();
-        final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled));
+        final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(fileReferenceBytes, compressionEnabled, encryptionEnabled));
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
         if (LOGGER.isTraceEnabled()) {
@@ -692,11 +701,7 @@ public class FDBDirectory extends Directory  {
                 writeFDBLuceneFileReference(name, new FDBLuceneFileReference(id, content));
             });
         } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new LongIndexOutput(name, name, longValue -> {
-                final FDBLuceneFileReference reference = new FDBLuceneFileReference(longValue, Long.BYTES, 1, Long.BYTES);
-                reference.setFieldInfosId(longValue);
-                writeFDBLuceneFileReference(name, reference);
-            });
+            return new EmptyIndexOutput(name, name, this);
         } else {
             long startTime = System.nanoTime();
             try {
@@ -803,8 +808,7 @@ public class FDBDirectory extends Directory  {
                         new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
             }
         } else if (FDBDirectory.isFieldInfoFile(name)) {
-            final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
-            return new LongIndexInput(name, reference.getId());
+            return new EmptyIndexInput(name);
         } else {
             // TODO the contract is that this should throw an exception, but we don't
             return new FDBIndexInput(name, this);

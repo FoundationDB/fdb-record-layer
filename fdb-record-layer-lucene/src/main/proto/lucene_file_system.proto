@@ -33,4 +33,5 @@ message LuceneFileReference {
   repeated int64 columnBitSetWords = 7 [deprecated = true];
   optional bytes content = 9;
   optional int64 field_infos_id = 10;
+  optional bytes field_infos_bitset = 11;
 }

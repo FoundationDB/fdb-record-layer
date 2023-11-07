@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
@@ -31,7 +32,6 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
 import java.util.List;
@@ -90,12 +90,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);
-        try (IndexInput fieldInfosInput = dir.openInput(List.copyOf(files.get(true)).get(0), context)) {
-            final long fieldInfosId = fieldInfosInput.readLong();
-            String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
-            directory.setFieldInfoId(entriesFile, fieldInfosId);
-        }
-
+        final String fieldInfosFileName = List.copyOf(files.get(true)).get(0);
+        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
+        String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+        directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
     }
 
 }

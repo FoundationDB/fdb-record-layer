@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.directory.EmptyIndexInput;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.LongIndexInput;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -29,7 +29,6 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.IOUtils;
@@ -57,8 +56,10 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     private final String segmentName;
     private final IOContext context;
     private final Map<String, FileEntry> entries;
+    private final String entriesFileName;
     private IndexInput handle;
     private final String dataFileName;
+
 
     /** Offset/Length for a slice inside of a compound file. */
     public static final class FileEntry {
@@ -76,7 +77,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         this.segmentName = si.name;
         this.context = context;
         dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
-        String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
+        entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
     }
 
@@ -128,9 +129,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public IndexInput openInput(String name, IOContext context) throws IOException {
         ensureOpen();
         if (FDBDirectory.isFieldInfoFile(name)) {
-            final String entriesFile = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-            final long fieldInfoId = ((FDBDirectory)FilterDirectory.unwrap(directory)).getFieldInfoId(entriesFile);
-            return new LongIndexInput(name, fieldInfoId);
+            return new EmptyIndexInput(name);
         }
         final String id = IndexFileNames.stripSegmentName(name);
         final FileEntry entry = entries.get(id);
@@ -185,6 +184,10 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     public Directory getDirectory() {
         return directory;
+    }
+
+    public String getEntriesFileName() {
+        return entriesFileName;
     }
 
 }

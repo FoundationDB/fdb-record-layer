@@ -24,6 +24,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.codecs.FieldInfosFormat;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
@@ -34,33 +37,51 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.store.IndexOutput;
 
 import javax.annotation.Nonnull;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
+
     public static final String EXTENSION = "fip";
 
     @Override
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
-        final String segmentName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
-        try (IndexInput indexInput = directory.openInput(segmentName, iocontext)) {
-            final long id = indexInput.readLong();
-            final byte[] rawBytes = getFdbDirectory(directory).readFieldInfo(id);
-            if (rawBytes == null) {
-                throw new FileNotFoundException("Could not find field info");
-            }
-            final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
-            FieldInfo[] fieldInfos = new FieldInfo[protobuf.getFieldInfoCount()];
-            int i = 0;
-            for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
-                fieldInfos[i] = new FieldInfo(fieldInfo.getName(),
+        FDBDirectory fdbDirectory;
+        final Directory unwrapped = FilterDirectory.unwrap(directory);
+        String fileName;
+        if (unwrapped instanceof FDBDirectory) {
+            fdbDirectory = (FDBDirectory)unwrapped;
+            fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
+        } else if (unwrapped instanceof LuceneOptimizedCompoundReader) {
+            final LuceneOptimizedCompoundReader compoundReader = (LuceneOptimizedCompoundReader)unwrapped;
+            fdbDirectory = (FDBDirectory)FilterDirectory.unwrap(compoundReader.getDirectory());
+            fileName = compoundReader.getEntriesFileName();
+        } else {
+            throw new RecordCoreException("Unexpected type of directory")
+                    .addLogInfo(LuceneLogMessageKeys.NAME, unwrapped.getClass().getSimpleName());
+        }
+        final FDBLuceneFileReference fileReference = fdbDirectory.getFDBLuceneFileReference(fileName);
+        long id = fileReference.getFieldInfosId();
+        final ByteString bitSetBytes = fileReference.getFieldInfosBitSet();
+        if (bitSetBytes.isEmpty()) {
+            return new FieldInfos(new FieldInfo[0]);
+        }
+        BitSet bitSet = BitSet.valueOf(bitSetBytes.toByteArray());
+        final byte[] rawBytes = fdbDirectory.readFieldInfo(id);
+        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = parseFieldInfo(rawBytes);
+        List<FieldInfo> fieldInfos = new ArrayList<>();
+        for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
+            if (bitSet.get(fieldInfo.getNumber())) {
+                fieldInfos.add(new FieldInfo(fieldInfo.getName(),
                         fieldInfo.getNumber(),
                         fieldInfo.getStoreTermVectors(),
                         fieldInfo.getOmitsNorms(),
@@ -72,15 +93,25 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                         fieldInfo.getPointDimensionCount(),
                         fieldInfo.getPointIndexDimensionCount(),
                         fieldInfo.getPointNumBytes(),
-                        fieldInfo.getSoftDeletesField());
-                i++;
+                        fieldInfo.getSoftDeletesField()));
             }
-            return new FieldInfos(fieldInfos);
         }
+        return new FieldInfos(fieldInfos.toArray(new FieldInfo[0]));
+    }
+
+    private static LuceneFieldInfosProto.FieldInfos.Builder parseFieldInfo(final byte[] rawBytes) throws FileNotFoundException, InvalidProtocolBufferException {
+        if (rawBytes == null) {
+            throw new FileNotFoundException("Could not find field info");
+        }
+        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
+        return protobuf;
     }
 
     @Override
     public void write(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final FieldInfos infos, final IOContext context) throws IOException {
+        // Bitset to track what fields in the global info we are using
+        // we still save this even if not reusing global, in case we later reuse field infos other than the global one
+        final BitSet bitSet = new BitSet();
         final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder();
         for (final FieldInfo fieldInfo : infos) {
             final LuceneFieldInfosProto.FieldInfo.Builder builder = protobuf.addFieldInfoBuilder()
@@ -97,15 +128,55 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                     .setPointNumBytes(fieldInfo.getPointNumBytes())
                     .setSoftDeletesField(fieldInfo.isSoftDeletesField());
             for (final Map.Entry<String, String> attribute : fieldInfo.attributes().entrySet()) {
+                // Lucene doesn't explicitly state that these can't be null, but Lucene50 and Lucene60 FieldInfosFormat
+                // will throw a NPE if they are
                 builder.addAttributesBuilder()
-                        .setKey(attribute.getKey())
-                        .setValue(attribute.getValue());
+                        .setKey(Objects.requireNonNull(attribute.getKey(), "FieldInfo attribute key"))
+                        .setValue(Objects.requireNonNull(attribute.getValue(), "FieldInfo attribute value"));
+            }
+            bitSet.set(fieldInfo.number);
+        }
+        final FDBDirectory fdbDirectory = getFdbDirectory(directory);
+        // TODO I need to store this somewhere and only do this once...
+        final byte[] rawGlobalBytes = fdbDirectory.readGlobalFieldInfos();
+        boolean globalNeedsUpdating = false;
+        boolean canReuseGlobal = true;
+        final LuceneFieldInfosProto.FieldInfos.Builder globalFieldInfos;
+        if (rawGlobalBytes == null) {
+            globalNeedsUpdating = true;
+            globalFieldInfos = protobuf;
+        } else {
+            globalFieldInfos = parseFieldInfo(rawGlobalBytes);
+            final Map<Integer, LuceneFieldInfosProto.FieldInfo> globalFieldInfo = globalFieldInfos.getFieldInfoList().stream()
+                    .collect(Collectors.toMap(LuceneFieldInfosProto.FieldInfo::getNumber, Function.identity()));
+            for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
+                final LuceneFieldInfosProto.FieldInfo globalVersion = globalFieldInfo.get(fieldInfo.getNumber());
+                if (globalVersion == null) {
+                    // new field ... we can add it
+                    globalFieldInfos.addFieldInfo(fieldInfo);
+                    globalNeedsUpdating = true;
+                } else {
+                    if (!globalVersion.equals(fieldInfo)) {
+                        canReuseGlobal = false;
+                        break;
+                    } // The field is already in the global, and we can continue to reuse
+                }
             }
         }
-        try (IndexOutput indexOutput = directory.createOutput(IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION), context)) {
-            long id = getFdbDirectory(directory).writeFieldInfo(protobuf.build().toByteArray());
-            indexOutput.writeLong(id);
+        final long id;
+        if (!canReuseGlobal) {
+            id = fdbDirectory.writeFieldInfo(protobuf.build().toByteArray());
+        } else {
+            id = FDBDirectory.GLOBAL_FIELD_INFOS_ID;
         }
+        if (globalNeedsUpdating) {
+            fdbDirectory.updateGlobalFieldInfos(globalFieldInfos.build().toByteArray());
+        }
+        final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
+        // create the output so that we create the file reference, and so that it is correctly tracked in the segment
+        // info
+        directory.createOutput(fileName, context).close();
+        fdbDirectory.setFieldInfoId(fileName, id, ByteString.copyFrom(bitSet.toByteArray()));
     }
 
     @Nonnull
