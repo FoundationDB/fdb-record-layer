@@ -1,0 +1,194 @@
+/*
+ * UpdateWithContinuationTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer.query;
+
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opentest4j.AssertionFailedError;
+
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+public class UpdateWithContinuationTest {
+
+    private static final String schemaTemplate =
+            "CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)" +
+                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
+                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))";
+
+    @RegisterExtension
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, UpdateWithContinuationTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+
+    @Test
+    void updateWithSimpleFieldTest() throws Exception {
+        final var fieldToUpdate = "name";
+        final Function<RelationalConnection, Object> updateValue = (conn) -> "blahText";
+        final var expectedValue = updateValue.apply(null);
+        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    @Test
+    void updateWithStructFieldTest() throws Exception {
+        final var fieldToUpdate = "stats";
+        final var expectedValue = new ImmutableRowStruct(new ArrayRow(123L, "blah", "blah2"), new RelationalStructMetaData(
+                FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                FieldDescription.primitive("SCHOOL_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                FieldDescription.primitive("HOMETOWN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
+        final Function<RelationalConnection, Object> updateValue = (conn) -> {
+            try {
+                return conn.createStruct("ReviewerStats", new Object[] {123L, "blah", "blah2"});
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    @Test
+    void updateWithArrayFieldTest() throws Exception {
+        final var fieldToUpdate = "secrets";
+        final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
+        final Function<RelationalConnection, Object> updateValue = (conn) -> {
+            try {
+                return conn.createArrayOf("BINARY", array.stream().map(t -> Arrays.copyOf(t, t.length)).toArray());
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        final var expectedValue = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), new RelationalStructMetaData(
+                FieldDescription.primitive("SECRETS", SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls)));
+        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    private void insertRecords(int numRecords) throws RelationalException, SQLException {
+        try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            con.setSchema(database.getSchemaName());
+            con.beginTransaction();
+            final var builder = new StringBuilder("INSERT INTO RestaurantReviewer(id) VALUES");
+            for (int i = 0; i < numRecords; i++) {
+                builder.append(" (").append(i).append(")");
+                if (i != numRecords - 1) {
+                    builder.append(",");
+                }
+            }
+            con.createStatement().execute(builder.toString());
+        }
+    }
+
+    private static RelationalPreparedStatement prepareUpdate(RelationalConnection conn, String updateField, Object param, Continuation continuation) throws SQLException {
+        final var statement = conn.prepareStatement("UPDATE RestaurantReviewer SET " + updateField + " = ?param WHERE id >= 0 RETURNING \"new\"." + updateField + ", \"new\".id WITH CONTINUATION ?cont");
+        statement.setObject("param", param);
+        statement.setObject("cont", continuation.serialize());
+        return statement;
+    }
+
+    private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws RelationalException, SQLException {
+        try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            con.setSchema(database.getSchemaName());
+            con.beginTransaction();
+            final var statement = con.prepareStatement("SELECT id, " + updatedField + " from RestaurantReviewer WHERE id >= 0");
+            try (final var resultSet = statement.executeQuery()) {
+                final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                for (long i = 0; i < 10; i++) {
+                    if (i < updatedUpTill) {
+                        resultSetAssert.hasNextRow().hasColumn("ID", i).hasColumn(updatedField.toUpperCase(), expectedValue);
+                    } else {
+                        resultSetAssert.hasNextRow().hasColumn(updatedField.toUpperCase(), null);
+                    }
+                }
+            }
+        }
+    }
+
+    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+                                                               Object expectedValue, Options options) throws SQLException, RelationalException {
+        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Pair.of(ContinuationImpl.BEGIN, 0), options);
+    }
+
+    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+                                                               Object expectedValue, Pair<Continuation, Integer> continuationAndNumUpdated,
+                                                               Options options) throws SQLException, RelationalException {
+        var continuation = continuationAndNumUpdated.getLeft();
+        var updatedUpTill = continuationAndNumUpdated.getRight();
+        try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), options)) {
+            con.setSchema(database.getSchemaName());
+            con.beginTransaction();
+            final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);
+            try (final var resultSet = statement.executeQuery()) {
+                final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                while (true) {
+                    try {
+                        resultSetAssert.hasNextRow().hasColumn("ID", (long) updatedUpTill++).hasColumn(fieldToUpdate.toUpperCase(), expectedValue);
+                    } catch (AssertionFailedError e) {
+                        resultSetAssert.hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        break;
+                    }
+                }
+            }
+        }
+        return Pair.of(continuation, updatedUpTill);
+    }
+
+    private void testUpdateInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)
+            throws SQLException, RelationalException {
+        insertRecords(10);
+        var continuationAndNumUpdated = updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue,
+                Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
+        verifyUpdates(fieldToUpdate, expectedValue, continuationAndNumUpdated.getRight());
+        continuationAndNumUpdated = updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, continuationAndNumUpdated, Options.NONE);
+        Assertions.assertEquals(10, continuationAndNumUpdated.getRight());
+        verifyUpdates(fieldToUpdate, expectedValue, 10);
+    }
+}

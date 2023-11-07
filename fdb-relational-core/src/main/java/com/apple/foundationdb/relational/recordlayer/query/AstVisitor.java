@@ -1497,7 +1497,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         final var inQuantifier = Quantifier.forEach(GroupExpressionRef.of(fromExpression));
-        RelationalExpression expression = new InsertExpression(inQuantifier, targetTypeName, targetType, context.asDql().getRecordLayerSchemaTemplate().getDescriptor(targetTypeName));
+        RelationalExpression expression = new InsertExpression(inQuantifier, targetTypeName, targetType);
         // TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScope() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
@@ -1536,6 +1536,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 ctx.tableName(),
                 ctx.updatedElement(),
                 ctx.expression());
+
+        if (ctx.CONTINUATION() != null) {
+            context.setContinuation((byte[]) visit(ctx.continuationAtom()));
+        }
 
         if (ctx.RETURNING() != null) {
             final var qun = Quantifier.forEach(GroupExpressionRef.of(expression));
@@ -1629,7 +1633,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return new UpdateExpression(filterQun,
                 targetTypeName,
                 targetType,
-                context.asDql().getRecordLayerSchemaTemplate().getDescriptor(targetTypeName),
                 rebasedTransformMapBuilder.build());
     }
 

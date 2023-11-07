@@ -238,6 +238,7 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE expression)?
       (RETURNING selectElements)?
+      (WITH CONTINUATION continuationAtom)?
       queryOptions?
     ;
 

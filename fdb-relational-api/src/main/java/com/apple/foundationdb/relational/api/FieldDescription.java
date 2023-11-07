@@ -20,9 +20,13 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.google.common.base.Suppliers;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Types;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A description of an individual field.
@@ -43,6 +47,7 @@ public class FieldDescription {
     //indicates a column that isn't part of the DDL for a query, but is part of the returned
     //tuple (and therefore necessary to keep so that our positional ordering is intact)
     private final boolean phantom;
+    private final Supplier<Integer> hashCodeSupplier;
 
     /**
      * Create a primitive field.
@@ -109,7 +114,7 @@ public class FieldDescription {
         return new FieldDescription(fieldName, Types.ARRAY, nullable, false, null, definition);
     }
 
-    public FieldDescription(String fieldName,
+    private FieldDescription(String fieldName,
                             int sqlType,
                             int nullable,
                             boolean phantom,
@@ -121,6 +126,7 @@ public class FieldDescription {
         this.phantom = phantom;
         this.fieldMetaData = fieldMetaData;
         this.arrayMetaData = arrayMetaData;
+        this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
     public String getName() {
@@ -153,5 +159,44 @@ public class FieldDescription {
 
     public boolean isPhantom() {
         return phantom;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof FieldDescription)) {
+            return false;
+        }
+        final var otherDescription = (FieldDescription) other;
+        if (otherDescription == this) {
+            return true;
+        }
+        if (!fieldName.equals(otherDescription.fieldName) ||
+                sqlTypeCode != otherDescription.sqlTypeCode ||
+                nullable != otherDescription.nullable) {
+            return false;
+        }
+        if (fieldMetaData == null) {
+            if (otherDescription.fieldMetaData != null) {
+                return false;
+            }
+        } else {
+            if (!fieldMetaData.equals(otherDescription.fieldMetaData)) {
+                return false;
+            }
+        }
+        if (arrayMetaData == null) {
+            return otherDescription.arrayMetaData == null;
+        } else {
+            return arrayMetaData.equals(otherDescription.arrayMetaData);
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    private int calculateHashCode() {
+        return Objects.hash(fieldName, sqlTypeCode, nullable, fieldMetaData, arrayMetaData);
     }
 }

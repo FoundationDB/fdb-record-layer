@@ -23,12 +23,15 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -45,11 +48,13 @@ import java.util.stream.StreamSupport;
 public class RowArray extends RelationalArray {
     private final Iterable<Row> rows;
     private final StructMetaData arrayMetaData;
+    private final Supplier<Integer> hashCodeSupplier;
 
     public RowArray(@Nonnull Iterable<Row> rows,
                     @Nonnull StructMetaData arrayMetaData) {
         this.rows = rows;
         this.arrayMetaData = arrayMetaData;
+        this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
     @Override
@@ -133,5 +138,38 @@ public class RowArray extends RelationalArray {
     @Override
     public String toString() {
         return StreamSupport.stream(rows.spliterator(), false).map(Objects::toString).collect(Collectors.joining(",", "[", "]"));
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof RowArray)) {
+            return false;
+        }
+        final var otherArrayRow = (RowArray) other;
+        if (otherArrayRow == this) {
+            return true;
+        }
+        if (!this.arrayMetaData.equals(otherArrayRow.arrayMetaData)) {
+            return false;
+        }
+
+        final var iterator = rows.iterator();
+        final var otherIterator = otherArrayRow.rows.iterator();
+
+        while (iterator.hasNext()) {
+            if (!otherIterator.hasNext() || !iterator.next().equals(otherIterator.next())) {
+                return false;
+            }
+        }
+        return otherIterator.hasNext();
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    private int calculateHashCode() {
+        return Objects.hash(Arrays.hashCode(StreamSupport.stream(rows.spliterator(), false).toArray()), arrayMetaData);
     }
 }

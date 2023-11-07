@@ -23,21 +23,27 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 public class RelationalStructMetaData implements StructMetaData {
     private final FieldDescription[] columns;
     //the number of phantom columns that are at the front of the metadata
     private final int leadingPhantomColumnOffset;
+    private final Supplier<Integer> hashCodeSupplier;
 
     public RelationalStructMetaData(FieldDescription... columns) {
         this.columns = columns;
         this.leadingPhantomColumnOffset = countLeadingPhantomColumns();
+        this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
     @Override
@@ -149,5 +155,27 @@ public class RelationalStructMetaData implements StructMetaData {
             }
         }
         return count;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof RelationalStructMetaData)) {
+            return false;
+        }
+        final var otherMetadata = (RelationalStructMetaData) other;
+        if (otherMetadata == this) {
+            return true;
+        }
+        return leadingPhantomColumnOffset == otherMetadata.leadingPhantomColumnOffset &&
+                Arrays.equals(columns, otherMetadata.columns);
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    private int calculateHashCode() {
+        return Objects.hash(Arrays.hashCode(columns), leadingPhantomColumnOffset);
     }
 }

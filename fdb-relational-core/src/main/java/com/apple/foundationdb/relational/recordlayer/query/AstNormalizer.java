@@ -303,8 +303,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitUpdatedElement(RelationalParser.UpdatedElementContext ctx) {
+    public Object visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_DML_STATEMENT);
+        if (ctx.continuationAtom() != null) {
+            ctx.continuationAtom().accept(this);
+        }
         return visitChildren(ctx);
     }
 

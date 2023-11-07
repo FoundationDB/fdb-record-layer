@@ -22,13 +22,19 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.google.common.base.Suppliers;
+
+import java.util.Arrays;
+import java.util.function.Supplier;
 
 @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentionally exposed for performance reasons")
 public class ArrayRow extends AbstractRow {
     private final Object[] data;
+    private final Supplier<Integer> hashCodeSupplier;
 
     public ArrayRow(Object... data) {
         this.data = data;
+        this.hashCodeSupplier = Suppliers.memoize(() -> Arrays.deepHashCode(data));
     }
 
     @Override
@@ -42,5 +48,36 @@ public class ArrayRow extends AbstractRow {
             throw new InvalidColumnReferenceException(Integer.toString(position));
         }
         return data[position];
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof ArrayRow)) {
+            return false;
+        }
+        final var otherArrayRow = (ArrayRow) other;
+        if (otherArrayRow == this) {
+            return true;
+        }
+        if (this.data.length != otherArrayRow.data.length) {
+            return false;
+        }
+        for (int i = 0; i < data.length; i++) {
+            if (data[i] instanceof byte[]) {
+                if (!Arrays.equals((byte[]) data[i], (byte[]) otherArrayRow.data[i])) {
+                    return false;
+                }
+            } else {
+                if (!data[i].equals(otherArrayRow.data[i])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCodeSupplier.get();
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -57,5 +58,33 @@ public class ImmutableRowStruct extends RowStruct {
     @Override
     public boolean wasNull() {
         return wasNull;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof ImmutableRowStruct)) {
+            return false;
+        }
+        final var otherImmutableRowStruct = (ImmutableRowStruct) other;
+        if (otherImmutableRowStruct == this) {
+            return true;
+        }
+        try {
+            if (theRow.equals(otherImmutableRowStruct.theRow) && getMetaData().equals(otherImmutableRowStruct.getMetaData())) {
+                return true;
+            }
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        try {
+            return Objects.hash(theRow, getMetaData());
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
     }
 }
