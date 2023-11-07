@@ -58,12 +58,12 @@ public final class FDBIndexOutput extends IndexOutput {
     private ByteBuffer buffer;
     private final String resourceDescription;
     private final FDBDirectory fdbDirectory;
-    private final long blockSize;
+    private final int blockSize;
     private final CRC32 crc;
     private final long id;
     private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
     private static final int POOL_SIZE = 100;
-    private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
+    private final List<CompletableFuture<Integer>> flushes = new ArrayList<>();
     private final Object writeLock = new Object();
 
     static {
@@ -102,7 +102,7 @@ public final class FDBIndexOutput extends IndexOutput {
         blockSize = fdbDirectory.getBlockSize();
         buffer = BUFFERS.poll();
         if (buffer == null) {
-            buffer = ByteBuffer.allocate((int)blockSize);
+            buffer = ByteBuffer.allocate(blockSize);
         }
         crc = new CRC32();
         id = fdbDirectory.getIncrement();
@@ -114,17 +114,22 @@ public final class FDBIndexOutput extends IndexOutput {
     @Override
     @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
     public void close() {
+        boolean returned;
+        synchronized (writeLock) {
+            flush();
+            CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
+            for (CompletableFuture<Integer> future : flushes) {
+                result = result.thenCombine(future, Integer::sum);
+            }
+            fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
+            returned = BUFFERS.offer(buffer);
+            buffer = null;
+        }
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.RESOURCE_RETURNED_TO_POOL, returned));
         }
-        flush();
-        CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
-        for (CompletableFuture<Integer> future : flushes) {
-            result = result.thenCombine(future, Integer::sum);
-        }
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
-        BUFFERS.offer(buffer);
     }
 
     @Override
@@ -198,13 +203,12 @@ public final class FDBIndexOutput extends IndexOutput {
                     LuceneLogMessageKeys.LENGTH, length));
         }
         crc.update(bytes, offset, length);
-        final int blockSizeInt = (int) blockSize;
         int bytesWritten = 0;
         synchronized (writeLock) {
             while (bytesWritten < length) {
                 int toWrite = Math.min(
                         length - bytesWritten, // the total leftover bytes to write
-                        (blockSizeInt - (currentSize % blockSizeInt)) // the free space in this buffer
+                        (blockSize - (currentSize % blockSize)) // the free space in this buffer
                 );
                 buffer.put(bytes, bytesWritten + offset, toWrite);
                 bytesWritten += toWrite;
@@ -225,7 +229,7 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            flushes.add(fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr));
+            flushes.add(fdbDirectory.writeData(id, ( (currentSize - 1) / blockSize), arr));
             buffer.clear();
         }
     }

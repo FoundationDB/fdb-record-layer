@@ -79,5 +79,4 @@ public class FDBIndexInputTest extends FDBDirectoryBaseTest {
         input.readBytes(actual, 0, actual.length);
         assertEquals(actual.length, expected.length - offset);
     }
-
 }
