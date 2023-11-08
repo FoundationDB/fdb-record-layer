@@ -219,7 +219,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
-    @Test
+    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord sampleMapRecordWithOnlyValueDifferent() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1215L)
