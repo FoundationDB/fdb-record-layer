@@ -2222,6 +2222,7 @@ public class Comparisons {
                 case LEGACY:
                     return inner.planHash(mode);
                 case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, inner);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
