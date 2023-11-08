@@ -133,7 +133,7 @@ public class IndexingThrottle {
                                                @Nullable List<Object> additionalLogMessageKeyValues,
                                                int currTries,
                                                final boolean adjustLimits) {
-            if (currTries >= common.config.getMaxRetries() || IndexingBase.shouldLessenWork(fdbException)) {
+            if (currTries >= common.config.getMaxRetries() || !IndexingBase.shouldLessenWork(fdbException)) {
                 // Here: should not retry or no more retries. There is no real need to handle limits.
                 return false;
             }
