@@ -92,7 +92,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
 
-        private final Supplier<Integer> recordQueryPlanHash = Suppliers.memoize(() -> getRecordQueryPlan().planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        private final Supplier<Integer> recordQueryPlanHash = Suppliers.memoize(() -> getRecordQueryPlan().planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         @Nonnull
         private final TypeRepository typeRepository;
@@ -233,7 +233,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
-                        physicalPlan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                        physicalPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             });
         }
 

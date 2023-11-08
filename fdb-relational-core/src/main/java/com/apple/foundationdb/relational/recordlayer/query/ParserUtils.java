@@ -914,11 +914,11 @@ public final class ParserUtils {
 
         @Override
         public int hashCodeWithoutChildren() {
-            return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+            return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
         }
 
         @Override
-        public int planHash(@Nonnull PlanHashKind hashKind) {
+        public int planHash(@Nonnull PlanHashMode mode) {
             return hashCodeWithoutChildren();
         }
 

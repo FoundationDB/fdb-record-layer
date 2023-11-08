@@ -66,7 +66,7 @@ public final class PlanValidator {
             // No continuation provided - nothing to validate against
             return true;
         } else {
-            return Objects.equals(plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION), continuation.getPlanHash());
+            return Objects.equals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), continuation.getPlanHash());
         }
     }
 
