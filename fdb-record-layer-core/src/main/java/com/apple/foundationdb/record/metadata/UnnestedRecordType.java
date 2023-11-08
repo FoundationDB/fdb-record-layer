@@ -168,7 +168,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     /**
      * A {@link SyntheticRecordType.Constituent} representing an element in an unnested record. This encodes
      * both the name of the nested messages making up the synthetic type and the relationship between them.
-     * There should always be one {@linkplain #isParent() parent} constituent, and all other cnstituents
+     * There should always be one {@linkplain #isParent() parent} constituent, and all other constituents
      * are linked to a different constituent via a {@linkplain #getNestingExpression() nesting expression}.
      */
     public static class NestedConstituent extends SyntheticRecordType.Constituent {
@@ -238,8 +238,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                                  @Nonnull final Object recordTypeKey,
                                  @Nonnull final List<Index> indexes,
                                  @Nonnull final List<Index> multiTypeIndexes,
-                                 @Nonnull final List<NestedConstituent> constituents
-                                 /*@Nonnull final List<Nesting> nestings*/) {
+                                 @Nonnull final List<NestedConstituent> constituents) {
         super(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, constituents);
         this.parentConstituent = constituents.stream()
                 .filter(NestedConstituent::isParent)
