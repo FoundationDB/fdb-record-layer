@@ -126,27 +126,32 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest1() {
-        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7);
+        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0);
     }
 
     @Test
     void luceneOnlineIndexingTest2() {
-        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, SIMPLE_DOC, 15, 100);
+        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, SIMPLE_DOC, 15, 100, 300);
     }
 
     @Test
     void luceneOnlineIndexingTest3() {
-        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7);
+        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2);
     }
 
     @Test
     void luceneOnlineIndexingTest4() {
-        luceneOnlineIndexingTestAny(TEXT_AND_STORED, COMPLEX_DOC, 8, 100);
+        luceneOnlineIndexingTestAny(TEXT_AND_STORED, COMPLEX_DOC, 8, 100, 1);
     }
 
     @Test
     void luceneOnlineIndexingTest5() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20);
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2);
+    }
+
+    @Test
+    void luceneOnlineIndexingTest6() {
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0);
     }
 
     private String randomText(Random rn) {
@@ -164,7 +169,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
 
-    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit) {
+    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit, int mergesLimit) {
         assertTrue(numRecords > 3);
         final Random rn = new Random();
         rn.nextInt();
@@ -206,6 +211,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setDeferMergeDuringIndexing(true)
+                            .setInitialMergesCountLimit(mergesLimit)
                             .build())
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));

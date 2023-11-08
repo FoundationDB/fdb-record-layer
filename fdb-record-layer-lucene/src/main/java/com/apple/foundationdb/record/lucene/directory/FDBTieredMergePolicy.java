@@ -51,6 +51,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     }
 
     @Override
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (deferredPolicy == null) {
             return super.findMerges(mergeTrigger, infos, mergeContext);
@@ -60,8 +61,8 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
             return null;
         }
         long startTime = System.nanoTime();
+
         MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
-        context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
         final long mergesLimit = deferredPolicy.getMergesLimit();
         int originSpecSize = specSize(spec);
         deferredPolicy.setMergesFound(originSpecSize);
@@ -74,6 +75,8 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
             spec = dilutedSpec;
         }
         deferredPolicy.setMergesTried(specSize(spec));
+
+        context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
         return spec;
     }
 }
