@@ -1268,6 +1268,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.VARIANCE(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.GROUP_CONCAT(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.overClause(), UNSUPPORTED_QUERY);
+        Assert.isNullUnchecked(ctx.BITMAP(), UNSUPPORTED_QUERY, ErrorCode.UNSUPPORTED_QUERY);
 
         if (ctx.aggregator != null) {
             Assert.thatUnchecked(ctx.aggregator.getText().equals(ctx.ALL().getText()), UNSUPPORTED_QUERY);

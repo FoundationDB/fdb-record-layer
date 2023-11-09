@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -65,5 +66,14 @@ public class QueryTypeTests {
     public void queryTypeIsSetCorrectly(@Nonnull final String query, @Nonnull ParseTreeInfo.QueryType expectedType) throws Exception {
         final var parseInfo = QueryParser.parse(query);
         Assertions.assertEquals(expectedType, parseInfo.getQueryType());
+    }
+
+    @Test
+    public void createBitmapIndexParsesCorrectly() throws Exception {
+        var parseInfo = QueryParser.parse("CREATE SCHEMA TEMPLATE blahblah " +
+                "CREATE INDEX all_seen_uids_bitmap AS SELECT BITMAP(uid) FROM msgstate GROUP BY mboxRef, isSeen");
+        Assertions.assertEquals(ParseTreeInfo.QueryType.CREATE, parseInfo.getQueryType());
+        parseInfo = QueryParser.parse("SELECT BITMAP(uid) FROM msgstate WHERE mboxRef=\"INBOX\" AND isSeen=0");
+        Assertions.assertEquals(ParseTreeInfo.QueryType.SELECT, parseInfo.getQueryType());
     }
 }

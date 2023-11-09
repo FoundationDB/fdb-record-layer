@@ -874,6 +874,7 @@ levelInWeightListElement
 aggregateWindowedFunction
     : functionName=(AVG | MAX | MIN | SUM | MAX_EVER | MIN_EVER )
       '(' aggregator=(ALL | DISTINCT)? functionArg ')' overClause?
+    | functionName=BITMAP '(' functionArg ')'
     | functionName=COUNT '(' (starArg='*' | aggregator=ALL? functionArg | aggregator=DISTINCT functionArgs) ')' overClause?
     | functionName=(
         BIT_AND | BIT_OR | BIT_XOR | STD | STDDEV | STDDEV_POP

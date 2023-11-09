@@ -799,6 +799,24 @@ public class DdlStatementParsingTest {
         Assertions.assertTrue(called[0], "Did not call the correct method!");
     }
 
+    @Test
+    public void bitmapIndexCreationShouldFail() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE blahblah " +
+                "CREATE TABLE msgstate(id string, uid bigint, mboxRef string, isSeen bigint, PRIMARY KEY(id)) " +
+                "CREATE INDEX all_seen_uids_bitmap AS SELECT BITMAP(uid) FROM msgstate GROUP BY mboxRef, isSeen";
+
+        shouldFailWithInjectedFactory(schemaStatement, ErrorCode.UNSUPPORTED_QUERY, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                        @Nonnull Options templateProperties) {
+                Assertions.fail("Should not call this!");
+                return txn -> {
+                };
+            }
+        });
+    }
+
     private String makeColumnDefinition(List<String> columns, boolean isTable) {
         StringBuilder columnStatement = new StringBuilder("(");
         int pos = 0;

@@ -334,6 +334,7 @@ AVG:                                 'AVG';
 BIT_AND:                             'BIT_AND';
 BIT_OR:                              'BIT_OR';
 BIT_XOR:                             'BIT_XOR';
+BITMAP:                              'BITMAP';
 COUNT:                               'COUNT';
 CUME_DIST:                           'CUME_DIST';
 DENSE_RANK:                          'DENSE_RANK';
