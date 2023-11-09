@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -173,7 +174,7 @@ public class ComposedBitmapIndexAggregate {
         }
         Builder builder = new Builder(planner, recordTypeNames, commonFilters, indexAggregateFunctionCall);
         return builder.tryBuild(indexFilters.size() > 1 ? Query.and(indexFilters) : indexFilters.get(0),
-                        indexQueryabilityFilter)
+                        indexQueryabilityFilter, Collections.emptyList())
             .map(ComposedBitmapIndexAggregate::new);
     }
 
@@ -308,15 +309,22 @@ public class ComposedBitmapIndexAggregate {
 
         @Nonnull
         Optional<Node> tryBuild(@Nonnull QueryComponent indexFilter,
-                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter,
+                                @Nonnull List<String> prefixFields) {
+            if (indexFilter instanceof NestedField) {
+                List<String> newPrefix = new ArrayList<>(prefixFields.size() + 1);
+                newPrefix.addAll(prefixFields);
+                newPrefix.add(((NestedField)indexFilter).getFieldName());
+                return tryBuild(((NestedField)indexFilter).getChild(), indexQueryabilityFilter, newPrefix);
+            }
             if (indexFilter instanceof ComponentWithComparison) {
-                return indexScan(indexFilter, indexQueryabilityFilter);
+                return indexScan(indexFilter, indexQueryabilityFilter, prefixFields);
             }
             if (indexFilter instanceof AndOrComponent) {
                 final AndOrComponent andOrComponent = (AndOrComponent) indexFilter;
                 List<Node> childNodes = new ArrayList<>(andOrComponent.getChildren().size());
                 for (QueryComponent child : andOrComponent.getChildren()) {
-                    Optional<Node> childNode = tryBuild(child, indexQueryabilityFilter);
+                    Optional<Node> childNode = tryBuild(child, indexQueryabilityFilter, prefixFields);
                     if (!childNode.isPresent()) {
                         return Optional.empty();
                     }
@@ -326,7 +334,7 @@ public class ComposedBitmapIndexAggregate {
                 return Optional.of(new OperatorNode(operator, childNodes));
             }
             if (indexFilter instanceof NotComponent) {
-                return tryBuild(((NotComponent) indexFilter).getChild(), indexQueryabilityFilter)
+                return tryBuild(((NotComponent) indexFilter).getChild(), indexQueryabilityFilter, prefixFields)
                         .map(childNode -> new OperatorNode(OperatorNode.Operator.NOT, Collections.singletonList(childNode)));
             }
             return Optional.empty();
@@ -334,7 +342,8 @@ public class ComposedBitmapIndexAggregate {
 
         @Nonnull
         Optional<Node> indexScan(@Nonnull QueryComponent indexFilter,
-                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter,
+                                 @Nonnull List<String> prefixFields) {
             if (bitmapIndexes == null) {
                 bitmapIndexes = findBitmapIndexes(indexAggregateFunctionCall.getFunctionName(), indexQueryabilityFilter);
                 if (bitmapIndexes.isEmpty()) {
@@ -342,16 +351,13 @@ public class ComposedBitmapIndexAggregate {
                 }
                 indexNodes = new HashMap<>();
             }
-            IndexNode existing = indexNodes.get(indexFilter);
+            final QueryComponent filterWithParents = rebuildNestedComponent(indexFilter, prefixFields);
+            IndexNode existing = indexNodes.get(filterWithParents);
             if (existing != null) {
                 return Optional.of(existing);
             }
-            final KeyExpression indexKey;
-            if (indexFilter instanceof FieldWithComparison) {
-                indexKey = Key.Expressions.field(((FieldWithComparison) indexFilter).getFieldName());
-            } else if (indexFilter instanceof QueryKeyExpressionWithComparison) {
-                indexKey = ((QueryKeyExpressionWithComparison) indexFilter).getKeyExpression();
-            } else {
+            final KeyExpression indexKey = getKeyForQueryComponent(indexFilter, prefixFields);
+            if (indexKey == null) {
                 return Optional.empty();
             }
             // Splice the index's key between the common grouping key and the position.
@@ -377,7 +383,7 @@ public class ComposedBitmapIndexAggregate {
             if (index == null) {
                 return Optional.empty();
             }
-            final QueryComponent fullFilter = andFilters(groupFilters, indexFilter);
+            final QueryComponent fullFilter = andFilters(groupFilters, filterWithParents);
             // Allow conditions on the position field as well.
             final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
             return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
@@ -386,6 +392,31 @@ public class ComposedBitmapIndexAggregate {
                         indexNodes.put(indexFilter, indexNode);
                         return indexNode;
                     });
+        }
+
+        @Nonnull
+        private static QueryComponent rebuildNestedComponent(@Nonnull QueryComponent childFilter, @Nonnull List<String> prefixFields) {
+            QueryComponent filter = childFilter;
+            for (int nestIndex = prefixFields.size() - 1; nestIndex >= 0; nestIndex--) {
+                filter = new NestedField(prefixFields.get(nestIndex), filter);
+            }
+            return filter;
+        }
+
+        @Nullable
+        private static KeyExpression getKeyForQueryComponent(@Nonnull QueryComponent indexFilter, @Nonnull List<String> prefixFields) {
+            KeyExpression key;
+            if (indexFilter instanceof FieldWithComparison) {
+                key = Key.Expressions.field(((FieldWithComparison) indexFilter).getFieldName());
+            } else if (indexFilter instanceof QueryKeyExpressionWithComparison) {
+                key = ((QueryKeyExpressionWithComparison) indexFilter).getKeyExpression();
+            } else {
+                return null;
+            }
+            for (int nestIndex = prefixFields.size() - 1; nestIndex >= 0; nestIndex--) {
+                key = Key.Expressions.field(prefixFields.get(nestIndex)).nest(key);
+            }
+            return key;
         }
 
         @Nonnull

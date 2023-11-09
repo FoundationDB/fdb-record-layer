@@ -644,8 +644,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("key"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha")),
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
-            assertEquals(-1146979043, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1207636849, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-981888014, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2030491452, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

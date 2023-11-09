@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -673,6 +674,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
         for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
             if (syntheticRecordType instanceof JoinedRecordType) {
                 builder.addJoinedRecordTypes(((JoinedRecordType)syntheticRecordType).toProto());
+            } else if (syntheticRecordType instanceof UnnestedRecordType) {
+                builder.addUnnestedRecordTypes(((UnnestedRecordType)syntheticRecordType).toProto());
             }
             for (Index syntheticIndex : syntheticRecordType.getIndexes()) {
                 indexBuilders.get(syntheticIndex.getName()).addRecordType(syntheticRecordType.getName());

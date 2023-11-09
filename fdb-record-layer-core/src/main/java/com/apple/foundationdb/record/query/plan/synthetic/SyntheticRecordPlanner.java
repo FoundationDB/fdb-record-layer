@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -114,6 +115,9 @@ public class SyntheticRecordPlanner {
         if (syntheticRecordType instanceof JoinedRecordType) {
             return forType((JoinedRecordType)syntheticRecordType);
         }
+        if (syntheticRecordType instanceof UnnestedRecordType) {
+            return forType((UnnestedRecordType)syntheticRecordType);
+        }
         throw unknownSyntheticType(syntheticRecordType);
     }
 
@@ -141,6 +145,16 @@ public class SyntheticRecordPlanner {
             }
             return createByType(byType);
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public SyntheticRecordFromStoredRecordPlan forType(@Nonnull UnnestedRecordType unnestedRecordType) {
+        if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
+            throw mismatchedMetaData();
+        }
+        UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
+        return new UnnestStoredRecordPlan(unnestedRecordType, parentConstituent.getRecordType());
     }
 
     /**
@@ -175,6 +189,8 @@ public class SyntheticRecordPlanner {
                     final SyntheticRecordFromStoredRecordPlan subPlan;
                     if (syntheticRecordType instanceof JoinedRecordType) {
                         subPlan = forJoinConstituent((JoinedRecordType)syntheticRecordType, (JoinedRecordType.JoinConstituent)constituent);
+                    } else if (syntheticRecordType instanceof UnnestedRecordType) {
+                        subPlan = forUnnestedConstituent((UnnestedRecordType) syntheticRecordType, (UnnestedRecordType.NestedConstituent) constituent);
                     } else {
                         throw unknownSyntheticType(syntheticRecordType);
                     }
@@ -211,17 +227,22 @@ public class SyntheticRecordPlanner {
         }
         Set<RecordType> result = new HashSet<>();
         for (RecordType recordType : recordTypes) {
-            if (!(recordType instanceof JoinedRecordType)) {
-                throw unknownSyntheticType(recordType);
-            }
-            JoinedRecordType joinedRecordType = (JoinedRecordType)recordType;
-            Optional<JoinedRecordType.JoinConstituent> maybeConstituent = joinedRecordType.getConstituents().stream().filter(c -> !c.isOuterJoined()).findFirst();
-            if (maybeConstituent.isPresent()) {
-                result.add(maybeConstituent.get().getRecordType());
-            } else {
-                for (JoinedRecordType.JoinConstituent joinConstituent : joinedRecordType.getConstituents()) {
-                    result.add(joinConstituent.getRecordType());
+            if (recordType instanceof JoinedRecordType) {
+                JoinedRecordType joinedRecordType = (JoinedRecordType)recordType;
+                Optional<JoinedRecordType.JoinConstituent> maybeConstituent = joinedRecordType.getConstituents().stream().filter(c -> !c.isOuterJoined()).findFirst();
+                if (maybeConstituent.isPresent()) {
+                    result.add(maybeConstituent.get().getRecordType());
+                } else {
+                    for (JoinedRecordType.JoinConstituent joinConstituent : joinedRecordType.getConstituents()) {
+                        result.add(joinConstituent.getRecordType());
+                    }
                 }
+            } else if (recordType instanceof UnnestedRecordType) {
+                // In an unnested record type, only the parent provides a real record
+                UnnestedRecordType unnestedRecordType = (UnnestedRecordType)recordType;
+                result.add(unnestedRecordType.getParentConstituent().getRecordType());
+            } else {
+                throw unknownSyntheticType(recordType);
             }
         }
         return result;
@@ -283,6 +304,29 @@ public class SyntheticRecordPlanner {
             throw new RecordCoreArgumentException("Join constituent is not from record type");
         }
         return new JoinedRecordPlanner(joinedRecordType, queryPlanner).plan(joinConstituent);
+    }
+
+    /**
+     * Construct a plan for generating synthetic records from the parent constituent of an unnested record type.
+     * This will un-nest nested constituents from the stored record and construct synthetic records joining the
+     * parent record with its named nested elements.
+     *
+     * @param unnestedRecordType the unnested record type
+     * @param constituent the parent constituent of the unnested record type
+     * @return a plan that generates synthetic records from un-nesting stored records
+     * @see UnnestedRecordType
+     */
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // want pointer equality for record meta-data object
+    public SyntheticRecordFromStoredRecordPlan forUnnestedConstituent(@Nonnull UnnestedRecordType unnestedRecordType,
+                                                                      @Nonnull UnnestedRecordType.NestedConstituent constituent) {
+        if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
+            throw mismatchedMetaData();
+        }
+        if (!unnestedRecordType.getConstituents().contains(constituent)) {
+            throw new RecordCoreArgumentException("Constituent is not from record type");
+        }
+        return new UnnestedRecordPlanner(unnestedRecordType).plan(constituent);
     }
 
     private void addToByType(@Nonnull Multimap<String, SyntheticRecordFromStoredRecordPlan> byType,

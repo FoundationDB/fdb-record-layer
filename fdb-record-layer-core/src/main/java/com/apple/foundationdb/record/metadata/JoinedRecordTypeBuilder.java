@@ -60,8 +60,8 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             return outerJoined;
         }
 
-        @Override
-        protected JoinedRecordType.JoinConstituent build(@Nonnull RecordMetaData metaData) {
+        @Nonnull
+        JoinedRecordType.JoinConstituent build(@Nonnull RecordMetaData metaData) {
             return new JoinedRecordType.JoinConstituent(getName(), metaData.getRecordType(getRecordType().getName()), outerJoined);
         }
     }

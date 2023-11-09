@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -69,11 +70,6 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
         @Nonnull
         public RecordTypeBuilder getRecordType() {
             return recordType;
-        }
-
-        @Nonnull
-        protected SyntheticRecordType.Constituent build(@Nonnull RecordMetaData metaData) {
-            return new SyntheticRecordType.Constituent(name, metaData.getRecordType(recordType.getName()));
         }
     }
 
@@ -158,9 +154,14 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
     @SuppressWarnings("squid:S1452")
     public abstract SyntheticRecordType<?> build(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.FileDescriptor fileDescriptor);
 
-    public void buildDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto) {
+    @API(API.Status.INTERNAL)
+    public void buildDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
         final DescriptorProtos.DescriptorProto.Builder descriptorProto = fileDescriptorProto.addMessageTypeBuilder();
         descriptorProto.setName(name);
+        addConstituentFields(descriptorProto, sources);
+    }
+
+    protected void addConstituentFields(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
         int fieldNumber = 0;
         for (Constituent constituent : constituents) {
             descriptorProto.addFieldBuilder()
@@ -168,6 +169,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
                     .setNumber(++fieldNumber)
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                     .setTypeName("." + constituent.getRecordType().getDescriptor().getFullName());
+            sources.add(constituent.getRecordType().getDescriptor().getFile());
         }
     }
 

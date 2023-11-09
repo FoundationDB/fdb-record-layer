@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeIndexesBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -162,6 +164,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private void loadProtoExceptRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
         for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
             JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
+            syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
+        }
+        for (RecordMetaDataProto.UnnestedRecordType unnestedProto : metaDataProto.getUnnestedRecordTypesList()) {
+            UnnestedRecordTypeBuilder typeBuilder = new UnnestedRecordTypeBuilder(unnestedProto, this);
             syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
         }
 
@@ -1005,6 +1011,25 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     /**
+     * Add a new {@link UnnestedRecordTypeBuilder}.
+     * @param name the name of the new record type
+     * @return a new uninitialized unnested record type
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public UnnestedRecordTypeBuilder addUnnestedRecordType(@Nonnull String name) {
+        if (recordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a record type named " + name);
+        }
+        if (syntheticRecordTypes.containsKey(name)) {
+            throw new MetaDataException("There is already a synthetic record type named " + name);
+        }
+        UnnestedRecordTypeBuilder unnestedRecordTypeBuilder = new UnnestedRecordTypeBuilder(name, getNextRecordTypeKey(), this);
+        syntheticRecordTypes.put(name, unnestedRecordTypeBuilder);
+        return unnestedRecordTypeBuilder;
+    }
+
+    /**
      * Get a record type or synthetic record type by name for use with {@link #addIndex}.
      * @param name the name of the record type
      * @return the possibly synthetic record type
@@ -1409,11 +1434,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (!syntheticRecordTypes.isEmpty()) {
             DescriptorProtos.FileDescriptorProto.Builder fileBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
             fileBuilder.setName("_synthetic");
-            fileBuilder.addDependency(unionDescriptor.getFile().getName());
-            syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder));
+            Set<Descriptors.FileDescriptor> typeDescriptorSources = new LinkedHashSet<>(); // for stable iteration order
+            syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder, typeDescriptorSources));
+            typeDescriptorSources.forEach(source -> fileBuilder.addDependency(source.getName()));
             final Descriptors.FileDescriptor fileDescriptor;
             try {
-                final Descriptors.FileDescriptor[] dependencies = { unionDescriptor.getFile() };
+                final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[typeDescriptorSources.size()];
+                typeDescriptorSources.toArray(dependencies);
                 fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
             } catch (Descriptors.DescriptorValidationException ex) {
                 throw new MetaDataException("Could not build synthesized file descriptor", ex);

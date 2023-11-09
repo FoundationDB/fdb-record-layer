@@ -23,10 +23,14 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A <i>synthetic</i> record type is made up of other record types and not actually stored separately in the record store.
@@ -82,6 +86,10 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     public boolean isSynthetic() {
         return true;
     }
+
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public abstract CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey);
 
     @Override
     public String toString() {
