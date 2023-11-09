@@ -58,18 +58,16 @@ public final class FDBIndexOutput extends IndexOutput {
     private ByteBuffer buffer;
     private final String resourceDescription;
     private final FDBDirectory fdbDirectory;
-    private final long blockSize;
+    private final int blockSize;
     private final CRC32 crc;
     private final long id;
     private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
     private static final int POOL_SIZE = 100;
-    private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
+    private final List<CompletableFuture<Integer>> flushes = new ArrayList<>();
 
     static {
         BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
-        for (int i = 0; i < POOL_SIZE; i++) {
-            BUFFERS.add(ByteBuffer.allocate(FDBDirectory.DEFAULT_BLOCK_SIZE));
-        }
+        // Here: should not initial any buffer before initializing blockSize
     }
 
     /**
@@ -100,8 +98,8 @@ public final class FDBIndexOutput extends IndexOutput {
         this.fdbDirectory = fdbDirectory;
         blockSize = fdbDirectory.getBlockSize();
         buffer = BUFFERS.poll();
-        if (buffer == null) {
-            buffer = ByteBuffer.allocate((int)blockSize);
+        if (buffer == null || buffer.capacity() != blockSize) {
+            buffer = ByteBuffer.allocate(blockSize);
         }
         crc = new CRC32();
         id = fdbDirectory.getIncrement();
@@ -113,17 +111,21 @@ public final class FDBIndexOutput extends IndexOutput {
     @Override
     @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
     public void close() {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("close()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
-        }
         flush();
         CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
         for (CompletableFuture<Integer> future : flushes) {
             result = result.thenCombine(future, Integer::sum);
         }
         fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
-        BUFFERS.offer(buffer);
+        // Here: prevent buffer re-use after close by nullifying it *before* returning to the pool
+        final ByteBuffer tmp = buffer;
+        buffer = null;
+        boolean returned = BUFFERS.offer(tmp);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("close()",
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
+                    LuceneLogMessageKeys.RESOURCE_RETURNED_TO_POOL, returned));
+        }
     }
 
     @Override
@@ -150,9 +152,7 @@ public final class FDBIndexOutput extends IndexOutput {
         buffer.put(b);
         crc.update(b);
         currentSize++;
-        if (currentSize % blockSize == 0) {
-            flush();
-        }
+        flushIfFullBuffer();
     }
 
     /**
@@ -197,13 +197,14 @@ public final class FDBIndexOutput extends IndexOutput {
         crc.update(bytes, offset, length);
         int bytesWritten = 0;
         while (bytesWritten < length) {
-            int toWrite = (int) (length - bytesWritten + (currentSize % blockSize) > blockSize ? blockSize - (currentSize % blockSize) : length - bytesWritten);
+            int toWrite = Math.min(
+                    length - bytesWritten, // the total leftover bytes to write
+                    (blockSize - buffer.position()) // the free space in this buffer
+            );
             buffer.put(bytes, bytesWritten + offset, toWrite);
             bytesWritten += toWrite;
             currentSize += toWrite;
-            if (currentSize % blockSize == 0) {
-                flush();
-            }
+            flushIfFullBuffer();
         }
     }
 
@@ -216,8 +217,14 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            flushes.add(fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr));
-            buffer.clear();
+            flushes.add(fdbDirectory.writeData(id, ( (currentSize - 1) / blockSize), arr));
+        }
+        buffer.clear();
+    }
+
+    private void flushIfFullBuffer() {
+        if (buffer.position() >= blockSize) {
+            flush();
         }
     }
 
