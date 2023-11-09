@@ -570,7 +570,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
-     * {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and {@link IndexDeferredMaintenancePolicy}.
+     * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
      * @return a future with the merge index operation
      */
     @API(API.Status.EXPERIMENTAL)
@@ -580,7 +580,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
-     * {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and {@link IndexDeferredMaintenancePolicy}.
+     * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
      */
     @API(API.Status.EXPERIMENTAL)
     public void mergeIndex() {

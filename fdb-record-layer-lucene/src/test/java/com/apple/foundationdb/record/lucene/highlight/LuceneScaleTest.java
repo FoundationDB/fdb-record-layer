@@ -431,7 +431,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         Set<Index> saveNewRecord() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
+                store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
                 final String text = LuceneIndexTestUtils.generateRandomWords(500)[1];
                 store.saveRecord(
                         TestRecordsTextProto.ComplexDocument.newBuilder()
@@ -451,14 +451,14 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     }
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
             }
         }
 
         public Set<Index> updateRecords(final int count) {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
+                store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(Config.AUTOMERGE_DURING_COMMIT);
                 for (int i = 0; i < count; i++) {
                     final TestRecordsTextProto.ComplexDocument.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder()
                             .mergeFrom(getRandomRecord(store));
@@ -466,7 +466,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     store.saveRecord(builder.build());
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
             }
         }
 

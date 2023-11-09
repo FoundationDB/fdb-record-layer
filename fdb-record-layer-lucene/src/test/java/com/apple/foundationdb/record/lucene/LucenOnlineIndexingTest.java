@@ -420,11 +420,11 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = 60; iLast > 40; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
                 }
-                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                 if (indexSet != null && !indexSet.isEmpty()) {
                     assertEquals(1, indexSet.size());
                     assertEquals(indexSet.stream().findFirst().get().getName(), index.getName());
@@ -479,7 +479,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private String[] listFiles(Index index, Tuple tuple, int groupingCount) {
         try (FDBRecordContext context = openContext()) {
-            recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
             final Subspace subspace = recordStore.indexSubspace(index);
             final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, true);
             return directory.listAll();
@@ -498,11 +498,11 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             int iLast = iLimits[iIndex ++];
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = iFIrst; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iIndex, 2));
                 }
-                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                 if (indexSet != null && !indexSet.isEmpty()) {
                     needMerge = true;
                 }
@@ -536,11 +536,11 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = high; iLast > low; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iLast, 2));
                 }
-                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                final Set<Index> indexSet = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                 if (indexSet != null && !indexSet.isEmpty()) {
                     final Optional<Index> first = indexSet.stream().findFirst();
                     assertEquals(1, indexSet.size());
@@ -603,7 +603,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         // Now update records with merge
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(true);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
             for (int i = 17; i < 22; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + " Sababa", 2));
             }
@@ -634,7 +634,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             }
             int newLength = listFiles(index).length;
             LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
-                         " needMerge=" + recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes());
+                         " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
 
             allDone = oldLength <= newLength;
         }
@@ -664,7 +664,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             }
             int newLength = listFiles(index).length;
             LOGGER.debug("Merge test with limits: merges_limit: " + mergesLimit + " number of files: old=" + oldLength + " new=" + newLength +
-                         " needMerge=" + recordStore.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes());
+                         " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
 
             allDone = oldLength <= newLength;
         }

@@ -327,7 +327,7 @@ public class IndexingThrottle {
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
                 return buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
-                    Set<Index> indexSet = store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                    Set<Index> indexSet = store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                     if (indexSet != null) {
                         mergeRequiredIndexes.addAll(indexSet);
                     }

@@ -970,7 +970,7 @@ public abstract class IndexingBase {
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
         if (policy.shouldDeferMergeDuringIndexing()) {
-            store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
         }
     }
 

@@ -284,7 +284,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private boolean recordsReadConflict;
 
     private boolean storeStateReadConflict;
-    private IndexDeferredMaintenancePolicy indexDeferredMaintenancePolicy;
+    private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
     @Nonnull
     private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
@@ -4778,18 +4778,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * For some indexes, there are index maintenance operations that could be either done inline, during a record update
-     * operation, or later in the background. The returned policy object lets the caller indicate to the index maintenance
+     * operation, or later in the background. The returned control object lets the caller indicate to the index maintenance
      * that he intends to trigger these deferred maintenance in another, possibly background, transaction.
      * This feature is experimental. The default is to perform all the needed index changes inline.
-     * @return an IndexDeferredMaintenancePolicy object.
+     * @return an {@link IndexDeferredMaintenanceControl} object.
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public synchronized IndexDeferredMaintenancePolicy getIndexDeferredMaintenancePolicy() {
-        if (indexDeferredMaintenancePolicy == null) {
-            indexDeferredMaintenancePolicy = new IndexDeferredMaintenancePolicy();
+    public synchronized IndexDeferredMaintenanceControl getIndexDeferredMaintenanceControl() {
+        if (indexDeferredMaintenanceControl == null) {
+            indexDeferredMaintenanceControl = new IndexDeferredMaintenanceControl();
         }
-        return indexDeferredMaintenancePolicy;
+        return indexDeferredMaintenanceControl;
     }
 
     @Nonnull

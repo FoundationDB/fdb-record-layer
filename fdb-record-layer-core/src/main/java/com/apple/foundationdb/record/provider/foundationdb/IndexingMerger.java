@@ -63,50 +63,50 @@ public class IndexingMerger {
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     CompletableFuture<Void> mergeIndex() {
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
-        AtomicReference<IndexDeferredMaintenancePolicy> policyRef = new AtomicReference<>();
+        AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
-                                    final IndexDeferredMaintenancePolicy policy = store.getIndexDeferredMaintenancePolicy();
-                                    policyRef.set(policy);
-                                    policy.setMergesLimit(mergesLimit);
+                                    final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
+                                    mergeControlRef.set(mergeControl);
+                                    mergeControl.setMergesLimit(mergesLimit);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
-                    final IndexDeferredMaintenancePolicy policy = policyRef.get();
+                    final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     if (e == null) {
                         if (mergesLimit > 0 && mergeSuccesses > 2) {
                             mergeSuccesses = 0;
                             mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
                         }
                         mergeSuccesses++;
-                        if (LOGGER.isTraceEnabled()) {
-                            LOGGER.trace(KeyValueLogMessage.build("IndexMerge: Success")
-                                    .addKeysAndValues(mergerKeysAndValues(policy))
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
+                                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
                                     .toString());
                         }
                         // Here: no error, stop the iteration unless has more
-                        final boolean hasMore = policy.getMergesFound() > policy.getMergesTried();
+                        final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
                         return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
                     }
                     // Here: got exception.
-                    if (0 > failureCountLimit.decrementAndGet() || policy.getMergesTried() < 2) {
+                    if (0 > failureCountLimit.decrementAndGet() || mergeControl.getMergesTried() < 2) {
                         if (LOGGER.isWarnEnabled()) {
                             LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
-                                            .addKeysAndValues(mergerKeysAndValues(policy))
+                                            .addKeysAndValues(mergerKeysAndValues(mergeControl))
                                             .toString());
                         }
                     } else {
                         final FDBException ex = IndexingBase.findException(e, FDBException.class);
                         if (IndexingBase.shouldLessenWork(ex)) {
                             // Here: this exception might be resolved by reducing the load
-                            mergesLimit = policy.getMergesTried() / 2;
+                            mergesLimit = mergeControl.getMergesTried() / 2;
                             if (LOGGER.isInfoEnabled()) {
-                                // TODO: demote this info message to a trace one after this code is tested a bit
+                                // TODO: demote this info message to a trace or debug after this code is tested a bit
                                 LOGGER.info(KeyValueLogMessage.build("IndexMerge: Merges diluted")
-                                        .addKeysAndValues(mergerKeysAndValues(policy))
+                                        .addKeysAndValues(mergerKeysAndValues(mergeControl))
                                         .toString());
                             }
                             return AsyncUtil.READY_TRUE; // and retry
@@ -118,12 +118,12 @@ public class IndexingMerger {
                 ), common.getRunner().getExecutor());
     }
 
-    List<Object> mergerKeysAndValues(final IndexDeferredMaintenancePolicy policy) {
+    List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
         return List.of(
                     LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.INDEX_MERGES_LIMIT, policy.getMergesLimit(),
-                    LogMessageKeys.INDEX_MERGES_FOUND, policy.getMergesFound(),
-                    LogMessageKeys.INDEX_MERGES_TRIED, policy.getMergesTried()
+                    LogMessageKeys.INDEX_MERGES_LIMIT, mergeControl.getMergesLimit(),
+                    LogMessageKeys.INDEX_MERGES_FOUND, mergeControl.getMergesFound(),
+                    LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried()
         );
     }
 

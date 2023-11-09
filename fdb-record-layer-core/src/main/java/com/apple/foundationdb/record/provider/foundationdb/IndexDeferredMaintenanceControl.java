@@ -29,7 +29,7 @@ import java.util.Set;
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
  * to set and probe the merge policy and merge requests.
  */
-public class IndexDeferredMaintenancePolicy {
+public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = true;
     private long mergesLimit = 0;
