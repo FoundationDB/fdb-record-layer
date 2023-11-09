@@ -371,23 +371,21 @@ public class FDBDirectory extends Directory  {
      * @param value the data to be stored
      * @return the actual data size written to database with potential compression and encryption applied
      */
-    public CompletableFuture<Integer> writeData(final long id, final int block, @Nonnull final byte[] value) {
-        return CompletableFuture.supplyAsync( () -> {
-            final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled));
-            //This may not be correct transactionally
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
-            context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(getLogMessage("Write lucene data",
-                        LuceneLogMessageKeys.FILE_ID, id,
-                        LuceneLogMessageKeys.BLOCK_NUMBER, block,
-                        LuceneLogMessageKeys.DATA_SIZE, value.length,
-                        LuceneLogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length));
-            }
-            Verify.verify(value.length <= blockSize);
-            context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
-            return encodedBytes.length;
-        });
+    public int writeData(final long id, final int block, @Nonnull final byte[] value) {
+        final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled));
+        //This may not be correct transactionally
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene data",
+                    LuceneLogMessageKeys.FILE_ID, id,
+                    LuceneLogMessageKeys.BLOCK_NUMBER, block,
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length));
+        }
+        Verify.verify(value.length <= blockSize);
+        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
+        return encodedBytes.length;
     }
 
     public int writeSchema(@Nonnull List<Long> bitSetWords, @Nonnull final byte[] value) {

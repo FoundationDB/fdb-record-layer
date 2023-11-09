@@ -67,7 +67,6 @@ public enum LuceneLogMessageKeys {
     POSITION,
     REFERENCE_CACHE_STATUS,
     RESOURCE,
-    RESOURCE_RETURNED_TO_POOL,
     SEEK_NUM,
 
     //Lucene component

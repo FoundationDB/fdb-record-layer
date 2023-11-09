@@ -35,10 +35,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.zip.CRC32;
 
 /**
@@ -61,14 +57,7 @@ public final class FDBIndexOutput extends IndexOutput {
     private final int blockSize;
     private final CRC32 crc;
     private final long id;
-    private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
-    private static final int POOL_SIZE = 100;
-    private final List<CompletableFuture<Integer>> flushes = new ArrayList<>();
-
-    static {
-        BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
-        // Here: should not initial any buffer before initializing blockSize
-    }
+    private long actualSize;
 
     /**
      * Create an FDBIndexOutput given a name and FDBDirectory.
@@ -96,11 +85,9 @@ public final class FDBIndexOutput extends IndexOutput {
         }
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
+        actualSize = 0;
         blockSize = fdbDirectory.getBlockSize();
-        buffer = BUFFERS.poll();
-        if (buffer == null || buffer.capacity() != blockSize) {
-            buffer = ByteBuffer.allocate(blockSize);
-        }
+        buffer = ByteBuffer.allocate(blockSize);
         crc = new CRC32();
         id = fdbDirectory.getIncrement();
     }
@@ -111,21 +98,13 @@ public final class FDBIndexOutput extends IndexOutput {
     @Override
     @SpotBugsSuppressWarnings(value = "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", justification = "it is fine if it is not accepted")
     public void close() {
-        flush();
-        CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
-        for (CompletableFuture<Integer> future : flushes) {
-            result = result.thenCombine(future, Integer::sum);
-        }
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
-        // Here: prevent buffer re-use after close by nullifying it *before* returning to the pool
-        final ByteBuffer tmp = buffer;
-        buffer = null;
-        boolean returned = BUFFERS.offer(tmp);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription,
-                    LuceneLogMessageKeys.RESOURCE_RETURNED_TO_POOL, returned));
+                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
+        flush();
+        buffer = null; // prevent writing after close
+        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
     }
 
     @Override
@@ -217,7 +196,7 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            flushes.add(fdbDirectory.writeData(id, ( (currentSize - 1) / blockSize), arr));
+            actualSize += fdbDirectory.writeData(id, ((currentSize - 1) / blockSize), arr);
         }
         buffer.clear();
     }
