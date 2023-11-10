@@ -152,6 +152,8 @@ public class FDBStoreTimer extends StoreTimer {
         DELETE_INDEX_ENTRY("delete index entry"),
         /** The amount of time spent updating an entry in an atomic mutation index. */
         MUTATE_INDEX_ENTRY("mutate index entry"),
+        /** The amount of time spent merging an index (explicitly or during indexing).*/
+        MERGE_INDEX("merge index"),
         /** The amount of time spent rebuilding an index for any reason. */
         REBUILD_INDEX("rebuild index for any reason"),
         /** The amount of time spent rebuilding an index for a new store. */

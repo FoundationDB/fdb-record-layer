@@ -64,9 +64,12 @@ public class IndexingMerger {
     CompletableFuture<Void> mergeIndex() {
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
+        AtomicReference<Runnable> recordTime = new AtomicReference<>();
         return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
+                                    long startTime = System.nanoTime();
+                                    recordTime.set(() -> context.record(FDBStoreTimer.Events.MERGE_INDEX, System.nanoTime() - startTime));
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
                                     mergeControl.setMergesLimit(mergesLimit);
@@ -75,6 +78,7 @@ public class IndexingMerger {
                         Pair::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
+                    recordTime.get().run();
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     if (e == null) {
                         if (mergesLimit > 0 && mergeSuccesses > 2) {
