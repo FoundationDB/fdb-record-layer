@@ -757,8 +757,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         boolean needMerge = populateDataSplitSegments(index, 4, 1);
         assertTrue(needMerge);
-
-
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
