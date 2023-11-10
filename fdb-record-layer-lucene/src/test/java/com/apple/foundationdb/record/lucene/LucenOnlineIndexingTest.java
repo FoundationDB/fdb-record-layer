@@ -20,34 +20,49 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.COMPLEX_MULTIPLE_GROUPED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
@@ -60,6 +75,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSi
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
@@ -669,5 +685,85 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             allDone = oldLength <= newLength;
         }
         assertTrue(loopCounter > 1);
+    }
+
+
+    private static class TerribleMergingIndexMaintainer extends LuceneIndexMaintainer {
+        private final IndexMaintainerState state;
+        private static int pseodoFound = 0;
+
+        protected TerribleMergingIndexMaintainer(final IndexMaintainerState state) {
+            super(state, state.context.getExecutor());
+            this.state = state;
+        }
+
+        @Override
+        public CompletableFuture<Void> mergeIndex() {
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            final long limit = mergeControl.getMergesLimit();
+            if (limit == 0) {
+                mergeControl.setMergesFound(10);
+                mergeControl.setMergesTried(10);
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            if (limit > 3) {
+                Assertions.assertEquals(5, limit);
+                mergeControl.setMergesFound(10);
+                mergeControl.setMergesTried(limit);
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            // Here: pseudo success
+            if (pseodoFound <= 0) {
+                pseodoFound = 10;
+            } else {
+                // Here: if passed the failures above, the limit should be down to 2
+                Assertions.assertEquals(2, limit);
+            }
+            mergeControl.setMergesFound(pseodoFound);
+            int pseudoTried = Math.min((int)limit, pseodoFound);
+            mergeControl.setMergesTried(pseudoTried);
+            pseodoFound -= pseudoTried;
+            return AsyncUtil.DONE;
+        }
+    }
+
+    @AutoService(IndexMaintainerFactory.class)
+    public static class TerribleMergingIndexMaintainerFactory implements IndexMaintainerFactory {
+        @Nonnull
+        @Override
+        public Iterable<String> getIndexTypes() {
+            return Collections.singletonList("terribleMerger");
+        }
+
+        @Nonnull
+        @Override
+        public IndexValidator getIndexValidator(Index index) {
+            return new IndexValidator(index);
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            return new TerribleMergingIndexMaintainer(state);
+        }
+    }
+
+    @Test
+    void luceneOnlineIndexingTestMerger() {
+        Index index = new Index("Simple$text_suffixes",
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                "terribleMerger",
+                ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+        boolean needMerge = populateDataSplitSegments(index, 4, 1);
+        assertTrue(needMerge);
+
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .build()) {
+            indexBuilder.mergeIndex();
+        }
     }
 }
