@@ -169,6 +169,9 @@ public enum ErrorCode {
     }
 
     public static ErrorCode get(String errorCode) {
+        if (errorCode == null) {
+            return ErrorCode.UNKNOWN;
+        }
         return ENUM_MAP.getOrDefault(errorCode, ErrorCode.UNKNOWN);
     }
 
