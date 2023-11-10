@@ -22,12 +22,18 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
@@ -41,6 +47,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
@@ -54,6 +62,8 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -62,10 +72,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.PlanHashable.CURRENT_FOR_CONTINUATION;
+import static com.apple.foundationdb.record.PlanHashable.CURRENT_LEGACY;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -73,6 +87,7 @@ import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
@@ -99,6 +114,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -845,10 +862,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     void testUnorderableOrQueryWithAnd(boolean removesDuplicates) throws Exception {
-        RecordMetaDataHook hook = metaDataBuilder -> {
-            complexQuerySetupHook().apply(metaDataBuilder);
-            metaDataBuilder.addIndex("MySimpleRecord", new Index("multi_index_2", "str_value_indexed", "num_value_3_indexed"));
-        };
+        RecordMetaDataHook hook = complexQuerySetupHook()
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", new Index("multi_index_2", "str_value_indexed", "num_value_3_indexed")));
         complexQuerySetup(hook);
         setDeferFetchAfterUnionAndIntersection(true);
 
@@ -926,7 +941,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("num_value_3_indexed").greaterThan(3))))
                 .build();
 
-        // Index(str_value_3_index [[even, 1],[even, 1]]) ∪[Field { 'str_value_indexed' None}, Field { 'num_value_3_indexed' None}, Field { 'num_value_unique' None}] Index(str_value_3_index ([even, 3],[even]])
+        // Index(str_value_3_index [[even, 1],[even, 1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'num_value_unique' None}] Index(str_value_3_index ([even, 3],[even]])
         RecordQueryPlan plan = planner.plan(query);
 
         if (planner instanceof RecordQueryPlanner) {
@@ -937,11 +952,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                                     .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("[[even, 1],[even, 1]]"))))),
                                             coveringIndexPlan()
                                                     .where(indexPlanOf(indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))))))
-                                    .where(comparisonKey(concat(Key.Expressions.field("str_value_indexed"), field("num_value_3_indexed"), field("num_value_unique")))));
+                                    .where(comparisonKey(concat(field("num_value_3_indexed"), field("num_value_unique")))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(-664830657, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1572009327, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-60058062, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1391842890, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     fetchFromPartialRecordPlan(
@@ -1074,6 +1089,320 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(2142773918, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(21153949, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+    }
+
+    /**
+     * Verify that the same index can be matched for multiple legs of an OR query, even if there are (compatible) ordering
+     * constraints.
+     * @throws Exception from test set up
+     */
+    @DualPlannerTest
+    void testOrderedOrQueryWithMultipleValuesForEarlierColumn() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("odd"),
+                        Query.or(
+                                Query.field("num_value_2").equalsValue(0),
+                                Query.field("num_value_2").equalsValue(2)
+                        )
+                ))
+                .setSort(field("num_value_3_indexed"))
+                .build();
+
+        // Collect all of the expected values into a list of matchers
+        final List<Matcher<? super TestRecords1Proto.MySimpleRecord>> expected;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final RecordType recordType = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
+            expected = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> recordType.equals(rec.getRecordType()))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .filter(msg -> "odd".equals(msg.getStrValueIndexed()) && (msg.getNumValue2() == 0 || msg.getNumValue2() == 2))
+                    .asList()
+                    .join()
+                    .stream()
+                    .map(Matchers::equalTo) // unfortunately, cannot use RecordCursor.map here due to how generics are handled
+                    .collect(Collectors.toList());
+            commit(context);
+        }
+
+        // Initially, do not defer fetches. Note that this only affects the old planner
+        planner.setConfiguration(planner.getConfiguration().asBuilder()
+                .setDeferFetchAfterUnionAndIntersection(false)
+                .build());
+
+        // Index(multi_index [[odd, 0],[odd, 0]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[odd, 2],[odd, 2]])
+        RecordQueryPlan plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 0],[odd, 0]]"))),
+                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 2],[odd, 2]]"))))
+                            .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1477800426, plan.planHash(CURRENT_LEGACY));
+            assertEquals(-521036388, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 0],[odd, 0]]"))))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 2],[odd, 2]]"))))))
+                                    // note that the comparison key is on num_value_3_indexed + the primary key
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("num_value_2"), fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-2004620414, plan.planHash(CURRENT_LEGACY));
+            assertEquals(661700665, plan.planHash(CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final List<TestRecords1Proto.MySimpleRecord> queried = recordStore.executeQuery(plan)
+                    .map(FDBRecord::getRecord)
+                    .map(msg -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(msg).build())
+                    .asList()
+                    .join();
+
+            // Validate that the queried records contain all expected values
+            assertThat(queried, containsInAnyOrder(expected));
+
+            // Validate sort
+            Integer maxNumValue3 = null;
+            for (TestRecords1Proto.MySimpleRecord queriedRec : queried) {
+                if (maxNumValue3 != null) {
+                    assertThat(maxNumValue3, lessThanOrEqualTo(queriedRec.getNumValue3Indexed()));
+                }
+                maxNumValue3 = queriedRec.getNumValue3Indexed();
+            }
+        }
+
+        // Update the plan configuration to defer fetches. With the old planner, this moves the fetch to before the queries are executed.
+        // With the new planner, this is already the default behavior
+        setDeferFetchAfterUnionAndIntersection(true);
+        // Fetch(Covering(Index(multi_index [[odd, 0],[odd, 0]])) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(multi_index [[odd, 2],[odd, 2]])))
+        plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher = fetchFromPartialRecordPlan(
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                            coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 0],[odd, 0]]"))))),
+                            coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 2],[odd, 2]]"))))))
+                            .where(comparisonKey(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))
+            );
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1754668377, plan.planHash(CURRENT_LEGACY));
+            assertEquals(1632504435, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 0],[odd, 0]]"))))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 2],[odd, 2]]"))))))
+                                    // note that the comparison key is on num_value_3_indexed + the primary key
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("num_value_2"), fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-2004620414, plan.planHash(CURRENT_LEGACY));
+            assertEquals(661700665, plan.planHash(CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final List<TestRecords1Proto.MySimpleRecord> queried = recordStore.executeQuery(plan)
+                    .map(FDBRecord::getRecord)
+                    .map(msg -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(msg).build())
+                    .asList()
+                    .join();
+
+            // Validate contents
+            assertThat(queried, containsInAnyOrder(expected));
+
+            // Validate sort
+            Integer maxNumValue3 = null;
+            for (TestRecords1Proto.MySimpleRecord queriedRec : queried) {
+                if (maxNumValue3 != null) {
+                    assertThat(maxNumValue3, lessThanOrEqualTo(queriedRec.getNumValue3Indexed()));
+                }
+                maxNumValue3 = queriedRec.getNumValue3Indexed();
+            }
+        }
+    }
+
+    /**
+     * Check on "OR" queries on an index with additional columns after the columns required for ordering.
+     * For example, if we have an index on fields {@code (a, b, c)}, then we should be able to use it to
+     * answer a query of the form:
+     *
+     * <pre>{@code
+     * SELECT * FROM type WHERE a = ?foo OR a = ?bar ORDER BY b
+     * }</pre>
+     *
+     * <p>
+     * The thing that makes this case a little tricky is that the planner has to notice that that extra {@code c}
+     * field doesn't get in the way. Note that an index on {@code (a, c, b)} would <em>not</em> be okay, because now
+     * the {@code c} field is interfering with the order. Likewise, if {@code c} is a repeated field, then we're also
+     * in trouble, because results may not show up the correct number of times in the index (or may be missing
+     * completely if {@code c} is empty).
+     * </p>
+     *
+     * @throws Exception from underlying test set up
+     * @see <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2336">Issue #2336</a>
+     */
+    @DualPlannerTest
+    void testOrderedOrQueryWithIntermediateUnorderedColumn() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").equalsValue("odd"),
+                        Query.field("str_value_indexed").equalsValue("even")
+                ))
+                .setSort(field("num_value_2"))
+                .build();
+
+        // Index(multi_index [[odd],[odd]]) ∪[Field { 'num_value_2' None}, Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[even],[even]])
+        final RecordQueryPlan plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    RecordQueryPlanMatchers.unionOnExpressionPlan(
+                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd],[odd]]"))),
+                            indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even],[even]]"))))
+                            .where(comparisonKey(concat(field("num_value_2"), field("num_value_3_indexed"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-363390528, plan.planHash(CURRENT_LEGACY));
+            assertEquals(1294497974, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    fetchFromPartialRecordPlan(
+                            RecordQueryPlanMatchers.unionOnValuesPlan(
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd],[odd]]"))))),
+                                    coveringIndexPlan()
+                                            .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even],[even]]"))))))
+                                    // note that the comparison key is on num_value_2 + num_value_3_indexed + the primary key
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_2"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(471546238, plan.planHash(CURRENT_LEGACY));
+            assertEquals(1167317451, plan.planHash(CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            Integer numValue2 = null;
+            int queriedCount = 0;
+            try (RecordCursor<TestRecords1Proto.MySimpleRecord> cursor = recordStore.executeQuery(plan)
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())) {
+                for (RecordCursorResult<TestRecords1Proto.MySimpleRecord> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
+                    TestRecords1Proto.MySimpleRecord msg = Objects.requireNonNull(result.get());
+                    if (numValue2 != null) {
+                        assertThat(msg.getNumValue2(), greaterThanOrEqualTo(numValue2));
+                    }
+                    numValue2 = msg.getNumValue2();
+                    assertThat(msg.getStrValueIndexed(), either(equalTo("even")).or(equalTo("odd")));
+                    queriedCount++;
+                }
+            }
+            final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
+            int expectedCount = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> type.equals(rec.getRecordType()))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
+                    .getCount()
+                    .join();
+            assertEquals(expectedCount, queriedCount, "Incorrect number of records returned");
+        }
+    }
+
+    /**
+     * Test that an index with extra columns is rejected if one of those columns is repeated. This test case is
+     * similar to {@link #testOrderedOrQueryWithIntermediateUnorderedColumn}, but the index should be rejected because
+     * one of the unmatched columns is repeated. This has to be rejected because results can be missing (if the
+     * repeated field is empty).
+     *
+     * @throws Exception from test set up
+     */
+    @DualPlannerTest
+    void testOrderedUnionDoesNotUseIndexWithExtraRepeatedColumn() throws Exception {
+        final Index index = new Index("str_3_repeater", concat(field("str_value_indexed"), field("num_value_3_indexed"), field("repeater", KeyExpression.FanType.FanOut)));
+        RecordMetaDataHook hook = complexQuerySetupHook()
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+        complexQuerySetup(hook);
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.field("str_value_indexed").equalsValue("odd")
+                ))
+                .setSort(field("num_value_3_indexed"))
+                .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed <,>) | Or([str_value_indexed EQUALS even, str_value_indexed EQUALS odd])
+        RecordQueryPlan plan = planner.plan(query);
+        final BindingMatcher<? extends RecordQueryPlan> indexPlanMatcher = indexPlan()
+                .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                .and(scanComparisons(unbounded()));
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher = filterPlan(indexPlanMatcher)
+                    .where(queryComponents(only(PrimitiveMatchers.equalsObject(query.getFilter()))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(1539136105, plan.planHash(CURRENT_LEGACY));
+            assertEquals(-1993337462, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher = predicatesFilterPlan(indexPlanMatcher).where(predicates(
+                    only(QueryPredicateMatchers.orPredicate(exactly(
+                            valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "even")),
+                            valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "odd"))
+                    )))
+            ));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-732740118, plan.planHash(CURRENT_LEGACY));
+            assertEquals(-559232537, plan.planHash(CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            int queriedCount = 0;
+            try (RecordCursor<TestRecords1Proto.MySimpleRecord> cursor = recordStore.executeQuery(plan)
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())) {
+                Integer maxNumValue3 = null;
+                for (RecordCursorResult<TestRecords1Proto.MySimpleRecord> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
+                    TestRecords1Proto.MySimpleRecord msg = Objects.requireNonNull(result.get());
+                    assertThat(msg.getStrValueIndexed(), either(equalTo("even")).or(equalTo("odd")));
+                    if (maxNumValue3 != null) {
+                        assertThat("Results should be sorted by num_value_3_indexed", msg.getNumValue3Indexed(), greaterThanOrEqualTo(maxNumValue3));
+                    }
+                    maxNumValue3 = msg.getNumValue3Indexed();
+                    queriedCount++;
+                }
+            }
+
+            final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
+            int expectedCount = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> type.equals(rec.getRecordType()))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
+                    .getCount()
+                    .join();
+            assertEquals(expectedCount, queriedCount, "Incorrect number of records returned");
         }
     }
 

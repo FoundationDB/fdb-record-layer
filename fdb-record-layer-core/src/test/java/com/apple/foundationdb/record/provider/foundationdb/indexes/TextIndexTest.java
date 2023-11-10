@@ -2349,7 +2349,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithOr((OrComponent) Query.or(
                             Query.field("text").text().containsAll("unit named after"),
                             Query.field("text").text().containsPhrase("אן ארמיי און פלאט")
-                    ), 0, -1558384887));
+                    ), 0, -396375489));
 
             assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
                     queryComplexDocumentsWithIndex(
