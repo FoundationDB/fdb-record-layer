@@ -20,13 +20,18 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
@@ -35,6 +40,7 @@ import java.io.IOException;
  *
  */
 public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
+    public static final String STORED_FIELDS_EXTENSION = "fsf";
 
     LuceneOptimizedStoredFieldsFormat() {
     }
@@ -46,7 +52,8 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
     @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
-        return new LuceneOptimizedStoredFieldsWriter(directory, si);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = ((FDBDirectory)FilterDirectory.unwrap(directory)).getPrimaryKeySegmentIndex();
+        final StoredFieldsWriter storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(directory, si, context);
+        return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
     }
-
 }

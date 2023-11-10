@@ -218,8 +218,10 @@ public class LuceneEvents {
         LUCENE_MERGE_DOCUMENTS("lucene merge document", false),
         /** Number of segments merged. */
         LUCENE_MERGE_SEGMENTS("lucene merge segment", false),
-        /** Number of file delete operations on the FDBDirectory. */
-        LUCENE_DELETE_STORED_FIELDS_RANGE("lucene delete stored fields range", false),
+        /** Number of Write Stored Fields operations on the FDBDirectory. */
+        LUCENE_WRITE_STORED_FIELDS("lucene write stored fields", false),
+        /** Number of Delete Stored Fields operations on the FDBDirectory. */
+        LUCENE_DELETE_STORED_FIELDS("lucene delete stored fields", false),
         ;
 
         private final String title;

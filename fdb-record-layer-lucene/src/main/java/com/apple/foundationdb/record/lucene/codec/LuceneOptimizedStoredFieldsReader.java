@@ -1,5 +1,5 @@
 /*
- * LuceneOptimizedStoredFieldsWriter.java
+ * LuceneOptimizedStoredFieldsReader.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.tuple.Tuple;
@@ -43,10 +44,12 @@ import java.util.List;
 
 
 /**
- * This class wraps a StoreFieldsReader.
- *
+ * A {@link StoredFieldsReader} implementation for Stored Fields stored in the DB.
+ * The data for the fields is protobuf-encoded (see lucene_stored_fields.proto) message.
+ * The subspace for the range of documents is the segment name.
+ * Within the subspace, each document key is then suffixed by the docId.
  */
-public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader {
+public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsReader.class);
     private final FDBDirectory directory;
     private final SegmentInfo si;
@@ -77,13 +80,6 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader {
         return keyTuple;
     }
 
-    public void visitDocumentViaScan() {
-        // TODO: This looks wrong. It introduces a state into this class (that can then only work in this mode moving forward) and that state is lost when cloned.
-        // Probably woth seeing if that can be replaced with external state that will be managed by repeated calls to visitDocument.
-        this.rangeIterator = directory.scanStoredFields(keyTuple).iterator();
-    }
-
-
     @Override
     public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
         LuceneStoredFieldsProto.LuceneStoredFields storedFields;
@@ -98,8 +94,6 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader {
         }
         List<LuceneStoredFieldsProto.StoredField> storedFieldList = storedFields.getStoredFieldsList();
         for (LuceneStoredFieldsProto.StoredField storedField: storedFieldList) {
-            // TODO: Are the numbers consistent across restarts? Isn't it safer to store the name and restore the info by name?
-            // Looks like they are consistent (this is how its done in CompressingStoredFieldsReader
             FieldInfo info = fieldInfos.fieldInfo(storedField.getFieldNumber());
             switch (visitor.needsField(info)) {
                 case YES:
@@ -160,5 +154,10 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader {
     @Override
     public String toString() {
         return si.name;
+    }
+
+    @Override
+    public SegmentInfo getSegmentInfo() {
+        return si;
     }
 }
