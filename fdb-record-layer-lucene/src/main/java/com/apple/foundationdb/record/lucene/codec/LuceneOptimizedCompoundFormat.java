@@ -41,17 +41,12 @@ import java.util.stream.Collectors;
 
 /**
  * Wrapper for the {@link Lucene50CompoundFormat} to optimize compound files for sitting on FoundationDB.
- * In contrast to {@link Lucene50CompoundFormat}, this wrapper strips the .si from the list of files (?)
- * as the {@link Directory} for read/write of compound file.
  */
 public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file. */
     public static final String DATA_EXTENSION = "cfs";
     /** Extension of compound file entries. */
     public static final String ENTRIES_EXTENSION = "cfe";
-
-    public static final String FIELD_INFO_EXTENSION = "fnm";
-    public static final String DATA_CODEC = "Lucene50CompoundData";
     public static final String ENTRY_CODEC = "Lucene50CompoundEntries";
     public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;

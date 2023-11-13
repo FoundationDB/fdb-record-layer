@@ -49,6 +49,17 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * {@link FieldInfosFormat} optimized for storage in the {@link FDBDirectory}.
+ * <p>
+ *     The key feature here is that it will store on the file reference a reference to a (potentially) shared protobuf
+ *     for the FieldInfos, along with a bitset for the subset of the fields in that shared proto that are used in the
+ *     associated segment. This deduplication is important because segments generally have the same mapping (there is a
+ *     global mapping used when creating new segments), but we also need to support different segments having
+ *     incompatible mappings. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2284">Issue #2284</a>
+ *     for more information about why we need to support incompatible mappings.
+ * </p>
+ */
 public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
 
     public static final String EXTENSION = "fip";
@@ -137,7 +148,8 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
             bitSet.set(fieldInfo.number);
         }
         final FDBDirectory fdbDirectory = getFdbDirectory(directory);
-        // TODO I need to store this somewhere and only do this once...
+        // It would probably be valuable to cache the parsed global field infos proto rather than re-parsing for every
+        // segment
         final byte[] rawGlobalBytes = fdbDirectory.readGlobalFieldInfos();
         boolean globalNeedsUpdating = false;
         boolean canReuseGlobal = true;
