@@ -78,7 +78,6 @@ public class IndexingMerger {
                         Pair::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
-                    recordTime.get().run();
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     if (e == null) {
                         if (mergesLimit > 0 && mergeSuccesses > 2) {
@@ -86,8 +85,9 @@ public class IndexingMerger {
                             mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
                         }
                         mergeSuccesses++;
-                        if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
+                        if (LOGGER.isInfoEnabled()) {
+                            // Todo: demote this log message to debug level
+                            LOGGER.info(KeyValueLogMessage.build("IndexMerge: Success")
                                     .addKeysAndValues(mergerKeysAndValues(mergeControl))
                                     .toString());
                         }
@@ -119,7 +119,11 @@ public class IndexingMerger {
                     // Here: this exception will not be recovered by dilution. Throw it.
                     throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
                 }).thenCompose(Function.identity()
-                ), common.getRunner().getExecutor());
+                ), common.getRunner().getExecutor())
+                .thenApply(ret -> {
+                    recordTime.get().run();
+                    return ret;
+                });
     }
 
     List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {

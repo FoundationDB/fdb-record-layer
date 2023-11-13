@@ -28,7 +28,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** IndexingMerger: increase log level [(Issue #2355)](https://github.com/FoundationDB/fdb-record-layer/issues/2355)
 * **Feature** indexMerge: perform the merging in multiple transaction [(Issue #2343)](https://github.com/FoundationDB/fdb-record-layer/issues/2343)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
