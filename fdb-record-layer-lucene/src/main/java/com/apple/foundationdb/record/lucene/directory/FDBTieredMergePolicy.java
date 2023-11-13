@@ -22,18 +22,22 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.TieredMergePolicy;
 
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 
+@ParametersAreNonnullByDefault
 class FDBTieredMergePolicy extends TieredMergePolicy {
-    final boolean shouldAutoMergeDuringCommit;
-    final FDBRecordContext context;
+    @Nullable private final IndexDeferredMaintenanceControl mergeControl;
+    private final FDBRecordContext context;
 
-    public FDBTieredMergePolicy(final boolean shouldAutoMergeDuringCommit, FDBRecordContext context) {
-        this.shouldAutoMergeDuringCommit = shouldAutoMergeDuringCommit;
+    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl, FDBRecordContext context) {
+        this.mergeControl = mergeControl;
         this.context = context;
     }
 
@@ -42,14 +46,36 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
                mergeTrigger == MergeTrigger.COMMIT;
     }
 
+    private int specSize(@Nullable MergeSpecification spec) {
+        return spec != null && spec.merges != null ? spec.merges.size() : 0;
+    }
+
     @Override
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
-        if (!shouldAutoMergeDuringCommit && isAutoMergeDuringCommit(mergeTrigger)) {
+        if (mergeControl == null) {
+            return super.findMerges(mergeTrigger, infos, mergeContext);
+        }
+        if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
             // Here: skip it. The merge should be performed later by the user.
             return null;
         }
         long startTime = System.nanoTime();
-        final MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
+
+        MergeSpecification spec = super.findMerges(mergeTrigger, infos, mergeContext);
+        final long mergesLimit = mergeControl.getMergesLimit();
+        int originSpecSize = specSize(spec);
+        mergeControl.setMergesFound(originSpecSize);
+        if (mergesLimit > 0 && originSpecSize > 0 && mergesLimit < originSpecSize) {
+            // Note: should not dilute merges in the spec object, must create a new one
+            MergeSpecification dilutedSpec = new MergeSpecification();
+            for (int i = 0; i < mergesLimit; i++) {
+                dilutedSpec.add(spec.merges.get(i));
+            }
+            spec = dilutedSpec;
+        }
+        mergeControl.setMergesTried(specSize(spec));
+
         context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
         return spec;
     }

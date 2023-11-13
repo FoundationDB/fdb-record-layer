@@ -570,7 +570,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
-     * {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and {@link IndexDeferredMaintenancePolicy}.
+     * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
      * @return a future with the merge index operation
      */
     @API(API.Status.EXPERIMENTAL)
@@ -580,7 +580,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * If applicable, merge the target indexes as a background maintenance. This experimental feature completes
-     * {@link FDBRecordStore#getIndexDeferredMaintenancePolicy()} and {@link IndexDeferredMaintenancePolicy}.
+     * {@link FDBRecordStore#getIndexDeferredMaintenanceControl()} and {@link IndexDeferredMaintenanceControl}.
      */
     @API(API.Status.EXPERIMENTAL)
     public void mergeIndex() {
@@ -2133,6 +2133,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final boolean allowUnblock;
         private final String allowUnblockId;
         private final boolean deferMergeDuringIndexing;
+        private final long initialMergesCountLimit;
 
         /**
          * Possible actions when an index is already partially built.
@@ -2157,13 +2158,18 @@ public class OnlineIndexer implements AutoCloseable {
          * @param allowTakeoverContinue if true and possible, allow indexing continuation of a different indexing method
          * @param mutualIndexing if true, use mutual indexing (i.e., index in a way that allows other processes to cooperatively build the index)
          * @param mutualIndexingBoundaries if present, use this predefined list of ranges. Else, split ranges by shards
+         * @param allowUnblock if true, allow unblocking
+         * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
+         * @param deferMergeDuringIndexing if true, do not merge indexes in indexing transactions but in a separate ones
+         * @param initialMergesCountLimit the initial max merges count for index merger
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
                                boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
-                               boolean allowUnblock, String allowUnblockId, boolean deferMergeDuringIndexing) {
+                               boolean allowUnblock, String allowUnblockId,
+                               boolean deferMergeDuringIndexing, long initialMergesCountLimit) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2179,6 +2185,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.allowUnblock = allowUnblock;
             this.allowUnblockId = allowUnblockId;
             this.deferMergeDuringIndexing = deferMergeDuringIndexing;
+            this.initialMergesCountLimit = initialMergesCountLimit;
         }
 
         /**
@@ -2353,6 +2360,16 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
+         * The default is 0 - which means unlimited.
+         * @return the initial merges count limit.
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public long getInitialMergesCountLimit() {
+            return this.initialMergesCountLimit;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -2382,6 +2399,7 @@ public class OnlineIndexer implements AutoCloseable {
             private boolean allowUnblock = false;
             private String allowUnblockId = null;
             private boolean deferMergeDuringIndexing = false;
+            private long initialMergesCountLimit = 0;
 
             protected Builder() {
             }
@@ -2642,6 +2660,18 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+
+            /**
+             * Set the initial merges count limit for {@link #mergeIndex()} and the indexing process.
+             * The default is 0 - which means unlimited.
+             * @param initialMergesCountLimit the initial merges count limit
+             * @return this builder
+             */
+            public Builder setInitialMergesCountLimit(long initialMergesCountLimit) {
+                this.initialMergesCountLimit = initialMergesCountLimit;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -2650,7 +2680,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        deferMergeDuringIndexing);
+                        deferMergeDuringIndexing, initialMergesCountLimit);
             }
         }
     }
