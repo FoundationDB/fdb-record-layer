@@ -49,11 +49,23 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * {@link FieldInfosFormat} optimized for storage in the {@link FDBDirectory}.
+ * <p>
+ *     The key feature here is that it will store on the file reference a reference to a (potentially) shared protobuf
+ *     for the FieldInfos, along with a bitset for the subset of the fields in that shared proto that are used in the
+ *     associated segment. This deduplication is important because segments generally have the same mapping (there is a
+ *     global mapping used when creating new segments), but we also need to support different segments having
+ *     incompatible mappings. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2284">Issue #2284</a>
+ *     for more information about why we need to support incompatible mappings.
+ * </p>
+ */
 public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
 
     public static final String EXTENSION = "fip";
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // we extract the FDBDirectory, and that is closeable, but we aren't in charge of closing
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
         FDBDirectory fdbDirectory;
         final Directory unwrapped = FilterDirectory.unwrap(directory);
@@ -103,8 +115,7 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         if (rawBytes == null) {
             throw new FileNotFoundException("Could not find field info");
         }
-        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
-        return protobuf;
+        return LuceneFieldInfosProto.FieldInfos.newBuilder().mergeFrom(rawBytes);
     }
 
     @Override
@@ -112,32 +123,11 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         // Bitset to track what fields in the global info we are using
         // we still save this even if not reusing global, in case we later reuse field infos other than the global one
         final BitSet bitSet = new BitSet();
-        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder();
-        for (final FieldInfo fieldInfo : infos) {
-            final LuceneFieldInfosProto.FieldInfo.Builder builder = protobuf.addFieldInfoBuilder()
-                    .setName(fieldInfo.name)
-                    .setNumber(fieldInfo.number)
-                    .setStoreTermVectors(fieldInfo.hasVectors())
-                    .setOmitsNorms(fieldInfo.omitsNorms())
-                    .setStorePayloads(fieldInfo.hasPayloads())
-                    .setIndexOptions(luceneToProto(fieldInfo.getIndexOptions()))
-                    .setDocValues(luceneToProto(fieldInfo.getDocValuesType()))
-                    .setDocValuesGen(fieldInfo.getDocValuesGen())
-                    .setPointDimensionCount(fieldInfo.getPointDimensionCount())
-                    .setPointIndexDimensionCount(fieldInfo.getPointIndexDimensionCount())
-                    .setPointNumBytes(fieldInfo.getPointNumBytes())
-                    .setSoftDeletesField(fieldInfo.isSoftDeletesField());
-            for (final Map.Entry<String, String> attribute : fieldInfo.attributes().entrySet()) {
-                // Lucene doesn't explicitly state that these can't be null, but Lucene50 and Lucene60 FieldInfosFormat
-                // will throw a NPE if they are
-                builder.addAttributesBuilder()
-                        .setKey(Objects.requireNonNull(attribute.getKey(), "FieldInfo attribute key"))
-                        .setValue(Objects.requireNonNull(attribute.getValue(), "FieldInfo attribute value"));
-            }
-            bitSet.set(fieldInfo.number);
-        }
+        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = luceneToProto(infos, bitSet);
+        @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the directory
         final FDBDirectory fdbDirectory = getFdbDirectory(directory);
-        // TODO I need to store this somewhere and only do this once...
+        // It would probably be valuable to cache the parsed global field infos proto rather than re-parsing for every
+        // segment
         final byte[] rawGlobalBytes = fdbDirectory.readGlobalFieldInfos();
         boolean globalNeedsUpdating = false;
         boolean canReuseGlobal = true;
@@ -200,78 +190,107 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
 
     private DocValuesType protoToLucene(final LuceneFieldInfosProto.DocValues docValues) {
         switch (docValues) {
-        case NO_DOC_VALUES:
-            return DocValuesType.NONE;
-        case NUMERIC:
-            return DocValuesType.NUMERIC;
-        case BINARY:
-            return DocValuesType.BINARY;
-        case SORTED:
-            return DocValuesType.SORTED;
-        case SORTED_SET:
-            return DocValuesType.SORTED_SET;
-        case SORTED_NUMERIC:
-            return DocValuesType.SORTED_NUMERIC;
-        default:
-            throw new RecordCoreException("Unexpected enum value")
-                    .addLogInfo(LuceneLogMessageKeys.NAME, docValues);
-        }
-    }
-
-    private LuceneFieldInfosProto.DocValues luceneToProto(final DocValuesType docValuesType) {
-        switch (docValuesType) {
-        case NONE:
-            return LuceneFieldInfosProto.DocValues.NO_DOC_VALUES;
-        case NUMERIC:
-            return LuceneFieldInfosProto.DocValues.NUMERIC;
-        case BINARY:
-            return LuceneFieldInfosProto.DocValues.BINARY;
-        case SORTED:
-            return LuceneFieldInfosProto.DocValues.SORTED;
-        case SORTED_NUMERIC:
-            return LuceneFieldInfosProto.DocValues.SORTED_NUMERIC;
-        case SORTED_SET:
-            return LuceneFieldInfosProto.DocValues.SORTED_SET;
-        default:
-            throw new RecordCoreException("Unexpected enum value")
-                    .addLogInfo(LuceneLogMessageKeys.NAME, docValuesType);
+            case NO_DOC_VALUES:
+                return DocValuesType.NONE;
+            case NUMERIC:
+                return DocValuesType.NUMERIC;
+            case BINARY:
+                return DocValuesType.BINARY;
+            case SORTED:
+                return DocValuesType.SORTED;
+            case SORTED_SET:
+                return DocValuesType.SORTED_SET;
+            case SORTED_NUMERIC:
+                return DocValuesType.SORTED_NUMERIC;
+            default:
+                throw unexpectedEnumValue(docValues);
         }
     }
 
     private IndexOptions protoToLucene(final LuceneFieldInfosProto.IndexOptions indexOptions) {
         switch (indexOptions) {
-        case NO_INDEX_OPTIONS:
-            return IndexOptions.NONE;
-        case DOCS:
-            return IndexOptions.DOCS;
-        case DOCS_AND_FREQS:
-            return IndexOptions.DOCS_AND_FREQS;
-        case DOCS_AND_FREQS_AND_POSITIONS:
-            return IndexOptions.DOCS_AND_FREQS_AND_POSITIONS;
-        case DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
-            return IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
-        default:
-            throw new RecordCoreException("Unexpected enum value")
-                    .addLogInfo(LuceneLogMessageKeys.NAME, indexOptions);
+            case NO_INDEX_OPTIONS:
+                return IndexOptions.NONE;
+            case DOCS:
+                return IndexOptions.DOCS;
+            case DOCS_AND_FREQS:
+                return IndexOptions.DOCS_AND_FREQS;
+            case DOCS_AND_FREQS_AND_POSITIONS:
+                return IndexOptions.DOCS_AND_FREQS_AND_POSITIONS;
+            case DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
+                return IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
+            default:
+                throw unexpectedEnumValue(indexOptions);
         }
     }
 
+    private LuceneFieldInfosProto.FieldInfos.Builder luceneToProto(final FieldInfos infos, final BitSet bitSet) {
+        final LuceneFieldInfosProto.FieldInfos.Builder protobuf = LuceneFieldInfosProto.FieldInfos.newBuilder();
+        for (final FieldInfo fieldInfo : infos) {
+            final LuceneFieldInfosProto.FieldInfo.Builder builder = protobuf.addFieldInfoBuilder()
+                    .setName(fieldInfo.name)
+                    .setNumber(fieldInfo.number)
+                    .setStoreTermVectors(fieldInfo.hasVectors())
+                    .setOmitsNorms(fieldInfo.omitsNorms())
+                    .setStorePayloads(fieldInfo.hasPayloads())
+                    .setIndexOptions(luceneToProto(fieldInfo.getIndexOptions()))
+                    .setDocValues(luceneToProto(fieldInfo.getDocValuesType()))
+                    .setDocValuesGen(fieldInfo.getDocValuesGen())
+                    .setPointDimensionCount(fieldInfo.getPointDimensionCount())
+                    .setPointIndexDimensionCount(fieldInfo.getPointIndexDimensionCount())
+                    .setPointNumBytes(fieldInfo.getPointNumBytes())
+                    .setSoftDeletesField(fieldInfo.isSoftDeletesField());
+            for (final Map.Entry<String, String> attribute : fieldInfo.attributes().entrySet()) {
+                // Lucene doesn't explicitly state that these can't be null, but Lucene50 and Lucene60 FieldInfosFormat
+                // will throw a NPE if they are
+                builder.addAttributesBuilder()
+                        .setKey(Objects.requireNonNull(attribute.getKey(), "FieldInfo attribute key"))
+                        .setValue(Objects.requireNonNull(attribute.getValue(), "FieldInfo attribute value"));
+            }
+            bitSet.set(fieldInfo.number);
+        }
+        return protobuf;
+    }
+
+    private LuceneFieldInfosProto.DocValues luceneToProto(final DocValuesType docValuesType) {
+        switch (docValuesType) {
+            case NONE:
+                return LuceneFieldInfosProto.DocValues.NO_DOC_VALUES;
+            case NUMERIC:
+                return LuceneFieldInfosProto.DocValues.NUMERIC;
+            case BINARY:
+                return LuceneFieldInfosProto.DocValues.BINARY;
+            case SORTED:
+                return LuceneFieldInfosProto.DocValues.SORTED;
+            case SORTED_NUMERIC:
+                return LuceneFieldInfosProto.DocValues.SORTED_NUMERIC;
+            case SORTED_SET:
+                return LuceneFieldInfosProto.DocValues.SORTED_SET;
+            default:
+                throw unexpectedEnumValue(docValuesType);
+        }
+    }
 
     private LuceneFieldInfosProto.IndexOptions luceneToProto(final IndexOptions indexOptions) {
         switch (indexOptions) {
-        case NONE:
-            return LuceneFieldInfosProto.IndexOptions.NO_INDEX_OPTIONS;
-        case DOCS:
-            return LuceneFieldInfosProto.IndexOptions.DOCS;
-        case DOCS_AND_FREQS:
-            return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS;
-        case DOCS_AND_FREQS_AND_POSITIONS:
-            return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS;
-        case DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
-            return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
-        default:
-            throw new RecordCoreException("Unexpected enum value")
-                    .addLogInfo(LuceneLogMessageKeys.NAME, indexOptions);
+            case NONE:
+                return LuceneFieldInfosProto.IndexOptions.NO_INDEX_OPTIONS;
+            case DOCS:
+                return LuceneFieldInfosProto.IndexOptions.DOCS;
+            case DOCS_AND_FREQS:
+                return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS;
+            case DOCS_AND_FREQS_AND_POSITIONS:
+                return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS;
+            case DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
+                return LuceneFieldInfosProto.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
+            default:
+                throw unexpectedEnumValue(indexOptions);
         }
+    }
+
+    @Nonnull
+    private static <T extends Enum<T>> RecordCoreException unexpectedEnumValue(final T enumValue) {
+        return new RecordCoreException("Unexpected enum value")
+                .addLogInfo(LuceneLogMessageKeys.NAME, enumValue);
     }
 }

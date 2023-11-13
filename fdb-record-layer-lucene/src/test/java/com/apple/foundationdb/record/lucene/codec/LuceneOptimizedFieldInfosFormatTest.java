@@ -53,8 +53,11 @@ import java.util.stream.Stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Low-level test for {@link LuceneOptimizedFieldInfosFormatTest}.
+ */
 @Tag(Tags.RequiresFDB)
-public class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
+class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
 
     final LuceneOptimizedFieldInfosFormat format = new LuceneOptimizedFieldInfosFormat();
 
@@ -262,6 +265,7 @@ public class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase 
                 IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, DocValuesType.NUMERIC, 1, Map.of(),
                 0, 0, 0, false);
     }
+
     @Nonnull
     private static FieldInfo fieldInfoB(final IndexOptions indexOptions, final DocValuesType docValuesType, final int dvGen, final Map<String, String> attributes) {
         return new FieldInfo("aField", 1, false, false, false,

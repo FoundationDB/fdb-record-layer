@@ -59,6 +59,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -73,6 +74,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LU
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -144,32 +146,32 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest1() {
-        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0);
+        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0, 20);
     }
 
     @Test
     void luceneOnlineIndexingTest2() {
-        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, SIMPLE_DOC, 15, 100, 300);
+        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, SIMPLE_DOC, 15, 100, 300, 4);
     }
 
     @Test
     void luceneOnlineIndexingTest3() {
-        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2);
+        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2, 34);
     }
 
     @Test
     void luceneOnlineIndexingTest4() {
-        luceneOnlineIndexingTestAny(TEXT_AND_STORED, COMPLEX_DOC, 8, 100, 1);
+        luceneOnlineIndexingTestAny(TEXT_AND_STORED, COMPLEX_DOC, 8, 100, 1, 4);
     }
 
     @Test
     void luceneOnlineIndexingTest5() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2);
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 17);
     }
 
     @Test
     void luceneOnlineIndexingTest6() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0);
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 17);
     }
 
     private String randomText(Random rn) {
@@ -187,7 +189,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
 
-    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit, int mergesLimit) {
+    void luceneOnlineIndexingTestAny(Index index, String document, int numRecords, int transactionLimit, int mergesLimit, final int expectedFileCount) {
         assertTrue(numRecords > 3);
         final Random rn = new Random();
         rn.nextInt();
@@ -203,7 +205,14 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, document, index);
             for (int i = 0; i < numRecords; i ++) {
                 long docId = docIds[i];
-                recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
+                if (document.equals(SIMPLE_DOC)) {
+                    recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
+                } else if (document.equals(COMPLEX_DOC)) {
+                    recordStore.saveRecord(createComplexDocument(docId, randomText(rn), randomText(rn), randomGroup(rn)));
+                } else {
+                    Assertions.fail("Unexpected document type: " + document);
+                    return;
+                }
             }
             context.commit();
         }
@@ -244,8 +253,11 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // assert number of segments, the number below is based on previous runs of this test.
         // the key thing is to make sure that while it was building the index it actually did the merges.
-        final int newLength = listFiles(index).length;
-        MatcherAssert.assertThat(newLength, Matchers.lessThan(14));
+        final String[] files = listFiles(index);
+        // assert that it is greater than 1, as a sanity check, if it's less than 1, it means we didn't save any docs
+        MatcherAssert.assertThat(String.join(", ", files),
+                files, Matchers.arrayWithSize(Matchers.allOf(Matchers.greaterThan(1),
+                        Matchers.lessThanOrEqualTo(expectedFileCount))));
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -490,8 +502,19 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private String[] listFiles(Index index) {
         try (FDBRecordContext context = openContext()) {
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, true);
-            return directory.listAll();
+            if (index.getRootExpression() instanceof GroupingKeyExpression) {
+                List<String> files = new ArrayList<>();
+                for (int i = 0; i < 2; i++) {
+                    final FDBDirectory directory = new FDBDirectory(
+                            recordStore.indexSubspace(index).subspace(Tuple.from(i)),
+                            context, true);
+                    files.addAll(Arrays.asList(directory.listAll()));
+                }
+                return files.toArray(new String[0]);
+            } else {
+                final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, true);
+                return directory.listAll();
+            }
         }
     }
 

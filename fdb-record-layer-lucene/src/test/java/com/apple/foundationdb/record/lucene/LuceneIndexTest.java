@@ -2639,7 +2639,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
             if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)
-                || file.endsWith(".pky")) {
+                    || file.endsWith(".pky")) {
                 assertFalse(directory.getFDBLuceneFileReference(file).getContent().isEmpty(), "fileName=" + file);
             } else {
                 assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),

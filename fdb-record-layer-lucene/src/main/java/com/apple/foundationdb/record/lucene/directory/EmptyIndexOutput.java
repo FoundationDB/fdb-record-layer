@@ -36,11 +36,6 @@ public class EmptyIndexOutput extends IndexOutput {
     private final String resourceDescription;
     private final long id;
 
-
-    /**
-     * Sole constructor.  resourceDescription should be non-null, opaque string
-     * describing this resource; it's returned from {@link #toString}.
-     */
     protected EmptyIndexOutput(final String resourceDescription, final String name, final FDBDirectory fdbDirectory) {
         super(resourceDescription, name);
         this.resourceDescription = resourceDescription;
@@ -60,7 +55,7 @@ public class EmptyIndexOutput extends IndexOutput {
     }
 
     @Override
-    public long getChecksum() throws IOException {
+    public long getChecksum() {
         return 0;
     }
 

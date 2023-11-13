@@ -113,7 +113,7 @@ public class FDBDirectory extends Directory  {
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
-    @SuppressWarnings("Unused") // preserved to document that this is reserved
+    @SuppressWarnings({"Unused", "PMD.UnusedPrivateField"}) // preserved to document that this is reserved
     private static final int SCHEMA_SUBSPACE = 3;
     private static final int PRIMARY_KEY_SUBSPACE = 4;
     private static final int FIELD_INFO_SUBSPACE = 5;
@@ -306,9 +306,9 @@ public class FDBDirectory extends Directory  {
 
     public long writeFieldInfo(byte[] value) {
         long id;
-        if (context.asyncToSync(
+        if (Boolean.TRUE.equals(context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get().thenApply(Map::isEmpty))) {
+                allFieldInfosSupplier.get().thenApply(Map::isEmpty)))) {
             id = GLOBAL_FIELD_INFOS_ID;
         } else {
             id = getIncrement();
@@ -639,11 +639,10 @@ public class FDBDirectory extends Directory  {
             return false;
         }
         context.ensureActive().clear(metaSubspace.pack(name));
-        if (value.getFieldInfosId() != 0) {
-            if (Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldIinfosReferenceCache")
-                .get(value.getFieldInfosId()).decrementAndGet() == 0) {
-                context.ensureActive().clear(fieldInfosSubspace.pack(value.getId()));
-            }
+        if (value.getFieldInfosId() != 0 &&
+                Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldIinfosReferenceCache")
+                        .get(value.getFieldInfosId()).decrementAndGet() == 0) {
+            context.ensureActive().clear(fieldInfosSubspace.pack(value.getId()));
         }
         // Nothing stored here currently.
         context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
@@ -810,7 +809,8 @@ public class FDBDirectory extends Directory  {
         } else if (FDBDirectory.isFieldInfoFile(name)) {
             return new EmptyIndexInput(name);
         } else {
-            // TODO the contract is that this should throw an exception, but we don't
+            // the contract is that this should throw an exception, but we don't
+            // https://github.com/FoundationDB/fdb-record-layer/issues/2361
             return new FDBIndexInput(name, this);
         }
     }

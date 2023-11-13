@@ -54,10 +54,9 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
     private final String segmentName;
-    private final IOContext context;
     private final Map<String, FileEntry> entries;
     private final String entriesFileName;
-    private IndexInput handle;
+    private LazyCloseable<IndexInput> dataInput;
     private final String dataFileName;
 
 
@@ -75,18 +74,10 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si, final IOContext context) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
-        this.context = context;
         dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
-    }
-
-    IndexInput getHandle() throws IOException {
-        // TODO replace this with LazyCloseable
-        if (handle == null) {
-            handle = directory.openInput(dataFileName, context);
-        }
-        return handle;
+        dataInput = LazyCloseable.supply(() -> directory.openInput(dataFileName, context));
     }
 
     /** Helper method that reads CFS entries from an input stream. */
@@ -122,7 +113,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     @Override
     public void close() throws IOException {
-        IOUtils.close(handle); // no-op if handle is null
+        IOUtils.close(dataInput); // no-op if handle is null
     }
 
     @Override
@@ -137,7 +128,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
             String datFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
             throw new FileNotFoundException("No sub-file with id " + id + " found in compound file \"" + datFileName + "\" (fileName=" + name + " files: " + entries.keySet() + ")");
         }
-        return getHandle().slice(name, entry.offset, entry.length);
+        return dataInput.get().slice(name, entry.offset, entry.length);
     }
 
     /** Returns an array of strings, one for each file in the directory. */
@@ -178,7 +169,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     @Override
     public void checkIntegrity() throws IOException {
         if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-            CodecUtil.checksumEntireFile(getHandle());
+            CodecUtil.checksumEntireFile(dataInput.get());
         }
     }
 
