@@ -136,7 +136,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that an OR of compatibly-ordered (up to reversal) indexed fields can be implemented as a union.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testComplexQuery6[shouldDeferFetch = {0}]")
     @BooleanSource
     void testComplexQuery6(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -178,9 +178,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]")))))));
             assertMatchesExactly(plan, planMatcher);
 
-            assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(725509258, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1513305480, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            // Cascades does not mark everything as reversed in this case, but validate that all of the children go the same way
+            boolean planReverseness = plan.getQueryPlanChildren().get(0).isReverse();
+            plan.getQueryPlanChildren().forEach(child ->
+                    assertEquals(planReverseness, child.isReverse(), () -> String.format("expected child %s to have same reverseness as first child", child)));
+            assertEquals(725509027, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1507585422, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
@@ -217,7 +220,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testComplexQuery6Continuations[shouldDeferFetch = {0}]")
     @BooleanSource
     void testComplexQuery6Continuations(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -339,7 +342,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries with an OR of equality predicates on the same field are implemented using a union of indexes.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQueryPlanEquals[shouldDeferFetch = {0}]")
     @BooleanSource
     void testOrQueryPlanEquals(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -375,7 +378,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * using a union of indexes.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQuery2[shouldDeferFetch = {0}]")
     @BooleanSource
     void testOrQuery2(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -460,7 +463,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * of indexes.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQuery3[shouldDeferFetch = {0}]")
     @BooleanSource
     void testOrQuery3(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -537,7 +540,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * if all fields are indexed.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQuery4[shouldDeferFetch = {0}]")
     @BooleanSource
     void testOrQuery4(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -619,13 +622,20 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @SuppressWarnings("unused") // used as parameter shource for parameterized test
+    static Stream<Arguments> testOrQuery5() {
+        return Stream.of(false, true).flatMap(shouldDeferFetch ->
+                Stream.of(false, true).map(removesDuplicates ->
+                        Arguments.of(shouldDeferFetch, removesDuplicates)));
+    }
+
     /**
      * Verify that an OR of inequalities on different fields uses an unordered union, since there is no compatible ordering.
      */
     @DualPlannerTest
-    @ParameterizedTest(name = "testOrQuery5 [removesDuplicates = {0}]")
-    @BooleanSource
-    void testOrQuery5(boolean removesDuplicates) throws Exception {
+    @ParameterizedTest(name = "testOrQuery5[shouldDeferFetch = {0}, removesDuplicates = {1}]")
+    @MethodSource
+    void testOrQuery5(boolean shouldDeferFetch, boolean removesDuplicates) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -635,18 +645,21 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").greaterThan(3)))
                 .setRemoveDuplicates(removesDuplicates)
                 .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
         RecordQueryPlan plan = planner.plan(query);
 
-        if (planner instanceof CascadesPlanner) {
+        // Cascades planner always removes duplicates
+        boolean planRemovesDuplicates = removesDuplicates || planner instanceof CascadesPlanner;
+        if (shouldDeferFetch || planner instanceof CascadesPlanner) {
             BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     unorderedUnionPlan(
                             coveringIndexPlan()
                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([null],[m])"))))),
                             coveringIndexPlan()
                                     .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))))));
-            if (removesDuplicates) {
+            if (planRemovesDuplicates) {
                 planMatcher =
                         fetchFromPartialRecordPlan(
                                 unorderedPrimaryKeyDistinctPlan(planMatcher));
@@ -657,21 +670,21 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(planRemovesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(planRemovesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     unorderedUnionPlan(
                             indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([null],[m])"))),
                             indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>"))));
 
-            if (removesDuplicates) {
+            if (planRemovesDuplicates) {
                 planMatcher = unorderedPrimaryKeyDistinctPlan(planMatcher);
             }
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(removesDuplicates ? 1558364455 : -1941423187, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(planRemovesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(planRemovesDuplicates ? 1558364455 : -1941423187, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -688,7 +701,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     i++;
                 }
             }
-            if (removesDuplicates) {
+            if (planRemovesDuplicates) {
                 assertEquals(50 + 10, i);
                 assertDiscardedAtMost(10, context);
             } else {
@@ -706,7 +719,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest
     @MethodSource("query5WithLimitsArgs")
-    @ParameterizedTest(name = "testOrQuery5WithLimits [limit = {0}, removesDuplicates = {1}]")
+    @ParameterizedTest(name = "testOrQuery5WithLimits[limit = {0}, removesDuplicates = {1}]")
     void testOrQuery5WithLimits(int limit, boolean removesDuplicates) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -722,6 +735,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
         RecordQueryPlan plan = planner.plan(query);
+        boolean planRemovesDuplicates = removesDuplicates || planner instanceof CascadesPlanner;
 
         final BindingMatcher<RecordQueryUnorderedUnionPlan> unionPlanBindingMatcher = unorderedUnionPlan(
                 coveringIndexPlan()
@@ -730,7 +744,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")))));
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher;
-        if (removesDuplicates) {
+        if (planRemovesDuplicates) {
             planMatcher = fetchFromPartialRecordPlan(unorderedPrimaryKeyDistinctPlan(unionPlanBindingMatcher));
         } else {
             planMatcher = fetchFromPartialRecordPlan(unionPlanBindingMatcher);
@@ -739,11 +753,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan, planMatcher);
 
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(planRemovesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(planRemovesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(removesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(removesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(planRemovesDuplicates ? 1898767693 : 1898767686, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(planRemovesDuplicates ? -583062018 : 212117636, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -859,7 +873,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * an unordered union.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testUnorderableOrQueryWithAnd[removesDuplicates = {0}]")
     @BooleanSource
     void testUnorderableOrQueryWithAnd(boolean removesDuplicates) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook()
@@ -888,15 +902,17 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         coveringIndexPlan()
                                 .where(indexPlanOf(indexPlan().where(indexName("multi_index_2")).and(scanComparisons(range("[[even, 3],[even]]"))))));
 
-        if (removesDuplicates) {
+        // The Cascades planner always removes duplicates, even when removesDuplicates is not specified on the query
+        boolean planRemovesDuplicates = removesDuplicates || (planner instanceof CascadesPlanner);
+        if (planRemovesDuplicates) {
             planMatcher = fetchFromPartialRecordPlan(unorderedPrimaryKeyDistinctPlan(planMatcher));
         } else {
             planMatcher = fetchFromPartialRecordPlan(planMatcher);
         }
         assertMatchesExactly(plan, planMatcher);
 
-        assertEquals(removesDuplicates ? -1216499257 : -1216499264, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(removesDuplicates ? 610131412 : 1405311066, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(planRemovesDuplicates ? -1216499257 : -1216499264, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(planRemovesDuplicates ? 610131412 : 1405311066, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -911,7 +927,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     i++;
                 }
             }
-            if (removesDuplicates) {
+            if (planRemovesDuplicates) {
                 assertEquals(40, i);
                 assertDiscardedAtMost(13, context);
                 assertLoadRecord(53, context);
@@ -1407,9 +1423,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQueryChildReordering[shouldDeferFetch = {0}]")
     @BooleanSource
-    void testOrQueryChildReordering(boolean shouldPushFetchAboveUnionToIntersection) throws Exception {
+    void testOrQueryChildReordering(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query1 = RecordQuery.newBuilder()
@@ -1420,7 +1436,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(null, true)
                 .setRemoveDuplicates(true)
                 .build();
-        setDeferFetchAfterUnionAndIntersection(shouldPushFetchAboveUnionToIntersection);
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
@@ -1438,16 +1454,16 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
         assertTrue(plan1.semanticEquals(plan2));
-        if (shouldPushFetchAboveUnionToIntersection && !(planner instanceof CascadesPlanner)) {
+        if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertEquals(-1584186103, plan1.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-357068519, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertEquals(-91575587, plan2.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1919956247, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
-            assertEquals(725509258, plan1.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1513305480, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-            assertEquals(-2076847522, plan2.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1218774088, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(725509027, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1507585422, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-2076847753, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1224494146, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             assertEquals(-2067012572, plan1.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(1784357954, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -1477,14 +1493,14 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(60, i);
             assertDiscardedAtMost(20, context);
-            if (shouldPushFetchAboveUnionToIntersection) {
+            if (shouldDeferFetch) {
                 assertLoadRecord(120, context);
             }
         }
     }
 
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testOrQueryChildReordering2[shouldDeferFetch = {0}]")
     @BooleanSource
     void testOrQueryChildReordering2(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
@@ -1521,10 +1537,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1289607451, plan2.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-29394342, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else if (planner instanceof CascadesPlanner) {
-            assertEquals(-1214580900, plan1.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(734559481, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-            assertEquals(-695664484, plan2.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1185631303, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-1214587858, plan1.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(912054445, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-695671442, plan2.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1008136339, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             assertEquals(723665474, plan1.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-330673401, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -1633,7 +1649,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * union cursors works properly with a returned record limit.
      */
     @DualPlannerTest
-    @ParameterizedTest
+    @ParameterizedTest(name = "testComplexLimits5[shouldDeferFetch = {0}]")
     @BooleanSource
     void testComplexLimits5(boolean shouldDeferFetch) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();

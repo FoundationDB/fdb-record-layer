@@ -43,7 +43,7 @@ public class QueryPlanResultTest extends FDBRecordStoreQueryTestBase {
 
     @BeforeEach
     public void setup() throws Exception {
-        setUseRewritePlanner(true);
+        setUseCascadesPlanner(true);
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
     }
