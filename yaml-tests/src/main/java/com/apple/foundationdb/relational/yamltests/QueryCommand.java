@@ -236,6 +236,10 @@ class QueryCommand extends Command {
                     actualPlan);
             Assertions.fail("incorrect plan!");
         }
+
+        // Should be all done, and should not have any more rows
+        Assertions.assertFalse(resultSet.next());
+        Assertions.assertEquals(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS, resultSet.noNextRowReason());
     }
 
     private Continuation executeWithAConfig(@Nonnull String query, @Nonnull final CliCommandFactory factory,

@@ -70,6 +70,11 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
         return new AbstractRecordLayerResultSet(null) {
             @Override
+            protected boolean hasNext() {
+                return false;
+            }
+
+            @Override
             protected Row advanceRow() {
                 return null;
             }

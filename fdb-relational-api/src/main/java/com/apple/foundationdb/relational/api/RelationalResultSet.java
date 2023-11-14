@@ -79,9 +79,7 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
     Continuation getContinuation() throws SQLException;
 
     @Nullable
-    default NoNextRowReason noNextRowReason() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
+    NoNextRowReason noNextRowReason() throws SQLException;
 
     /*Unsupported Operations*/
     @ExcludeFromJacocoGeneratedReport

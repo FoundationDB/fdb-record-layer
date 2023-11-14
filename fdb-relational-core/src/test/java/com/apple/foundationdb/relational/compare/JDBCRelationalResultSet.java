@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -948,6 +949,12 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return delegate.isWrapperFor(iface);
+    }
+
+    @Nullable
+    @Override
+    public NoNextRowReason noNextRowReason() throws SQLException {
+        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 
     @Override

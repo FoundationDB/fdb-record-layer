@@ -68,6 +68,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    protected boolean hasNext() {
+        return currentCursor.hasNext();
+    }
+
+    @Override
     @SuppressWarnings("PMD.PreserveStackTrace")
     protected Row advanceRow() throws RelationalException {
         currentRow = null;

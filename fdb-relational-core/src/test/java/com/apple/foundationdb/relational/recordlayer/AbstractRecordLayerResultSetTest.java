@@ -176,6 +176,11 @@ class AbstractRecordLayerResultSetTest {
 
         resultSet = new AbstractRecordLayerResultSet(smd) {
             @Override
+            protected boolean hasNext() {
+                return false;
+            }
+
+            @Override
             protected Row advanceRow() {
                 return theRow;
             }

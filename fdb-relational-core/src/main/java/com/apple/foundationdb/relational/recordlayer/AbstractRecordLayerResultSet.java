@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
@@ -44,6 +45,8 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
         this.currentRow = new MutableRowStruct(metaData);
     }
 
+    protected abstract boolean hasNext();
+
     protected abstract Row advanceRow() throws RelationalException;
 
     @Override
@@ -55,6 +58,15 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
         } catch (RelationalException ve) {
             throw ve.toSqlException();
         }
+    }
+
+    @Nullable
+    @Override
+    public NoNextRowReason noNextRowReason() throws SQLException {
+        if (hasNext()) {
+            return null;
+        }
+        return NoNextRowReason.NO_MORE_ROWS;
     }
 
     @Override
