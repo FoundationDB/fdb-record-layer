@@ -60,7 +60,11 @@ public interface UpdateStatement extends StructuredQuery {
         Builder clearSetClauses();
 
         @Nonnull
+        @Deprecated
         Builder removeSetClause(@Nonnull final String field);
+
+        @Nonnull
+        Builder removeSetClause(@Nonnull final Field<?> field);
 
         @Nonnull
         List<Expression<?>> getReturning();

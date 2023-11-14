@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -69,6 +70,45 @@ public class StatementBuilderTests {
             updateBuilder.addSetClause(ef.field("T1", "b"), ef.literal(55).add(ef.literal(44)));
             var generatedQuery = updateBuilder.build().getSqlQuery();
             Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42,\"B\" = 55 + 44 WHERE pk = 444", generatedQuery);
+        }
+    }
+
+    @Test
+    public void removeSetFieldClause() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set a = 42, b = 44 where pk = 444";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            updateBuilder.removeSetClause(ef.field("T1", "B"));
+            var generatedQuery = updateBuilder.build().getSqlQuery();
+            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444", generatedQuery);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void removeSetFieldClauseByName() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set a = 42, b = 44 where pk = 444";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            updateBuilder.removeSetClause("B");
+            var generatedQuery = updateBuilder.build().getSqlQuery();
+            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444", generatedQuery);
+        }
+    }
+
+    @Test
+    public void removeAllSetFieldClausesThrows() throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            final var updateStatement = "update T1 set b = 44 where pk = 444";
+            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            final var ef = ddl.getConnection().createExpressionBuilderFactory();
+            updateBuilder.removeSetClause(ef.field("T1", "B"));
+            final var ex = Assertions.assertThrows(RelationalException.class, updateBuilder::build);
+            Assertions.assertEquals(ex.getMessage(), "update set clauses is empty");
         }
     }
 
