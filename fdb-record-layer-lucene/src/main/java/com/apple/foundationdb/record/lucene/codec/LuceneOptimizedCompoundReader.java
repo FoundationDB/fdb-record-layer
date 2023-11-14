@@ -54,7 +54,6 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
     private final String segmentName;
-    private final IOContext context;
     private final Map<String, FileEntry> entries;
     private final String entriesFileName;
     private LazyCloseable<IndexInput> dataInput;
@@ -75,7 +74,6 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si, final IOContext context) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
-        this.context = context;
         dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
         entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous

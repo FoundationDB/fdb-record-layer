@@ -73,7 +73,8 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
         // everything to be a "proper" index format, but for FieldInfos it is just a long.
         final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
-        // TODO confirm whether we even need to strip out the .cfs from the SI
+        // Note: this was copied from older code, but since we are no longer storing the `.si` on the `.cfs` we might
+        // not need to strip out the `.cfs`
         final Set<String> filesForAfter = si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet());
         final Map<Boolean, Set<String>> files = si.files().stream()
                 .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
@@ -82,6 +83,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
         }
+        @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
         final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);

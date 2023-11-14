@@ -36,7 +36,7 @@ public class EmptyIndexInput extends IndexInput {
 
     @Override
     public void close() throws IOException {
-
+        // we have no resources to close
     }
 
     @Override
