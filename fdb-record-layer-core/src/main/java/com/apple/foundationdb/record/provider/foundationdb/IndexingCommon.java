@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,7 +52,7 @@ import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
-    private final UUID uuid = UUID.randomUUID();
+    private final UUID uuid = UUIDUtils.random();
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Fiel
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -74,7 +75,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * A (fake alias) that references the "current" record.
      */
     @Nonnull
-    private static final UUID CURRENT = UUID.randomUUID();
+    private static final UUID CURRENT = UUIDUtils.random();
 
     /**
      * Constant quantifier representing a reference to a constant box of literals.

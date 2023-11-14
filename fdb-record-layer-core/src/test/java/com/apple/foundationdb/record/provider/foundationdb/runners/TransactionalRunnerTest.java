@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
@@ -49,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -254,7 +254,7 @@ class TransactionalRunnerTest extends FDBTestBase {
             // Enable version tracking so that the database will use the latest version seen if we have weak read semantics
             database.setTrackLastSeenVersionOnRead(true);
             database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
-            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
+            final byte[] key = Tuple.from(UUIDUtils.random()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
             long firstReadVersion;
@@ -395,7 +395,7 @@ class TransactionalRunnerTest extends FDBTestBase {
     void mutateContextConfigWeakReadSemantics() {
         final FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder();
         try (TransactionalRunner runner = new TransactionalRunner(database, contextConfigBuilder)) {
-            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
+            final byte[] key = Tuple.from(UUIDUtils.random()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
             final Function<FDBRecordContext, CompletableFuture<? extends Long>> getReadVersionWithWriteConflict = context -> {

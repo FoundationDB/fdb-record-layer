@@ -21,8 +21,8 @@
 package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeySelector;
@@ -38,6 +38,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.foundationdb.util.LoggableException;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -57,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -274,7 +274,7 @@ public class BunchedMapTest extends FDBTestBase {
     private void runWithTwoTrs(@Nonnull BiConsumer<? super Transaction, ? super Transaction> operation,
                                boolean legal,
                                @Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
-        final String id = "two-trs-" + UUID.randomUUID().toString();
+        final String id = "two-trs-" + UUIDUtils.random().toString();
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
             tr1.options().setDebugTransactionIdentifier(id + "-1");
             tr1.options().setLogTransaction();

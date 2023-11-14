@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -54,7 +55,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -135,7 +135,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         return FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
-                .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
+                .setMdcContext(ImmutableMap.of("uuid", UUIDUtils.random().toString()))
                 .setTrackOpen(true)
                 .setSaveOpenStackTrace(true)
                 .setRecordContextProperties(addDefaultProps(props).build());

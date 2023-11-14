@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Reco
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultiset;
@@ -92,7 +93,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -901,11 +901,11 @@ public class SyntheticRecordPlannerTest {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
 
             TestRecordsJoinIndexProto.Customer.Builder c = TestRecordsJoinIndexProto.Customer.newBuilder();
-            c.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("Jones").setCity("Boston");
+            c.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setName("Jones").setCity("Boston");
             recordStore.saveRecord(c.build());
-            c.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("Smith").setCity("New York");
+            c.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setName("Smith").setCity("New York");
             recordStore.saveRecord(c.build());
-            c.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setName("Lee").setCity("Boston");
+            c.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setName("Lee").setCity("Boston");
             recordStore.saveRecord(c.build());
 
             context.commit();
@@ -924,13 +924,13 @@ public class SyntheticRecordPlannerTest {
             c.mergeFrom(recordStore.planQuery(findByName).execute(recordStore, EvaluationContext.forBinding("name", "Jones")).first().join().orElseThrow(() -> new RuntimeException("not found")).getRecord());
 
             TestRecordsJoinIndexProto.Order.Builder o = TestRecordsJoinIndexProto.Order.newBuilder();
-            o.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setOrderNo(1001).setCustomerUuid(c.getUuid());
+            o.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setOrderNo(1001).setCustomerUuid(c.getUuid());
             recordStore.saveRecord(o.build());
 
             TestRecordsJoinIndexProto.Item.Builder i = TestRecordsJoinIndexProto.Item.newBuilder();
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(123).setQuantity(100).setTotalPrice(200).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(123).setQuantity(100).setTotalPrice(200).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(456).setQuantity(10).setTotalPrice(1000).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(456).setQuantity(10).setTotalPrice(1000).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
 
             context.commit();
@@ -943,11 +943,11 @@ public class SyntheticRecordPlannerTest {
             c.mergeFrom(recordStore.planQuery(findByName).execute(recordStore, EvaluationContext.forBinding("name", "Smith")).first().join().orElseThrow(() -> new RuntimeException("not found")).getRecord());
 
             TestRecordsJoinIndexProto.Order.Builder o = TestRecordsJoinIndexProto.Order.newBuilder();
-            o.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setOrderNo(1002).setCustomerUuid(c.getUuid());
+            o.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setOrderNo(1002).setCustomerUuid(c.getUuid());
             recordStore.saveRecord(o.build());
 
             TestRecordsJoinIndexProto.Item.Builder i = TestRecordsJoinIndexProto.Item.newBuilder();
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(789).setQuantity(20).setTotalPrice(200).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(789).setQuantity(20).setTotalPrice(200).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
 
             context.commit();
@@ -960,11 +960,11 @@ public class SyntheticRecordPlannerTest {
             c.mergeFrom(recordStore.planQuery(findByName).execute(recordStore, EvaluationContext.forBinding("name", "Lee")).first().join().orElseThrow(() -> new RuntimeException("not found")).getRecord());
 
             TestRecordsJoinIndexProto.Order.Builder o = TestRecordsJoinIndexProto.Order.newBuilder();
-            o.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setOrderNo(1003).setCustomerUuid(c.getUuid());
+            o.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setOrderNo(1003).setCustomerUuid(c.getUuid());
             recordStore.saveRecord(o.build());
 
             TestRecordsJoinIndexProto.Item.Builder i = TestRecordsJoinIndexProto.Item.newBuilder();
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(123).setQuantity(150).setTotalPrice(300).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(123).setQuantity(150).setTotalPrice(300).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
 
             context.commit();
@@ -983,11 +983,11 @@ public class SyntheticRecordPlannerTest {
             c.mergeFrom(recordStore.planQuery(findByName).execute(recordStore, EvaluationContext.forBinding("name", "Lee")).first().join().orElseThrow(() -> new RuntimeException("not found")).getRecord());
 
             TestRecordsJoinIndexProto.Order.Builder o = TestRecordsJoinIndexProto.Order.newBuilder();
-            o.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setOrderNo(1004).setCustomerUuid(c.getUuid());
+            o.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setOrderNo(1004).setCustomerUuid(c.getUuid());
             recordStore.saveRecord(o.build());
 
             TestRecordsJoinIndexProto.Item.Builder i = TestRecordsJoinIndexProto.Item.newBuilder();
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(456).setQuantity(1).setTotalPrice(100).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(456).setQuantity(1).setTotalPrice(100).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
 
             context.commit();
@@ -1006,7 +1006,7 @@ public class SyntheticRecordPlannerTest {
             o.mergeFrom(recordStore.planQuery(findByOrderNo).execute(recordStore, EvaluationContext.forBinding("order_no", 1003)).first().join().orElseThrow(() -> new RuntimeException("not found")).getRecord());
 
             TestRecordsJoinIndexProto.Item.Builder i = TestRecordsJoinIndexProto.Item.newBuilder();
-            i.setUuid(TupleFieldsHelper.toProto(UUID.randomUUID())).setItemNo(789).setQuantity(10).setTotalPrice(100).setOrderUuid(o.getUuid());
+            i.setUuid(TupleFieldsHelper.toProto(UUIDUtils.random())).setItemNo(789).setQuantity(10).setTotalPrice(100).setOrderUuid(o.getUuid());
             recordStore.saveRecord(i.build());
 
             context.commit();

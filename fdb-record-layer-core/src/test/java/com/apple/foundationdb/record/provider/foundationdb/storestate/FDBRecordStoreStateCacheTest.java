@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -144,7 +144,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         public void invalidateCache(@Nonnull FDBDatabase fdb) {
             // Ensure that the next read version includes at least one new commit.
             try (FDBRecordContext context = fdb.openContext()) {
-                context.ensureActive().addWriteConflictKey(Tuple.from(UUID.randomUUID()).pack());
+                context.ensureActive().addWriteConflictKey(Tuple.from(UUIDUtils.random()).pack());
                 context.commit();
             }
         }
@@ -288,7 +288,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
 
                 // Add a random write-conflict range to ensure conflicts are actually checked
-                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
+                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUIDUtils.random()));
 
                 // Should not be able to commit due to conflict on str_value_indexed key in record store store
                 assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context::commit);
@@ -965,7 +965,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
 
                 // Add a dummy write to increase the DB version
-                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
+                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUIDUtils.random()));
                 commit(context);
                 assertThat(context.getCommittedVersion(), greaterThan(commitVersion));
                 commitVersion = context.getCommittedVersion();
@@ -985,7 +985,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
 
                 // Add a dummy write to increase the DB version
-                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
+                context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUIDUtils.random()));
                 commit(context);
                 assertThat(context.getCommittedVersion(), greaterThan(commitVersion));
                 commitVersion = context.getCommittedVersion();

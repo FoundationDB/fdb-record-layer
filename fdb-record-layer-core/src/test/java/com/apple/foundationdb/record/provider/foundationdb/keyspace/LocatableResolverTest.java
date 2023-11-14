@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCrea
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.cache.Cache;
@@ -66,7 +67,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -250,7 +250,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
         fdb.getReverseDirectoryCache().waitUntilReadyForTesting();
 
-        final String key = "hello " + UUID.randomUUID();
+        final String key = "hello " + UUIDUtils.random();
 
         FDBStoreTimer timer = new FDBStoreTimer();
         long resolved;
@@ -304,7 +304,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
         fdb.getReverseDirectoryCache().waitUntilReadyForTesting();
 
-        final String key = "hello " + UUID.randomUUID();
+        final String key = "hello " + UUIDUtils.random();
 
         long resolved;
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -351,7 +351,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
         fdb.clearCaches();
 
-        final String key = "hello " + UUID.randomUUID();
+        final String key = "hello " + UUIDUtils.random();
         final FDBStoreTimer timer = new FDBStoreTimer();
         long resolved;
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
@@ -394,7 +394,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         factory.setDirectoryCacheSize(10);
 
         FDBStoreTimer timer = new FDBStoreTimer();
-        String key = "hello " + UUID.randomUUID();
+        String key = "hello " + UUIDUtils.random();
         FDBDatabase fdb = factory.getDatabase();
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Events.COMMIT));
@@ -459,7 +459,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             database.setTrackLastSeenVersionOnRead(true);
             database.setTrackLastSeenVersionOnCommit(false); // disable commit version tracking so that stale read version is cached
 
-            final String key = "hello " + UUID.randomUUID();
+            final String key = "hello " + UUIDUtils.random();
             long resolvedValue;
             try (FDBRecordContext context = database.openContext()) {
                 resolvedValue = globalScope.resolve(context, key).join();

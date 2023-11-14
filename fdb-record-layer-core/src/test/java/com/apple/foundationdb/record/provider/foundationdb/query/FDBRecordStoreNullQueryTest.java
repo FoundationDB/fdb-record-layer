@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
@@ -487,10 +488,10 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testTupleFields() throws Exception {
-        final UUID nullId = UUID.randomUUID();
-        final UUID emptyId = UUID.randomUUID();
-        final UUID defaultId = UUID.randomUUID();
-        final UUID otherId = UUID.randomUUID();
+        final UUID nullId = UUIDUtils.random();
+        final UUID emptyId = UUIDUtils.random();
+        final UUID defaultId = UUIDUtils.random();
+        final UUID otherId = UUIDUtils.random();
 
         final TestRecordsTupleFieldsProto.MyFieldsRecord nullRecord = TestRecordsTupleFieldsProto.MyFieldsRecord.newBuilder()
                 .setUuid(TupleFieldsHelper.toProto(nullId))
