@@ -67,6 +67,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -74,6 +75,7 @@ import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -92,7 +94,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
 
-        private final Supplier<Integer> recordQueryPlanHash = Suppliers.memoize(() -> getRecordQueryPlan().planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        private final Supplier<Integer> recordQueryPlanHashSupplier;
 
         @Nonnull
         private final TypeRepository typeRepository;
@@ -107,12 +109,14 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryExecutionParameters queryExecutionParameters,
-                                 @Nonnull final String query) {
+                                 @Nonnull final String query,
+                                 @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
             super(query);
             this.recordQueryPlan = recordQueryPlan;
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.queryExecutionParameters = queryExecutionParameters;
+            this.recordQueryPlanHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
         }
 
         @Nonnull
@@ -128,7 +132,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters, query);
+            return new PhysicalQueryPlan(recordQueryPlan, typeRepository, constraint, parameters, query, parameters.getPlanHashMode());
         }
 
         @Nonnull
@@ -165,7 +169,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration, @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
             return this;
         }
 
@@ -188,14 +192,34 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     );
                     return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
                 } else {
-                    PlanValidator.validate(recordQueryPlan, queryExecutionParameters);
-                    return executePhysicalPlan(recordQueryPlan,
-                            recordLayerSchema,
+                    final var validPlanHashModes = getValidPlanHashModes(executionContext.getOptions());
+
+                    PlanValidator.validate(recordQueryPlan, queryExecutionParameters, validPlanHashModes);
+                    return executePhysicalPlan(recordLayerSchema,
                             typedEvaluationContext,
-                            queryExecutionParameters,
                             executionContext);
                 }
             }
+        }
+
+        @Nonnull
+        public static PlanHashable.PlanHashMode getCurrentPlanHashMode(@Nonnull final Options options) {
+            final String planHashModeAsString = options.getOption(Options.Name.CURRENT_PLAN_HASH_MODE);
+            return planHashModeAsString == null
+                   ? PlanHashable.CURRENT_FOR_CONTINUATION
+                   : PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
+        }
+
+        @Nonnull
+        public static List<PlanHashable.PlanHashMode> getValidPlanHashModes(@Nonnull final Options options) {
+            final String planHashModesAsString = options.getOption(Options.Name.VALID_PLAN_HASH_MODES);
+            if (planHashModesAsString == null) {
+                return ImmutableList.of(PlanHashable.CURRENT_FOR_CONTINUATION);
+            }
+
+            return Arrays.stream(planHashModesAsString.split(","))
+                    .map(planHashModeAsString -> PlanHashable.PlanHashMode.valueOf(planHashModeAsString.trim()))
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -204,27 +228,25 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        private static RelationalResultSet executePhysicalPlan(@Nonnull final RecordQueryPlan physicalPlan,
-                                                             @Nonnull final RecordLayerSchema recordLayerSchema,
-                                                             @Nonnull final EvaluationContext evaluationContext,
-                                                             @Nonnull final QueryExecutionParameters executionParameters,
-                                                             @Nonnull final ExecutionContext executionContext) throws RelationalException {
+        private RelationalResultSet executePhysicalPlan(@Nonnull final RecordLayerSchema recordLayerSchema,
+                                                      @Nonnull final EvaluationContext evaluationContext,
+                                                      @Nonnull final ExecutionContext executionContext) throws RelationalException {
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
-            Type type = physicalPlan.getResultType().getInnerType();
+            Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
             Assert.that(type instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", type.getTypeCode()));
             StructMetaData metaData = SqlTypeSupport.typeToMetaData(type);
             final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
             final RecordCursor<QueryResult> cursor;
             final var executeProperties = connection.getExecuteProperties().toBuilder()
-                    .setSkip(executionParameters.getExecutionPropertiesBuilder().getSkip())
-                    .setReturnedRowLimit(executionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
+                    .setSkip(queryExecutionParameters.getExecutionPropertiesBuilder().getSkip())
+                    .setReturnedRowLimit(queryExecutionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
                     .setDryRun(executionContext.getOptions().getOption(Options.Name.DRY_RUN))
                     .build();
             cursor = executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> {
                 try {
-                    return physicalPlan.executePlan(fdbRecordStore, evaluationContext,
-                            ContinuationImpl.parseContinuation(executionParameters.getContinuation()).getUnderlyingBytes(),
+                    return recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
+                            ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation()).getUnderlyingBytes(),
                             executeProperties);
                 } catch (InvalidProtocolBufferException ipbe) {
                     throw ExceptionUtil.toRelationalException(ipbe);
@@ -232,13 +254,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             });
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-                return new RecordLayerResultSet(metaData, iterator, connection, executionParameters.getParameterHash(),
-                        physicalPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                return new RecordLayerResultSet(metaData, iterator, connection, queryExecutionParameters.getParameterHash(),
+                        recordQueryPlanHashSupplier.get());
             });
         }
 
         public int planHash() {
-            return recordQueryPlanHash.get();
+            return recordQueryPlanHashSupplier.get();
         }
     }
 
@@ -278,7 +300,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         @Nonnull
-        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) throws RelationalException {
+        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration,
+                                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
             if (optimizedPlan.isPresent()) {
                 return optimizedPlan.get();
             }
@@ -303,7 +326,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();
                 Set<Type> planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
-                optimizedPlan = Optional.of(new PhysicalQueryPlan(planResult.getPlan(), builder.build(), QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())), context, query));
+                optimizedPlan = Optional.of(
+                        new PhysicalQueryPlan(planResult.getPlan(), builder.build(),
+                                QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())),
+                                context, query, currentPlanHashMode));
                 return optimizedPlan.get();
             });
         }
@@ -316,7 +342,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         @Override
-        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
             return this;
         }
 
@@ -381,7 +407,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration, @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
             return this;
         }
 

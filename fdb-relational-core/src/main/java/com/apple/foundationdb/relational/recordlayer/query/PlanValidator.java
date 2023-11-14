@@ -25,10 +25,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 
 @SuppressWarnings("PMD.MissingSerialVersionUID")
@@ -37,14 +37,15 @@ public final class PlanValidator {
     private PlanValidator() {
     }
 
-    public static void validate(@Nonnull RecordQueryPlan plan, @Nonnull QueryExecutionParameters context) throws RelationalException {
+    public static void validate(@Nonnull RecordQueryPlan plan, @Nonnull QueryExecutionParameters context,
+                                @Nonnull List<PlanHashable.PlanHashMode> validPlanHashModes) throws RelationalException {
         try {
             // TODO: Parsing the continuation here is a bit of a waste as it also being parsed elsewhere
             ContinuationImpl continuation = ContinuationImpl.parseContinuation(context.getContinuation());
             if (!validateBindingHash(context, continuation)) {
                 throw new PlanValidationException("Continuation binding does not match query");
             }
-            if (!validatePlanHash(plan, continuation)) {
+            if (!validatePlanHash(plan, continuation, validPlanHashModes)) {
                 throw new PlanValidationException("Continuation plan does not match query");
             }
         } catch (InvalidProtocolBufferException e) {
@@ -61,12 +62,19 @@ public final class PlanValidator {
         }
     }
 
-    private static boolean validatePlanHash(RecordQueryPlan plan, ContinuationImpl continuation) {
+    private static boolean validatePlanHash(RecordQueryPlan plan, ContinuationImpl continuation,
+                                            @Nonnull List<PlanHashable.PlanHashMode> validPlanHashModes) {
         if (continuation.atBeginning()) {
             // No continuation provided - nothing to validate against
             return true;
         } else {
-            return Objects.equals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), continuation.getPlanHash());
+            // loop through the valid modes assuming that the most likely mode comes first
+            for (final var validPlanHashMode : validPlanHashModes) {
+                if (Objects.equals(plan.planHash(validPlanHashMode), continuation.getPlanHash())) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

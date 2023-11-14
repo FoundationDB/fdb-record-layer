@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -142,13 +143,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
     }
 
-    private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters, boolean caseSensitive) {
+    private AstNormalizer(@Nonnull final PreparedStatementParameters preparedStatementParameters, boolean caseSensitive,
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
         hashFunction = Hashing.murmur3_32_fixed().newHasher();
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
-        context = QueryHasherContext.newBuilder().setPreparedStatementParameters(preparedStatementParameters);
+        context = QueryHasherContext.newBuilder().setPreparedStatementParameters(preparedStatementParameters).setPlanHashMode(currentPlanHashMode);
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
@@ -507,7 +509,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull final String query, boolean caseSensitive) throws RelationalException {
+    public static Result normalizeQuery(@Nonnull final PlanContext context, @Nonnull final String query, boolean caseSensitive,
+                                        @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         final var rootContext = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> QueryParser.parse(query).getRootContext());
         return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
@@ -515,7 +518,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         PreparedStatementParameters.of(context.getPreparedStatementParameters()),
                         context.getUserVersion(),
                         context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()),
-                        caseSensitive
+                        caseSensitive,
+                        currentPlanHashMode
                 ));
     }
 
@@ -526,8 +530,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                       @Nonnull final PreparedStatementParameters preparedStatementParameters,
                                       int userVersion,
                                       @Nonnull final BitSet readableIndexes,
-                                      boolean caseSensitive) {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive);
+                                      boolean caseSensitive,
+                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
         return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),
                 astNormalizer.getQueryExecutionParameters(),

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.util.Assert;
@@ -53,6 +54,9 @@ public interface QueryExecutionParameters {
     PreparedStatementParameters getPreparedStatementParameters();
 
     boolean isForExplain(); // todo (yhatem) remove.
+
+    @Nonnull
+    PlanHashable.PlanHashMode getPlanHashMode();
 
     class LiteralsBuilder {
 

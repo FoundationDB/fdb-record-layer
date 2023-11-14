@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.options.TypeContract;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -172,6 +173,17 @@ public final class Options {
          * Scope: Connection
          */
         CASE_SENSITIVE_IDENTIFIERS,
+
+        /**
+         * Current plan hash mode. Must be a valid version or assumed current if not set.
+         */
+        CURRENT_PLAN_HASH_MODE,
+
+        /**
+         * Acceptable plan hash modes (string-delimited list). Allows the plan validation to utilize and accept
+         * an older plan hash mode.
+         */
+        VALID_PLAN_HASH_MODES,
     }
 
     public enum IndexFetchMethod {
@@ -255,25 +267,25 @@ public final class Options {
     public static final class Builder {
 
         @Nonnull
-        private final ImmutableMap.Builder<Name, Object> optionsMapBuilder;
+        private final Map<Name, Object> optionsMap;
 
         @Nullable
         private Options parentOptions;
 
         private Builder() {
-            optionsMapBuilder = ImmutableMap.builder();
+            optionsMap = Maps.newHashMap();
         }
 
         @Nonnull
         public Builder withOption(Name name, Object value) throws SQLException {
             validateOption(name, value);
-            optionsMapBuilder.put(name, value);
+            optionsMap.put(name, value);
             return this;
         }
 
         @Nonnull
         public Builder fromOptions(Options options) throws SQLException {
-            optionsMapBuilder.putAll(options.optionsMap);
+            optionsMap.putAll(options.optionsMap);
             if (parentOptions != null) {
                 // Replace Assert.that(parentOptions == null);
                 // ... so we don't have to have recordlayer in this module.
@@ -290,7 +302,7 @@ public final class Options {
 
         @Nonnull
         public Options build() {
-            return new Options(optionsMapBuilder.build(), parentOptions);
+            return new Options(ImmutableMap.copyOf(optionsMap), parentOptions);
         }
     }
 
@@ -333,6 +345,8 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
+        data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
+        data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
 
         return Collections.unmodifiableMap(data);
     }

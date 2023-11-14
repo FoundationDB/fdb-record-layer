@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -84,8 +85,11 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
     private int parameterHash;
 
-    PlanGenerationContext(@Nonnull MetadataOperationsFactory metadataFactory, @Nonnull PreparedStatementParameters preparedStatementParameters,
-                          @Nonnull MetricCollector metricCollector) {
+    @Nonnull
+    private final PlanHashable.PlanHashMode planHashMode;
+
+    PlanGenerationContext(@Nonnull final MetadataOperationsFactory metadataFactory, @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                          @Nonnull final MetricCollector metricCollector, @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.context = null;
         this.metadataFactory = metadataFactory;
         this.preparedStatementParameters = preparedStatementParameters;
@@ -95,6 +99,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         this.forExplain = false;
         this.setContinuation(null);
         this.shouldProcessLiteral = true;
+        this.planHashMode = planHashMode;
     }
 
     public int startArrayLiteral() {
@@ -126,6 +131,12 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     @Nonnull
     private List<Object> getLiterals() {
         return literals.getLiterals();
+    }
+
+    @Override
+    @Nonnull
+    public PlanHashable.PlanHashMode getPlanHashMode() {
+        return planHashMode;
     }
 
     @Nonnull
@@ -321,6 +332,8 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         private PreparedStatementParameters preparedStatementParameters;
         private MetricCollector metricCollector;
 
+        private PlanHashable.PlanHashMode planHashMode;
+
         private Builder() {
             this.metadataFactory = NoOpMetadataOperationsFactory.INSTANCE;
         }
@@ -340,8 +353,13 @@ public class PlanGenerationContext implements QueryExecutionParameters {
             return this;
         }
 
+        public Builder setPlanHashMode(@Nonnull final PlanHashable.PlanHashMode planHashMode) {
+            this.planHashMode = planHashMode;
+            return this;
+        }
+
         public PlanGenerationContext build() {
-            return new PlanGenerationContext(metadataFactory, preparedStatementParameters, metricCollector);
+            return new PlanGenerationContext(metadataFactory, preparedStatementParameters, metricCollector, planHashMode);
         }
     }
 

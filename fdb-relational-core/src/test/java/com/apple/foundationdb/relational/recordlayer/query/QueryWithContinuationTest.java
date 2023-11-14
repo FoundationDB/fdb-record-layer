@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -31,7 +34,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -341,6 +343,59 @@ public class QueryWithContinuationTest {
                             .hasNoNextRow();
                     continuation = resultSet.getContinuation();
                     assertContinuation(continuation, false, true);
+                }
+            }
+        }
+    }
+
+    @Test
+    void standardStatementWithDifferentPlanHashModes() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            Continuation continuation;
+            try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
+                // legacy version 0
+                connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VL0.name());
+                try (RelationalStatement statement = connection.createStatement()) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 10L)
+                                .hasNextRow().hasColumn("REST_NO", 11L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
+                }
+            }
+
+            try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
+                connection.setOption(Options.Name.VALID_PLAN_HASH_MODES, PlanHashable.PlanHashMode.VL0.name());
+                connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
+                try (RelationalStatement statement = connection.createStatement()) {
+                    String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 12L)
+                                .hasNextRow().hasColumn("REST_NO", 13L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
+                }
+            }
+
+            try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
+                connection.setOption(Options.Name.VALID_PLAN_HASH_MODES, PlanHashable.PlanHashMode.VC0.name());
+                connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
+                try (RelationalStatement statement = connection.createStatement()) {
+                    String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 14L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, true);
+                    }
                 }
             }
         }

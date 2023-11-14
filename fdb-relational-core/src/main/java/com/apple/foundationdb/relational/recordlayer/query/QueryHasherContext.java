@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class QueryHasherContext implements QueryExecutionParameters {
@@ -54,13 +56,17 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     private final int offset;
 
+    @Nonnull
+    private final PlanHashable.PlanHashMode planHashMode;
+
     private QueryHasherContext(@Nonnull List<Object> literals,
                                @Nullable byte[] continuation,
                                @Nonnull PreparedStatementParameters preparedStatementParameters,
                                int limit,
                                int parameterHash,
                                int offset,
-                               boolean isForExplain) {
+                               boolean isForExplain,
+                               @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.preparedStatementParameters = preparedStatementParameters;
@@ -68,6 +74,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         this.limit = limit;
         this.parameterHash = parameterHash;
         this.offset = offset;
+        this.planHashMode = planHashMode;
     }
 
     @Nonnull
@@ -110,6 +117,12 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         return isForExplain;
     }
 
+    @Nonnull
+    @Override
+    public PlanHashable.PlanHashMode getPlanHashMode() {
+        return planHashMode;
+    }
+
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class Builder {
         @Nonnull
@@ -128,12 +141,16 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         @Nonnull
         private PreparedStatementParameters preparedStatementParameters;
 
+        @Nullable
+        private PlanHashable.PlanHashMode planHashMode;
+
         public Builder() {
             this.literals = LiteralsBuilder.newBuilder();
             this.isForExplain = false;
             this.continuation = null;
             this.limit = Optional.empty();
             this.preparedStatementParameters = PreparedStatementParameters.empty();
+            this.planHashMode = null;
         }
 
         @Nonnull
@@ -198,9 +215,15 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         }
 
         @Nonnull
+        public Builder setPlanHashMode(@Nonnull final PlanHashable.PlanHashMode planHashMode) {
+            this.planHashMode = planHashMode;
+            return this;
+        }
+
+        @Nonnull
         public QueryHasherContext build() {
             return new QueryHasherContext(literals.getLiterals(), continuation, preparedStatementParameters, limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED),
-                    parameterHash, 0, isForExplain);
+                    parameterHash, 0, isForExplain, Objects.requireNonNull(planHashMode));
         }
     }
 

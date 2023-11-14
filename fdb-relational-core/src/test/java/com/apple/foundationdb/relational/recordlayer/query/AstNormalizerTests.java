@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
@@ -228,7 +229,8 @@ public class AstNormalizerTests {
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(), PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet, false);
+            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
+                    PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
@@ -276,7 +278,8 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(), PreparedStatementParameters.empty(), 0, emptyBitSet, false);
+            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
+                    PreparedStatementParameters.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -293,9 +296,9 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -308,9 +311,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false);
+                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 

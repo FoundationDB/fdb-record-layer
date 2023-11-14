@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -125,14 +126,15 @@ public final class PlanGenerator {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
-            final var astHashResult = AstNormalizer.normalizeQuery(context, query, caseSensitive);
+            final PlanHashable.PlanHashMode currentPlanHashMode = QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options);
+            final var astHashResult = AstNormalizer.normalizeQuery(context, query, caseSensitive, currentPlanHashMode);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = Options.combine(astHashResult.getQueryOptions(), options);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive, currentPlanHashMode);
                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros());
                 return plan;
             }
@@ -146,7 +148,8 @@ public final class PlanGenerator {
                     cache.get().reduce(astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
-                                final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive);
+                                final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive,
+                                        currentPlanHashMode);
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros());
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
@@ -201,12 +204,14 @@ public final class PlanGenerator {
     private static Plan<?> generatePhysicalPlan(@Nonnull final AstNormalizer.Result ast,
                                                 @Nonnull final PlanContext planContext,
                                                 @Nonnull final CascadesPlanner planner,
-                                                final boolean caseSensitive) {
+                                                final boolean caseSensitive,
+                                                @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
         // todo (yhatem) rewrite this.
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
                 .setMetricsCollector(planContext.getMetricsCollector())
+                .setPlanHashMode(currentPlanHashMode)
                 .build();
         // (yhatem) why is this needed? looks hacky...
         context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
@@ -217,7 +222,7 @@ public final class PlanGenerator {
             final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri(), caseSensitive);
             Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString()));
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
-            return logicalPlan.optimize(planner, planContext.getPlannerConfiguration());
+            return logicalPlan.optimize(planner, planContext.getPlannerConfiguration(), currentPlanHashMode);
         } catch (MetaDataException mde) {
             // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();

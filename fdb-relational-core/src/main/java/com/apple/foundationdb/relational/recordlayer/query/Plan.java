@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
@@ -89,7 +90,8 @@ public abstract class Plan<T> {
      */
     public abstract boolean isUpdatePlan();
 
-    public abstract Plan<T> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration) throws RelationalException;
+    public abstract Plan<T> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration,
+                                     @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException;
 
     /**
      * Executes a particular type of Plan. If the plan "can" be executed, it should be timed and registered as
@@ -110,7 +112,7 @@ public abstract class Plan<T> {
     public abstract QueryPlanConstraint getConstraint();
 
     @Nonnull
-    public abstract Plan<T> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters);
+    public abstract Plan<T> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters);
 
     @Nonnull
     public abstract String explain();

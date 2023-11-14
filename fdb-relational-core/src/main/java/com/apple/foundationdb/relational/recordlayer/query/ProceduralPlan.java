@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -42,7 +43,7 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
-    public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration) {
+    public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration, @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
         return this;
     }
 
@@ -60,7 +61,7 @@ public final class ProceduralPlan extends Plan<Void> {
 
     @Nonnull
     @Override
-    public Plan<Void> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+    public Plan<Void> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
         return this;
     }
 

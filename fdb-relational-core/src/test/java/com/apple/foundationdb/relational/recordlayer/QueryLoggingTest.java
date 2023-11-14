@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
@@ -224,7 +225,7 @@ public class QueryLoggingTest {
                     .withMetricsCollector(conn.metricCollector)
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
-            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false).getQueryCacheKey().getHash();
+            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().getHash();
         }
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 0 OPTIONS (LOG QUERY)")) {
             resultSet.next();
