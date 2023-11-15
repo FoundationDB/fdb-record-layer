@@ -35,6 +35,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
@@ -50,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -1559,14 +1559,30 @@ public interface Type extends Narrowable<Type> {
                 return null;
             }
 
-            Set<Integer> fieldIndexesSeen = Sets.newHashSet();
+            final var seenFieldNames = Sets.<String>newHashSet();
+            final var duplicateFieldNamesBuilder = ImmutableSet.<String>builder();
+            for (final var field : fields) {
+                final var fieldNameOptional = field.getFieldNameOptional();
+
+                fieldNameOptional.ifPresent(fieldName -> {
+                    if (!seenFieldNames.add(fieldName)) {
+                        duplicateFieldNamesBuilder.add(fieldName);
+                    }
+                });
+            }
+            final var duplicateFieldNames = duplicateFieldNamesBuilder.build();
+
+            final var fieldIndexesSeen = Sets.newHashSet();
             boolean override = false;
             for (final var field : fields) {
-                if (field.getFieldNameOptional().isEmpty() || field.getFieldIndexOptional().isEmpty()) {
+                final var fieldNameOptional = field.getFieldNameOptional();
+                final var fieldIndexOptional = field.getFieldIndexOptional();
+
+                if (fieldNameOptional.isEmpty() || fieldIndexOptional.isEmpty()) {
                     override = true;
                     break;
                 }
-                if (field.fieldIndexOptional.isPresent() && !fieldIndexesSeen.add(field.getFieldIndex())) {
+                if (!fieldIndexesSeen.add(field.getFieldIndex())) { // fieldIndexOptional.isPresent() is always true
                     override = true;
                 }
             }
@@ -1575,11 +1591,10 @@ public interface Type extends Narrowable<Type> {
             // If any field info is missing, the type that is about to be constructed comes from a constructing
             // code path. We should be able to just set these field names and indexes as we wish.
             //
-            Set<String> fieldNamesSeen = Sets.newHashSet();
             final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
             for (int i = 0; i < fields.size(); i++) {
                 final var field = fields.get(i);
-                final Field fieldToBeAdded;
+                Field fieldToBeAdded;
                 if (!override) {
                     fieldToBeAdded = field;
                 } else {
@@ -1595,8 +1610,8 @@ public interface Type extends Narrowable<Type> {
                                     Optional.of(field.getFieldIndexOptional().orElse(i + 1)));
                 }
 
-                if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
-                    throw new RecordCoreException("fields contain duplicate field names");
+                if (duplicateFieldNames.contains(fieldToBeAdded.getFieldName())) {
+                    fieldToBeAdded = Field.of(fieldToBeAdded.getFieldType(), Optional.of("_" + i), fieldToBeAdded.getFieldIndexOptional());
                 }
                 resultFieldsBuilder.add(fieldToBeAdded);
             }

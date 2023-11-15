@@ -76,7 +76,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns) {
         this.resultType = computeResultType(columns);
-        this.columns = resolveColumns(resultType, columns);
+        this.columns = resolveColumns(fields(columns), columns);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
@@ -112,28 +112,59 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
         final var fieldDescriptors = descriptorForType.getFields();
+        final var fieldDescriptorsIterator = fieldDescriptors.iterator();
 
-        final var fields = Objects.requireNonNull(getResultType().getFields());
-        var i = 0;
+        var index = 0;
         for (final var child : getChildren()) {
-            final var field = fields.get(i);
-            final var fieldType = field.getFieldType();
-            var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
+            final var column = getColumns().get(index);
+            final var fieldType = child.getResultType();
+
+            var childResult = child.eval(store, context);
             if (childResult != null) {
-                final var fieldDescriptor = fieldDescriptors.get(i);
-                if (fieldType.isArray() && fieldType.isNullable()) {
-                    final var wrappedDescriptor = fieldDescriptor.getMessageType();
-                    final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-                    wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
-                    childResult = wrapperBuilder.build();
+                if (column.isExpandRecord()) {
+                    // expand the fields of the record into the current record
+                    final var nestedRecordType = (Type.Record)fieldType;
+                    final var childMessage = (Message)childResult;
+                    final var childFieldDescriptors = childMessage.getDescriptorForType().getFields();
+                    List<Type.Record.Field> fields = nestedRecordType.getFields();
+                    for (int nestedIndex = 0; nestedIndex < fields.size(); nestedIndex++) {
+                        final var fieldDescriptor = fieldDescriptorsIterator.next();
+                        final var nestedField = fields.get(nestedIndex);
+                        final var nestedFieldType = nestedField.getFieldType();
+                        var nestedObject = childMessage.getField(childFieldDescriptors.get(nestedIndex));
+                        if (nestedObject != null) {
+                            nestedObject = Objects.requireNonNull(deepCopyIfNeeded(typeRepository, nestedFieldType, nestedObject));
+                            nestedObject = wrapObjectIfNullableArray(nestedFieldType, fieldDescriptor, nestedObject);
+                            resultMessageBuilder.setField(fieldDescriptor, nestedObject);
+                        }
+                    }
+                } else {
+                    final var fieldDescriptor = fieldDescriptorsIterator.next();
+                    childResult = Objects.requireNonNull(deepCopyIfNeeded(typeRepository, fieldType, childResult));
+                    childResult = wrapObjectIfNullableArray(fieldType, fieldDescriptor, childResult);
+                    resultMessageBuilder.setField(fieldDescriptor, childResult);
                 }
-                resultMessageBuilder.setField(fieldDescriptor, childResult);
             } else {
+                fieldDescriptorsIterator.next();
                 Verify.verify(fieldType.isNullable());
             }
-            i++;
+
+            index++;
         }
         return resultMessageBuilder.build();
+    }
+
+    @Nonnull
+    private static Object wrapObjectIfNullableArray(@Nonnull final Type fieldType,
+                                                    @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
+                                                    @Nonnull Object childResult) {
+        if (fieldType.isArray() && fieldType.isNullable()) {
+            final var wrappedDescriptor = fieldDescriptor.getMessageType();
+            final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
+            wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
+            childResult = wrapperBuilder.build();
+        }
+        return childResult;
     }
 
     @Nonnull
@@ -161,8 +192,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
-                                    @Nonnull final Type fieldType,
-                                    @Nullable final Object field) {
+                                          @Nonnull final Type fieldType,
+                                          @Nullable final Object field) {
         if (field == null) {
             return null;
         }
@@ -247,9 +278,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                            final var field = column.getField();
                            final var value = column.getValue();
                            if (field.getFieldNameOptional().isPresent()) {
-                               return column.getValue().explain(formatter) + " as " + field.getFieldName();
+                               return column.getValue().explain(formatter) +
+                                      (column.isExpandRecord() ? ".*" : "") +
+                                      " as " + field.getFieldName();
                            }
-                           return value.explain(formatter);
+                           return value.explain(formatter) + (column.isExpandRecord() ? ".*" : "");
                        })
                        .collect(Collectors.joining(", ")) + ")";
     }
@@ -262,9 +295,10 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                            final var field = column.getField();
                            final var value = column.getValue();
                            if (field.getFieldNameOptional().isPresent()) {
-                               return column.getValue() + " as " + field.getFieldName();
+                               return column.getValue() + (column.isExpandRecord() ? ".*" : "") +
+                                      " as " + field.getFieldName();
                            }
-                           return value.toString();
+                           return value.toString() + (column.isExpandRecord() ? ".*" : "");
                        })
                        .collect(Collectors.joining(", ")) + ")";
     }
@@ -305,7 +339,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Override
     public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
         return new Accumulator() {
-
             @Nonnull
             private final List<Accumulator> childAccumulators = buildAccumulators();
 
@@ -358,17 +391,32 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns) {
-        final var fields = columns
-                .stream()
-                .map(Column::getField)
-                .collect(ImmutableList.toImmutableList());
-        return Type.Record.fromFields(false, fields);
+        final var fieldsBuilder = ImmutableList.<Type.Record.Field>builder();
+        for (final Column<? extends Value> column : columns) {
+            if (column.isExpandRecord()) {
+                final var recordFieldType = (Type.Record)column.getValue().getResultType();
+                for (final var field : recordFieldType.getFields()) {
+                    fieldsBuilder.add(Type.Record.Field.of(field.getFieldType(), field.getFieldNameOptional()));
+                }
+            } else {
+                fieldsBuilder.add(column.getField());
+            }
+        }
+
+        return Type.Record.fromFields(false, fieldsBuilder.build());
     }
 
     @Nonnull
-    private static List<Column<? extends Value>> resolveColumns(@Nonnull final Type.Record recordType,
+    private static List<Type.Record.Field> fields(@Nonnull final Collection<Column<? extends Value>> columns) {
+        return columns
+                .stream()
+                .map(Column::getField)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static List<Column<? extends Value>> resolveColumns(@Nonnull final List<Type.Record.Field> fields,
                                                                 @Nonnull final Collection<Column<? extends Value>> columns) {
-        final var fields = recordType.getFields();
         Verify.verify(fields.size() == columns.size());
 
         final var resolvedColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
@@ -376,7 +424,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
         for (final var field : fields) {
             final var column = columnsIterator.next();
-            resolvedColumnsBuilder.add(Column.of(field, column.getValue()));
+            resolvedColumnsBuilder.add(Column.of(field, column.getValue(), column.isExpandRecord()));
         }
         return resolvedColumnsBuilder.build();
     }

@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -31,15 +33,21 @@ import java.util.Objects;
  * the result for.
  * @param <V> type parameter for the {@link Value}
  */
-public class Column<V extends Value> {
+public class Column<V extends Value> implements PlanHashable {
     @Nonnull
     private final Field field;
     @Nonnull
     private final V value;
 
-    public Column(@Nonnull final Field field, @Nonnull final V value) {
+    @Nonnull
+    private final boolean expandRecord;
+
+    private Column(@Nonnull final Field field, @Nonnull final V value, final boolean expandRecord) {
         this.field = field;
         this.value = value;
+        Verify.verify(!expandRecord || value.getResultType().isRecord());
+        Verify.verify(!expandRecord || field.getFieldNameOptional().isEmpty());
+        this.expandRecord = expandRecord;
     }
 
     @Nonnull
@@ -52,6 +60,10 @@ public class Column<V extends Value> {
         return value;
     }
 
+    public boolean isExpandRecord() {
+        return expandRecord;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -61,19 +73,38 @@ public class Column<V extends Value> {
             return false;
         }
         final Column<?> column = (Column<?>)o;
-        return getField().equals(column.getField()) && getValue().equals(column.getValue());
+        return getField().equals(column.getField()) && getValue().equals(column.getValue()) && isExpandRecord() == column.isExpandRecord();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getField(), getValue());
+        return Objects.hash(getField(), getValue(), isExpandRecord());
     }
 
+    @Override
+    public int planHash(@Nonnull final PlanHashMode hashMode) {
+        // plan hash everything substantial except the field result type
+        return PlanHashable.objectsPlanHash(hashMode, getField().getFieldNameOptional(),
+                getField().getFieldIndexOptional(), getValue(), isExpandRecord());
+    }
+
+    @Nonnull
     public static <V extends Value> Column<V> unnamedOf(@Nonnull final V value) {
-        return new Column<>(Field.unnamedOf(value.getResultType()), value);
+        return unnamedOf(value, false);
     }
 
+    @Nonnull
+    public static <V extends Value> Column<V> unnamedOf(@Nonnull final V value, final boolean expandRecord) {
+        return of(Field.unnamedOf(value.getResultType()), value, expandRecord);
+    }
+
+    @Nonnull
     public static <V extends Value> Column<V> of(@Nonnull final Field field, @Nonnull final V value) {
-        return new Column<>(field, value);
+        return of(field, value, false);
+    }
+
+    @Nonnull
+    public static <V extends Value> Column<V> of(@Nonnull final Field field, @Nonnull final V value, final boolean expandRecord) {
+        return new Column<>(field, value, expandRecord);
     }
 }

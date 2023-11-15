@@ -29,6 +29,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -233,5 +234,125 @@ public class RecordConstructorValueTest {
         Object nullResult = nullRecordConstructorValue.eval(null, evaluationContext);
         assertEquals(Collections.emptyList(), FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
         assertNull(FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
+    }
+
+    @Test
+    void evalWithNested() {
+        List<Type.Record.Field> nestedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_nested_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_nested_string")));
+
+        RecordConstructorValue nestedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(nestedFields.get(0), new LiteralValue<>(nestedFields.get(0).getFieldType(), 10)),
+                Column.of(nestedFields.get(1), new LiteralValue<>(nestedFields.get(1).getFieldType(), "hello"))
+        ));
+
+        List<Type.Record.Field> fields = List.of(
+                Type.Record.Field.of(nestedRecordConstructorValue.getResultType(), Optional.of("a_nested_record")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_string")));
+
+        RecordConstructorValue recordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), nestedRecordConstructorValue, false),
+                Column.of(fields.get(1), new LiteralValue<>(nestedFields.get(0).getFieldType(), 100)),
+                Column.of(fields.get(2), new LiteralValue<>(nestedFields.get(1).getFieldType(), "world"))
+        ));
+
+        final var resultType = recordConstructorValue.getResultType();
+        final var repo = TypeRepository.newBuilder();
+        resultType.defineProtoType(repo);
+        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(repo.build());
+
+        Object result = recordConstructorValue.eval(null, evaluationContext);
+        Assertions.assertTrue(result instanceof Message);
+        var message = (Message)result;
+        var descriptor = message.getDescriptorForType();
+        Assertions.assertEquals(100, message.getField(descriptor.getFields().get(1)));
+        Assertions.assertEquals("world", message.getField(descriptor.getFields().get(2)));
+        var field = descriptor.getFields().get(0);
+        result = message.getField(field);
+        Assertions.assertTrue(result instanceof Message);
+        message = (Message)result;
+        descriptor = ((Message)result).getDescriptorForType();
+        Assertions.assertEquals(10, message.getField(descriptor.getFields().get(0)));
+        Assertions.assertEquals("hello", message.getField(descriptor.getFields().get(1)));
+    }
+
+    @Test
+    void evalWithExpandedNested() {
+        List<Type.Record.Field> nestedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_nested_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_nested_string")));
+
+        RecordConstructorValue nestedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(nestedFields.get(0), new LiteralValue<>(nestedFields.get(0).getFieldType(), 10)),
+                Column.of(nestedFields.get(1), new LiteralValue<>(nestedFields.get(1).getFieldType(), "hello"))
+        ));
+
+        List<Type.Record.Field> fields = List.of(
+                Type.Record.Field.unnamedOf(nestedRecordConstructorValue.getResultType()),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_string")));
+
+        RecordConstructorValue recordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), nestedRecordConstructorValue, true),
+                Column.of(fields.get(1), new LiteralValue<>(nestedFields.get(0).getFieldType(), 100)),
+                Column.of(fields.get(2), new LiteralValue<>(nestedFields.get(1).getFieldType(), "world"))
+        ));
+
+        final var nestedResultType = nestedRecordConstructorValue.getResultType();
+        final var resultType = recordConstructorValue.getResultType();
+        final var repo = TypeRepository.newBuilder();
+        nestedResultType.defineProtoType(repo);
+        resultType.defineProtoType(repo);
+        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(repo.build());
+
+        Object result = recordConstructorValue.eval(null, evaluationContext);
+        Assertions.assertTrue(result instanceof Message);
+        var message = (Message)result;
+        var descriptor = message.getDescriptorForType();
+        Assertions.assertEquals(10, message.getField(descriptor.getFields().get(0)));
+        Assertions.assertEquals("hello", message.getField(descriptor.getFields().get(1)));
+        Assertions.assertEquals(100, message.getField(descriptor.getFields().get(2)));
+        Assertions.assertEquals("world", message.getField(descriptor.getFields().get(3)));
+    }
+
+    @Test
+    void evalWithExpandedNestedWithConflict() {
+        List<Type.Record.Field> nestedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_nested_string")));
+
+        RecordConstructorValue nestedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(nestedFields.get(0), new LiteralValue<>(nestedFields.get(0).getFieldType(), 10)),
+                Column.of(nestedFields.get(1), new LiteralValue<>(nestedFields.get(1).getFieldType(), "hello"))
+        ));
+
+        List<Type.Record.Field> fields = List.of(
+                Type.Record.Field.unnamedOf(nestedRecordConstructorValue.getResultType()),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("a_number")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_string")));
+
+        RecordConstructorValue recordConstructorValue = RecordConstructorValue.ofColumns(List.of(
+                Column.of(fields.get(0), nestedRecordConstructorValue, true),
+                Column.of(fields.get(1), new LiteralValue<>(nestedFields.get(0).getFieldType(), 100)),
+                Column.of(fields.get(2), new LiteralValue<>(nestedFields.get(1).getFieldType(), "world"))
+        ));
+
+        final var nestedResultType = nestedRecordConstructorValue.getResultType();
+        final var resultType = recordConstructorValue.getResultType();
+        final var repo = TypeRepository.newBuilder();
+        nestedResultType.defineProtoType(repo);
+        resultType.defineProtoType(repo);
+        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(repo.build());
+
+        Object result = recordConstructorValue.eval(null, evaluationContext);
+        Assertions.assertTrue(result instanceof Message);
+        var message = (Message)result;
+        var descriptor = message.getDescriptorForType();
+        Assertions.assertEquals(10, message.getField(descriptor.getFields().get(0)));
+        Assertions.assertEquals("hello", message.getField(descriptor.getFields().get(1)));
+        Assertions.assertEquals(100, message.getField(descriptor.getFields().get(2)));
+        Assertions.assertEquals("world", message.getField(descriptor.getFields().get(3)));
     }
 }
