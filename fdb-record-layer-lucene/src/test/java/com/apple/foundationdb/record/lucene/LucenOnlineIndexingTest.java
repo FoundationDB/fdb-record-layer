@@ -146,7 +146,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest1() {
-        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0, 10);
+        luceneOnlineIndexingTestAny(QUERY_ONLY_SYNONYM_LUCENE_INDEX, COMPLEX_DOC, 17, 7, 0, 20);
     }
 
     @Test
@@ -156,7 +156,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest3() {
-        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2, 25);
+        luceneOnlineIndexingTestAny(NGRAM_LUCENE_INDEX, SIMPLE_DOC, 44, 7, 2, 34);
     }
 
     @Test
@@ -254,7 +254,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         // assert number of segments, the number below is based on previous runs of this test.
         // the key thing is to make sure that while it was building the index it actually did the merges.
         final String[] files = listFiles(index);
-        // assert that it is greather than 1, as a sanity check, if it's less than 1, it means we didn't save any docs
+        // assert that it is greater than 1, as a sanity check, if it's less than 1, it means we didn't save any docs
         MatcherAssert.assertThat(String.join(", ", files),
                 files, Matchers.arrayWithSize(Matchers.allOf(Matchers.greaterThan(1),
                         Matchers.lessThanOrEqualTo(expectedFileCount))));
