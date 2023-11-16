@@ -71,7 +71,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
             storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si, context);
         } else {
-            storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(directory, si, context);
         }
         return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
     }
