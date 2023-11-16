@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -41,19 +42,53 @@ import java.io.IOException;
  */
 public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     public static final String STORED_FIELDS_EXTENSION = "fsf";
+    private final StoredFieldsFormat storedFieldsFormat;
 
-    LuceneOptimizedStoredFieldsFormat() {
+    LuceneOptimizedStoredFieldsFormat(StoredFieldsFormat storedFieldsFormat) {
+        this.storedFieldsFormat = storedFieldsFormat;
     }
 
     @Override
     public StoredFieldsReader fieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) throws IOException {
-        return new LuceneOptimizedStoredFieldsReader(directory, si, fn);
+        FDBDirectory fdbDirectory = toFdbDirectory(directory);
+
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+            return new LuceneOptimizedStoredFieldsReader(fdbDirectory, si, fn);
+        } else {
+            return new LazyStoredFieldsReader(directory, si, fn, context,
+                    LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context)));
+        }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
-        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = ((FDBDirectory)FilterDirectory.unwrap(directory)).getPrimaryKeySegmentIndex();
-        final StoredFieldsWriter storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(directory, si, context);
+        FDBDirectory fdbDirectory = toFdbDirectory(directory);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = fdbDirectory.getPrimaryKeySegmentIndex();
+        StoredFieldsWriter storedFieldsWriter;
+
+        // Use TRUE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si, context);
+        } else {
+            storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+        }
         return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private FDBDirectory toFdbDirectory(Directory directory) {
+        Directory delegate = FilterDirectory.unwrap(directory);
+        if (delegate instanceof LuceneOptimizedCompoundReader) {
+            delegate = ((LuceneOptimizedCompoundReader)delegate).getDirectory();
+        }
+        if (delegate instanceof LuceneOptimizedWrappedDirectory) {
+            delegate = ((LuceneOptimizedWrappedDirectory)delegate).getFdbDirectory();
+        }
+        if (delegate instanceof FDBDirectory) {
+            return (FDBDirectory)delegate;
+        } else {
+            throw new RuntimeException("Expected FDB Directory " + delegate.getClass());
+        }
     }
 }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
@@ -33,8 +32,6 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.BytesRef;
@@ -58,19 +55,14 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsWriter.class);
     private LuceneStoredFieldsProto.LuceneStoredFields.Builder storedFields;
     private final FDBDirectory directory;
-    private final Tuple keyTuple;
+    private final String segmentName;
     private int docId;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsWriter(final Directory directory, final SegmentInfo si, IOContext context) {
-        Directory delegate = FilterDirectory.unwrap(directory);
-        if (delegate instanceof FDBDirectory) {
-            this.directory = (FDBDirectory) delegate;
-        } else {
-            throw new RuntimeException("Expected FDB Directory " + delegate.getClass());
-        }
+    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si, IOContext context) {
+        this.directory = directory;
         this.docId = 0;
-        this.keyTuple = Tuple.from(si.name);
+        this.segmentName = si.name;
         // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
         this.directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context);
     }
@@ -86,7 +78,7 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     @Override
     public void finishDocument() throws IOException {
         try {
-            directory.writeStoredFields(keyTuple.add(docId), storedFields.build().toByteArray());
+            directory.writeStoredFields(segmentName, docId, storedFields.build().toByteArray());
             docId++;
         } catch (Exception e) {
             throw new IOException(e);
@@ -127,7 +119,9 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
 
     @Override
     public void finish(final FieldInfos fis, final int numDocs) throws IOException {
-        // TODO: This can verify that the number of docs matches what we actually wrote.
+        if (docId != numDocs) {
+            throw new RuntimeException("Wrote " + docId + " docs, finish called with numDocs=" + numDocs);
+        }
     }
 
     @SuppressWarnings("PMD.CloseResource")

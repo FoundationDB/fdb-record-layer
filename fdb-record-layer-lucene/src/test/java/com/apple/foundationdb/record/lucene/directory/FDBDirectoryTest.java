@@ -72,7 +72,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.getContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
-            directory = new FDBDirectory(subspace, context, false);
+            directory = new FDBDirectory(subspace, context, null, false);
             assertEquals(3, directory.getIncrement());
         }
     }
@@ -91,7 +91,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.getContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
-            directory = new FDBDirectory(subspace, context, false);
+            directory = new FDBDirectory(subspace, context, null, false);
             assertEquals(threads + 1, directory.getIncrement());
         }
     }
@@ -164,7 +164,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
-            directory = new FDBDirectory(subspace, context, false);
+            directory = new FDBDirectory(subspace, context, null, false);
             assertArrayEquals(new String[0], directory.listAll());
             assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_LIST_ALL));
             assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE));
@@ -196,7 +196,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
-            directory = new FDBDirectory(subspace, context, false);
+            directory = new FDBDirectory(subspace, context, null, false);
             long fileSize2 = directory.fileLength("test1");
             assertEquals(expectedSize, fileSize2);
             assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH));

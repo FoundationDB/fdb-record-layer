@@ -26,14 +26,11 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.Accountable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,37 +51,22 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
     private final FDBDirectory directory;
     private final SegmentInfo si;
     private final FieldInfos fieldInfos;
-    private final Tuple keyTuple;
+    private final String segmentName;
     private AsyncIterator<KeyValue> rangeIterator;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fieldInfos) {
+    public LuceneOptimizedStoredFieldsReader(final FDBDirectory directory, final SegmentInfo si, final FieldInfos fieldInfos) {
         this.si = si;
         this.fieldInfos = fieldInfos;
-        Directory delegate = FilterDirectory.unwrap(directory);
-        if (delegate instanceof LuceneOptimizedCompoundReader) {
-            delegate = ((LuceneOptimizedCompoundReader) delegate).getDirectory();
-        }
-        if (delegate instanceof LuceneOptimizedWrappedDirectory) {
-            delegate = ((LuceneOptimizedWrappedDirectory) delegate).getFdbDirectory();
-        }
-        if (delegate instanceof FDBDirectory) {
-            this.directory = (FDBDirectory) delegate;
-        } else {
-            throw new RuntimeException("Expected FDB Directory " + delegate.getClass());
-        }
-        this.keyTuple = Tuple.from(si.name);
-    }
-
-    public Tuple getKeyTuple() {
-        return keyTuple;
+        this.directory = directory;
+        this.segmentName = si.name;
     }
 
     @Override
     public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
         LuceneStoredFieldsProto.LuceneStoredFields storedFields;
         if (rangeIterator == null) {
-            storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(directory.readStoredFields(keyTuple.add(docID)));
+            storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(directory.readStoredFields(segmentName, docID));
         } else {
             KeyValue keyValue = rangeIterator.next();
             if (keyValue == null) {

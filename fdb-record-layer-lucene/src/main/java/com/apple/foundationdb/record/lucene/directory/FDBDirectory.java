@@ -33,10 +33,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -83,7 +85,6 @@ import java.util.function.Supplier;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.FIELD_INFO_EXTENSION;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION;
 import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
@@ -116,6 +117,8 @@ public class FDBDirectory extends Directory  {
     public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
+    @Nonnull
+    private final Map<String, String> indexOptions;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
@@ -166,19 +169,19 @@ public class FDBDirectory extends Directory  {
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
     @VisibleForTesting
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                         boolean primaryKeySegmentIndexEnabled) {
-        this(subspace, context, null, null, primaryKeySegmentIndexEnabled, true);
+        this(subspace, context, indexOptions, null, null, primaryKeySegmentIndexEnabled, true);
     }
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean primaryKeySegmentIndexEnabled, @Nullable boolean deferDeleteToCompoundFile) {
-        this(subspace, context, sharedCacheManager, sharedCacheKey, primaryKeySegmentIndexEnabled, NoLockFactory.INSTANCE,
+        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, primaryKeySegmentIndexEnabled, NoLockFactory.INSTANCE,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
-    private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+    private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                  @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                  boolean primaryKeySegmentIndexEnabled, @Nonnull LockFactory lockFactory,
                  int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
@@ -187,6 +190,7 @@ public class FDBDirectory extends Directory  {
         Verify.verify(context != null);
         Verify.verify(lockFactory != null);
         this.context = context;
+        this.indexOptions = indexOptions == null ? Collections.emptyMap() : indexOptions;
         this.subspace = subspace;
         final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
         this.sequenceSubspaceKey = sequenceSubspace.pack();
@@ -316,7 +320,7 @@ public class FDBDirectory extends Directory  {
     }
 
     public static boolean isStoredFieldsFile(String name) {
-        return name.endsWith(STORED_FIELDS_EXTENSION)
+        return name.endsWith(LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)
                && !name.startsWith(IndexFileNames.SEGMENTS)
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
@@ -418,12 +422,13 @@ public class FDBDirectory extends Directory  {
     }
 
     /**
-     * Write stored fields data to the DB.
-     * @param keyTuple The sub-tuple (within the subspace) to write to
+     * Write stored fields document to the DB.
+     * @param segmentName the segment name writing to
+     * @param docID the document ID to write
      * @param value the bytes value of the stored fields
      */
-    public void writeStoredFields(@Nonnull final Tuple keyTuple, @Nonnull final byte[] value) {
-        byte[] key = storedFieldsSubspace.pack(keyTuple);
+    public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] value) {
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
@@ -436,10 +441,10 @@ public class FDBDirectory extends Directory  {
 
     /**
      * Delete stored fields data from the DB.
-     * @param keyTuple The sub-tuple (within the subspace) to clear
+     * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
      */
-    public void deleteStoredFields(@Nonnull final Tuple keyTuple) {
-        byte[] key = storedFieldsSubspace.pack(keyTuple);
+    public void deleteStoredFields(@Nonnull final String segmentName) {
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
         context.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
@@ -519,13 +524,13 @@ public class FDBDirectory extends Directory  {
                         .thenApply(LuceneSerializer::decode));
     }
 
-    public byte[] readStoredFields(Tuple key) throws IOException {
-        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS, readStoredFieldsAsync(key));
+    public byte[] readStoredFields(String segmentName, int docId) throws IOException {
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS, readStoredFieldsAsync(segmentName, docId));
     }
 
-    private CompletableFuture<byte[]> readStoredFieldsAsync(Tuple key) {
+    private CompletableFuture<byte[]> readStoredFieldsAsync(String segmentName, int docID) {
         return context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
-                context.ensureActive().get(storedFieldsSubspace.pack(key)));
+                context.ensureActive().get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
     }
 
     private CompletableFuture<byte[]> readSchemaAsync(List<Long> bitSetWords) {
@@ -566,9 +571,11 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    public AsyncIterable<KeyValue> scanStoredFields(Tuple keyTuple) {
+    @VisibleForTesting
+    public AsyncIterable<KeyValue> scanStoredFields(String segmentName) {
         return context.ensureActive()
-                .getRange(storedFieldsSubspace.subspace(keyTuple).range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR);
+                .getRange(storedFieldsSubspace.subspace(Tuple.from(segmentName)).range(),
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR);
     }
 
     private CompletableFuture<Void> loadFileReferenceCacheForMemoization() {
@@ -693,13 +700,15 @@ public class FDBDirectory extends Directory  {
         String segmentName = IndexFileNames.parseSegmentName(name);
         if (deferDeleteToCompoundFile) {
             if (IndexFileNames.matchesExtension(name, DATA_EXTENSION)) {
-                // delete all K/V content
-                deleteStoredFields(Tuple.from(segmentName));
+                // delete all K/V content, only if the optimized stored fields format is in use
+                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                    deleteStoredFields(segmentName);
+                }
             }
         } else {
             if (isStoredFieldsFile(name)) {
                 // Delete stored fields subspace
-                deleteStoredFields(Tuple.from(segmentName));
+                deleteStoredFields(segmentName);
             }
         }
         return true;
@@ -975,5 +984,30 @@ public class FDBDirectory extends Directory  {
             }
         }
         return null;
+    }
+
+    /**
+     * Convenience methods to get index options from the directory's index.
+     * @param key the option key
+     * @param defaultValue the value to use when the option is not set
+     * @return the index option value, or the default value if not found
+     */
+    public boolean getBooleanIndexOption(@Nonnull String key, boolean defaultValue) {
+        final String option = getIndexOption(key);
+        if (option == null) {
+            return defaultValue;
+        } else {
+            return Boolean.valueOf(option);
+        }
+    }
+
+    /**
+     * Convenience methods to get index options from the directory's index.
+     * @param key the option key
+     * @return the index option value, null if not found
+     */
+    @Nullable
+    public String getIndexOption(@Nonnull String key) {
+        return indexOptions.get(key);
     }
 }

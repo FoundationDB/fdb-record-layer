@@ -75,6 +75,10 @@ public class LuceneIndexOptions {
      * Boolean string ({@code true} or {@code false}).
      */
     public static final String PRIMARY_KEY_SEGMENT_INDEX_ENABLED = "primaryKeySegmentIndexEnabled";
+    /**
+     * Whether to use the StoredFields format that stores data in K/V (TRUE) pairs or in the standard Lucene file (FALSE).
+     */
+    public static final String OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED = "optimizedStoredFieldsFormatEnabled";
 
     private LuceneIndexOptions() {
     }
