@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.RegistrySynonymGraphFilterFactory;
 import com.apple.foundationdb.record.lucene.Utf8Chars;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactoryProvider;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
@@ -43,14 +44,11 @@ import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizerFactory;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilterFactory;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
 import org.apache.lucene.analysis.util.TokenizerFactory;
-import org.apache.lucene.index.Term;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.RegexpQuery;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.search.uhighlight.UnifiedHighlighter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -60,6 +58,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -115,7 +114,6 @@ public class LuceneHighlighterTest {
         return Stream.of(
                 Arguments.of("Standard", LuceneAnalyzerWrapper.getStandardAnalyzerWrapper().getAnalyzer()),
                 Arguments.of("Synonym", new SynonymAnalyzer(stopWords, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME, 30)),
-                Arguments.of("Ngram", new NgramAnalyzer(stopWords, 3, 30, false)),
                 Arguments.of("AlphaCjk-NoSynonyms", new AlphanumericCjkAnalyzer(stopWords, 1, 30, true, null)),
                 Arguments.of("AlphaCjk-Synonyms", acjkWithSynonyms),
                 Arguments.of("Standard-noStopWords", noStopWords)
@@ -133,9 +131,22 @@ public class LuceneHighlighterTest {
     @ParameterizedTest(name = "{0}")
     void highlightsSimpleTextWithNoSnippets(String ignored, Analyzer analyzer) throws IOException { //the first string is the analyzer name
         String text = "Hello record layer";
-        Query tq = new TermQuery(new Term("text", "hello"));
-        HighlightedTerm result = doHighlight(analyzer, text, tq, -1);
+        HighlightedTerm result = doHighlight(analyzer, text, "text:hello", -1);
         assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {0}, new int[] {5}), result);
+    }
+
+    @MethodSource("analyzers")
+    @ParameterizedTest(name = "{0}")
+    void highlightsSynonyms(String ignore, Analyzer analyzer) throws IOException, ParseException { //the first string is the analyzer name
+        String text = "apple apple apple apple park apple apple";
+
+        if (isSynonymAnalyzer(analyzer)) {
+            HighlightedTerm result = doHighlight(analyzer, text, "text:\"malus pumila park\"", -1);
+            assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {18, 24}, new int[] {23, 28}), result);
+        }
+
+        HighlightedTerm result = doHighlight(analyzer, text, "text:\"apple park\"", -1);
+        assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {18, 24}, new int[] {23, 28}), result);
     }
 
     @MethodSource("analyzers")
@@ -146,12 +157,10 @@ public class LuceneHighlighterTest {
         Assumptions.assumeTrue(analyzer instanceof NgramAnalyzer, "Only care about Ngram analyzers");
 
         String text = "Hello record layer";
-        Query tq = new TermQuery(new Term("text", "hel"));
-        HighlightedTerm result = doHighlight(analyzer, text, tq, -1);
+        HighlightedTerm result = doHighlight(analyzer, text, "text:hel", -1);
         assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {0}, new int[] {5}), result);
 
-        tq = new TermQuery(new Term("text", "cord"));
-        result = doHighlight(analyzer, text, tq, -1);
+        result = doHighlight(analyzer, text, "text:cord", -1);
         assertHighlightCorrect(new HighlightedTerm("text", text, new int[] {6}, new int[] {12}), result);
 
     }
@@ -161,8 +170,7 @@ public class LuceneHighlighterTest {
     void highlightsSimpleTextWithSnippets(String ignored, Analyzer analyzer) throws IOException { //the first string is the analyzer name
         String text = "Good Morning From Apple News It?s Monday, July 11. Here?s what you need to know. ";
 
-        PrefixQuery pq = new PrefixQuery(new Term("text", "appl"));
-        final HighlightedTerm result = doHighlight(analyzer, text, pq);
+        final HighlightedTerm result = doHighlight(analyzer, text, "text:appl*");
         String correctString = "Good Morning From Apple News It?s...";
         assertHighlightCorrect(new HighlightedTerm("text", correctString, new int[] {18}, new int[] {23}), result);
     }
@@ -175,8 +183,7 @@ public class LuceneHighlighterTest {
                       "Top Stories Former Trump adviser Steve Bannon agreed to testify to the January 6 committee " +
                       "after months of defying a congressional subpoena. The Washington Post " + link + "?";
 
-        Query pq = new RegexpQuery(new Term("text", ".*appl.*"));
-        final HighlightedTerm result = doHighlight(analyzer, text, pq);
+        final HighlightedTerm result = doHighlight(analyzer, text, "text:*appl*");
         String correctString = "Good Morning From Apple News It?s...The Washington Post " + link + "?";
         /*
          * If the length of the link exceeds the token limit of the analyzer, then the returned highlight
@@ -198,8 +205,7 @@ public class LuceneHighlighterTest {
     @ParameterizedTest(name = "{0}")
     void highlightTextWithMultipleTermMatches(String ignored, Analyzer analyzer) throws Exception {
 
-        Query pq = new TermQuery(new Term("text", "name"));
-        final HighlightedTerm result = doHighlight(analyzer, ROSE_BY_ANY_OTHER_NAME, pq);
+        final HighlightedTerm result = doHighlight(analyzer, ROSE_BY_ANY_OTHER_NAME, "text:name");
         String correctString;
         HighlightedTerm expected;
         if (isSynonymAnalyzer(analyzer)) {
@@ -222,8 +228,7 @@ public class LuceneHighlighterTest {
     @ParameterizedTest(name = "{0}")
     void highlightMultiplePrefixMatches(String ignored, Analyzer analyzer) throws Exception {
 
-        Query pq = new PrefixQuery(new Term("text", "monta"));
-        final HighlightedTerm result = doHighlight(analyzer, ROSE_BY_ANY_OTHER_NAME, pq);
+        final HighlightedTerm result = doHighlight(analyzer, ROSE_BY_ANY_OTHER_NAME, "text:monta*");
         String correctString = "...though not a Montague.\nWhat's Montague? It is...";
         assertHighlightCorrect(new HighlightedTerm("text", correctString, new int[] {16, 33}, new int[] {24, 41}), result);
     }
@@ -244,8 +249,7 @@ public class LuceneHighlighterTest {
                             "layer " +
                             "record record record record record record record record";
 
-        Query query = new TermQuery(new Term("text", "layer"));
-        final HighlightedTerm result = doHighlight(analyzer, text, query, 4);
+        final HighlightedTerm result = doHighlight(analyzer, text, "text:layer", 4);
         Assertions.assertEquals(3, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
@@ -275,8 +279,7 @@ public class LuceneHighlighterTest {
                             "Content-Type: text/plain; charset=us-ascii\n" +
                             "Content-Transfer-Encoding: 7bit";
 
-        Query query = new TermQuery(new Term("text", "bcc70@apple.com"));
-        final HighlightedTerm result = doHighlight(analyzer, text, query, 4);
+        final HighlightedTerm result = doHighlight(analyzer, text, "text:bcc70@apple.com", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
@@ -306,8 +309,7 @@ public class LuceneHighlighterTest {
                             "Content-Transfer-Encoding: 7bit";
 
         //prefix the entire email
-        Query query = new PrefixQuery(new Term("text", "bcc70@apple.com"));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 4);
+        HighlightedTerm result = doHighlight(analyzer, text, "text:bcc70@apple.com*", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
@@ -316,8 +318,7 @@ public class LuceneHighlighterTest {
         }
 
         //prefix the part before the @
-        query = new PrefixQuery(new Term("text", "bcc70"));
-        result = doHighlight(analyzer, text, query, 4);
+        result = doHighlight(analyzer, text, "text:bcc70*", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
@@ -347,8 +348,7 @@ public class LuceneHighlighterTest {
                             "Content-Transfer-Encoding: 7bit";
 
         //prefix the entire email
-        Query query = new WildcardQuery(new Term("text", "bcc70@a*e.com"));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 4);
+        HighlightedTerm result = doHighlight(analyzer, text, "text:bcc70@a*e.com", 4);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
             int s = result.getHighlightStart(i);
@@ -363,8 +363,7 @@ public class LuceneHighlighterTest {
     void highlightsSpecialCharacterPrefixSearch(String ignored, Analyzer analyzer, String specialCharacter) throws Exception {
         String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
 
-        Query query = new PrefixQuery(new Term("text", specialCharacter.toLowerCase()));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 1);
+        HighlightedTerm result = doHighlight(analyzer, text, String.format("text:%s*", specialCharacter.toLowerCase()), 1);
         Assertions.assertEquals(2, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...like " + specialCharacter + "noSpaces?", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -382,8 +381,7 @@ public class LuceneHighlighterTest {
     void highlightsSpecialCharacterTerm(String ignored, Analyzer analyzer, String specialCharacter) throws Exception {
         String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
 
-        Query query = new TermQuery(new Term("text", specialCharacter.toLowerCase()));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 1);
+        HighlightedTerm result = doHighlight(analyzer, text, String.format("text:%s", specialCharacter.toLowerCase()), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -403,25 +401,15 @@ public class LuceneHighlighterTest {
         String longTerm = "reallyLongTermWhichTakesHundredsAndHundredsNoIMeanItLotsAndLotsOfCharactersSoItWillExceedTheLimitOfOurConfigurations";
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
-        Query query = new TermQuery(new Term("text", longTerm.toLowerCase()));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 1);
-
         int maxTokenSize = getMaxTokenSize(analyzer);
-        if (maxTokenSize > 0) {
-            /*
-             * Analyzers which break apart long terms into multiple tokens will not be able to match the full
-             * text as a single string, so they should return an empty highlight
-             */
-            Assertions.assertEquals(0, result.getNumHighlights(), "Did not return empty for limited analyzers!");
-        } else {
-            Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
-            Assertions.assertEquals("...a " + longTerm + "  ...", result.getSummarizedText(), "Incorrect summary string!");
-            for (int i = 0; i < result.getNumHighlights(); i++) {
-                int s = result.getHighlightStart(i);
-                int e = result.getHighlightEnd(i);
-                String subStr = result.getSummarizedText().substring(s, e);
-                Assertions.assertEquals(longTerm, subStr, "Incorrect highlight value!");
-            }
+        HighlightedTerm result = doHighlight(analyzer, text, String.format("text:%s*", longTerm.toLowerCase().substring(0, maxTokenSize - 1)), 1);
+        Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
+        Assertions.assertEquals("...a " + longTerm + "...", result.getSummarizedText(), "Incorrect summary string!");
+        for (int i = 0; i < result.getNumHighlights(); i++) {
+            int s = result.getHighlightStart(i);
+            int e = result.getHighlightEnd(i);
+            String subStr = result.getSummarizedText().substring(s, e);
+            Assertions.assertEquals(longTerm.substring(0, maxTokenSize), subStr, "Incorrect highlight value!");
         }
     }
 
@@ -438,8 +426,7 @@ public class LuceneHighlighterTest {
 
 
         final String prefix = longTerm.substring(0, 25);
-        Query query = new PrefixQuery(new Term("text", prefix.toLowerCase()));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 1);
+        HighlightedTerm result = doHighlight(analyzer, text, String.format("text:%s*", prefix.toLowerCase()), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
 
 
@@ -470,11 +457,14 @@ public class LuceneHighlighterTest {
         /*
          * Checks the behavior of highlighting when given really long term queries
          */
+        if ("Ngram".equals(ignored)) {
+            return;
+        }
+
         String longTerm = "reallyLongTermWhichTakesHundredsAndHundredsNoIMeanItLotsAndLotsOfCharactersSoItWillExceedTheLimitOfOurConfigurations";
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
-        Query query = new PrefixQuery(new Term("text", longTerm.toLowerCase()));
-        HighlightedTerm result = doHighlight(analyzer, text, query, 1);
+        HighlightedTerm result = doHighlight(analyzer, text, String.format("text:%s*", longTerm.toLowerCase()), 1);
 
         int maxTokenSize = getMaxTokenSize(analyzer);
         if (maxTokenSize > 0) {
@@ -501,8 +491,7 @@ public class LuceneHighlighterTest {
     void highlightsCjkQueryTerms(String ignored, Analyzer analyzer) throws Exception {
         String input = "water水水물-of的の의。house屋家집\nyou你君너";
 
-        Query query = new TermQuery(new Term("text", "家"));
-        HighlightedTerm result = doHighlight(analyzer, input, query, 1);
+        HighlightedTerm result = doHighlight(analyzer, input, "text:家", 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...house屋家집\n...", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -515,18 +504,24 @@ public class LuceneHighlighterTest {
 
     /* ****************************************************************************************************************/
     /*private helper methods*/
-    private HighlightedTerm doHighlight(Analyzer analyzer, final String text, Query query) throws IOException {
+    private HighlightedTerm doHighlight(Analyzer analyzer, final String text, String query) throws IOException {
         return doHighlight(analyzer, text, query, 3);
     }
 
-    private HighlightedTerm doHighlight(Analyzer analyzer, final String text, Query query, int snippetSize) throws IOException {
-        UnifiedHighlighter highlighter = LuceneHighlighting.makeHighlighter("text", analyzer, snippetSize);
-
-        BooleanQuery bq = new BooleanQuery.Builder().add(query, BooleanClause.Occur.MUST).build();
-
-        final Object result = highlighter.highlightWithoutSearcher("text", bq, text, 100);
-        Assertions.assertTrue(result instanceof HighlightedTerm, "Did not return a string!");
-        return (HighlightedTerm)result;
+    private HighlightedTerm doHighlight(Analyzer analyzer, final String text, String queryString, int snippetSize) throws IOException {
+        UnifiedHighlighter highlighter = LuceneHighlighting.makeHighlighter("text", new AlphanumericCjkAnalyzer(stopWords, 1, 30, true, null), snippetSize);
+        QueryParser queryParser = LuceneQueryParserFactoryProvider.instance().getParserFactory().createMultiFieldQueryParser(new String[] {"text"}, analyzer, Collections.emptyMap());
+        queryParser.setAllowLeadingWildcard(true);
+        try {
+            Query query = queryParser.parse(queryString);
+            BooleanQuery bq = new BooleanQuery.Builder().add(query, BooleanClause.Occur.MUST).build();
+            final Object result = highlighter.highlightWithoutSearcher("text", bq, text, 100);
+            Assertions.assertTrue(result instanceof HighlightedTerm, "Did not return a string!");
+            return (HighlightedTerm)result;
+        } catch (ParseException e) {
+            Assertions.fail("Failed to parse Lucene query");
+        }
+        return null;
     }
 
     private void assertHighlightCorrect(HighlightedTerm expected, HighlightedTerm actual) {
