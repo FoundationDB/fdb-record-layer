@@ -85,7 +85,6 @@ import java.util.function.Supplier;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.FIELD_INFO_EXTENSION;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION;
 import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXTENSION;
 
 /**
