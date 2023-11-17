@@ -442,7 +442,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         private DataModel() {
             if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                !Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
+                    !Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
                 // this is set to immutable so that if anything tries to change it the test will fail, rather than
                 // quietly doing weird things
                 searchWords = List.of();
@@ -486,8 +486,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private void updateSearchWords() {
             // Update does not use the searchWords
             if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                !Config.COMMANDS_TO_RUN.contains(Command.Insert) &&
-                !Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
+                    !Config.COMMANDS_TO_RUN.contains(Command.Insert) &&
+                    !Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
                 return;
             }
             if (Math.floor(lastSearchWordsUpdate / 1000.0) >= Math.floor(maxDocId / 1000.0)) {
