@@ -124,19 +124,19 @@
 ---
 # BOOLEAN value matched against singleton IN list of BOOLEAN-resultant simple expressions
 - query: select a, d from ta where d in (3 < 4)
-- result: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
+- unorderedResult: [{A: 0, !ignore x}, {A: 2, !ignore x}, {A: 4, !ignore x}, {A: 6, !ignore x}, {A: 8, !ignore x}]
 ---
 # STRING value matched against IN list of STRING values
 - query: select a, e from ta where e in ('bar', 'doe')
-- result: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
+- unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
 ---
 # STRING value matched against singleton IN list of STRING values
 - query: select a, e from ta where e in ('foo')
-- result: [ { A: 0, !ignore x }, { A: 6, !ignore x }]
+- unorderedResult: [ { A: 0, !ignore x }, { A: 6, !ignore x }]
 ---
 # STRING value matched against IN list of BOOLEAN-resultant simple expressions
 - query: select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
-- result: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
+- unorderedResult: [{ A: 1, !ignore x }, { A: 8, !ignore x }, { A: 2, !ignore x }, { A: 5, !ignore x }, { A: 9, !ignore x }]
 ---
 # `NOT IN` not supported
 - query: select a, e from ta where e not in ('foo' , 35)
@@ -176,7 +176,7 @@
 ---
 # constant LONG value matched against IN list of LONG values.
 - query: select a from ta where 1 in (1, 2, 3)
-- result: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
+- unorderedResult: [{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}]
 ---
 - connect: "jdbc:embed:/__SYS?schema=CATALOG"
 ---

@@ -136,6 +136,12 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         }
     }
 
+    @Override
+    @Nullable
+    public int getPlanHash() {
+        return planHash;
+    }
+
     private Continuation enrichContinuation(Continuation cont) throws RelationalException {
         ContinuationBuilder builder = ContinuationImpl.copyOf(cont)
                 .asBuilder();

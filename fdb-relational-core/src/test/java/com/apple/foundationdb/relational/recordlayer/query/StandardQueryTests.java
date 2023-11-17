@@ -211,7 +211,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches("(.*Scan.*RESTAURANTCOMPLEXRECORD|.*Index.* <,>).*REST_NO GREATER_THAN promote\\(@0 as LONG\\).* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
+                    assertThat(plan).matches("(.*Scan.*RESTAURANTCOMPLEXRECORD|.*Index.* <,>).*REST_NO GREATER_THAN promote\\(@0 as LONG\\).*");
                 }
             }
         }
@@ -224,7 +224,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*RECORD_NAME_IDX.*REST_NO GREATER_THAN promote\\(@0 as LONG\\).* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
+                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*RECORD_NAME_IDX.*REST_NO GREATER_THAN promote\\(@0 as LONG\\).*");
                 }
             }
         }
@@ -237,7 +237,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Index.*MV1.*\\[\\[GREATER_THAN_OR_EQUALS promote\\(@0 as LONG\\)\\]\\].* as REST_NO, .* as NAME, .* as LOCATION, .* as REVIEWS, .* as TAGS, .* as CUSTOMER, .* as ENCODED_BYTES.*");
+                    assertThat(plan).matches(".*Index.*MV1.*\\[\\[GREATER_THAN_OR_EQUALS promote\\(@0 as LONG\\)\\]\\].*");
                 }
             }
         }
@@ -879,6 +879,51 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(expected)
                             .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void selectStarStatement() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 101)");
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(42L, 100L, 101L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void selectNestedStarWorks() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 101)");
+                Assertions.assertTrue(statement.execute("select (*) from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final var struct = resultSet.getStruct(1);
+                    Assertions.assertEquals(42, struct.getInt(1));
+                    Assertions.assertEquals(100, struct.getInt(2));
+                    Assertions.assertEquals(101, struct.getInt(3));
+                    Assertions.assertFalse(resultSet.next());
+                }
+                Assertions.assertTrue(statement.execute("select ((*)) from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final var struct = resultSet.getStruct(1);
+                    final var nestedStruct = struct.getStruct(1);
+                    Assertions.assertEquals(42, nestedStruct.getInt(1));
+                    Assertions.assertEquals(100, nestedStruct.getInt(2));
+                    Assertions.assertEquals(101, nestedStruct.getInt(3));
+                    Assertions.assertFalse(resultSet.next());
                 }
             }
         }

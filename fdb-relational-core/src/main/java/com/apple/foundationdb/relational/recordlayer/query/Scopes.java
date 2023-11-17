@@ -152,6 +152,9 @@ public class Scopes {
         @Nonnull
         private final List<Column<? extends Value>> selectedColumnList;
 
+        @Nullable
+        private Value projectionValue;
+
         @Nonnull
         private final List<Integer> projectedCardinals;
 
@@ -201,17 +204,21 @@ public class Scopes {
             this.aggregateReferences = new ArrayList<>();
             this.projectedCardinals = new ArrayList<>();
             this.orderByCardinals = new ArrayList<>();
+            this.projectionValue = null;
         }
 
         @Nonnull
         private SelectExpression convertToSelectExpression() {
             final GraphExpansion.Builder builder = GraphExpansion.builder();
-            builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()))
-                    .addAllResultColumns(selectedColumnList);
+            builder.addAllQuantifiers(new ArrayList<>(quantifiers.values()));
             if (predicate != null) {
                 builder.addPredicate(predicate);
             }
-            return builder.build().buildSelect();
+            if (projectionValue != null) {
+                return builder.build().buildSelectWithResultValue(projectionValue);
+            } else {
+                return builder.addAllResultColumns(selectedColumnList).build().buildSelect();
+            }
         }
 
         @Nonnull
@@ -235,7 +242,8 @@ public class Scopes {
             } else {
                 relationalExpression = convertToLogicalSortExpression();
             }
-            if (projectedCardinals.size() != selectedColumnList.size()) {
+            final var projectedColumnsSize = projectionValue != null ? 0 : selectedColumnList.size();
+            if (projectedCardinals.size() != projectedColumnsSize) {
                 final var qun = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
                 final var builder = GraphExpansion.builder().addQuantifier(qun);
                 for (int idx : projectedCardinals) {
@@ -307,6 +315,13 @@ public class Scopes {
             projectedCardinals.add(selectedColumnList.size() - 1);
         }
 
+        public void addProjectionValue(@Nonnull final Value value) {
+            Assert.thatUnchecked(value.getResultType().isRecord());
+            projectionValue = value;
+            selectedColumnList.clear();
+            projectedCardinals.clear();
+        }
+
         public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
             Assert.thatUnchecked(column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
             if (orderByCardinals.isEmpty()) {
@@ -320,7 +335,16 @@ public class Scopes {
             var orderByCardinalInProjectionList = selectedColumnList.indexOf(column);
             Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
                     String.format("Order by column %s is duplicated in the order by clause", (column.getValue() instanceof VersionValue ? "version" : column.getField().getFieldName())), ErrorCode.COLUMN_ALREADY_EXISTS);
-            orderByCardinals.add(selectedColumnList.indexOf(column));
+            if (projectionValue != null) {
+                final var fields = ((Type.Record)(projectionValue.getResultType())).getFields();
+                for (int i = 0; i < fields.size(); ++i) {
+                    if (fields.get(i).equals(column.getField())) {
+                        orderByCardinals.add(i);
+                    }
+                }
+            } else {
+                orderByCardinals.add(selectedColumnList.indexOf(column));
+            }
         }
 
         @Nonnull

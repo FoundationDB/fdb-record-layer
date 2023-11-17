@@ -62,7 +62,7 @@
 ---
 # Do not include __ROW_VERSION (as a pseudo-column) in *
 - query: select t1.* from t1 where col1 = 10;
-- explain: "map(Index(I1 [EQUALS promote(@0 as LONG)])[($T1.ID as ID, $T1.COL1 as COL1, $T1.COL2 as COL2)])"
+- explain: "Index(I1 [EQUALS promote(@0 as LONG)])"
 - result: [{ID: 1, COL1: 10, COL2: 1}, {ID: 2, COL1: 10,  COL2: 2}, {ID: 3, COL1: 10, COL2: 3}, {ID: 4, COL1: 10, COL2: 4}, {ID: 5, COL1: 10, COL2: 5}]
 ---
 # Get version column from sub-select
@@ -79,9 +79,17 @@
 - explain: "map(Index(I1 [EQUALS promote(@0 as LONG)])[(version(T1) as VERSION, $T1.ID as ID, $T1.COL1 as COL1, $T1.COL2 as COL2)])"
 - result: [{VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
 ---
+- query: select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;
+- explain: "map(Index(I1 [EQUALS promote(@0 as LONG)])[(version(T1) as VERSION, $T1 as _1)])"
+- result: [{VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
+---
 - query: select "__ROW_VERSION", t1.* from t1 where col1 = 20;
 - explain: "map(Index(I1 [EQUALS promote(@0 as LONG)])[(version(T1) as __ROW_VERSION, $T1.ID as ID, $T1.COL1 as COL1, $T1.COL2 as COL2)])"
 - result: [{__ROW_VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {__ROW_VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {__ROW_VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {__ROW_VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {__ROW_VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {__ROW_VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {__ROW_VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {__ROW_VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
+---
+- query: select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;
+- explain: "map(Index(I1 [EQUALS promote(@0 as LONG)])[(version(T1) as __ROW_VERSION, $T1 as _1)])"
+- result: [{__ROW_VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {__ROW_VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {__ROW_VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {__ROW_VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {__ROW_VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {__ROW_VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {__ROW_VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {__ROW_VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
 ---
 - query: select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;
 - explain: "map(Index(VERSION_INDEX <,>)[(version(T1) as __ROW_VERSION, $T1.ID as ID)])"

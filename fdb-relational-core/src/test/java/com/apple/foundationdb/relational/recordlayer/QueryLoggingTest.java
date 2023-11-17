@@ -231,12 +231,12 @@ public class QueryLoggingTest {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("queryHash=\"" + queryHash + "\"");
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planHash=\"1902303907\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planHash=\"-1179946538\"");
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)")) {
             resultSet.next();
         }
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("queryHash=\"" + queryHash + "\"");
-        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planHash=\"1902303907\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planHash=\"-1179946538\"");
     }
 
     @Test

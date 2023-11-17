@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.cli.formatters.ResultSetFormat;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
@@ -43,6 +42,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @SuppressWarnings({"PMD.GuardLogStatement"})
@@ -56,7 +56,8 @@ class QueryCommand extends Command {
         EXPLAIN("explain"),
         EXPLAIN_CONTAINS("explainContains"),
         COUNT("count"),
-        ERROR("error");
+        ERROR("error"),
+        PLAN_HASH("planHash");
 
         @Nonnull
         private final String label;
@@ -242,6 +243,21 @@ class QueryCommand extends Command {
         Assertions.assertEquals(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS, resultSet.noNextRowReason());
     }
 
+    private void checkForPlanHash(@Nonnull final Object queryResults, @Nullable final SQLException sqlException,
+                                  @Nonnull QueryConfigWithValue queryConfigWithValue, @Nonnull String query) throws Exception {
+        if (sqlException != null) {
+            logAndThrowUnexpectedException(sqlException);
+        }
+        logger.debug("matching plan hash of query '{}'", query);
+        final var resultSet = (RelationalResultSet) queryResults;
+        Matchers.matches(queryConfigWithValue.val, resultSet.getPlanHash());
+
+        if (!Objects.equals(Integer.parseInt(queryConfigWithValue.val.toString()), resultSet.getPlanHash())) {
+            Assertions.fail("incorrect plan hash!");
+        }
+        logger.debug("✔️ plan hash matches!");
+    }
+
     private Continuation executeWithAConfig(@Nonnull String query, @Nonnull final CliCommandFactory factory,
                                             @Nonnull QueryConfigWithValue queryConfigWithValue) throws Exception {
         logger.debug("executing query '{}'", query);
@@ -280,6 +296,9 @@ class QueryCommand extends Command {
             case ERROR:
                 continuation = checkForError(queryResults, sqlException, Matchers.string(queryConfigWithValue.val, "expected error code"), query);
                 break;
+            case PLAN_HASH:
+                checkForPlanHash(queryResults, sqlException, queryConfigWithValue, query);
+                break;
             default:
                 Assert.fail(String.format("‼️ no handler for query configuration '%s'", queryConfigWithValue.config.label));
                 break;
@@ -295,13 +314,17 @@ class QueryCommand extends Command {
         final var queryString = Matchers.string(Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "query string").getValue(), "query string"), "query string");
         final var regionWithoutQuery = region.stream().skip(1).collect(Collectors.toList());
         boolean queryHasRun = false;
+        boolean queryIsRunning = false;
         Continuation continuation = null;
         var configIterator = regionWithoutQuery.listIterator();
-        for (int i = 0; configIterator.hasNext(); i++) {
+        while (configIterator.hasNext()) {
             Object o = configIterator.next();
             var queryConfigWithValue = getQueryConfigWithValue(o);
-            if (queryConfigWithValue.config == QueryConfig.EXPLAIN || queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
-                Assert.that(i == 0, "EXPLAIN config should be the first config specified.");
+            if (queryConfigWithValue.config == QueryConfig.PLAN_HASH) {
+                Assert.that(!queryIsRunning, "plan hash test should not be intermingled with query result tests");
+                executeWithAConfig(Objects.requireNonNull(queryString), factory, queryConfigWithValue);
+            } else if (queryConfigWithValue.config == QueryConfig.EXPLAIN || queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
+                Assert.that(!queryIsRunning, "explain test should not be intermingled with query result tests");
                 executeWithAConfig("explain " + queryString, factory, queryConfigWithValue);
             } else {
                 if (queryConfigWithValue.config == QueryConfig.ERROR) {
@@ -320,6 +343,9 @@ class QueryCommand extends Command {
 
                 if (continuation == null || continuation.atEnd()) {
                     queryHasRun = true;
+                    queryIsRunning = false;
+                } else {
+                    queryIsRunning = true;
                 }
             }
         }
