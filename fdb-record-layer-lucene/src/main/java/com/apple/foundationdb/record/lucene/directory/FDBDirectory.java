@@ -164,26 +164,24 @@ public class FDBDirectory extends Directory  {
 
     private final Map<BitSet, byte[]> fieldInfosDataMap;
 
-    private final boolean primaryKeySegmentIndexEnabled;
     @Nullable
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
     @VisibleForTesting
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
-                        boolean primaryKeySegmentIndexEnabled) {
-        this(subspace, context, indexOptions, null, null, primaryKeySegmentIndexEnabled, true);
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
+        this(subspace, context, indexOptions, null, null, true);
     }
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean primaryKeySegmentIndexEnabled, @Nullable boolean deferDeleteToCompoundFile) {
-        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, primaryKeySegmentIndexEnabled, NoLockFactory.INSTANCE,
+                        boolean deferDeleteToCompoundFile) {
+        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, NoLockFactory.INSTANCE,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                  @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                 boolean primaryKeySegmentIndexEnabled, @Nonnull LockFactory lockFactory,
+                 @Nonnull LockFactory lockFactory,
                  int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
                  boolean deferDeleteToCompoundFile) {
         Verify.verify(subspace != null);
@@ -211,7 +209,6 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
-        this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
@@ -944,7 +941,7 @@ public class FDBDirectory extends Directory  {
      */
     @Nullable
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        if (!primaryKeySegmentIndexEnabled) {
+        if (!getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
             return null;
         }
         synchronized (this) {

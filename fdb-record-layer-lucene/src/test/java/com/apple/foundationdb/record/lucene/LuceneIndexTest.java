@@ -2616,7 +2616,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             assertEquals(20,
                     recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN).getCount().join());
-            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), primaryKeySegmentIndexEnabled)) {
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                 assertEquals(21, directory.listAll().length);
             }
         }
@@ -2627,7 +2627,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void assertEntriesAndSegmentInfoStoredInCompoundFile(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment, boolean cleanFiles) {
-        try (final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions(), false)) {
+        try (final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions())) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
             assertNotNull(reference);
             Assertions.assertTrue(reference.getEntries().length > 0);
@@ -2637,7 +2637,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void assertOnlyCompoundFileExisting(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, boolean cleanFiles) {
-        final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions(), false) : fdbDirectory;
+        final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions()) : fdbDirectory;
         String[] allFiles = directory.listAll();
         for (String file : allFiles) {
             Assertions.assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || file.endsWith(".pky"), "fileName=" + file);

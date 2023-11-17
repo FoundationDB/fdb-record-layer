@@ -112,7 +112,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
@@ -214,7 +214,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Set.of(), Set.of());
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
                 }
@@ -240,7 +240,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Set.of(), Set.of());
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(0));
                 }
             }
@@ -269,7 +269,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
                 }
             }
@@ -300,7 +300,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
                 }
@@ -334,7 +334,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             queryAndAssertFieldsT(query, "time", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(8.123, 9.123));
 
             if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions(), true)) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 5);
