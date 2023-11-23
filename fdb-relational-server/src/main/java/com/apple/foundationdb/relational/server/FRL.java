@@ -49,10 +49,8 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -104,8 +102,6 @@ public class FRL implements AutoCloseable {
                 .setBaseKeySpace(keySpace)
                 .setStoreCatalog(storeCatalog).build();
 
-        //TODO(bfines) configuration here
-        QueryLogger.configure(Options.NONE);
         this.engine = RecordLayerEngine.makeEngine(
                 rlConfig,
                 Collections.singletonList(fdbDb),

@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import com.codahale.metrics.MetricRegistry;
@@ -42,9 +41,6 @@ import java.util.Collections;
 import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
-    static {
-        QueryLogger.configure(Options.NONE);
-    }
 
     private final KeySpace keySpace;
     private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;

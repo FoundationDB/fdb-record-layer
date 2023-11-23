@@ -47,19 +47,14 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.QueryPropertiesUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.common.base.Throwables;
@@ -70,7 +65,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -89,23 +83,6 @@ public final class BackingRecordStore implements BackingStore {
             return type.cast(recordStore);
         }
         return BackingStore.super.unwrap(type);
-    }
-
-    @Override
-    public Optional<RelationalResultSet> executeQuery(EmbeddedRelationalConnection conn, String query, Options options) throws RelationalException {
-        final var planContext = PlanContext.Builder.create()
-                .fromRecordStore(recordStore)
-                .fromDatabase(conn.getRecordLayerDatabase())
-                .withSchemaTemplate(conn.getSchemaTemplate())
-                .build();
-        final Plan<?> plan = Plan.generate(query, planContext, options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
-        final var executionContext = Plan.ExecutionContext.of(transaction, options, conn, planContext.getMetricsCollector());
-        if (plan instanceof QueryPlan) {
-            return Optional.of(((QueryPlan) plan).execute(executionContext));
-        } else {
-            plan.execute(executionContext);
-            return Optional.empty();
-        }
     }
 
     @Nullable

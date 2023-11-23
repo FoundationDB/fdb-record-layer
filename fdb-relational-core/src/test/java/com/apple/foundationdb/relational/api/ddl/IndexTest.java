@@ -20,35 +20,48 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -58,21 +71,31 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
 
 public class IndexTest {
+    @RegisterExtension
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(2)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DdlStatementParsingTest.class, TestSchemas.books());
+
+    @RegisterExtension
+    @Order(3)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+            .withSchema("TEST_SCHEMA");
+
     @BeforeAll
     public static void setup() {
         Utils.enableCascadesDebugger();
     }
 
-    private final PlanContext fakePlanContext;
-
-    public IndexTest() throws RelationalException {
-        final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.SCHEMAS_TABLE_NAME).addDefinition(schemaBuilder);
-        SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).addDefinition(schemaBuilder);
-        final var schemaTemplate = schemaBuilder.setName("CATALOG_TEMPLATE").setVersion(1).build();
-        final var metadataProto = schemaTemplate.toRecordMetadata();
-        fakePlanContext = PlanContext.Builder.create()
-                .withMetadata(metadataProto)
+    private PlanContext getFakePlanContext() throws SQLException, RelationalException {
+        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
+        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
+        return PlanContext.Builder.create()
+                .withMetadata(RecordMetaData.build(md))
+                .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                 .withUserVersion(0)
                 .withDbUri(URI.create("/IndexTest"))
@@ -82,13 +105,16 @@ public class IndexTest {
                 .build();
     }
 
-    @BeforeEach
-    void setUpQueryLogger() {
-        QueryLogger.configure(Options.NONE);
+    private PlanGenerator getPlanGenerator() throws SQLException, RelationalException {
+        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
+        final var storeState = new RecordStoreState(null, Map.of());
+        final FDBRecordStoreBase<Message> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
+        return PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), storeState, Options.NONE);
     }
 
     void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
-        shouldFailWithInjectedFactory(query, errorCode, errorMessage, fakePlanContext.getConstantActionFactory());
+        shouldFailWithInjectedFactory(query, errorCode, errorMessage, getFakePlanContext().getConstantActionFactory());
     }
 
     void shouldFailWithInjectedFactory(@Nonnull final String query,
@@ -96,13 +122,13 @@ public class IndexTest {
                                        @Nonnull final String errorMessage,
                                        @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false));
+                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format("expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false);
+        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build());
     }
 
     private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {

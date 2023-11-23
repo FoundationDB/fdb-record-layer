@@ -27,8 +27,8 @@ import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.Ddl;
 
 import com.google.protobuf.Message;
@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class SqlVisitorTests {
 
@@ -158,7 +159,9 @@ public class SqlVisitorTests {
                 .fromDatabase(database)
                 .fromRecordStore(store)
                 .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
+                .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .build();
-        Assertions.assertDoesNotThrow(() -> Plan.generate(query, planContext, false));
+        final PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan(query, planContext));
     }
 }

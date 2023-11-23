@@ -41,12 +41,10 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.QueryPropertiesUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -59,7 +57,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public final class BackingLocatableResolverStore implements BackingStore {
@@ -73,11 +70,6 @@ public final class BackingLocatableResolverStore implements BackingStore {
         this.locatableResolver = locatableResolver;
         this.txn = txn;
         this.metaDataProvider = metaDataProvider;
-    }
-
-    @Override
-    public Optional<RelationalResultSet> executeQuery(EmbeddedRelationalConnection conn, String query, Options options) throws RelationalException {
-        throw new OperationUnsupportedException("Cannot execute query from interning layer store");
     }
 
     @Nullable

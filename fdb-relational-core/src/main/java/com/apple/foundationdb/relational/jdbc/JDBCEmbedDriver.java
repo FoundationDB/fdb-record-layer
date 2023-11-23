@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerEngine;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
@@ -128,7 +127,6 @@ public final class JDBCEmbedDriver implements java.sql.Driver {
                 .setRlConfig(rlConfig)
                 .setBaseKeySpace(keySpace)
                 .setStoreCatalog(this.storeCatalog).build();
-        QueryLogger.configure(Options.NONE);
         this.embeddedRelationalDriver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
                 rlConfig,
                 Collections.singletonList(fdbDb),

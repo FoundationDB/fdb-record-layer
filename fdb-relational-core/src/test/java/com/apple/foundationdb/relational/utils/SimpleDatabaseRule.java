@@ -86,6 +86,10 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
         return schemaRule.getSchemaName();
     }
 
+    public String getSchemaTemplateName() {
+        return templateRule.getTemplateName();
+    }
+
     public URI getConnectionUri() {
         return URI.create("jdbc:embed://" + getDatabasePath().getPath());
     }

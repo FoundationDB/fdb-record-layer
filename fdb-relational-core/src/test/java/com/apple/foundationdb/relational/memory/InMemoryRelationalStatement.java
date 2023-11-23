@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.memory;
 
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Supplier;
@@ -52,6 +54,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class InMemoryRelationalStatement implements RelationalStatement {
@@ -112,7 +116,8 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withUserVersion(0)
                     .build();
 
-            final Plan<?> plan = Plan.generate(sql, ctx, false);
+            final var planGenerator = PlanGenerator.of(Optional.empty(), ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            final Plan<?> plan = planGenerator.getPlan(sql, ctx);
             if (plan instanceof QueryPlan) {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");
             }

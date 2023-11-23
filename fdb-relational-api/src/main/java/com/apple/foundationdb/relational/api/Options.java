@@ -37,7 +37,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 public final class Options {
 
@@ -119,23 +118,6 @@ public final class Options {
         LOG_QUERY,
 
         /**
-         * The maximum throughput of queries to log, in samples/SAMPLING_TIME_UNIT.
-         * Scope: Engine
-         */
-        MAX_QUERY_LOGGING_THROUGHPUT,
-
-        /**
-         * The unit of time to use when computing various sampling processes.
-         * Scope: Engine
-         */
-        SAMPLING_TIME_UNIT,
-        /**
-         * The maximum size of the Query logging cache.
-         * Scope: Engine
-         */
-        MAX_QUERY_LOGGING_CACHE_SIZE,
-
-        /**
          * Log a query at info level if it is slower than `LOG_SLOW_QUERY_THRESHOLD` microseconds.
          * Scope: Engine
          */
@@ -206,9 +188,6 @@ public final class Options {
         builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 8);
         builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 30_000L);
         builder.put(Name.REPLACE_ON_DUPLICATE_PK, false);
-        builder.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, 1);
-        builder.put(Name.SAMPLING_TIME_UNIT, TimeUnit.MINUTES);
-        builder.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, 128);
         builder.put(Name.LOG_QUERY, false);
         builder.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 2_000_000L);
         builder.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, Long.MAX_VALUE);
@@ -335,9 +314,6 @@ public final class Options {
         data.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
         data.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
         data.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));
-        data.put(Name.MAX_QUERY_LOGGING_THROUGHPUT, List.of(new TypeContract<>(Integer.class)));
-        data.put(Name.SAMPLING_TIME_UNIT, List.of(new TypeContract<>(TimeUnit.class)));
-        data.put(Name.MAX_QUERY_LOGGING_CACHE_SIZE, List.of(new TypeContract<>(Integer.class), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.LOG_QUERY, List.of(new TypeContract<>(Boolean.class)));
         data.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.EXECUTION_TIME_LIMIT, List.of(new TypeContract<>(Long.class), RangeContract.of(0L, Long.MAX_VALUE)));

@@ -80,7 +80,6 @@ import java.util.stream.Collectors;
  * timer and same-thread executor, so we can produce deterministic test results.
  */
 public class RelationalPlanCacheTests {
-
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();

@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
 import java.util.Collection;
@@ -59,7 +58,6 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
                     .build();
         }
 
-        QueryLogger.configure(engineOptions);
         this.clusters = List.of(new TransactionBoundStorageCluster(planCache));
     }
 

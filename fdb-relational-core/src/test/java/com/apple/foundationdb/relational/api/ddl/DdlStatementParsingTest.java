@@ -22,32 +22,40 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
-import com.apple.foundationdb.relational.recordlayer.query.QueryLogger;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
 
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -57,8 +65,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,34 +80,38 @@ import java.util.stream.Stream;
  * that the underlying execution is correct, only that the language is parsed as expected.
  */
 public class DdlStatementParsingTest {
+    @RegisterExtension
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(2)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DdlStatementParsingTest.class, TestSchemas.books());
+
+    @RegisterExtension
+    @Order(3)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+            .withSchema("TEST_SCHEMA");
 
     @BeforeAll
     public static void setup() {
         Utils.enableCascadesDebugger();
     }
 
-    @BeforeEach
-    void setUpQueryLogger() {
-        QueryLogger.configure(Options.NONE);
-    }
-
-    private final PlanContext fakePlanContext;
-
     private static final String[] validPrimitiveDataTypes = new String[]{
             "integer", "bigint", "double", "boolean", "string", "bytes"
     };
 
-    public DdlStatementParsingTest() throws RelationalException {
-        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder();
-        SystemTableRegistry.getSystemTable("SCHEMAS").addDefinition(schemaTemplateBuilder);
-        SystemTableRegistry.getSystemTable("DATABASES").addDefinition(schemaTemplateBuilder);
-        final var schemaTemplate = schemaTemplateBuilder
-                .setVersion(1)
-                .setName("CATALOG_TEMPLATE")
-                .build();
+    public DdlStatementParsingTest() throws RelationalException, SQLException {
+    }
+
+    private PlanContext getFakePlanContext() throws SQLException, RelationalException {
+        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
-        fakePlanContext = PlanContext.Builder.create()
+        return PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
+                .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                 .withUserVersion(0)
                 .withDbUri(URI.create("/DdlStatementParsingTest"))
@@ -104,6 +119,14 @@ public class DdlStatementParsingTest {
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                 .withSchemaTemplate(schemaTemplate)
                 .build();
+    }
+
+    private PlanGenerator getPlanGenerator() throws SQLException, RelationalException {
+        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
+        final var storeState = new RecordStoreState(null, Map.of());
+        final FDBRecordStoreBase<Message> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
+        return PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), storeState, Options.NONE);
     }
 
     public static Stream<Arguments> columnTypePermutations() {
@@ -115,27 +138,27 @@ public class DdlStatementParsingTest {
     }
 
     void shouldFailWith(@Nonnull final String query, @Nullable ErrorCode errorCode) throws Exception {
-        shouldFailWithInjectedFactory(query, errorCode, fakePlanContext.getConstantActionFactory());
+        shouldFailWithInjectedFactory(query, errorCode, getFakePlanContext().getConstantActionFactory());
     }
 
     void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false));
+                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withConstantActionFactory(metadataOperationsFactory).build(), false);
+        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build());
     }
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build(), false));
+                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
-        Plan.generate(query, PlanContext.Builder.unapply(fakePlanContext).withDdlQueryFactory(queryFactory).build(), false);
+        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build());
     }
 
     @Nonnull

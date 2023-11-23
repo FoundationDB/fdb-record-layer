@@ -30,19 +30,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 
 import com.google.protobuf.Message;
 
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.Optional;
 
 public interface BackingStore extends RecordMetaDataProvider {
-    Optional<RelationalResultSet> executeQuery(EmbeddedRelationalConnection conn, String query, Options options) throws RelationalException;
 
     @Nullable
     Row get(Row key, Options options) throws RelationalException;
