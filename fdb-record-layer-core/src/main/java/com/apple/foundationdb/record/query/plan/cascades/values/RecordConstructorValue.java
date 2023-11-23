@@ -81,6 +81,13 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
+    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final String name) {
+        this.resultType = computeResultType(columns).withName(name);
+        this.columns = resolveColumns(resultType, columns);
+        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+    }
+
     @Nonnull
     public List<Column<? extends Value>> getColumns() {
         return columns;
@@ -381,11 +388,17 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return resolvedColumnsBuilder.build();
     }
 
-
+    @Nonnull
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
         return new RecordConstructorValue(columns);
     }
 
+    @Nonnull
+    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns, @Nonnull final String name) {
+        return new RecordConstructorValue(columns, name);
+    }
+
+    @Nonnull
     public static RecordConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
         return new RecordConstructorValue(arguments.stream()
                         .map(Column::unnamedOf)
