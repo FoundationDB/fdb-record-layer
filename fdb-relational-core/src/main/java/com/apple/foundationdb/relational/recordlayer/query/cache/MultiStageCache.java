@@ -151,7 +151,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
                     .recordStats()
                     .removalListener((RemovalListener<S, V>) (k, v, i) -> {
                         final var value = mainCache.getIfPresent(key);
-                        if (value != null && value.asMap().size() == 0) {
+                        if (value != null && value.asMap().isEmpty()) {
                             mainCache.invalidate(key); // best effort
                         }
                     });

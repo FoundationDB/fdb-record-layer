@@ -70,8 +70,13 @@ public class Scopes {
     }
 
     @Nullable
-    public Scope getCurrentScope() {
+    public Scope getCurrentScopeMaybe() {
         return currentScope;
+    }
+
+    @Nonnull
+    public Scope getCurrentScope() {
+        return Assert.notNullUnchecked(currentScope, "Unexpected null scope");
     }
 
     @Nonnull

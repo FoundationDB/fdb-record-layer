@@ -278,7 +278,7 @@ public final class ParserUtils {
     }
 
     public static Value resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
-        final var currentScope = scopes.getCurrentScope();
+        final var currentScope = scopes.getCurrentScopeMaybe();
         Assert.thatUnchecked(!fieldPath.isEmpty());
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
         final var isUnderlyingSelectWhere = currentScope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
@@ -292,7 +292,7 @@ public final class ParserUtils {
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     private static Value resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
-        final var currentScope = scopes.getCurrentScope();
+        final var currentScope = scopes.getCurrentScopeMaybe();
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
         Assert.thatUnchecked(!fieldPath.isEmpty());
         FieldValue result = null;
@@ -363,7 +363,7 @@ public final class ParserUtils {
     @Nonnull
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     private static Value resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
-        final var currentScope = scopes.getCurrentScope();
+        final var currentScope = scopes.getCurrentScopeMaybe();
         Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
         final var fieldAccessors = toAccessors(fieldPath);
         final var fieldPathStr = String.join(".", fieldPath);

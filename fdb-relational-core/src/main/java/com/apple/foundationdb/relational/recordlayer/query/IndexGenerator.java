@@ -408,14 +408,6 @@ public final class IndexGenerator {
         }
 
         @Nonnull
-        public static AnnotatedAccessor of(@Nonnull Type fieldType,
-                                           @Nullable String fieldName,
-                                           int fieldOrdinal,
-                                           int marker) {
-            return new AnnotatedAccessor(fieldType, fieldName, fieldOrdinal, marker);
-        }
-
-        @Nonnull
         public static AnnotatedAccessor of(@Nonnull FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
             return new AnnotatedAccessor(resolvedAccessor.getType(), resolvedAccessor.getName(), resolvedAccessor.getOrdinal(), marker);
         }
@@ -516,7 +508,7 @@ public final class IndexGenerator {
                 .collect(toList());
         Assert.thatUnchecked(expressionRefs.size() == 1, "Unsupported query, expected to find exactly one type filter operator", ErrorCode.UNSUPPORTED_OPERATION);
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
-        Assert.thatUnchecked(recordTypes.size() == 1, String.format("Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.size() == 0 ? "nothing" : String.join(",", recordTypes)));
+        Assert.thatUnchecked(recordTypes.size() == 1, String.format("Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
         return recordTypes.stream().findFirst().orElseThrow();
     }
 

@@ -247,8 +247,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public RelationalExpression visitQuerySpecification(RelationalParser.QuerySpecificationContext ctx) {
-        //        Assert.thatUnchecked(ctx.selectSpec().isEmpty(), UNSUPPORTED_QUERY);
-//        Assert.isNullUnchecked(ctx.windowClause(), UNSUPPORTED_QUERY);
         Assert.notNullUnchecked(ctx.fromClause(), UNSUPPORTED_QUERY);
 
         return handleSelectInternal(ctx.selectElements(), ctx.fromClause(), ctx.groupByClause(), ctx.havingClause(), ctx.orderByClause(), ctx.limitClause());
@@ -391,7 +389,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
     }
 
-    @Nonnull List<Column<? extends Value>> expandSelectWhereColumns(@Nonnull final Quantifier qun, @Nullable final Value id) {
+    @Nonnull
+    List<Column<? extends Value>> expandSelectWhereColumns(@Nonnull final Quantifier qun, @Nullable final Value id) {
         List<Column<? extends FieldValue>> expandedColumnNames;
         if (id == null) {
             expandedColumnNames = qun.getFlowedColumns().subList(1, qun.getFlowedColumns().size());
@@ -410,7 +409,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return fieldNames.stream().map(fieldName -> ParserUtils.resolveField(List.of(fieldName), scopes)).map(ParserUtils::toColumn).collect(Collectors.toList());
     }
 
-    @Nonnull
     private void expandStarColumns(@Nullable Value id) {
         final var scope = scopes.getCurrentScope();
         final var isUnderlyingSelectWhere = scope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
@@ -463,7 +461,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                     columns.addAll(flattenQuantifier(quantifier));
                 } else {
                     for (var column : quantifier.getFlowedColumns()) {
-                        if (ParserUtils.normalizeString(column.getField().getFieldName(), caseSensitive).equals(expansionQualifier) && column.getValue().getResultType().isRecord()) {
+                        if (expansionQualifier.equals(ParserUtils.normalizeString(column.getField().getFieldName(), caseSensitive)) && column.getValue().getResultType().isRecord()) {
                             for (final var field : ((Type.Record) column.getValue().getResultType()).getFields()) {
                                 final var subField = FieldValue.ofFieldNameAndFuseIfPossible(column.getValue(), field.getFieldName());
                                 // create columns from field names leaving it to the constructor of fields to re-create their ordinal positions.
@@ -479,6 +477,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         return columns;
     }
 
+    @Nonnull
     private Value handleDelayedExpansion(@Nullable final String qualifier) {
         final var scope = scopes.getCurrentScope();
         Assert.thatUnchecked(scope.getForEachQuantifiers().size() == 1);
@@ -486,11 +485,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (qualifier == null) {
             return QuantifiedObjectValue.of(quantifier);
         } else {
-            if (ParserUtils.normalizeString(quantifier.getAlias().getId(), caseSensitive).equals(qualifier)) {
+            if (qualifier.equals(ParserUtils.normalizeString(quantifier.getAlias().getId(), caseSensitive))) {
                 return QuantifiedObjectValue.of(quantifier);
             }
             for (var column : quantifier.getFlowedColumns()) {
-                if (ParserUtils.normalizeString(column.getField().getFieldName(), caseSensitive).equals(qualifier) && column.getValue().getResultType().isRecord()) {
+                if (qualifier.equals(ParserUtils.normalizeString(column.getField().getFieldName(), caseSensitive)) && column.getValue().getResultType().isRecord()) {
                     return column.getValue();
                 }
             }
@@ -670,7 +669,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitTableSources(RelationalParser.TableSourcesContext ctx) {
-        Assert.thatUnchecked(ctx.tableSource().size() > 0, UNSUPPORTED_QUERY);
+        Assert.thatUnchecked(!ctx.tableSource().isEmpty(), UNSUPPORTED_QUERY);
         ctx.tableSource().forEach(tableSource -> tableSource.accept(this));
         return null;
     }
@@ -731,14 +730,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(relationalExpression instanceof RelationalExpression);
         final RelationalExpression from = (RelationalExpression) relationalExpression;
         final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias)).build(GroupExpressionRef.of(from));
-        //        if(ParserUtils.requiresCanonicalSubSelect(forEachQuantifier, parserContext)) {
-        //            final var nestedForEachQuantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias + "__internal")).build(GroupExpressionRef.of(from));
-        //            Quantifier.ForEach quantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias))
-        //                    .build(GroupExpressionRef.of(GraphExpansion.ofQuantifier(nestedForEachQuantifier).buildSimpleSelectOverQuantifier(nestedForEachQuantifier)));
-        //            parserContext.getCurrentScope().addQuantifier(quantifier);
-        //        } else {
-        //            parserContext.getCurrentScope().addQuantifier(forEachQuantifier);
-        //        }
         scopes.getCurrentScope().addQuantifier(forEachQuantifier);
         return null;
     }
@@ -906,7 +897,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitFullId(RelationalParser.FullIdContext ctx) {
         Assert.thatUnchecked(!ctx.uid().isEmpty());
-        Assert.thatUnchecked(ctx.uid().size() > 0);
         return QualifiedIdentifierValue.of(ctx.uid().stream().map(this::visit).map(f -> ParserUtils.safeCastLiteral(f, String.class)).toArray(String[]::new));
     }
 
@@ -931,13 +921,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final QualifiedIdentifierValue qualifiedIdentifierValue = (QualifiedIdentifierValue) id;
         final var fieldParts = Arrays.stream(qualifiedIdentifierValue.getParts()).collect(Collectors.toList());
         return ParserUtils.resolveField(fieldParts, scopes);
-        //        final var qunInfo = ParserUtils.findFieldPath(fieldParts.get(0), parserContext);
-        //        if (qunInfo.getLeft().getAlias().toString().equals(fieldParts.get(0))) {
-        //            fieldParts = fieldParts.stream().skip(1).collect(Collectors.toList());
-        //        }
-        //        qunInfo.getRight().addAll(fieldParts);
-        //        final FieldValue fieldValue = ParserUtils.getFieldValue(qunInfo.getRight(), qunInfo.getLeft().getFlowedObjectValue());
-        //        return fieldValue;
     }
 
     @Override // not supported yet
@@ -1003,7 +986,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var dmlContext = context.asDml();
         final var targetType = (Type.Array) dmlContext.getTargetType();
         final var nestedContext = context.pushDmlContext();
-        nestedContext.setTargetType(targetType.getElementType());
+        nestedContext.setTargetType(Assert.notNullUnchecked(targetType.getElementType()));
         final var result = handleArray(ctx);
         context.pop();
         return result;
@@ -1383,6 +1366,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Void visitTableDefinition(RelationalParser.TableDefinitionContext ctx) {
         final var name = ParserUtils.safeCastLiteral(ctx.uid().accept(this), String.class);
         final var columns = ctx.columnDefinition().stream().map(c -> (RecordLayerColumn) c.accept(this)).collect(Collectors.toList());
@@ -1455,7 +1439,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public List<List<String>> visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
-        if (ctx.fullId().size() == 0) {
+        if (ctx.fullId().isEmpty()) {
             return List.of();
         }
         return ctx.fullId().stream().map(this::visit).map(f -> ((QualifiedIdentifierValue) (f)).getParts()).map(Arrays::asList).collect(Collectors.toList());
@@ -1500,7 +1484,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public QueryPlan.LogicalQueryPlan visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
         Assert.notNullUnchecked(ctx.tableName());
-        final var targetTypeName = ((QualifiedIdentifierValue) ctx.tableName().accept(this)).getLiteralValue();
+        final var targetTypeName = Assert.notNullUnchecked(((QualifiedIdentifierValue) ctx.tableName().accept(this)).getLiteralValue());
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
         Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
         final var targetType = (Type.Record) maybeTargetType.get();
@@ -1531,7 +1515,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var inQuantifier = Quantifier.forEach(GroupExpressionRef.of(fromExpression));
         RelationalExpression expression = new InsertExpression(inQuantifier, targetTypeName, targetType);
         // TODO Ask hatyo to help get rid of this hack.
-        if (scopes.getCurrentScope() == null) {
+        if (scopes.getCurrentScopeMaybe() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
@@ -1582,7 +1566,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         // TODO Ask hatyo to help get rid of this hack.
-        if (scopes.getCurrentScope() == null) {
+        if (scopes.getCurrentScopeMaybe() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
 
@@ -1687,7 +1671,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         //// TODO Ask hatyo to help get rid of this hack.
-        if (scopes.getCurrentScope() == null) {
+        if (scopes.getCurrentScopeMaybe() == null) {
             expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
         }
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
