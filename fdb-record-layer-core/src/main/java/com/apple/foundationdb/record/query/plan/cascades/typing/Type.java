@@ -1262,6 +1262,11 @@ public interface Type extends Narrowable<Type> {
             return new Record(name, newIsNullable, fields);
         }
 
+        @Nonnull
+        public Record withName(@Nonnull final String name) {
+            return new Record(name, isNullable, fields);
+        }
+
         @Nullable
         public String getName() {
             return name;
