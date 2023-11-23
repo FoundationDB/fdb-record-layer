@@ -18,22 +18,22 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql;
+package com.apple.foundationdb.relational.api.fluentsql;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.BooleanFunction;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.BooleanLiteral;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.ComparableFunction;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFragment;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.FunctionLike;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.NestedBooleanExpression;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.NumericFunction;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.NumericLiteral;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Operation;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.StringLiteral;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.UserDefinedField;
+import com.apple.foundationdb.relational.api.fluentsql.expression.BooleanFunction;
+import com.apple.foundationdb.relational.api.fluentsql.expression.BooleanLiteral;
+import com.apple.foundationdb.relational.api.fluentsql.expression.ComparableFunction;
+import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFragment;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
+import com.apple.foundationdb.relational.api.fluentsql.expression.FunctionLike;
+import com.apple.foundationdb.relational.api.fluentsql.expression.NestedBooleanExpression;
+import com.apple.foundationdb.relational.api.fluentsql.expression.NumericFunction;
+import com.apple.foundationdb.relational.api.fluentsql.expression.NumericLiteral;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Operation;
+import com.apple.foundationdb.relational.api.fluentsql.expression.StringLiteral;
+import com.apple.foundationdb.relational.api.fluentsql.expression.UserDefinedField;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;

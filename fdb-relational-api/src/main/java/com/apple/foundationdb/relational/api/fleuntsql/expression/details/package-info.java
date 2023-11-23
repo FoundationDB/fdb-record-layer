@@ -22,4 +22,4 @@
  * Details involving static-typing of structured queries' expressions.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql.expression.details;
+package com.apple.foundationdb.relational.api.fluentsql.expression.details;

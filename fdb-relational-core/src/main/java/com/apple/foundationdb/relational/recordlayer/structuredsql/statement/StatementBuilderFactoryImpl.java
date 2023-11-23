@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.structuredsql.statement;
 
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.fleuntsql.statement.StatementBuilderFactory;
-import com.apple.foundationdb.relational.api.fleuntsql.statement.UpdateStatement;
+import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilderFactory;
+import com.apple.foundationdb.relational.api.fluentsql.statement.UpdateStatement;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.ParseTreeInfoImpl;
 import com.apple.foundationdb.relational.util.Assert;

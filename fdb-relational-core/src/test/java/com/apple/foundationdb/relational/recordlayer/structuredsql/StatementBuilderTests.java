@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;

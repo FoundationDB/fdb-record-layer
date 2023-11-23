@@ -22,4 +22,4 @@
  * Toolbox of expressions used for constructing structured queries.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql.expression;
+package com.apple.foundationdb.relational.api.fluentsql.expression;

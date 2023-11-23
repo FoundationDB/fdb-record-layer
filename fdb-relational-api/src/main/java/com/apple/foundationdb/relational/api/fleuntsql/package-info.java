@@ -22,4 +22,4 @@
  * API for constructing statically-typed SQL statements.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql;
+package com.apple.foundationdb.relational.api.fluentsql;

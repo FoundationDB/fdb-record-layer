@@ -22,4 +22,4 @@
  * Structured query statement construction API.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql.statement;
+package com.apple.foundationdb.relational.api.fluentsql.statement;

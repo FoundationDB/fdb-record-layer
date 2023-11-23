@@ -18,13 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql.statement;
+package com.apple.foundationdb.relational.api.fluentsql.statement;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.BooleanExpressionTrait;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Expression;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.Field;
+import com.apple.foundationdb.relational.api.fluentsql.expression.BooleanExpressionTrait;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Expression;
+import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFactory;
+import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

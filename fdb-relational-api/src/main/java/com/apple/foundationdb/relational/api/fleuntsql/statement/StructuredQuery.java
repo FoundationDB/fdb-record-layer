@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.fleuntsql.statement;
+package com.apple.foundationdb.relational.api.fluentsql.statement;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;

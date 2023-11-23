@@ -21,8 +21,8 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.fleuntsql.expression.ExpressionFactory;
-import com.apple.foundationdb.relational.api.fleuntsql.statement.StatementBuilderFactory;
+import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFactory;
+import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilderFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import javax.annotation.Nonnull;
