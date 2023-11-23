@@ -534,13 +534,11 @@ public final class ParserUtils {
         }
     }
 
-    @Nullable
+    @Nonnull
     public static <T> T safeCastLiteral(@Nonnull final Object value, @Nonnull final Class<T> clazz) {
         Assert.thatUnchecked(value instanceof LiteralValue);
         final Object result = ((LiteralValue<?>) value).getLiteralValue();
-        if (!clazz.isInstance(result)) {
-            return null;
-        }
+        Assert.thatUnchecked(clazz.isInstance(result), String.format("Expected '%s' to be of type '%s'", value, clazz));
         return clazz.cast(result);
     }
 
