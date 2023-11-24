@@ -34,6 +34,15 @@ import java.sql.Wrapper;
  */
 public interface StructMetaData extends Wrapper {
 
+    /**
+     * Returns the name of the struct type. The user can set the struct type name in SQL explicitly by using
+     * {@code struct <name> (...)} clause.<br>
+     * For example: {@code SELECT struct Foo (a, b) from T} will give the struct
+     * {@code (a, b)} the name {@code foo}.
+     * @return The name of the struct type.
+     */
+    String getTypeName() throws SQLException;
+
     int getColumnCount() throws SQLException;
 
     //not super relevant yet, but it will be

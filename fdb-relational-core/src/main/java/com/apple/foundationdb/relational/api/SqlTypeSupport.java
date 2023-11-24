@@ -144,7 +144,7 @@ public final class SqlTypeSupport {
             final FieldDescription fieldDescription = fieldToDescription(field);
             fields[i] = fieldDescription;
         }
-        return new RelationalStructMetaData(fields);
+        return new RelationalStructMetaData(record.getName(), fields);
     }
 
     @Nonnull

@@ -971,11 +971,15 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             return handleDelayedExpansion(qualifier);
         } else if (ctx.STAR() != null) {
             return handleDelayedExpansion(null);
-        } else if (ctx.expressionWithName() != null) {
-            return RecordConstructorValue.ofColumns(visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName())));
-        } else {
-            return RecordConstructorValue.ofColumns(visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName()));
         }
+        final var columns = (ctx.expressionWithName() != null)
+                ? visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()))
+                : visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
+        if (ctx.ofTypeClause() != null) {
+            final var structName = Assert.notNullUnchecked(ParserUtils.normalizeString(ParserUtils.safeCastLiteral(visit(ctx.ofTypeClause().uid()), String.class), caseSensitive));
+            return RecordConstructorValue.ofColumnsAndName(columns, structName);
+        }
+        return RecordConstructorValue.ofColumns(columns);
     }
 
     @Override

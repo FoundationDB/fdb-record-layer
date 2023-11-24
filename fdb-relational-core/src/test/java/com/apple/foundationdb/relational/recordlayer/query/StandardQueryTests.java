@@ -929,6 +929,95 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void testNamingStruct() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c)) as X from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
+                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
+                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructsSameType() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c)) as X from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
+                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(1));
+                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
+                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
+                    final var fourthCol = resultSet.getStruct(1).getStruct(4);
+                    Assertions.assertEquals("DEF", fourthCol.getMetaData().getTypeName());
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructsDifferentTypesThrows() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
+                Assertions.assertTrue(message.contains("value already present: DEF")); // we could improve this error message.
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructsSameTypeDifferentNestingLevels() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                Assertions.assertTrue(statement.execute("select a, 42, struct def (b, c), (a, b, c, struct def(b, c), a) as X from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final var col3 = resultSet.getStruct(3);
+                    Assertions.assertEquals("DEF", col3.getMetaData().getTypeName());
+                    final var col44 = resultSet.getStruct(4).getStruct(4);
+                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(4));
+                    Assertions.assertEquals("DEF", col44.getMetaData().getTypeName());
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructWithNameOfTableIsPermitted() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                Assertions.assertTrue(statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    final var col3 = resultSet.getStruct(3);
+                    Assertions.assertEquals("T1", col3.getMetaData().getTypeName());
+                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(3));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
@@ -1006,14 +1095,5 @@ public class StandardQueryTests {
         int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", result);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return result;
-    }
-
-    private void failsWith(@Nonnull final Statement statement, @Nonnull final String query, @Nonnull final String errorMessage) {
-        try {
-            statement.execute(query);
-            fail(String.format("expected an exception to be thrown by running %s", query));
-        } catch (SQLException e) {
-            Assertions.assertTrue(e.getMessage().contains(errorMessage));
-        }
     }
 }

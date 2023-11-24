@@ -711,7 +711,11 @@ recordConstructorForInsert
     ;
 
 recordConstructor
-    : LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    : ofTypeClause? LEFT_ROUND_BRACKET (uid DOT STAR | STAR | expressionWithName | expressionWithOptionalName (',' expressionWithOptionalName)*) RIGHT_ROUND_BRACKET
+    ;
+
+ofTypeClause
+    : STRUCT uid
     ;
 
 arrayConstructor

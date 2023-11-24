@@ -27,6 +27,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Arrays;
@@ -35,15 +36,29 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 public class RelationalStructMetaData implements StructMetaData {
+
+    @Nonnull
+    private final String name;
+
     private final FieldDescription[] columns;
     //the number of phantom columns that are at the front of the metadata
     private final int leadingPhantomColumnOffset;
     private final Supplier<Integer> hashCodeSupplier;
 
     public RelationalStructMetaData(FieldDescription... columns) {
+        this(null, columns);
+    }
+
+    public RelationalStructMetaData(@Nullable final String name, FieldDescription... columns) {
+        this.name = name == null ? "ANONYMOUS_STRUCT" : name;
         this.columns = columns;
         this.leadingPhantomColumnOffset = countLeadingPhantomColumns();
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
+    }
+
+    @Override
+    public String getTypeName() {
+        return name;
     }
 
     @Override

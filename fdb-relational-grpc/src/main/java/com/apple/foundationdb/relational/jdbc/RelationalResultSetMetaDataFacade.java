@@ -53,6 +53,11 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
     }
 
     @Override
+    public String getTypeName() throws SQLException {
+        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Override
     public int getColumnCount() throws SQLException {
         return this.delegate.getColumnMetadata().getColumnMetadataCount();
     }

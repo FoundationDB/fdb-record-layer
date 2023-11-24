@@ -530,6 +530,7 @@ class RelationalStructFacade implements RelationalStruct {
     private static final class RelationalStructFacadeMetaData implements StructMetaData {
         private final ListColumnMetadata metadata;
 
+
         private RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
             this.metadata = metadata;
         }
@@ -541,6 +542,11 @@ class RelationalStructFacade implements RelationalStruct {
 
         @Override
         public int isNullable(int oneBasedColumn) throws SQLException {
+            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
+
+        @Override
+        public String getTypeName() throws SQLException {
             throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
 

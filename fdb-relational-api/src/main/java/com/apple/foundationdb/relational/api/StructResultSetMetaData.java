@@ -30,6 +30,11 @@ public class StructResultSetMetaData implements RelationalResultSetMetaData {
     }
 
     @Override
+    public String getTypeName() throws SQLException {
+        return metaData.getTypeName();
+    }
+
+    @Override
     public int getColumnCount() throws SQLException {
         return metaData.getColumnCount();
     }
