@@ -88,7 +88,8 @@ public final class YamlRunner implements AutoCloseable {
 
         private boolean recursing;
 
-        public CustomTagsInject() {
+        public CustomTagsInject(LoaderOptions loaderOptions) {
+            super(loaderOptions);
             yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
             yamlConstructors.put(new Tag("!l"), new CustomTagsInject.ConstructLong());
             yamlConstructors.put(new Tag("!sc"), new CustomTagsInject.ConstructStringContains());
@@ -259,9 +260,10 @@ public final class YamlRunner implements AutoCloseable {
     }
 
     public void run() throws Exception {
-        LoaderOptions options = new LoaderOptions();
-        options.setAllowDuplicateKeys(true);
-        final var yaml = new Yaml(new CustomTagsInject(), new Representer(), new DumperOptions(), options, new Resolver());
+        LoaderOptions loaderOptions = new LoaderOptions();
+        loaderOptions.setAllowDuplicateKeys(true);
+        DumperOptions dumperOptions = new DumperOptions();
+        final var yaml = new Yaml(new CustomTagsInject(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
         int currentLine = 0;
         for (final var region : yaml.loadAll(inputStream)) {
             final var regionWithLines = (CustomTagsInject.LinedObject) region;
