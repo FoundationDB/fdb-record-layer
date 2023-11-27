@@ -100,7 +100,7 @@ public class IndexingMerger {
                         if (LOGGER.isWarnEnabled()) {
                             LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
                                             .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                                            .toString());
+                                            .toString(), e);
                         }
                     } else {
                         final FDBException ex = IndexingBase.findException(e, FDBException.class);
@@ -111,7 +111,7 @@ public class IndexingMerger {
                                 // TODO: demote this info message to a trace or debug after this code is tested a bit
                                 LOGGER.info(KeyValueLogMessage.build("IndexMerge: Merges diluted")
                                         .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                                        .toString());
+                                        .toString(), e);
                             }
                             return AsyncUtil.READY_TRUE; // and retry
                         }
