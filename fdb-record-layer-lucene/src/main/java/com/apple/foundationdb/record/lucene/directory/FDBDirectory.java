@@ -648,13 +648,15 @@ public class FDBDirectory extends Directory  {
             return false;
         }
         context.ensureActive().clear(metaSubspace.pack(name));
-        if (value.getFieldInfosId() != 0 &&
-                Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldIinfosReferenceCache")
-                        .get(value.getFieldInfosId()).decrementAndGet() == 0) {
-            context.ensureActive().clear(fieldInfosSubspace.pack(value.getId()));
+        final long id = value.getFieldInfosId();
+        if (id != 0 &&
+                Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldInfosReferenceCache")
+                    .get(id).decrementAndGet() == 0) {
+            context.ensureActive().clear(fieldInfosSubspace.pack(id));
+            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS, getAllFieldInfos()).remove(id);
         }
         // Nothing stored here currently.
-        context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+        context.ensureActive().clear(dataSubspace.subspace(Tuple.from(id)).range());
         return true;
     }
 

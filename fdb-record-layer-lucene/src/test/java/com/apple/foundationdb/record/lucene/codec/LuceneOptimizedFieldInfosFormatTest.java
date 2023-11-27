@@ -31,6 +31,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
@@ -41,13 +42,19 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -69,6 +76,103 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         sameOrMultiTransaction(oneTransaction,
                 directory -> write(directory, segment, fieldInfos),
                 directory -> assertFieldInfosEqual(fieldInfos, read(directory, segment)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void deleteOne(int transactionBoundary) throws Exception {
+        var fieldInfos = singleFieldInfos("foo", 0);
+        final var segment = new LightSegmentInfo();
+        sameOrMultiTransaction(transactionBoundary,
+                List.of(
+                        directory -> write(directory, segment, fieldInfos),
+                        directory -> directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION)),
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void deleteMany(int transactionBoundary) throws Exception {
+        // Create a bunch of segments all sharing the global FieldInfos, and then delete all the files, and the global
+        // FieldInfos
+        final int segmentCount = 4;
+        final List<LightSegmentInfo> segments = IntStream.range(0, segmentCount).mapToObj(i -> new LightSegmentInfo())
+                .collect(Collectors.toList());
+        var fieldInfos = singleFieldInfos("foo", 0);
+        sameOrMultiTransaction(transactionBoundary,
+                List.of(
+                        directory -> {
+                            for (LightSegmentInfo segment : segments) {
+                                write(directory, segment, fieldInfos);
+                            }
+                        },
+                        directory -> {
+                            assertThat(directory.getAllFieldInfos().get().keySet(), Matchers.hasSize(1));
+                            for (LightSegmentInfo segment : segments) {
+                                directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
+                            }
+
+                        },
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void deleteManyIncompatible(int transactionBoundary) throws Exception {
+        // similar to deleteMany, but each segment gets its own FieldInfos
+        final int segmentCount = 4;
+        final List<LightSegmentInfo> segments = IntStream.range(0, segmentCount).mapToObj(i -> new LightSegmentInfo())
+                .collect(Collectors.toList());
+        sameOrMultiTransaction(transactionBoundary,
+                List.of(
+                        directory -> {
+                            int fieldInfoNumber = 0;
+                            for (LightSegmentInfo segment : segments) {
+                                write(directory, segment, singleFieldInfos("foo" + fieldInfoNumber, 0));
+                                fieldInfoNumber++;
+                            }
+                        },
+                        directory -> {
+                            assertThat(directory.getAllFieldInfos().get().keySet(), Matchers.hasSize(segmentCount));
+                            for (LightSegmentInfo segment : segments) {
+                                directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
+                            }
+                        },
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                ));
+    }
+
+    public static Stream<Arguments> deleteSome() {
+        return IntStream.range(0, 4).boxed().flatMap(transactionBoundary ->
+                IntStream.range(transactionBoundary - 1, 5).mapToObj(toDelete -> Arguments.of(transactionBoundary, toDelete)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void deleteSome(int transactionBoundary, int toDelete) throws Exception {
+        final int segmentCount = 6;
+        assertThat(segmentCount, Matchers.greaterThan(toDelete));
+        final List<LightSegmentInfo> segments = IntStream.range(0, segmentCount).mapToObj(i -> new LightSegmentInfo())
+                .collect(Collectors.toList());
+        var fieldInfos = singleFieldInfos("foo", 0);
+
+        sameOrMultiTransaction(transactionBoundary,
+                Stream.concat(
+                        Stream.of( // setup
+                                directory -> {
+                                    for (LightSegmentInfo segment : segments) {
+                                        write(directory, segment, fieldInfos);
+                                    }
+                                }
+                        ),
+                        // delete and validate, some number will go in first transaction, some in the second
+                        IntStream.range(0, toDelete).mapToObj(i -> (TestHelpers.DangerousConsumer<FDBDirectory>)directory -> {
+                            directory.deleteFile(IndexFileNames.segmentFileName(segments.get(i).name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
+                            Assertions.assertEquals(Set.of(FDBDirectory.GLOBAL_FIELD_INFOS_ID), directory.getAllFieldInfos().get().keySet());
+                        })
+                ).collect(Collectors.toList()));
     }
 
     @ParameterizedTest
@@ -231,22 +335,23 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     private void sameOrMultiTransaction(boolean oneTransaction,
                                         TestHelpers.DangerousConsumer<FDBDirectory> setup,
                                         TestHelpers.DangerousConsumer<FDBDirectory> assertions) throws Exception {
-        if (oneTransaction) {
-            try (FDBRecordContext context = openContext()) {
-                final FDBDirectory directory = createDirectory(context);
-                setup.accept(directory);
-                assertions.accept(directory);
+        sameOrMultiTransaction(oneTransaction ? 1 : 0, List.of(setup, assertions));
+    }
+
+    private void sameOrMultiTransaction(int oneTransaction, List<TestHelpers.DangerousConsumer<FDBDirectory>> operations) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            final FDBDirectory directory = createDirectory(context);
+            for (int i = 0; i < oneTransaction; i++) {
+                operations.get(i).accept(directory);
             }
-        } else {
-            try (FDBRecordContext context = openContext()) {
-                final FDBDirectory directory = createDirectory(context);
-                setup.accept(directory);
-                context.commit();
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            final FDBDirectory directory = createDirectory(context);
+            for (int i = oneTransaction; i < operations.size(); i++) {
+                operations.get(i).accept(directory);
             }
-            try (FDBRecordContext context = openContext()) {
-                final FDBDirectory directory = createDirectory(context);
-                assertions.accept(directory);
-            }
+            context.commit();
         }
     }
 
