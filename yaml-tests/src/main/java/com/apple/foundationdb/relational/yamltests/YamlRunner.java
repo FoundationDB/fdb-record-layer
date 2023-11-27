@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.yaml.snakeyaml.DumperOptions;
@@ -33,6 +35,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.Mark;
+import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
@@ -40,8 +43,18 @@ import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.BufferedReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
@@ -54,11 +67,20 @@ public final class YamlRunner implements AutoCloseable {
 
     @Nonnull
     private final InputStream inputStream;
+
+    @Nullable
+    private final List<String> correctedExplainStream;
+
+    private boolean shouldReplaceFile;
+
+    @Nonnull
     private final CliCommandFactory cliCommandFactory;
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull CliCommandFactory commandFactory) throws RelationalException {
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull CliCommandFactory commandFactory, boolean correctExplain) throws RelationalException {
         this.resourcePath = resourcePath;
         this.inputStream = getInputStream(resourcePath);
+        correctedExplainStream = correctExplain ? loadFileToMemory(resourcePath) : null;
+        shouldReplaceFile = false;
         this.cliCommandFactory = commandFactory;
     }
 
@@ -86,6 +108,18 @@ public final class YamlRunner implements AutoCloseable {
             }
         }
 
+        @Override
+        protected void constructMapping2ndStep(MappingNode node, Map<Object, Object> mapping) {
+            super.constructMapping2ndStep(node, mapping);
+            final var keySet = mapping.keySet();
+            if (keySet.size() == 1) {
+                final var key = Iterables.getOnlyElement(keySet);
+                if (key instanceof String && ((String) key).contains("explain")) {
+                    mapping.put("__LINE_NUMBER", node.getStartMark().getLine());
+                }
+            }
+        }
+
         private static final class LinedObject {
             private final Object object;
 
@@ -103,6 +137,7 @@ public final class YamlRunner implements AutoCloseable {
             public Mark getStartMark() {
                 return startMark;
             }
+
         }
 
         private static class ConstructIgnore extends AbstractConstruct {
@@ -237,16 +272,48 @@ public final class YamlRunner implements AutoCloseable {
             final var command = resolveCommand(commandAndConfiguration);
             try {
                 command.invoke(commandAndConfiguration, this.cliCommandFactory);
+            } catch (QueryCommand.ExplainMismatchError e) {
+                if (correctedExplainStream != null) {
+                    final var actualPlan = e.getActualPlan();
+                    final var lineNumber = findExplainLineNumberInRegion(regionWithLines);
+                    correctedExplainStream.set(lineNumber, "- explain: \"" + actualPlan + "\"");
+                    shouldReplaceFile = true;
+                } else {
+                    addYamlFileStackFrameToException(e, resourcePath, currentLine);
+                    throw e;
+                }
             } catch (Exception | Error e) {
                 addYamlFileStackFrameToException(e, resourcePath, currentLine);
                 throw e;
             }
         }
-        LOG.debug("🏁 executed all tests in '{}' successfully!", resourcePath);
+        if (replaceTestFileIfRequired()) {
+            LOG.debug("⚠️ inconclusive result. The file {} is auto-corrected by the test framework, please examine it and make sure it is correct", resourcePath);
+        } else {
+            LOG.debug("🏁 executed all tests in '{}' successfully!", resourcePath);
+        }
     }
 
-    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path,
-                                                         int line) {
+    @SuppressWarnings("rawtypes")
+    private int findExplainLineNumberInRegion(CustomTagsInject.LinedObject region) {
+        final var content = region.getObject();
+        Assert.thatUnchecked(content instanceof List);
+        final var contentList = (List) content;
+        for (final var contentItem : contentList) {
+            Assert.thatUnchecked(contentItem instanceof Map);
+            final var contentItemMap = (Map) contentItem;
+            final var keySet = contentItemMap.keySet();
+            for (final var key : keySet) {
+                if (key instanceof String && ((String) key).contains("explain")) {
+                    return (int) contentItemMap.get("__LINE_NUMBER");
+                }
+            }
+        }
+        Assert.failUnchecked("could not find line number of expect command");
+        return -1;
+    }
+
+    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path, int line) {
         final StackTraceElement[] stackTrace = exception.getStackTrace();
         StackTraceElement[] newStackTrace = new StackTraceElement[stackTrace.length + 1];
         newStackTrace[0] = new StackTraceElement("<YAML FILE>", "", path, line);
@@ -269,5 +336,37 @@ public final class YamlRunner implements AutoCloseable {
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
         Assert.notNull(inputStream, String.format("could not find '%s' in resources bundle", resourcePath));
         return inputStream;
+    }
+
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
+    private boolean replaceTestFileIfRequired() throws RelationalException {
+        if (correctedExplainStream == null || !shouldReplaceFile) {
+            return false;
+        }
+        try {
+            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resourcePath)).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
+                for (var line : correctedExplainStream) {
+                    writer.println(line);
+                }
+            }
+            return true;
+        } catch (IOException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+
+    @Nonnull
+    private static List<String> loadFileToMemory(@Nonnull final String resourcePath) throws RelationalException {
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final List<String> inMemoryFile = new ArrayList<>();
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(classLoader.getResourceAsStream(resourcePath), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                inMemoryFile.add(line);
+            }
+        } catch (IOException e) {
+            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
+        }
+        return inMemoryFile;
     }
 }

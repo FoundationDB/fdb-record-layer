@@ -35,6 +35,7 @@ import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,6 +50,33 @@ import java.util.stream.Collectors;
 // It already is, but PMD is confused and reporting error in unrelated locations.
 class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
+
+    public static class ExplainMismatchError extends AssertionFailedError {
+
+        private static final long serialVersionUID = 1L;
+
+        @Nonnull
+        private final String expectedPlan;
+
+        @Nonnull
+        private final String actualPlan;
+
+        public ExplainMismatchError(@Nonnull final String message, @Nonnull final String expectedPlan, @Nonnull final String actualPlan) {
+            super(message);
+            this.expectedPlan = expectedPlan;
+            this.actualPlan = actualPlan;
+        }
+
+        @Nonnull
+        public String getExpectedPlan() {
+            return expectedPlan;
+        }
+
+        @Nonnull
+        public String getActualPlan() {
+            return actualPlan;
+        }
+    }
 
     private enum QueryConfig {
         RESULT("result"),
@@ -235,7 +263,7 @@ class QueryCommand extends Command {
                     "↩ actual plan:\n" +
                     "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
                     actualPlan);
-            Assertions.fail("incorrect plan!");
+            throw new ExplainMismatchError("incorrect plan!", expectedPlan, actualPlan);
         }
 
         // Should be all done, and should not have any more rows

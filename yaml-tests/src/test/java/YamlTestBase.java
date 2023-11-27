@@ -47,8 +47,12 @@ public abstract class YamlTestBase {
         doRun(fileName, true);
     }
 
-    protected void doRun(String fileName, boolean usePreparedStatements) throws Exception {
-        try (var yamlRunner = new YamlRunner(fileName, createCliCommandFactory(usePreparedStatements))) {
+    protected void doRun(@Nonnull final String fileName, boolean usePreparedStatements) throws Exception {
+        doRun(fileName, usePreparedStatements, false);
+    }
+
+    protected void doRun(String fileName, boolean usePreparedStatements, boolean correctExplain) throws Exception {
+        try (var yamlRunner = new YamlRunner(fileName, createCliCommandFactory(usePreparedStatements), correctExplain)) {
             try {
                 yamlRunner.run();
             } catch (Exception e) {

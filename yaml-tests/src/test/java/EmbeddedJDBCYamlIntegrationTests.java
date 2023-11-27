@@ -248,7 +248,7 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
     // Override until TODO (Cannot insert into table after dropping and recreating schema template when using EmbeddedJDBCDriver) is fixed
     @Override
     protected void doRun(@Nonnull final String fileName) throws Exception {
-        doRun(fileName, false);
+        doRun(fileName, false, false);
     }
 
     @Override
