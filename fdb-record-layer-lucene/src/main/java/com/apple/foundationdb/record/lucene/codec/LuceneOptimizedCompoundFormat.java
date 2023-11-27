@@ -34,7 +34,6 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,10 +50,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
 
-    private Lucene50CompoundFormat compoundFormat;
+    private final CompoundFormat compoundFormat;
 
-    public LuceneOptimizedCompoundFormat() {
-        this.compoundFormat = new Lucene50CompoundFormat();
+    public LuceneOptimizedCompoundFormat(final CompoundFormat underlying) {
+        this.compoundFormat = underlying;
     }
 
     @Override
@@ -70,12 +69,9 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     // even though we're not interacting with them, make sure we close the file
                     .close();
         }
+        final Set<String> filesForAfter = Set.copyOf(si.files());
         // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
         // everything to be a "proper" index format, but for FieldInfos it is just a long.
-        final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
-        // Note: this was copied from older code, but since we are no longer storing the `.si` on the `.cfs` we might
-        // not need to strip out the `.cfs`
-        final Set<String> filesForAfter = si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet());
         final Map<Boolean, Set<String>> files = si.files().stream()
                 .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
         si.setFiles(files.getOrDefault(false, Set.of()));
@@ -87,7 +83,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);
-        final String fieldInfosFileName = List.copyOf(files.get(true)).get(0);
+        final String fieldInfosFileName = files.get(true).stream().findFirst().orElseThrow();
         final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
         String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
         directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());

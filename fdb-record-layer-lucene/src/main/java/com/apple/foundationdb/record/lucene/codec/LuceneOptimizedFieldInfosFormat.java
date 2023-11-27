@@ -71,9 +71,11 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         final Directory unwrapped = FilterDirectory.unwrap(directory);
         String fileName;
         if (unwrapped instanceof FDBDirectory) {
+            // We are reading directly from the FDBDirectory, so the fieldInfosId will be on the .fip file
             fdbDirectory = (FDBDirectory)unwrapped;
             fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
         } else if (unwrapped instanceof LuceneOptimizedCompoundReader) {
+            // We are reading from a compound directory, so the fieldInfosId will be on the .cfe file
             final LuceneOptimizedCompoundReader compoundReader = (LuceneOptimizedCompoundReader)unwrapped;
             fdbDirectory = (FDBDirectory)FilterDirectory.unwrap(compoundReader.getDirectory());
             fileName = compoundReader.getEntriesFileName();
@@ -87,12 +89,15 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         if (bitSetBytes.isEmpty()) {
             return new FieldInfos(new FieldInfo[0]);
         }
+        // the bitSet here indicates which field numbers from the protobuf are actually used for this segment.
+        // There may be other fields in the protobuf that are not used in this segment
         BitSet bitSet = BitSet.valueOf(bitSetBytes.toByteArray());
         final byte[] rawBytes = fdbDirectory.readFieldInfo(id);
         final LuceneFieldInfosProto.FieldInfos.Builder protobuf = parseFieldInfo(rawBytes);
         List<FieldInfo> fieldInfos = new ArrayList<>();
         for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
             if (bitSet.get(fieldInfo.getNumber())) {
+                // this field is relevant for this segment, so add it to the fieldInfos
                 fieldInfos.add(new FieldInfo(fieldInfo.getName(),
                         fieldInfo.getNumber(),
                         fieldInfo.getStoreTermVectors(),
@@ -107,6 +112,9 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                         fieldInfo.getPointNumBytes(),
                         fieldInfo.getSoftDeletesField()));
             }
+            // else field number is not used in the segment
+            // Note: the field could have been added *after* this segment was created, or it could be that the segment
+            // just didn't have any documents with that field.
         }
         return new FieldInfos(fieldInfos.toArray(new FieldInfo[0]));
     }
@@ -155,12 +163,18 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         }
         final long id;
         if (!canReuseGlobal) {
+            // there was some incompatible field, we can't reuse the global FieldInfos
             id = fdbDirectory.writeFieldInfo(protobuf.build().toByteArray());
         } else {
+            // we can reuse the global FieldInfos for this segment
             id = FDBDirectory.GLOBAL_FIELD_INFOS_ID;
-        }
-        if (globalNeedsUpdating) {
-            fdbDirectory.updateGlobalFieldInfos(globalFieldInfos.build().toByteArray());
+            if (globalNeedsUpdating) {
+                // the current global FieldInfos on disk did not have all the fields, so we need to update with the
+                // added fields
+                // Note: it would probably be harmless if we did serialize it, because this is just adding new fields,
+                // but it could cause other, future segments to not be able to reuse the global FieldInfos
+                fdbDirectory.updateGlobalFieldInfos(globalFieldInfos.build().toByteArray());
+            }
         }
         final String fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
         // create the output so that we create the file reference, and so that it is correctly tracked in the segment

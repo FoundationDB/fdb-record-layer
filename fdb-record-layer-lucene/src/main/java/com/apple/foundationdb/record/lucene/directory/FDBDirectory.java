@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIn
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
@@ -292,23 +293,22 @@ public class FDBDirectory extends Directory  {
     }
 
     public void setFieldInfoId(final String filename, final long id, final ByteString bitSet) {
-        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
-                getFDBLuceneFileReferenceAsync(filename).thenAccept(reference -> {
-                    if (reference == null) {
-                        throw new RecordCoreException("Reference not found")
-                                .addLogInfo(LuceneLogMessageKeys.FILE_NAME, filename);
-                    }
-                    reference.setFieldInfosId(id);
-                    reference.setFieldInfosBitSet(bitSet);
-                    writeFDBLuceneFileReference(filename, reference);
-                }));
+        final FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
+                getFDBLuceneFileReferenceAsync(filename));
+        if (reference == null) {
+            throw new RecordCoreException("Reference not found")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_NAME, filename);
+        }
+        reference.setFieldInfosId(id);
+        reference.setFieldInfosBitSet(bitSet);
+        writeFDBLuceneFileReference(filename, reference);
     }
 
     public long writeFieldInfo(byte[] value) {
         long id;
         if (Boolean.TRUE.equals(context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get().thenApply(Map::isEmpty)))) {
+                getAllFieldInfos().thenApply(Map::isEmpty)))) {
             id = GLOBAL_FIELD_INFOS_ID;
         } else {
             id = getIncrement();
@@ -317,35 +317,44 @@ public class FDBDirectory extends Directory  {
     }
 
     public long writeFieldInfo(byte[] value, long id) {
+        if (id == 0) {
+            throw new RecordCoreArgumentException("FieldInfo id should never be 0");
+        }
         byte[] key = fieldInfosSubspace.pack(id);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
         context.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("Write lucene stored fields data",
+            LOGGER.trace(getLogMessage("Write lucene stored field infos data",
                     LuceneLogMessageKeys.DATA_SIZE, value.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
         context.ensureActive().set(key, value);
+        // Add the entry in the cached map from id->bytes, loading the cache if it hasn't been loaded yet.
         context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get().thenApply(map -> map.put(id, value)));
+                getAllFieldInfos().thenApply(map -> map.put(id, value)));
         return id;
     }
 
     public byte[] readFieldInfo(long id) {
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get().thenApply(allFieldInfos -> allFieldInfos.get(id)));
+                getAllFieldInfos().thenApply(allFieldInfos -> allFieldInfos.get(id)));
     }
 
     public byte[] readGlobalFieldInfos() {
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get().thenApply(allFieldInfos -> allFieldInfos.get(GLOBAL_FIELD_INFOS_ID)));
+                getAllFieldInfos().thenApply(allFieldInfos -> allFieldInfos.get(GLOBAL_FIELD_INFOS_ID)));
     }
 
     public long updateGlobalFieldInfos(final byte[] fieldInfos) {
         return writeFieldInfo(fieldInfos, GLOBAL_FIELD_INFOS_ID);
+    }
+
+    @VisibleForTesting
+    public CompletableFuture<Map<Long, byte[]>> getAllFieldInfos() {
+        return allFieldInfosSupplier.get();
     }
 
     private CompletableFuture<Map<Long, byte[]>> loadAllFieldInfos() {
@@ -687,27 +696,27 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
         }
-        // Unlike other segment files the .si, .cfe, .fnm are not added to the .cfs when the compound file is created.
-        // A rollback could cause the .cfs to be deleted, but leave the other files around.
-        // But, these files are small, and are always read, so instead of storing them in the same way as other files,
-        // we store them as bytes on the FileReference itself.
-        // This approach means that we have a single range-read to do listAll, but won't have to additional point-reads
-        // for these files.
-        if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
-            long id = getIncrement();
-            return new ByteBuffersIndexOutput(new ByteBuffersDataOutput(), name, name, new CRC32(), dataOutput -> {
-                final byte[] content = dataOutput.toArrayCopy();
-                writeFDBLuceneFileReference(name, new FDBLuceneFileReference(id, content));
-            });
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
-            return new EmptyIndexOutput(name, name, this);
-        } else {
-            long startTime = System.nanoTime();
-            try {
+        long startTime = System.nanoTime();
+        try {
+            // Unlike other segment files the .si, .cfe, .fnm are not added to the .cfs when the compound file is created.
+            // A rollback could cause the .cfs to be deleted, but leave the other files around.
+            // But, these files are small, and are always read, so instead of storing them in the same way as other files,
+            // we store them as bytes on the FileReference itself.
+            // This approach means that we have a single range-read to do listAll, but won't have to additional point-reads
+            // for these files.
+            if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
+                long id = getIncrement();
+                return new ByteBuffersIndexOutput(new ByteBuffersDataOutput(), name, name, new CRC32(), dataOutput -> {
+                    final byte[] content = dataOutput.toArrayCopy();
+                    writeFDBLuceneFileReference(name, new FDBLuceneFileReference(id, content));
+                });
+            } else if (FDBDirectory.isFieldInfoFile(name)) {
+                return new EmptyIndexOutput(name, name, this);
+            } else {
                 return new FDBIndexOutput(name, name, this);
-            } finally {
-                context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
             }
+        } finally {
+            context.record(LuceneEvents.Waits.WAIT_LUCENE_CREATE_OUTPUT, System.nanoTime() - startTime);
         }
     }
 

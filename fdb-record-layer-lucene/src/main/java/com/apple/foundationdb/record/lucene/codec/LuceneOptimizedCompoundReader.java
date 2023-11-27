@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.directory.EmptyIndexInput;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
@@ -120,7 +119,7 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     public IndexInput openInput(String name, IOContext context) throws IOException {
         ensureOpen();
         if (FDBDirectory.isFieldInfoFile(name)) {
-            return new EmptyIndexInput(name);
+            throw new FileNotFoundException("Tried to read fieldInfo file: " + name);
         }
         final String id = IndexFileNames.stripSegmentName(name);
         final FileEntry entry = entries.get(id);
