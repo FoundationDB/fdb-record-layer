@@ -669,7 +669,6 @@ public class FDBDirectory extends Directory  {
                 throw new NoSuchFileException(name);
             }
 
-            // TODO: This will not delete the PKY in the case of non-compound file use
             if (isCompoundFile(name)) {
                 Map<String, FDBLuceneFileReference> cache = fileReferenceCache.get();
                 String primaryKeyName = name.substring(0, name.length() - DATA_EXTENSION.length()) + "pky";
@@ -696,7 +695,7 @@ public class FDBDirectory extends Directory  {
         // Otherwise, delete the data for the specific file immediately.
         String segmentName = IndexFileNames.parseSegmentName(name);
         if (deferDeleteToCompoundFile) {
-            if (IndexFileNames.matchesExtension(name, DATA_EXTENSION)) {
+            if (isCompoundFile(name)) {
                 // delete all K/V content, only if the optimized stored fields format is in use
                 if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
                     deleteStoredFields(segmentName);
