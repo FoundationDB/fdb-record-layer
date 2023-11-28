@@ -33,10 +33,7 @@
 ---
 - connect: "jdbc:embed:/FRL/BOOLEAN_YAML?schema=BOOLEAN_SCHEMA"
 ---
-- insert: [ { A: 1, B: true },
-            {A: 2, B: false},
-            {A: 3}]
-- table: LB
+- query: insert into lb values (1, true), (2, false), (3, null);
 ---
 - query: select lb.* from lb where B = true
 - result: [ { 1,true } ]

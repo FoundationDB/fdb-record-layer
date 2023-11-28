@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -34,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -151,43 +149,6 @@ public abstract class Command {
                     try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
                         metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
                         connection.commit();
-                    }
-                }
-            };
-            // todo (yhatem) refactor tests and remove this once REL-269 is in.
-        } else if ("insert".equals(commandString)) {
-            return new Command() {
-                @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
-                    final var tableEntry = Matchers.firstEntry(Matchers.second(region), "table name");
-                    Matchers.matches(Matchers.notNull(Matchers.string(Matchers.notNull(tableEntry, "table name").getKey(), "table name"), "table name"), "table");
-
-                    String errorCode = null;
-                    if (region.size() == 3) {
-                        final var errorCodeEntry = Matchers.firstEntry(Matchers.third(region), "error code");
-                        Matchers.matches(Matchers.notNull(Matchers.string(Matchers.notNull(errorCodeEntry, "error code").getKey(), "error code"), "error code"), "error");
-                        errorCode = Matchers.notNull(Matchers.string(Matchers.notNull(errorCodeEntry, "error code").getValue(), "error code"), "error code");
-                    }
-
-                    final var tableName = Matchers.notNull(Matchers.string(Matchers.notNull(tableEntry, "table name").getValue(), "table name"), "table name");
-                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
-                    try (var statement = connection.createStatement()) {
-                        logger.debug("parsing YAML input into PB Message(s)");
-                        final var yamlData = Matchers.notNull(Matchers.firstEntry(Matchers.first(region), "insert data").getValue(), "insert data");
-                        final DynamicMessageBuilder tableRowBuilder = Matchers.notNull(statement.getDataBuilder(tableName), String.format("table '%s' message builder", tableName));
-                        final var dataList = Generators.yamlToDynamicMessage(yamlData, tableRowBuilder);
-                        if (dataList.isEmpty()) {
-                            logger.debug("⚠️ parsed 0 rows, skipping insert into '{}'", tableName);
-                            return;
-                        }
-                        logger.debug("inserting {} row(s) in '{}'", dataList.size(), tableName);
-                        SQLException sqlException = null;
-                        try {
-                            statement.executeInsert(tableName, dataList); // todo: affected rows.
-                        } catch (SQLException se) {
-                            sqlException = se;
-                        }
-                        checkForError(null, sqlException, errorCode, "<insert>");
                     }
                 }
             };

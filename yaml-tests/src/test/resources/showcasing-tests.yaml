@@ -97,14 +97,7 @@
 ---
 - connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
 ---
-# As you can see, it is much quicker to craft two relatively complex records using YAML
-# syntax than JSON (which we use in CLI) and Java API (which we use in JUnit ITs).
-# NOTE: YAML has its own nuance, when using it to define messages, make sure that keys are
-# unique, i.e. it is not possible to define a message like this: {1,2,1} since YAML standard
-# prohibits duplicate keys, to work around this issue, you can qualify the duplicate keys
-# using their ProtoBuf message field (similar to JSON), e.g. {id: 1, 2, 1}.
-- insert: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !l 101, { {!l 300, 'L3_2'}, 'L2_2' } }]
-- table: T1
+- query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
 ---
 # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
 # the matcher to always return true for that particular part of the message. This allows for
