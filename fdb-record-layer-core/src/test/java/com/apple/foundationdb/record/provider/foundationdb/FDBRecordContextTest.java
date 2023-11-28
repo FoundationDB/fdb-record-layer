@@ -32,6 +32,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
@@ -48,7 +49,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -454,7 +454,7 @@ public class FDBRecordContextTest extends FDBTestBase {
         try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, "logTransactionAfterGrv")) {
             context.ensureActive().getReadVersion().join();
             context.logTransaction();
-            Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
+            Subspace fakeSubspace = new Subspace(Tuple.from(UUIDUtils.random()));
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
             context.commit();
         }

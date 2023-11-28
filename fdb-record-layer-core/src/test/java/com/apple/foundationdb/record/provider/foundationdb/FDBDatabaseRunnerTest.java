@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -366,7 +366,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             database.setTrackLastSeenVersionOnRead(true);
             database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
 
-            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
+            final byte[] key = Tuple.from(UUIDUtils.random()).pack(); // not actually modified, so value doesn't matter
 
             // Commit something and cache just the read version
             long firstReadVersion;

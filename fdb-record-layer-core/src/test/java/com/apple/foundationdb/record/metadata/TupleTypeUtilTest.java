@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.Tags;
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -39,7 +40,6 @@ import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -82,7 +82,7 @@ public class TupleTypeUtilTest extends FDBTestBase {
             Double.NaN,
             true,
             false,
-            UUID.randomUUID(),
+            UUIDUtils.random(),
             TestRecordsEnumProto.MyShapeRecord.Size.SMALL,
             TestRecordsEnumProto.MyShapeRecord.Size.SMALL.getValueDescriptor(),
             TestRecordsEnumProto.MyShapeRecord.Size.SMALL.getNumber(),

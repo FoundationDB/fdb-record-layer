@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesPro
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
@@ -448,7 +449,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected List<UUID> setupTupleFields(@Nonnull FDBRecordContext context) throws Exception {
         openAnyRecordStore(TestRecordsTupleFieldsProto.getDescriptor(), context);
-        final List<UUID> uuids = IntStream.rangeClosed(1, 10).mapToObj(i -> UUID.randomUUID())
+        final List<UUID> uuids = IntStream.rangeClosed(1, 10).mapToObj(i -> UUIDUtils.random())
                 .sorted(Comparisons::compare).collect(Collectors.toList());
         for (int i = 0; i < uuids.size(); i++) {
             TestRecordsTupleFieldsProto.MyFieldsRecord.Builder rec = TestRecordsTupleFieldsProto.MyFieldsRecord.newBuilder();

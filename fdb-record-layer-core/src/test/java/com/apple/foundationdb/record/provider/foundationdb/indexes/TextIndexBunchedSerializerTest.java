@@ -25,6 +25,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.foundationdb.util.UUIDUtils;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -35,7 +36,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -81,7 +81,7 @@ public class TextIndexBunchedSerializerTest {
                 entryOf(Tuple.from(0L), Collections.emptyList()),
                 entryOf(Tuple.from(), Arrays.asList(0, 1)),
                 entryOf(Tuple.from("hello"), Arrays.asList(0, 1, 1)),
-                entryOf(Tuple.from(UUID.randomUUID()), Arrays.asList(12345, 67890)),
+                entryOf(Tuple.from(UUIDUtils.random()), Arrays.asList(12345, 67890)),
                 entryOf(Tuple.from(Tuple.from("i'm nested", null), "and i'm not", null), Arrays.asList(0, 127, 127 + 128))
         );
         byte[] serialized = serializer.serializeEntries(entries);

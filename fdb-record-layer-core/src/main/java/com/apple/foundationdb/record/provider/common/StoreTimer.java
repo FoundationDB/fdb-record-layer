@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.util.UUIDUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -494,7 +495,7 @@ public class StoreTimer {
         counters = new ConcurrentHashMap<>();
         timeoutCounters = new ConcurrentHashMap<>();
         lastReset = System.nanoTime();
-        uuid = UUID.randomUUID();
+        uuid = UUIDUtils.random();
     }
 
     /**

@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.UUIDUtils;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -60,7 +61,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -125,7 +125,7 @@ public class KeySpaceDirectoryTest extends FDBTestBase {
             .add(new KeyTypeValue(KeyType.FLOAT, 3.2f, -5.4f, () -> random.nextFloat()))
             .add(new KeyTypeValue(KeyType.DOUBLE, 9.7d, -3845.6d, () -> random.nextDouble()))
             .add(new KeyTypeValue(KeyType.BOOLEAN, true, false, () -> random.nextBoolean()))
-            .add(new KeyTypeValue(KeyType.UUID, UUID.randomUUID(), UUID.randomUUID(), () -> UUID.randomUUID()))
+            .add(new KeyTypeValue(KeyType.UUID, UUIDUtils.random(), UUIDUtils.random(), UUIDUtils::random))
             .build();
 
     // Catch if someone adds a new type to make sure that we account for it in this test harness

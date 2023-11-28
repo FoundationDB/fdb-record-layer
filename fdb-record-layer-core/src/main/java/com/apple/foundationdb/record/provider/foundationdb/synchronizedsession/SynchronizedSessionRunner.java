@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
+import com.apple.foundationdb.util.UUIDUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -77,7 +78,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     public static CompletableFuture<SynchronizedSessionRunner> startSessionAsync(@Nonnull Subspace lockSubspace,
                                                                                  long leaseLengthMill,
                                                                                  @Nonnull FDBDatabaseRunnerImpl runner) {
-        final UUID newSessionId = UUID.randomUUID();
+        final UUID newSessionId = UUIDUtils.random();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
         return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()),
                 Arrays.asList(

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.util.LoggableException;
+import com.apple.foundationdb.util.UUIDUtils;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -39,7 +40,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -74,7 +74,7 @@ public class TestHelpers {
     }
 
     public static List<String> assertLogs(String loggerName, Pattern pattern, Callable<?> callable) {
-        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
+        MatchingAppender appender = new MatchingAppender(UUIDUtils.random().toString(), pattern);
         return assertLogs(loggerName, appender, callable);
     }
 
@@ -83,7 +83,7 @@ public class TestHelpers {
     }
 
     public static List<String> assertLogs(String loggerName, String messagePrefix, Callable<?> callable) {
-        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
+        MatchingAppender appender = new MatchingAppender(UUIDUtils.random().toString(), messagePrefix);
         return assertLogs(loggerName, appender, callable);
     }
 
@@ -98,7 +98,7 @@ public class TestHelpers {
     }
 
     public static void assertDidNotLog(String loggerName, Pattern pattern, Callable<?> callable) {
-        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), pattern);
+        MatchingAppender appender = new MatchingAppender(UUIDUtils.random().toString(), pattern);
         assertDidNotLog(loggerName, appender, callable);
     }
 
@@ -107,7 +107,7 @@ public class TestHelpers {
     }
 
     public static void assertDidNotLog(String loggerName, String messagePrefix, Callable<?> callable) {
-        MatchingAppender appender = new MatchingAppender(UUID.randomUUID().toString(), messagePrefix);
+        MatchingAppender appender = new MatchingAppender(UUIDUtils.random().toString(), messagePrefix);
         assertDidNotLog(loggerName, appender, callable);
     }
 
