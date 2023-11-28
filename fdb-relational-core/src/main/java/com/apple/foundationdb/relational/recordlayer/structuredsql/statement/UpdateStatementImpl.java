@@ -78,13 +78,13 @@ public class UpdateStatementImpl implements UpdateStatement {
     private final String originalTableName;
 
     @Nonnull
-    private final ImmutableMap<Field<?>, Expression<?>> setClauses;
+    private final Map<Field<?>, Expression<?>> setClauses;
 
     @Nullable
     private final BooleanExpressionTrait whereClause;
 
     @Nonnull
-    private final ImmutableList<Expression<?>> returning;
+    private final List<Expression<?>> returning;
 
     @Nonnull
     private final Set<QueryOptions> queryOptions;
@@ -129,20 +129,26 @@ public class UpdateStatementImpl implements UpdateStatement {
 
     @Nonnull
     @Override
-    public ImmutableMap<Field<?>, Expression<?>> getSetClauses() {
-        return setClauses;
+    public Map<Field<?>, Expression<?>> getSetClauses() {
+        return ImmutableMap.copyOf(setClauses);
     }
 
     @Nonnull
     @Override
-    public ImmutableList<Expression<?>> getReturning() {
-        return returning;
+    public List<Expression<?>> getReturning() {
+        return ImmutableList.copyOf(returning);
     }
 
     @Nullable
     @Override
     public BooleanExpressionTrait getWhereClause() {
         return whereClause;
+    }
+
+    @Nonnull
+    @Override
+    public Set<QueryOptions> getOptions() {
+        return ImmutableSet.copyOf(queryOptions);
     }
 
     @Nonnull
@@ -347,6 +353,12 @@ public class UpdateStatementImpl implements UpdateStatement {
         public Builder withOption(@Nonnull final QueryOptions... options) {
             Arrays.stream(options).forEach(queryOptionsBuilder::add);
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public Set<QueryOptions> getOptions() {
+            return queryOptionsBuilder.build();
         }
 
         @Nonnull

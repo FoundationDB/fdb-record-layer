@@ -26,25 +26,26 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.Expression;
 import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFactory;
 import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Immutable
 public interface UpdateStatement extends StructuredQuery {
     @Nonnull
-    ImmutableMap<Field<?>, Expression<?>> getSetClauses();
+    Map<Field<?>, Expression<?>> getSetClauses();
 
     @Nonnull
-    ImmutableList<Expression<?>> getReturning();
+    List<Expression<?>> getReturning();
 
     @Nullable
     BooleanExpressionTrait getWhereClause();
+
+    @Nonnull
+    Set<QueryOptions> getOptions();
 
     @Nonnull
     String getTable();
@@ -86,6 +87,9 @@ public interface UpdateStatement extends StructuredQuery {
 
         @Nonnull
         Builder withOption(@Nonnull final QueryOptions... options);
+
+        @Nonnull
+        Set<QueryOptions> getOptions();
 
         @Nonnull
         String getTable();
