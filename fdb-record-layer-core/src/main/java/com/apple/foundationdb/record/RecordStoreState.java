@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +64,8 @@ public class RecordStoreState {
     protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
     @Nonnull
     protected final AtomicReference<Map<String, IndexState>> indexStateMap;
+    @Nonnull
+    protected final AtomicReference<BitSet> readableIndexes;
 
     /**
      * Creates a <code>RecordStoreState</code> with the given index states.
@@ -73,14 +76,31 @@ public class RecordStoreState {
      */
     @API(API.Status.INTERNAL)
     public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
+        this(storeHeader, indexStateMap, (RecordMetaData)null);
+    }
+
+
+    @API(API.Status.INTERNAL)
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader,
+                            @Nullable Map<String, IndexState> indexStateMap,
+                            @Nullable final RecordMetaData recordMetaData) {
+        this(storeHeader, indexStateMap, getReadableIndexesBitset(recordMetaData, indexStateMap));
+    }
+
+    @API(API.Status.INTERNAL)
+    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader,
+                            @Nullable Map<String, IndexState> indexStateMap,
+                            @Nullable final BitSet readableIndexes) {
         final Map<String, IndexState> copy;
         if (indexStateMap == null || indexStateMap.isEmpty()) {
             copy = Collections.emptyMap();
         } else {
             copy = ImmutableMap.copyOf(indexStateMap);
         }
+
         this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
         this.indexStateMap = new AtomicReference<>(copy);
+        this.readableIndexes = new AtomicReference<>(readableIndexes);
     }
 
     /**
@@ -206,6 +226,10 @@ public class RecordStoreState {
         return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(state -> state.equals(IndexState.READABLE));
     }
 
+    private static boolean allIndexesReadable(@Nonnull final Map<String, IndexState> indexStateMap) {
+        return indexStateMap.isEmpty() || indexStateMap.values().stream().allMatch(state -> state.equals(IndexState.READABLE));
+    }
+
     /**
      * Determines if it is safe to use queries and other operations planned
      * with the passed <code>RecordStoreState</code> with a record store
@@ -272,8 +296,8 @@ public class RecordStoreState {
      * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
      */
     @Nonnull
-    public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
-        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
+    public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames, @Nullable final RecordMetaData metaData) {
+        return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames), metaData);
     }
 
     @Nonnull
@@ -300,6 +324,36 @@ public class RecordStoreState {
     @Nonnull
     public RecordMetaDataProto.DataStoreInfo getStoreHeader() {
         return storeHeader.get();
+    }
+
+    @Nonnull
+    public BitSet getReadableIndexesBitset() {
+        final var result = readableIndexes.get();
+        if (result == null) {
+            throw new RecordCoreException("could not construct readable index bitset");
+        }
+        return result;
+    }
+
+    @Nullable
+    protected static BitSet getReadableIndexesBitset(@Nullable final RecordMetaData recordMetaData,
+                                                   @Nullable final Map<String, IndexState> indexStateMap) {
+        if (recordMetaData == null) {
+            return null;
+        }
+        final var indexesList = recordMetaData.getAllIndexes();
+        final var result = new BitSet(indexesList.size());
+        result.set(0, indexesList.size()); // set all to `1`.
+        if (indexStateMap == null || allIndexesReadable(indexStateMap)) {
+            return result;
+        }
+        for (int i = 0; i < indexesList.size(); i++) {
+            final var matched = indexStateMap.get(indexesList.get(i).getName());
+            if (IndexState.READABLE != matched) {
+                result.clear(i);
+            }
+        }
+        return result;
     }
 
     /**

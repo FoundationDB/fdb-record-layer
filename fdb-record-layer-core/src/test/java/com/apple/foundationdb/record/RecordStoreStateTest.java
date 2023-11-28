@@ -149,7 +149,7 @@ public class RecordStoreStateTest {
         assertEquals(IndexState.DISABLED, state.getState(disabled));
         assertEquals(IndexState.WRITE_ONLY, state.getState(writeOnly));
         RecordStoreState newState = state.withWriteOnlyIndexes(
-                Arrays.asList(implicitlyReadable, explicitlyReadable, disabled, writeOnly));
+                Arrays.asList(implicitlyReadable, explicitlyReadable, disabled, writeOnly), null);
         assertEquals(IndexState.WRITE_ONLY, newState.getState(implicitlyReadable));
         assertEquals(IndexState.WRITE_ONLY, newState.getState(explicitlyReadable));
         assertEquals(IndexState.DISABLED, newState.getState(disabled));
@@ -161,7 +161,7 @@ public class RecordStoreStateTest {
         assertEquals(IndexState.DISABLED, state.getState(disabled));
         assertEquals(IndexState.WRITE_ONLY, state.getState(writeOnly));
 
-        RecordStoreState newState2 = state.withWriteOnlyIndexes(Collections.singletonList(newWriteOnly));
+        RecordStoreState newState2 = state.withWriteOnlyIndexes(Collections.singletonList(newWriteOnly), null);
         assertEquals(IndexState.READABLE, newState2.getState(implicitlyReadable));
         assertEquals(IndexState.READABLE, newState2.getState(explicitlyReadable));
         assertEquals(IndexState.DISABLED, newState2.getState(disabled));

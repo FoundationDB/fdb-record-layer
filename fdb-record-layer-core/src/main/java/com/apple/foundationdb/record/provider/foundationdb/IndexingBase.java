@@ -905,7 +905,7 @@ public abstract class IndexingBase {
             }
             if (indexContext.isSynthetic) {
                 // This particular index is synthetic, handle with care
-                final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())));
+                final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName()), store.getRecordMetaData()));
                 final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(indexContext.index);
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
                 return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);

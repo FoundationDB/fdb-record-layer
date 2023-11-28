@@ -2982,7 +2982,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             recordStoreStateRef.updateAndGet(state -> {
                 // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
-                state.setState(indexName, indexState);
+                state.setState(indexName, indexState, getRecordMetaData());
                 return state;
             });
         } finally {
@@ -3405,7 +3405,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
-        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
+        return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, (header, states) -> new RecordStoreState(header, states, getRecordMetaData())));
     }
 
     @Nonnull
@@ -4226,7 +4226,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
         // Do this with the new indexes in write-only mode to avoid using one of them
         // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()), getRecordMetaData());
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
             MutableRecordStoreState saveState = recordStoreStateRef.get();
