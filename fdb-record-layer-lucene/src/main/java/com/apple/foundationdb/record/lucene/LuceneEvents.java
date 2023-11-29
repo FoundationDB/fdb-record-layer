@@ -149,8 +149,9 @@ public class LuceneEvents {
         /** Create a file from FDBDirectory. */
         WAIT_LUCENE_CREATE_OUTPUT("lucene create output"),
         /** Look up primary key segment. */
-        WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key")
-        ;
+        WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key"),
+        /** Read the field infos data. */
+        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos");
 
         private final String title;
         private final String logKey;
