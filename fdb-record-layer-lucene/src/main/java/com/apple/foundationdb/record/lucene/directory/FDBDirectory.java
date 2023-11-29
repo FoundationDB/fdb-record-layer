@@ -306,9 +306,7 @@ public class FDBDirectory extends Directory  {
 
     public long writeFieldInfo(byte[] value) {
         long id;
-        if (Boolean.TRUE.equals(context.asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                getAllFieldInfos().thenApply(Map::isEmpty)))) {
+        if (Boolean.TRUE.equals(getAllFieldInfos().isEmpty())) {
             id = GLOBAL_FIELD_INFOS_ID;
         } else {
             id = getIncrement();
@@ -330,22 +328,16 @@ public class FDBDirectory extends Directory  {
         }
         context.ensureActive().set(key, value);
         // Add the entry in the cached map from id->bytes, loading the cache if it hasn't been loaded yet.
-        context.asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                getAllFieldInfos().thenApply(map -> map.put(id, value)));
+        getAllFieldInfos().put(id, value);
         return id;
     }
 
     public byte[] readFieldInfo(long id) {
-        return context.asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                getAllFieldInfos().thenApply(allFieldInfos -> allFieldInfos.get(id)));
+        return getAllFieldInfos().get(id);
     }
 
     public byte[] readGlobalFieldInfos() {
-        return context.asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                getAllFieldInfos().thenApply(allFieldInfos -> allFieldInfos.get(GLOBAL_FIELD_INFOS_ID)));
+        return getAllFieldInfos().get(GLOBAL_FIELD_INFOS_ID);
     }
 
     public long updateGlobalFieldInfos(final byte[] fieldInfos) {
@@ -353,8 +345,10 @@ public class FDBDirectory extends Directory  {
     }
 
     @VisibleForTesting
-    public CompletableFuture<Map<Long, byte[]>> getAllFieldInfos() {
-        return allFieldInfosSupplier.get();
+    public Map<Long, byte[]> getAllFieldInfos() {
+        return context.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
+                allFieldInfosSupplier.get());
     }
 
     private CompletableFuture<Map<Long, byte[]>> loadAllFieldInfos() {
@@ -653,7 +647,7 @@ public class FDBDirectory extends Directory  {
                 Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldInfosReferenceCache")
                     .get(id).decrementAndGet() == 0) {
             context.ensureActive().clear(fieldInfosSubspace.pack(id));
-            context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS, getAllFieldInfos()).remove(id);
+            getAllFieldInfos().remove(id);
         }
         // Nothing stored here currently.
         context.ensureActive().clear(dataSubspace.subspace(Tuple.from(id)).range());

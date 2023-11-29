@@ -1337,19 +1337,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void fullDeleteFieldInfos() {
         // if we delete all the documents, the FieldInfos should be cleared out
         fullDeleteHelper(indexMaintainer -> {
-            final Map<Long, byte[]> allFieldInfos =
-                    recordStore.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                            indexMaintainer
-                                    .getDirectory(Tuple.from())
-                                    .getAllFieldInfos());
+            final Map<Long, byte[]> allFieldInfos = indexMaintainer.getDirectory(Tuple.from()).getAllFieldInfos();
             assertEquals(Map.of(), allFieldInfos,
                     () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from()).listAll()));
         }, indexMaintainer -> {
-            final Map<Long, byte[]> allFieldInfos =
-                    recordStore.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                            indexMaintainer
-                                    .getDirectory(Tuple.from())
-                                    .getAllFieldInfos());
+            final Map<Long, byte[]> allFieldInfos = indexMaintainer.getDirectory(Tuple.from()).getAllFieldInfos();
             assertNotEquals(Map.of(), allFieldInfos,
                     () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from()).listAll()));
         });
@@ -2733,7 +2725,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, false) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
-        final Set<Long> allFieldInfos = assertDoesNotThrow(() -> directory.getAllFieldInfos().get().keySet());
+        final Set<Long> allFieldInfos = assertDoesNotThrow(() -> directory.getAllFieldInfos().keySet());
         int segmentCount = 0;
         for (String file : allFiles) {
             final FDBLuceneFileReference fileReference = directory.getFDBLuceneFileReference(file);

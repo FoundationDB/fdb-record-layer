@@ -87,7 +87,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 List.of(
                         directory -> write(directory, segment, fieldInfos),
                         directory -> directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION)),
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
                 ));
     }
 
@@ -108,13 +108,13 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                             }
                         },
                         directory -> {
-                            assertThat(directory.getAllFieldInfos().get().keySet(), Matchers.hasSize(1));
+                            assertThat(directory.getAllFieldInfos().keySet(), Matchers.hasSize(1));
                             for (LightSegmentInfo segment : segments) {
                                 directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
                             }
 
                         },
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
                 ));
     }
 
@@ -135,12 +135,12 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                             }
                         },
                         directory -> {
-                            assertThat(directory.getAllFieldInfos().get().keySet(), Matchers.hasSize(segmentCount));
+                            assertThat(directory.getAllFieldInfos().keySet(), Matchers.hasSize(segmentCount));
                             for (LightSegmentInfo segment : segments) {
                                 directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
                             }
                         },
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos().get())
+                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
                 ));
     }
 
@@ -170,7 +170,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                         // delete and validate, some number will go in first transaction, some in the second
                         IntStream.range(0, toDelete).mapToObj(i -> (TestHelpers.DangerousConsumer<FDBDirectory>)directory -> {
                             directory.deleteFile(IndexFileNames.segmentFileName(segments.get(i).name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
-                            Assertions.assertEquals(Set.of(FDBDirectory.GLOBAL_FIELD_INFOS_ID), directory.getAllFieldInfos().get().keySet());
+                            Assertions.assertEquals(Set.of(FDBDirectory.GLOBAL_FIELD_INFOS_ID), directory.getAllFieldInfos().keySet());
                         })
                 ).collect(Collectors.toList()));
     }
