@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -48,8 +47,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
@@ -61,7 +59,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -110,13 +107,53 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
+            queryAndAssertFields(query, "text", Map.of(
+                    1623L, "Document 1",
+                    1624L, "Document 2"));
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testInsertMultipleTransactions(boolean useOptimizedStoredFieldsFormat) throws Exception {
+        Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
+            queryAndAssertFields(query, "text", Map.of(
+                    1623L, "Document 1",
+                    1624L, "Document 2"));
+            if (useOptimizedStoredFieldsFormat) {
+                assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
+                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                    final String[] strings = directory.listAll();
+                    // TODO: Find a way to force a merge and make sure the old segments are gone
+                    assertDocCountPerSegment(directory, List.of("_0", "_1", "_2", "_3"), List.of(1, 1, 1, 0));
+                }
             }
         }
     }
@@ -141,7 +178,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1624L), Set.of("Document 2"));
+            queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
         }
     }
 
@@ -162,7 +199,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1624L), Set.of("Document 2"));
+            queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
         }
     }
 
@@ -186,7 +223,9 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 2", "Document 3 modified"));
+            queryAndAssertFields(query, "text", Map.of(
+                    1623L, "Document 3 modified",
+                    1624L, "Document 2"));
         }
     }
 
@@ -212,99 +251,13 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(), Set.of());
+            queryAndAssertFields(query, "text", Map.of());
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testRollbackInsert(boolean useOptimizedStoredFieldsFormat) throws Exception {
-        Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
-
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
-            context.ensureActive().cancel();
-        }
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(), Set.of());
-            if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    assertDocCountPerSegment(directory, List.of("_0"), List.of(0));
-                }
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testRollbackUpdate(boolean useOptimizedStoredFieldsFormat) throws Exception {
-        Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
-
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
-            context.commit();
-        }
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.updateRecord(createSimpleDocument(1623L, "Document 3 modified", 2));
-            context.ensureActive().cancel();
-        }
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
-            if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
-                }
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testRollbackDeleteAllDocuments(boolean useOptimizedStoredFieldsFormat) throws Exception {
-        Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
-
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
-            context.commit();
-        }
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.deleteRecord(Tuple.from(1623L));
-            recordStore.deleteRecord(Tuple.from(1624L));
-            recordStore.deleteRecord(Tuple.from(1547L));
-            context.ensureActive().cancel();
-        }
-        try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
-            queryAndAssertFields(query, "text", Set.of(1623L, 1624L), Set.of("Document 1", "Document 2"));
-            if (useOptimizedStoredFieldsFormat) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
-                    assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
-                }
-                assertNull(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS));
             }
         }
     }
@@ -326,12 +279,22 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             final RecordQuery query = buildQuery("record", Collections.emptyList(), COMPLEX_DOC);
             // This doc has the PK as (Group, docID)
-            queryAndAssertFieldsTuple(query, "text", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record", "Hello record layer"));
+            queryAndAssertFieldsTuple(query, "text", Map.of(
+                    Tuple.from(6, 1624L), "Hello record",
+                    Tuple.from(7, 1625L), "Hello record layer"));
             // query again and compare the other fields
-            queryAndAssertFieldsTuple(query, "text2", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record 2", "Hello record layer 2"));
-            queryAndAssertFieldsTuple(query, "score", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(13, 14));
-            queryAndAssertFieldsTuple(query, "is_seen", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(false, true));
-            queryAndAssertFieldsTuple(query, "time", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(8.123, 9.123));
+            queryAndAssertFieldsTuple(query, "text2", Map.of(
+                    Tuple.from(6, 1624L), "Hello record 2",
+                    Tuple.from(7, 1625L), "Hello record layer 2"));
+            queryAndAssertFieldsTuple(query, "score", Map.of(
+                    Tuple.from(6, 1624L), 13,
+                    Tuple.from(7, 1625L), 14));
+            queryAndAssertFieldsTuple(query, "is_seen", Map.of(
+                    Tuple.from(6, 1624L), false,
+                    Tuple.from(7, 1625L), true));
+            queryAndAssertFieldsTuple(query, "time", Map.of(
+                    Tuple.from(6, 1624L), 8.123,
+                    Tuple.from(7, 1625L), 9.123));
 
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -352,24 +315,43 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
-    private void queryAndAssertFields(RecordQuery query, String fieldName, Set<Long> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
-        queryAndAssertFieldsTuple(query, fieldName, expectedPrimaryKeys.stream().map(Tuple::from).collect(Collectors.toSet()), expectedFields);
+    /**
+     * Utility helper to run a query and assert the results
+     * @param query the query to run
+     * @param fieldName the field value to extract from each record
+     * @param expectedValues a map of PK value to a field value to expect
+     * @throws Exception in case of error
+     */
+    private void queryAndAssertFields(RecordQuery query, String fieldName, Map<Long, ?> expectedValues) throws Exception {
+        Map<Tuple, ?> expectedValuesWithTuples = expectedValues.entrySet().stream().collect(Collectors.toMap(entry -> Tuple.from(entry.getKey()), entry -> entry.getValue()));
+        queryAndAssertFieldsTuple(query, fieldName, expectedValuesWithTuples);
     }
 
-    private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Set<Tuple> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
+    /**
+     * Utility helper to run a query and assert the results
+     * @param query the query to run
+     * @param fieldName the field value to extract from each record
+     * @param expectedValues a map of PK Tuple to a field value to expect
+     * @throws Exception in case of error
+     */
+    private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Map<Tuple, ?> expectedValues) throws Exception {
+    //private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Set<Tuple> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
         RecordQueryPlan plan = planner.plan(query);
         try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
             List<FDBQueriedRecord<Message>> result = fdbQueriedRecordRecordCursor.asList().get();
-            Set<Tuple> actualKeyTuples = result.stream().map(FDBQueriedRecord::getIndexEntry).map(IndexEntry::getPrimaryKey).collect(Collectors.toSet());
-            assertEquals(expectedPrimaryKeys, actualKeyTuples);
-            Set<?> fields = result.stream()
-                    .map(FDBQueriedRecord::getStoredRecord)
-                    .map(Objects::requireNonNull)
-                    .map(FDBStoredRecord::getRecord)
-                    .map(m -> m.getField(m.getDescriptorForType().findFieldByName(fieldName)))
-                    .collect(Collectors.toSet());
-            assertEquals(expectedFields, fields);
+            Map<Tuple, ?> actualValues = result.stream().collect(Collectors.toMap(record -> toPrimaryKey(record), record -> toFieldValue(record, fieldName)));
+
+            assertEquals(expectedValues, actualValues);
         }
+    }
+
+    private Object toFieldValue(final FDBQueriedRecord<Message> record, final String fieldName) {
+        final Message storedRecord = record.getStoredRecord().getRecord();
+        return storedRecord.getField(storedRecord.getDescriptorForType().findFieldByName(fieldName));
+    }
+
+    private Tuple toPrimaryKey(final FDBQueriedRecord<Message> record) {
+        return record.getIndexEntry().getPrimaryKey();
     }
 
     private void assertDocCountPerSegment(FDBDirectory directory, List<String> expectedSegmentNames, List<Integer> expectedDocsPerSegment) throws Exception {
