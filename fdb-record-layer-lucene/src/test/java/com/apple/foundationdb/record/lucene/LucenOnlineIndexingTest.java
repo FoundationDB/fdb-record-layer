@@ -615,19 +615,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         int newLength = allFiles.length;
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
         assertTrue(newLength < oldLength);
-        oldLength = newLength;
-
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
-                .setIndex(index)
-                .build()) {
-            indexBuilder.mergeIndex();
-        }
-
-        allFiles = listFiles(index);
-        newLength = allFiles.length;
-        LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
-        assertTrue(newLength < oldLength);
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")

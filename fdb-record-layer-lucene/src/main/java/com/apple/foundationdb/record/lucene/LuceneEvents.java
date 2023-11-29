@@ -155,8 +155,9 @@ public class LuceneEvents {
         /** Look up primary key segment. */
         WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key"),
         /** Read the field infos data. */
-        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos");
-
+        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos"),
+        /** Read a file lock. */
+        WAIT_LUCENE_FILE_LOCK("lucene read file lock");
         private final String title;
         private final String logKey;
 

@@ -30,13 +30,13 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
@@ -67,14 +67,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile String writerAnalyzerId;
 
-    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount) {
+    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount, boolean useAgilityContext) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE);
+        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, useAgilityContext);
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -94,7 +94,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
+    private static class FDBDirectoryMergeScheduler extends SerialMergeScheduler {
         @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;
