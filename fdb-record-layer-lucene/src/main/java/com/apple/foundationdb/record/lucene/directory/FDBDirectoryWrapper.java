@@ -56,7 +56,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
 
     // Lucene Optimized Codec Singleton
-    private static final Codec CODEC = new LuceneOptimizedCodec();
+    private static final Codec CODEC = LuceneOptimizedCodec.CODEC;
     public static final boolean USE_COMPOUND_FILE = true;
 
     private final IndexMaintainerState state;

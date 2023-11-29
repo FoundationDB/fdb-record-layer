@@ -228,11 +228,11 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hello"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordHighlights(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("{Hello} record layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "hel"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
-            assertRecordHighlights(List.of("Hello record layer"),
+            assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(NGRAM_LUCENE_INDEX, fullTextSearch(NGRAM_LUCENE_INDEX, "cord"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));

@@ -20,62 +20,73 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Wrapper for the {@link Lucene50CompoundFormat} to optimize compound files for sitting on FoundationDB.
- * In contrast to {@link Lucene50CompoundFormat}, this wrapper uses {@link LuceneOptimizedWrappedDirectory}
- * as the {@link Directory} for read/write of compound file.
  */
 public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file. */
     public static final String DATA_EXTENSION = "cfs";
     /** Extension of compound file entries. */
     public static final String ENTRIES_EXTENSION = "cfe";
-
-    public static final String FIELD_INFO_EXTENSION = "fnm";
-    public static final String DATA_CODEC = "Lucene50CompoundData";
     public static final String ENTRY_CODEC = "Lucene50CompoundEntries";
     public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
 
-    private Lucene50CompoundFormat compoundFormat;
+    private final CompoundFormat compoundFormat;
 
-    public LuceneOptimizedCompoundFormat() {
-        this.compoundFormat = new Lucene50CompoundFormat();
+    public LuceneOptimizedCompoundFormat(final CompoundFormat underlying) {
+        this.compoundFormat = underlying;
     }
 
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
-        dir = (dir instanceof LuceneOptimizedWrappedDirectory) ? dir : new LuceneOptimizedWrappedDirectory(dir);
-        return new LuceneOptimizedCompoundReader(dir, si);
+        return new LuceneOptimizedCompoundReader(dir, si, context);
     }
 
     @Override
     public void write(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {
         // Make sure all fetches are initiated in advance of the compoundFormat sequentially stepping through them.
-        si.files().stream().forEach(file -> {
-            try {
-                dir.openInput(file, IOContext.READONCE);
-            } catch (IOException ioe) {
-                throw new RecordCoreArgumentException("Cannot open input for file", ioe)
-                        .addLogInfo(LogMessageKeys.SOURCE_FILE, file);
-            }
-        });
-        compoundFormat.write(new LuceneOptimizedWrappedDirectory(dir), si, context);
-        final String fileName = IndexFileNames.segmentFileName(si.name, "", DATA_EXTENSION);
-        si.setFiles(si.files().stream().filter(file -> !file.equals(fileName)).collect(Collectors.toSet()));
+        for (String s : si.files()) {
+            dir.openInput(s, IOContext.READONCE)
+                    // even though we're not interacting with them, make sure we close the file
+                    .close();
+        }
+        final Set<String> filesForAfter = Set.copyOf(si.files());
+        // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
+        // everything to be a "proper" index format, but for FieldInfos it is just a long.
+        final Map<Boolean, Set<String>> files = si.files().stream()
+                .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
+        si.setFiles(files.getOrDefault(false, Set.of()));
+        if (files.getOrDefault(true, Set.of()).size() != 1) {
+            throw new RecordCoreException("Segment has wrong number of FieldInfos")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
+        }
+        @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
+        final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
+        compoundFormat.write(dir, si, context);
+        si.setFiles(filesForAfter);
+        final String fieldInfosFileName = files.get(true).stream().findFirst().orElseThrow();
+        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
+        String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+        directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
     }
 
 }

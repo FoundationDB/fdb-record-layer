@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.index.CorruptIndexException;
@@ -53,7 +54,10 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     private final Directory directory;
     private final String segmentName;
     private final Map<String, FileEntry> entries;
-    private final IndexInput handle;
+    private final String entriesFileName;
+    private LazyCloseable<IndexInput> dataInput;
+    private final String dataFileName;
+
 
     /** Offset/Length for a slice inside of a compound file. */
     public static final class FileEntry {
@@ -66,16 +70,13 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
      */
     // TODO: we should just pre-strip "entries" and append segment name up-front like simpletext?
     // this need not be a "general purpose" directory anymore (it only writes index files)
-    public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si) throws IOException {
+    public LuceneOptimizedCompoundReader(Directory directory, SegmentInfo si, final IOContext context) throws IOException {
         this.directory = directory;
         this.segmentName = si.name;
-        String dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
-        String entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
-        if ( !(directory instanceof LuceneOptimizedWrappedDirectory) ) {
-            throw new IOException("Directory Must Be Wrapped");
-        }
-        handle = ((LuceneOptimizedWrappedDirectory) directory).openLazyInput(dataFileName, 0, 0L); // attempting not to read
+        dataFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
+        entriesFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION);
         this.entries = readEntries(si.getId(), directory, entriesFileName); // synchronous
+        dataInput = LazyCloseable.supply(() -> directory.openInput(dataFileName, context));
     }
 
     /** Helper method that reads CFS entries from an input stream. */
@@ -111,19 +112,22 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     @Override
     public void close() throws IOException {
-        IOUtils.close(handle);
+        IOUtils.close(dataInput); // no-op if handle is null
     }
 
     @Override
     public IndexInput openInput(String name, IOContext context) throws IOException {
         ensureOpen();
+        if (FDBDirectory.isFieldInfoFile(name)) {
+            throw new FileNotFoundException("Tried to read fieldInfo file: " + name);
+        }
         final String id = IndexFileNames.stripSegmentName(name);
         final FileEntry entry = entries.get(id);
         if (entry == null) {
             String datFileName = IndexFileNames.segmentFileName(segmentName, "", LuceneOptimizedCompoundFormat.DATA_EXTENSION);
             throw new FileNotFoundException("No sub-file with id " + id + " found in compound file \"" + datFileName + "\" (fileName=" + name + " files: " + entries.keySet() + ")");
         }
-        return handle.slice(name, entry.offset, entry.length);
+        return dataInput.get().slice(name, entry.offset, entry.length);
     }
 
     /** Returns an array of strings, one for each file in the directory. */
@@ -164,12 +168,16 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
     @Override
     public void checkIntegrity() throws IOException {
         if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-            CodecUtil.checksumEntireFile(handle);
+            CodecUtil.checksumEntireFile(dataInput.get());
         }
     }
 
     public Directory getDirectory() {
         return directory;
+    }
+
+    public String getEntriesFileName() {
+        return entriesFileName;
     }
 
 }
