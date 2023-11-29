@@ -359,7 +359,7 @@ limitClauseAtom
     ;
 
 queryOptions
-    : OPTIONS '(' queryOption (',' queryOption)? ')'
+    : OPTIONS '(' queryOption (',' queryOption)* ')'
     ;
 
 queryOption

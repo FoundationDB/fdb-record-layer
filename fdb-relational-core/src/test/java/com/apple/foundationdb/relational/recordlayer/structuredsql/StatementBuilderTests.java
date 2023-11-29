@@ -22,18 +22,25 @@ package com.apple.foundationdb.relational.recordlayer.structuredsql;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
+import com.apple.foundationdb.relational.api.fluentsql.statement.StructuredQuery;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class StatementBuilderTests {
 
@@ -135,6 +142,29 @@ public class StatementBuilderTests {
             var whereClause = updateBuilder.getWhereClause();
             Assertions.assertNotNull(whereClause);
             Assertions.assertTrue(whereClause.toString().contains("{pk = 444 AND ( a < 42 )}"));
+        }
+    }
+
+    @Nonnull
+    static Stream<Arguments> queryOptionsParameters() {
+        return Stream.of(
+                Arguments.of("options()", Set.of()),
+                Arguments.of("options (dry run)", Set.of(StructuredQuery.QueryOptions.DRY_RUN)),
+                Arguments.of("options (log query)", Set.of(StructuredQuery.QueryOptions.LOG_QUERY)),
+                Arguments.of("options (nocache)", Set.of(StructuredQuery.QueryOptions.NOCACHE)),
+                Arguments.of("options (nocache, dry run)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN)),
+                Arguments.of("options (nocache, dry run, log query)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN, StructuredQuery.QueryOptions.LOG_QUERY)));
+    }
+
+    @DisplayName("examining query options")
+    @ParameterizedTest(name = "{index}: {0} should parse into {1}")
+    @MethodSource("queryOptionsParameters")
+    public void examineQueryOptions(@Nonnull final String queryOptionsClause, @Nonnull final Set<StructuredQuery.QueryOptions> expectedOptions) throws Exception {
+        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
+            var updateStatement = "update T1 set a = 42, c = 'bla' where pk = 444 AND (a < 42) " + queryOptionsClause;
+            var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
+            Assertions.assertEquals(expectedOptions, updateBuilder.getOptions());
         }
     }
 

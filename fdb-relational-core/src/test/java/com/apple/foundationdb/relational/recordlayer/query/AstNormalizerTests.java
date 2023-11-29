@@ -643,6 +643,18 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDmlStatementWithMultipleQueryOptions() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN, nocache, log query)"),
+                PreparedStatementParameters.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(List.of(52, 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DML_STATEMENT, AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION),
+                Map.of(Options.Name.DRY_RUN, true, Options.Name.LOG_QUERY, true));
+    }
+
+    @Test
     void queryHashWorksWithPreparedParameters() throws Exception {
         validate(List.of(
                         "select * from t1 where col1 = ? or col2 = ?NamedParam",

@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.query.ParseTreeInfoImpl;
 import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.FieldImpl;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -443,6 +442,22 @@ public class UpdateStatementImpl implements UpdateStatement {
                     for (final var projectionItem : projectionList) {
                         updateBuilder.addReturning(expressionFactory.parseFragment(projectionItem));
                     }
+                }
+
+                if (ctx.queryOptions() != null) {
+                    visit(ctx.queryOptions());
+                }
+                return null;
+            }
+
+            @Override
+            public Void visitQueryOption(RelationalParser.QueryOptionContext ctx) {
+                if (ctx.NOCACHE() != null) {
+                    updateBuilder.withOption(QueryOptions.NOCACHE);
+                } else if (ctx.LOG() != null) {
+                    updateBuilder.withOption(QueryOptions.LOG_QUERY);
+                } else if (ctx.DRY() != null) {
+                    updateBuilder.withOption(QueryOptions.DRY_RUN);
                 }
                 return null;
             }
