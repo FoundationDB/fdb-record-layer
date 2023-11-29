@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FieldInfosStorage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.test.BooleanSource;
@@ -87,7 +88,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 List.of(
                         directory -> write(directory, segment, fieldInfos),
                         directory -> directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION)),
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
+                        directory -> assertEquals(Map.of(), directory.getFieldInfosStorage().getAllFieldInfos())
                 ));
     }
 
@@ -108,13 +109,13 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                             }
                         },
                         directory -> {
-                            assertThat(directory.getAllFieldInfos().keySet(), Matchers.hasSize(1));
+                            assertThat(directory.getFieldInfosStorage().getAllFieldInfos().keySet(), Matchers.hasSize(1));
                             for (LightSegmentInfo segment : segments) {
                                 directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
                             }
 
                         },
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
+                        directory -> assertEquals(Map.of(), directory.getFieldInfosStorage().getAllFieldInfos())
                 ));
     }
 
@@ -135,12 +136,12 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                             }
                         },
                         directory -> {
-                            assertThat(directory.getAllFieldInfos().keySet(), Matchers.hasSize(segmentCount));
+                            assertThat(directory.getFieldInfosStorage().getAllFieldInfos().keySet(), Matchers.hasSize(segmentCount));
                             for (LightSegmentInfo segment : segments) {
                                 directory.deleteFile(IndexFileNames.segmentFileName(segment.name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
                             }
                         },
-                        directory -> assertEquals(Map.of(), directory.getAllFieldInfos())
+                        directory -> assertEquals(Map.of(), directory.getFieldInfosStorage().getAllFieldInfos())
                 ));
     }
 
@@ -170,7 +171,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                         // delete and validate, some number will go in first transaction, some in the second
                         IntStream.range(0, toDelete).mapToObj(i -> (TestHelpers.DangerousConsumer<FDBDirectory>)directory -> {
                             directory.deleteFile(IndexFileNames.segmentFileName(segments.get(i).name, "", LuceneOptimizedFieldInfosFormat.EXTENSION));
-                            Assertions.assertEquals(Set.of(FDBDirectory.GLOBAL_FIELD_INFOS_ID), directory.getAllFieldInfos().keySet());
+                            Assertions.assertEquals(Set.of(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID), directory.getFieldInfosStorage().getAllFieldInfos().keySet());
                         })
                 ).collect(Collectors.toList()));
     }

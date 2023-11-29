@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
@@ -109,7 +110,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -1269,7 +1269,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void fullDeleteSegmentIndex() {
+    void fullDeleteSegmentIndex() throws Exception {
         fullDeleteHelper(indexMaintainer -> {
             final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex1 = indexMaintainer
                     .getDirectory(Tuple.from())
@@ -1284,8 +1284,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private Index fullDeleteHelper(final Consumer<LuceneIndexMaintainer> assertEmpty,
-                                   final Consumer<LuceneIndexMaintainer> assertNotEmpty) {
+    private Index fullDeleteHelper(final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertEmpty,
+                                   final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertNotEmpty) throws Exception {
         final Index index = SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
@@ -1334,14 +1334,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void fullDeleteFieldInfos() {
+    void fullDeleteFieldInfos() throws Exception {
         // if we delete all the documents, the FieldInfos should be cleared out
         fullDeleteHelper(indexMaintainer -> {
-            final Map<Long, byte[]> allFieldInfos = indexMaintainer.getDirectory(Tuple.from()).getAllFieldInfos();
+            FDBDirectory fdbDirectory = indexMaintainer.getDirectory(Tuple.from());
+            final var allFieldInfos = fdbDirectory.getFieldInfosStorage().getAllFieldInfos();
             assertEquals(Map.of(), allFieldInfos,
                     () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from()).listAll()));
         }, indexMaintainer -> {
-            final Map<Long, byte[]> allFieldInfos = indexMaintainer.getDirectory(Tuple.from()).getAllFieldInfos();
+            FDBDirectory fdbDirectory = indexMaintainer.getDirectory(Tuple.from());
+            final var allFieldInfos = fdbDirectory.getFieldInfosStorage().getAllFieldInfos();
             assertNotEquals(Map.of(), allFieldInfos,
                     () -> String.join(", ", indexMaintainer.getDirectory(Tuple.from()).listAll()));
         });
@@ -2725,7 +2727,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, false) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
-        final Set<Long> allFieldInfos = assertDoesNotThrow(() -> directory.getAllFieldInfos().keySet());
+        final Set<Long> allFieldInfos = assertDoesNotThrow(() -> directory.getFieldInfosStorage().getAllFieldInfos().keySet());
         int segmentCount = 0;
         for (String file : allFiles) {
             final FDBLuceneFileReference fileReference = directory.getFDBLuceneFileReference(file);
@@ -2751,9 +2753,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         if (FDBDirectory.isFieldInfoFile(file) || FDBDirectory.isEntriesFile(file)) {
             assertNotEquals(0, fileReference.getFieldInfosId());
             assertNotEquals(ByteString.EMPTY, fileReference.getFieldInfosBitSet());
-            final byte[] bytes = directory.readFieldInfo(fileReference.getFieldInfosId());
-            final LuceneFieldInfosProto.FieldInfos fieldInfos = Assertions.assertDoesNotThrow(() ->
-                    LuceneFieldInfosProto.FieldInfos.parseFrom(bytes));
+            final LuceneFieldInfosProto.FieldInfos fieldInfos = assertDoesNotThrow(() -> directory.getFieldInfosStorage().readFieldInfos(fileReference.getFieldInfosId()));
             final BitSet bitSet = BitSet.valueOf(fileReference.getFieldInfosBitSet().toByteArray());
             final Set<Integer> fieldNumbers = fieldInfos.getFieldInfoList().stream()
                     .map(LuceneFieldInfosProto.FieldInfo::getNumber)

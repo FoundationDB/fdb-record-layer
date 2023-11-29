@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIn
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
@@ -83,7 +82,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.CRC32;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
@@ -117,8 +116,7 @@ public class FDBDirectory extends Directory  {
     @SuppressWarnings({"Unused", "PMD.UnusedPrivateField"}) // preserved to document that this is reserved
     private static final int SCHEMA_SUBSPACE = 3;
     private static final int PRIMARY_KEY_SUBSPACE = 4;
-    private static final int FIELD_INFO_SUBSPACE = 5;
-    public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
+    private static final int FIELD_INFOS_SUBSPACE = 5;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
@@ -144,13 +142,10 @@ public class FDBDirectory extends Directory  {
      * @see FDBLuceneFileReference
      */
     private final AtomicReference<ConcurrentSkipListMap<String, FDBLuceneFileReference>> fileReferenceCache;
-
-    private AtomicReference<Map<Long, AtomicInteger>> fieldInfoReferenceCount = new AtomicReference<>();
-    private final Supplier<CompletableFuture<Map<Long, byte[]>>> allFieldInfosSupplier;
+    private final FieldInfosStorage fieldInfosStorage;
 
     private final AtomicLong fileSequenceCounter;
 
-    public static final long GLOBAL_FIELD_INFOS_ID = -2;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
     private final boolean compressionEnabled;
@@ -195,7 +190,7 @@ public class FDBDirectory extends Directory  {
         this.sequenceSubspaceKey = sequenceSubspace.pack();
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
-        this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFO_SUBSPACE));
+        this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -210,10 +205,10 @@ public class FDBDirectory extends Directory  {
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
         this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
-        this.allFieldInfosSupplier = Suppliers.memoize(this::loadAllFieldInfos);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
+        this.fieldInfosStorage = new FieldInfosStorage(this);
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -292,6 +287,10 @@ public class FDBDirectory extends Directory  {
         return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
 
+    public FieldInfosStorage getFieldInfosStorage() {
+        return this.fieldInfosStorage;
+    }
+
     public void setFieldInfoId(final String filename, final long id, final ByteString bitSet) {
         final FDBLuceneFileReference reference = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE,
                 getFDBLuceneFileReferenceAsync(filename));
@@ -304,17 +303,7 @@ public class FDBDirectory extends Directory  {
         writeFDBLuceneFileReference(filename, reference);
     }
 
-    public long writeFieldInfo(byte[] value) {
-        long id;
-        if (Boolean.TRUE.equals(getAllFieldInfos().isEmpty())) {
-            id = GLOBAL_FIELD_INFOS_ID;
-        } else {
-            id = getIncrement();
-        }
-        return writeFieldInfo(value, id);
-    }
-
-    public long writeFieldInfo(byte[] value, long id) {
+    long writeFieldInfos(long id, byte[] value) {
         if (id == 0) {
             throw new RecordCoreArgumentException("FieldInfo id should never be 0");
         }
@@ -327,40 +316,16 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
         context.ensureActive().set(key, value);
-        // Add the entry in the cached map from id->bytes, loading the cache if it hasn't been loaded yet.
-        getAllFieldInfos().put(id, value);
         return id;
     }
 
-    public byte[] readFieldInfo(long id) {
-        return getAllFieldInfos().get(id);
-    }
-
-    public byte[] readGlobalFieldInfos() {
-        return getAllFieldInfos().get(GLOBAL_FIELD_INFOS_ID);
-    }
-
-    public long updateGlobalFieldInfos(final byte[] fieldInfos) {
-        return writeFieldInfo(fieldInfos, GLOBAL_FIELD_INFOS_ID);
-    }
-
-    @VisibleForTesting
-    public Map<Long, byte[]> getAllFieldInfos() {
+    Stream<Pair<Long, byte[]>> getAllFieldInfosStream() {
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                allFieldInfosSupplier.get());
-    }
-
-    private CompletableFuture<Map<Long, byte[]>> loadAllFieldInfos() {
-        return context.ensureActive().getRange(fieldInfosSubspace.range())
-                .asList()
-                .thenApply(list -> list.stream().collect(Collectors.toMap(
-                        keyValue -> fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0),
-                        KeyValue::getValue,
-                        (value1, value2) -> {
-                            throw new RecordCoreException("Duplicate keys in FieldInfosSubspace");
-                        },
-                        ConcurrentHashMap::new)));
+                context.ensureActive().getRange(fieldInfosSubspace.range())
+                        .asList())
+                .stream()
+                .map(keyValue -> Pair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -406,10 +371,7 @@ public class FDBDirectory extends Directory  {
         }
         context.ensureActive().set(metaSubspace.pack(name), encodedBytes);
         getFileReferenceCache().put(name, reference);
-        if (reference.getFieldInfosId() != 0) {
-            fieldInfoReferenceCount.get().computeIfAbsent(reference.getFieldInfosId(), key -> new AtomicInteger(0))
-                    .incrementAndGet();
-        }
+        fieldInfosStorage.addReference(reference);
     }
 
     /**
@@ -560,7 +522,7 @@ public class FDBDirectory extends Directory  {
             // Memoize the result in an FDBDirectory member variable. Future attempts to access files
             // should use the class variable
             fileReferenceCache.compareAndSet(null, outMap);
-            fieldInfoReferenceCount.compareAndSet(null, fieldInfosCount);
+            fieldInfosStorage.initializeReferenceCount(fieldInfosCount);
         });
         return context.instrument(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, future, start);
     }
@@ -581,14 +543,14 @@ public class FDBDirectory extends Directory  {
                 if (fromShared != null) {
                     ConcurrentSkipListMap<String, FDBLuceneFileReference> copy = new ConcurrentSkipListMap<>(fromShared);
                     fileReferenceCache.compareAndSet(null, copy);
-                    fieldInfoReferenceCount.compareAndSet(null, sharedCache.getFieldInfosReferenceCount());
+                    fieldInfosStorage.initializeReferenceCount(sharedCache.getFieldInfosReferenceCount());
                     sharedCachePending = false;
                     return CompletableFuture.completedFuture(fromShared);
                 }
                 return fileReferenceMapSupplier.get().thenApply(ignore -> {
                     final ConcurrentSkipListMap<String, FDBLuceneFileReference> fromSupplier = fileReferenceCache.get();
                     sharedCache.setFileReferencesIfAbsent(fromSupplier);
-                    sharedCache.setFieldInfosReferenceCount(fieldInfoReferenceCount.get());
+                    sharedCache.setFieldInfosReferenceCount(getFieldInfosStorage().getReferenceCount());
                     sharedCachePending = false;
                     return fromSupplier;
                 });
@@ -616,15 +578,16 @@ public class FDBDirectory extends Directory  {
         }
 
         try {
-            boolean deleted = Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync()
-                    .thenApply(cache -> deleteFileInternal(cache, name))));
+            boolean deleted = deleteFileInternal(
+                    Objects.requireNonNull(context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DELETE_FILE, getFileReferenceCacheAsync())),
+                    name);
 
             if (!deleted) {
                 throw new NoSuchFileException(name);
             }
 
             if (isCompoundFile(name)) {
-                Map<String, FDBLuceneFileReference> cache = fileReferenceCache.get();
+                Map<String, FDBLuceneFileReference> cache = this.fileReferenceCache.get();
                 String primaryKeyName = name.substring(0, name.length() - DATA_EXTENSION.length()) + "pky";
                 deleteFileInternal(cache, primaryKeyName);
                 // TODO: If the segment is being deleted because it no longer has any live docs, it won't be merged
@@ -636,18 +599,15 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) {
+    private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
             return false;
         }
         context.ensureActive().clear(metaSubspace.pack(name));
         final long id = value.getFieldInfosId();
-        if (id != 0 &&
-                Objects.requireNonNull(fieldInfoReferenceCount.get(), "fieldInfosReferenceCache")
-                    .get(id).decrementAndGet() == 0) {
+        if (fieldInfosStorage.delete(id)) {
             context.ensureActive().clear(fieldInfosSubspace.pack(id));
-            getAllFieldInfos().remove(id);
         }
         // Nothing stored here currently.
         context.ensureActive().clear(dataSubspace.subspace(Tuple.from(id)).range());
