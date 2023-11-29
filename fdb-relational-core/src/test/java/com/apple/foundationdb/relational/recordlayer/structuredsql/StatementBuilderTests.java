@@ -87,19 +87,6 @@ public class StatementBuilderTests {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
-    public void removeSetFieldClauseByName() throws Exception {
-        final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
-            final var updateStatement = "update T1 set a = 42, b = 44 where pk = 444";
-            final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
-            updateBuilder.removeSetClause("B");
-            var generatedQuery = updateBuilder.build().getSqlQuery();
-            Assertions.assertEquals("UPDATE \"T1\" SET \"A\" = 42 WHERE pk = 444", generatedQuery);
-        }
-    }
-
-    @Test
     public void removeAllSetFieldClausesThrows() throws Exception {
         final String schemaTemplateString = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {

@@ -252,13 +252,6 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         @Nonnull
         @Override
-        public Builder removeSetClause(@Nonnull final String fieldName) {
-            setClauses = setClauses.entrySet().stream().filter(pair -> !pair.getKey().getName().equals(fieldName)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            return this;
-        }
-
-        @Nonnull
-        @Override
         public Builder removeSetClause(@Nonnull Field<?> field) {
             setClauses = setClauses.entrySet().stream().filter(pair -> !pair.getKey().equals(field)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             return this;
