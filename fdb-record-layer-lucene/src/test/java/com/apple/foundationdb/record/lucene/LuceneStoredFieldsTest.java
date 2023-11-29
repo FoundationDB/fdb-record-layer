@@ -70,8 +70,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
-    // The index to use when teh optimized stored fields option is enabled (this is the same as the base index, with the
-    // PK index and Optimized stored fields options enabled)
+    // The index to use when the optimized stored fields option is disabled (this is the same as the base index, with the
+    // PK index and Optimized stored fields options disabled)
     private static final Index SIMPLE_TEXT_SUFFIXES_WITHOUT_OPT_STORED_FIELDS = new Index("Simple$text_suffixes_pky",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
@@ -325,13 +325,13 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             final RecordQuery query = buildQuery("record", Collections.emptyList(), COMPLEX_DOC);
-            // This doc has the OK as (Group, docID)
-            queryAndAssertFieldsT(query, "text", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record", "Hello record layer"));
+            // This doc has the PK as (Group, docID)
+            queryAndAssertFieldsTuple(query, "text", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record", "Hello record layer"));
             // query again and compare the other fields
-            queryAndAssertFieldsT(query, "text2", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record 2", "Hello record layer 2"));
-            queryAndAssertFieldsT(query, "score", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(13, 14));
-            queryAndAssertFieldsT(query, "is_seen", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(false, true));
-            queryAndAssertFieldsT(query, "time", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(8.123, 9.123));
+            queryAndAssertFieldsTuple(query, "text2", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of("Hello record 2", "Hello record layer 2"));
+            queryAndAssertFieldsTuple(query, "score", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(13, 14));
+            queryAndAssertFieldsTuple(query, "is_seen", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(false, true));
+            queryAndAssertFieldsTuple(query, "time", Set.of(Tuple.from(6, 1624L), Tuple.from(7, 1625L)), Set.of(8.123, 9.123));
 
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -353,10 +353,10 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     private void queryAndAssertFields(RecordQuery query, String fieldName, Set<Long> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
-        queryAndAssertFieldsT(query, fieldName, expectedPrimaryKeys.stream().map(Tuple::from).collect(Collectors.toSet()), expectedFields);
+        queryAndAssertFieldsTuple(query, fieldName, expectedPrimaryKeys.stream().map(Tuple::from).collect(Collectors.toSet()), expectedFields);
     }
 
-    private void queryAndAssertFieldsT(RecordQuery query, String fieldName, Set<Tuple> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
+    private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Set<Tuple> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
         RecordQueryPlan plan = planner.plan(query);
         try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
             List<FDBQueriedRecord<Message>> result = fdbQueriedRecordRecordCursor.asList().get();
@@ -364,7 +364,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             assertEquals(expectedPrimaryKeys, actualKeyTuples);
             Set<?> fields = result.stream()
                     .map(FDBQueriedRecord::getStoredRecord)
-                    .filter(Objects::nonNull) //unnecessary, but helps keep the linter happy
+                    .map(Objects::requireNonNull)
                     .map(FDBStoredRecord::getRecord)
                     .map(m -> m.getField(m.getDescriptorForType().findFieldByName(fieldName)))
                     .collect(Collectors.toSet());

@@ -175,7 +175,6 @@ public class FDBDirectory extends Directory  {
     // True if sharedCacheManager is present until sharedCache has been set (or not).
     private boolean sharedCachePending;
 
-    private final boolean primaryKeySegmentIndexEnabled;
     @Nullable
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
@@ -481,7 +480,7 @@ public class FDBDirectory extends Directory  {
         context.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
-                    LuceneLogMessageKeys.RESOURCE, key));
+                    LuceneLogMessageKeys.RESOURCE, segmentName));
         }
         context.ensureActive().clear(Range.startsWith(key));
     }

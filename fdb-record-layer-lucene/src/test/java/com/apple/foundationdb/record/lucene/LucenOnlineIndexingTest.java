@@ -507,7 +507,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                 for (int i = 0; i < 2; i++) {
                     final FDBDirectory directory = new FDBDirectory(
                             recordStore.indexSubspace(index).subspace(Tuple.from(i)),
-                            context, true);
+                            context, index.getOptions());
                     files.addAll(Arrays.asList(directory.listAll()));
                 }
                 return files.toArray(new String[0]);

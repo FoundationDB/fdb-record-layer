@@ -1360,7 +1360,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
                 recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2));
-                validateIndexIntegrity(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null);
+                validateIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null);
                 final int fileCount = getDirectory(index, Tuple.from()).listAll().length;
                 if (fileCount < lastFileCount) {
                     mergeHappened = true;
@@ -1776,7 +1776,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     }).allMatch(r -> r));
 
             Subspace subspace = recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
-            validateSegmentAndIndexIntegrity(subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE, subspace, context, "_0.cfs");
 
             List<Tuple> primaryKeys = results.stream()
                     .map(FDBQueriedRecord::getIndexEntry)
@@ -2733,7 +2733,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     || file.endsWith(".pky")) {
                 assertFalse(fileReference.getContent().isEmpty(), "fileName=" + file);
             } else {
-                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),
+                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || FDBDirectory.isStoredFieldsFile(file),
                         "fileName=" + file);
                 assertTrue(fileReference.getContent().isEmpty(), "fileName=" + file);
             }

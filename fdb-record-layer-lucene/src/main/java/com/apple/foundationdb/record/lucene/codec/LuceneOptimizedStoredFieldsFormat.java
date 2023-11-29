@@ -42,6 +42,7 @@ import java.io.IOException;
  */
 public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     public static final String STORED_FIELDS_EXTENSION = "fsf";
+    // This is the inner format that is used when LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED is FALSE
     private final StoredFieldsFormat storedFieldsFormat;
 
     LuceneOptimizedStoredFieldsFormat(StoredFieldsFormat storedFieldsFormat) {
@@ -67,7 +68,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = fdbDirectory.getPrimaryKeySegmentIndex();
         StoredFieldsWriter storedFieldsWriter;
 
-        // Use TRUE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option
+        // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility
         if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
             storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si, context);
         } else {
@@ -81,9 +82,6 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         Directory delegate = FilterDirectory.unwrap(directory);
         if (delegate instanceof LuceneOptimizedCompoundReader) {
             delegate = ((LuceneOptimizedCompoundReader)delegate).getDirectory();
-        }
-        if (delegate instanceof LuceneOptimizedWrappedDirectory) {
-            delegate = ((LuceneOptimizedWrappedDirectory)delegate).getFdbDirectory();
         }
         if (delegate instanceof FDBDirectory) {
             return (FDBDirectory)delegate;

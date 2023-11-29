@@ -59,12 +59,13 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     private int docId;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si, IOContext context) {
+    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si, IOContext context) throws IOException {
         this.directory = directory;
         this.docId = 0;
         this.segmentName = si.name;
         // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
-        this.directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context);
+        this.directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
+                .close();
     }
 
     @Override

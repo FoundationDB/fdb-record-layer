@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -52,7 +50,6 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
     private final SegmentInfo si;
     private final FieldInfos fieldInfos;
     private final String segmentName;
-    private AsyncIterator<KeyValue> rangeIterator;
 
     @SuppressWarnings("PMD.CloseResource")
     public LuceneOptimizedStoredFieldsReader(final FDBDirectory directory, final SegmentInfo si, final FieldInfos fieldInfos) {
@@ -64,17 +61,8 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
 
     @Override
     public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-        LuceneStoredFieldsProto.LuceneStoredFields storedFields;
-        if (rangeIterator == null) {
-            storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(directory.readStoredFields(segmentName, docID));
-        } else {
-            KeyValue keyValue = rangeIterator.next();
-            if (keyValue == null) {
-                throw new IOException("Range Iterator Was Exhausted, should not happen");
-            }
-            storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(keyValue.getValue());
-        }
-        List<LuceneStoredFieldsProto.StoredField> storedFieldList = storedFields.getStoredFieldsList();
+        List<LuceneStoredFieldsProto.StoredField> storedFieldList =
+                LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(directory.readStoredFields(segmentName, docID)).getStoredFieldsList();
         for (LuceneStoredFieldsProto.StoredField storedField: storedFieldList) {
             FieldInfo info = fieldInfos.fieldInfo(storedField.getFieldNumber());
             switch (visitor.needsField(info)) {
