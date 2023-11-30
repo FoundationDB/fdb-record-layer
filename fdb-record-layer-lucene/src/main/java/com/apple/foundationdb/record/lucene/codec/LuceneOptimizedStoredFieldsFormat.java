@@ -27,6 +27,7 @@ import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -70,7 +71,10 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
         // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility
         if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
-            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si, context);
+            // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
+            directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
+                    .close();
+            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
         } else {
             storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
         }

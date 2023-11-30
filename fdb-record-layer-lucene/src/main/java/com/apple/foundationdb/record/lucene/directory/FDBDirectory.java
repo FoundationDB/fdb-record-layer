@@ -894,7 +894,7 @@ public class FDBDirectory extends Directory  {
                 return new ByteBuffersIndexInput(
                         new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
             }
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
+        } else if (FDBDirectory.isFieldInfoFile(name) || FDBDirectory.isStoredFieldsFile(name)) {
             return new EmptyIndexInput(name);
         } else {
             // the contract is that this should throw an exception, but we don't

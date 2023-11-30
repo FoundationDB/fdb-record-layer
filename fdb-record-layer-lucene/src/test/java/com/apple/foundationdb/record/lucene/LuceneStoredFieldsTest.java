@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
@@ -316,7 +315,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Utility helper to run a query and assert the results
+     * Utility helper to run a query and assert the results.
      * @param query the query to run
      * @param fieldName the field value to extract from each record
      * @param expectedValues a map of PK value to a field value to expect
@@ -328,14 +327,13 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Utility helper to run a query and assert the results
+     * Utility helper to run a query and assert the results.
      * @param query the query to run
      * @param fieldName the field value to extract from each record
      * @param expectedValues a map of PK Tuple to a field value to expect
      * @throws Exception in case of error
      */
     private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Map<Tuple, ?> expectedValues) throws Exception {
-    //private void queryAndAssertFieldsTuple(RecordQuery query, String fieldName, Set<Tuple> expectedPrimaryKeys, Set<?> expectedFields) throws Exception {
         RecordQueryPlan plan = planner.plan(query);
         try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
             List<FDBQueriedRecord<Message>> result = fdbQueriedRecordRecordCursor.asList().get();

@@ -151,6 +151,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@code LUCENE} type indexes.
@@ -1168,7 +1169,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if ((i + 1) % 50 == 0) {
                 commit(context);
                 context = openContext();
-                validateIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null);
+                validateIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null, null);
             }
         }
         context.close();
@@ -1360,7 +1361,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
                 recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2));
-                validateIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null);
+                validateIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, null, null);
                 final int fileCount = getDirectory(index, Tuple.from()).listAll().length;
                 if (fileCount < lastFileCount) {
                     mergeHappened = true;
@@ -2704,11 +2705,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         validateSegmentAndIndexIntegrity(index, subspace, context, segment);
     }
 
-    private static void validateSegmentAndIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment) {
+    private static void validateSegmentAndIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segmentFile) {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions())) {
-            final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segment);
+            final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segmentFile);
             assertNotNull(reference);
-            validateIndexIntegrity(index, subspace, context, directory);
+            // Extract the segment name from the file name
+            final String segmentName = segmentFile.substring(0, segmentFile.indexOf("."));
+            validateIndexIntegrity(index, subspace, context, directory, segmentName);
         }
     }
 
@@ -2721,7 +2724,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return getIndexMaintainer(index).getDirectory(groupingKey);
     }
 
-    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory) {
+    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions()) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
@@ -2732,8 +2735,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)
                     || file.endsWith(".pky")) {
                 assertFalse(fileReference.getContent().isEmpty(), "fileName=" + file);
+            } else if (FDBDirectory.isStoredFieldsFile(file) && (segmentName != null)) {
+                // It is OK for a stored fields info for the next segment to be created at this point.
+                // Make sure it is not around for the verified segment only
+                if (file.startsWith(segmentName)) {
+                    fail("Found stored fields file that should have been removed");
+                }
             } else {
-                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS) || FDBDirectory.isStoredFieldsFile(file),
+                assertTrue(FDBDirectory.isCompoundFile(file) || file.startsWith(IndexFileNames.SEGMENTS),
                         "fileName=" + file);
                 assertTrue(fileReference.getContent().isEmpty(), "fileName=" + file);
             }

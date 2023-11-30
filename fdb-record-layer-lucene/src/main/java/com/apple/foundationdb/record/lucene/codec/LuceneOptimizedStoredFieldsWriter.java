@@ -28,11 +28,9 @@ import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.DocIDMerger;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
@@ -59,13 +57,10 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     private int docId;
 
     @SuppressWarnings("PMD.CloseResource")
-    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si, IOContext context) throws IOException {
+    public LuceneOptimizedStoredFieldsWriter(final FDBDirectory directory, final SegmentInfo si) throws IOException {
         this.directory = directory;
         this.docId = 0;
         this.segmentName = si.name;
-        // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
-        this.directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
-                .close();
     }
 
     @Override
