@@ -73,6 +73,7 @@ public class SyntheticRecordPlanner {
      * Initialize a new planner.
      * @param recordMetaData meta-data to use for planning
      * @param storeState index enabling state to use for planning
+     * @param timer store timer for collecting metrics during planning
      */
     public SyntheticRecordPlanner(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState storeState, @Nullable FDBStoreTimer timer) {
         this.recordMetaData = recordMetaData;
