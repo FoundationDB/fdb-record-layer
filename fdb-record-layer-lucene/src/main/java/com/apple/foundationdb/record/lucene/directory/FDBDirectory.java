@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
@@ -32,11 +33,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -118,13 +121,17 @@ public class FDBDirectory extends Directory  {
     private static final int SCHEMA_SUBSPACE = 3;
     private static final int PRIMARY_KEY_SUBSPACE = 4;
     private static final int FIELD_INFO_SUBSPACE = 5;
+    private static final int STORED_FIELDS_SUBSPACE = 6;
     public static final int DEFAULT_MAXIMUM_FIELD_INFO_CACHE_SIZE = 64;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
+    @Nonnull
+    private final Map<String, String> indexOptions;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
     private final Subspace fieldInfosSubspace;
+    private final Subspace storedFieldsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -161,41 +168,45 @@ public class FDBDirectory extends Directory  {
     private final FDBDirectorySharedCacheManager sharedCacheManager;
     @Nullable
     private final Tuple sharedCacheKey;
+    // Whether to delete K/V data immediately or wait for compound file deletion
+    private final boolean deferDeleteToCompoundFile;
     @Nullable
     private FDBDirectorySharedCache sharedCache;
     // True if sharedCacheManager is present until sharedCache has been set (or not).
     private boolean sharedCachePending;
 
-    private final boolean primaryKeySegmentIndexEnabled;
     @Nullable
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
-                        boolean primaryKeySegmentIndexEnabled) {
-        this(subspace, context, null, null, primaryKeySegmentIndexEnabled);
+    @VisibleForTesting
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
+        this(subspace, context, indexOptions, null, null, true);
     }
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean primaryKeySegmentIndexEnabled) {
-        this(subspace, context, sharedCacheManager, sharedCacheKey, primaryKeySegmentIndexEnabled, NoLockFactory.INSTANCE,
-                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
+                        boolean deferDeleteToCompoundFile) {
+        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, NoLockFactory.INSTANCE,
+                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
+    private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                  @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                 boolean primaryKeySegmentIndexEnabled, @Nonnull LockFactory lockFactory,
-                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
+                 @Nonnull LockFactory lockFactory,
+                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
+                 boolean deferDeleteToCompoundFile) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
         Verify.verify(lockFactory != null);
         this.context = context;
+        this.indexOptions = indexOptions == null ? Collections.emptyMap() : indexOptions;
         this.subspace = subspace;
         final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
         this.sequenceSubspaceKey = sequenceSubspace.pack();
         this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFO_SUBSPACE));
+        this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -208,12 +219,12 @@ public class FDBDirectory extends Directory  {
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
         this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
-        this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.allFieldInfosSupplier = Suppliers.memoize(this::loadAllFieldInfos);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
+        this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -387,6 +398,12 @@ public class FDBDirectory extends Directory  {
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
 
+    public static boolean isStoredFieldsFile(String name) {
+        return name.endsWith(LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+    }
+
     /**
      * Puts a file reference in the meta subspace and in the cache under the given name.
      * @param name name for the file reference
@@ -436,6 +453,39 @@ public class FDBDirectory extends Directory  {
         return encodedBytes.length;
     }
 
+    /**
+     * Write stored fields document to the DB.
+     * @param segmentName the segment name writing to
+     * @param docID the document ID to write
+     * @param value the bytes value of the stored fields
+     */
+    public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] value) {
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
+        context.increment(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene stored fields data",
+                    LuceneLogMessageKeys.DATA_SIZE, value.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
+        }
+        context.ensureActive().set(key, value);
+    }
+
+    /**
+     * Delete stored fields data from the DB.
+     * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
+     */
+    public void deleteStoredFields(@Nonnull final String segmentName) {
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
+        context.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Delete Stored Fields Data",
+                    LuceneLogMessageKeys.RESOURCE, segmentName));
+        }
+        context.ensureActive().clear(Range.startsWith(key));
+    }
+
+    /**
     /**
      * Reads known data from the directory.
      * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
@@ -506,6 +556,15 @@ public class FDBDirectory extends Directory  {
                         .thenApply(LuceneSerializer::decode));
     }
 
+    public byte[] readStoredFields(String segmentName, int docId) throws IOException {
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS, readStoredFieldsAsync(segmentName, docId));
+    }
+
+    private CompletableFuture<byte[]> readStoredFieldsAsync(String segmentName, int docID) {
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
+                context.ensureActive().get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
+    }
+
     /**
      * Lists all file names in the subspace. Puts all references in the cache.
      * Logs the count of references, and the total size of the data.
@@ -522,6 +581,13 @@ public class FDBDirectory extends Directory  {
         } finally {
             context.record(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
+    }
+
+    @VisibleForTesting
+    public AsyncIterable<KeyValue> scanStoredFields(String segmentName) {
+        return context.ensureActive()
+                .getRange(storedFieldsSubspace.subspace(Tuple.from(segmentName)).range(),
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR);
     }
 
     private CompletableFuture<Void> loadFileReferenceCacheForMemoization() {
@@ -651,6 +717,23 @@ public class FDBDirectory extends Directory  {
         }
         // Nothing stored here currently.
         context.ensureActive().clear(dataSubspace.subspace(Tuple.from(id)).range());
+        // Delete K/V data: If the deferredDelete flag is on then delete all content from K/V subspace for the segment
+        // (this is to support CFS deletion, that will be disjoint from the actual file deletion).
+        // Otherwise, delete the data for the specific file immediately.
+        String segmentName = IndexFileNames.parseSegmentName(name);
+        if (deferDeleteToCompoundFile) {
+            if (isCompoundFile(name)) {
+                // delete all K/V content, only if the optimized stored fields format is in use
+                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                    deleteStoredFields(segmentName);
+                }
+            }
+        } else {
+            if (isStoredFieldsFile(name)) {
+                // Delete stored fields subspace
+                deleteStoredFields(segmentName);
+            }
+        }
         return true;
     }
 
@@ -811,7 +894,7 @@ public class FDBDirectory extends Directory  {
                 return new ByteBuffersIndexInput(
                         new ByteBuffersDataInput(reference.getContent().asReadOnlyByteBufferList()), name);
             }
-        } else if (FDBDirectory.isFieldInfoFile(name)) {
+        } else if (FDBDirectory.isFieldInfoFile(name) || FDBDirectory.isStoredFieldsFile(name)) {
             return new EmptyIndexInput(name);
         } else {
             // the contract is that this should throw an exception, but we don't
@@ -900,7 +983,7 @@ public class FDBDirectory extends Directory  {
      */
     @Nullable
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        if (!primaryKeySegmentIndexEnabled) {
+        if (!getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
             return null;
         }
         synchronized (this) {
@@ -940,5 +1023,30 @@ public class FDBDirectory extends Directory  {
             }
         }
         return null;
+    }
+
+    /**
+     * Convenience methods to get index options from the directory's index.
+     * @param key the option key
+     * @param defaultValue the value to use when the option is not set
+     * @return the index option value, or the default value if not found
+     */
+    public boolean getBooleanIndexOption(@Nonnull String key, boolean defaultValue) {
+        final String option = getIndexOption(key);
+        if (option == null) {
+            return defaultValue;
+        } else {
+            return Boolean.valueOf(option);
+        }
+    }
+
+    /**
+     * Convenience methods to get index options from the directory's index.
+     * @param key the option key
+     * @return the index option value, null if not found
+     */
+    @Nullable
+    public String getIndexOption(@Nonnull String key) {
+        return indexOptions.get(key);
     }
 }

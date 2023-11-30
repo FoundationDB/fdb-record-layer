@@ -34,9 +34,8 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Wrapper for the {@link Lucene50CompoundFormat} to optimize compound files for sitting on FoundationDB.
@@ -70,23 +69,44 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     .close();
         }
         final Set<String> filesForAfter = Set.copyOf(si.files());
-        // We filter out the FieldInfos file before passing to underlying compoundFormat.write, because that expects
-        // everything to be a "proper" index format, but for FieldInfos it is just a long.
-        final Map<Boolean, Set<String>> files = si.files().stream()
-                .collect(Collectors.groupingBy(FDBDirectory::isFieldInfoFile, Collectors.toSet()));
-        si.setFiles(files.getOrDefault(false, Set.of()));
-        if (files.getOrDefault(true, Set.of()).size() != 1) {
-            throw new RecordCoreException("Segment has wrong number of FieldInfos")
-                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files.get(true));
-        }
+        // We filter out the FieldInfos and the StoredFields files before passing to underlying compoundFormat.write, because that expects
+        // everything to be a "proper" index format (e.g. have a header), but these meta files are empty.
+        Set<String> filteredFiles = filterMarkerFiles(si.files());
+        si.setFiles(filteredFiles);
         @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
         final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);
-        final String fieldInfosFileName = files.get(true).stream().findFirst().orElseThrow();
+        final String fieldInfosFileName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst().orElseThrow();
         final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
         String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
         directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
     }
 
+    private Set<String> filterMarkerFiles(Set<String> files) {
+        int fieldInfos = 0;
+        int storedFields = 0;
+        Set<String> filteredFiles = new HashSet<>(files.size());
+        for (String file: files) {
+            if (FDBDirectory.isFieldInfoFile(file)) {
+                fieldInfos++;
+            } else if (FDBDirectory.isStoredFieldsFile(file)) {
+                storedFields++;
+            } else {
+                filteredFiles.add(file);
+            }
+        }
+
+        if (fieldInfos != 1) {
+            throw new RecordCoreException("Segment has wrong number of FieldInfos")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
+        }
+        // There could be no stored field files in some cases
+        if (storedFields > 1) {
+            throw new RecordCoreException("Segment has wrong number of StoredFields")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
+        }
+
+        return filteredFiles;
+    }
 }

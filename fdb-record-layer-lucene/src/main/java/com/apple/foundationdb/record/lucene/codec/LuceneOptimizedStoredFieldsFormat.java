@@ -20,14 +20,15 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
@@ -36,13 +37,14 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
- * This class provides a Lazy reader implementation to limit the amount of
+ * This class provides a custom KeyValue based reader and writer implementation to limit the amount of
  * data needed to be read from FDB.
  *
  */
 public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
-
-    private StoredFieldsFormat storedFieldsFormat;
+    public static final String STORED_FIELDS_EXTENSION = "fsf";
+    // This is the inner format that is used when LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED is FALSE
+    private final StoredFieldsFormat storedFieldsFormat;
 
     LuceneOptimizedStoredFieldsFormat(StoredFieldsFormat storedFieldsFormat) {
         this.storedFieldsFormat = storedFieldsFormat;
@@ -50,71 +52,45 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
 
     @Override
     public StoredFieldsReader fieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) throws IOException {
-        return new LazyStoredFieldsReader(directory, si, fn, context);
+        FDBDirectory fdbDirectory = toFdbDirectory(directory);
+
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+            return new LuceneOptimizedStoredFieldsReader(fdbDirectory, si, fn);
+        } else {
+            return new LazyStoredFieldsReader(directory, si, fn, context,
+                    LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context)));
+        }
     }
 
-    @Override
     @SuppressWarnings("PMD.CloseResource")
+    @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
-        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = ((FDBDirectory)FilterDirectory.unwrap(directory)).getPrimaryKeySegmentIndex();
-        final StoredFieldsWriter storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+        FDBDirectory fdbDirectory = toFdbDirectory(directory);
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = fdbDirectory.getPrimaryKeySegmentIndex();
+        StoredFieldsWriter storedFieldsWriter;
+
+        // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+            // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
+            directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
+                    .close();
+            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
+        } else {
+            storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+        }
         return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
     }
 
-    private class LazyStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
-        private LazyCloseable<StoredFieldsReader> storedFieldsReader;
-        private Directory directory;
-        private SegmentInfo si;
-        private FieldInfos fn;
-        private IOContext context;
-
-        public LazyStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) {
-            this(directory, si, fn, context,
-                    LazyCloseable.supply(() -> storedFieldsFormat.fieldsReader(directory, si, fn, context)));
+    @SuppressWarnings("PMD.CloseResource")
+    private FDBDirectory toFdbDirectory(Directory directory) {
+        Directory delegate = FilterDirectory.unwrap(directory);
+        if (delegate instanceof LuceneOptimizedCompoundReader) {
+            delegate = ((LuceneOptimizedCompoundReader)delegate).getDirectory();
         }
-
-        private LazyStoredFieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context,
-                                       LazyCloseable<StoredFieldsReader> storedFieldsReader) {
-
-            this.directory = directory;
-            this.si = si;
-            this.fn = fn;
-            this.context = context;
-            this.storedFieldsReader = storedFieldsReader;
-        }
-
-        @Override
-        public void visitDocument(final int docID, final StoredFieldVisitor visitor) throws IOException {
-            storedFieldsReader.get().visitDocument(docID, visitor);
-        }
-
-        @Override
-        @SuppressWarnings({"PMD.ProperCloneImplementation", "java:S2975"})
-        public LazyStoredFieldsReader clone() {
-            return new LazyStoredFieldsReader(directory, si, fn, context,
-                    LazyCloseable.supply(() -> storedFieldsReader.get().clone()));
-        }
-
-        @Override
-        public void checkIntegrity() throws IOException {
-            if (LuceneOptimizedPostingsFormat.allowCheckDataIntegrity) {
-                storedFieldsReader.get().checkIntegrity();
-            }
-        }
-
-        @Override
-        public void close() throws IOException {
-            storedFieldsReader.close();
-        }
-
-        @Override
-        public long ramBytesUsed() {
-            return storedFieldsReader.getUnchecked().ramBytesUsed();
-        }
-
-        @Override
-        public SegmentInfo getSegmentInfo() {
-            return si;
+        if (delegate instanceof FDBDirectory) {
+            return (FDBDirectory)delegate;
+        } else {
+            throw new RuntimeException("Expected FDB Directory " + delegate.getClass());
         }
     }
 }
