@@ -268,7 +268,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     @Override
     @Disabled("The field-index-tests-proto.yaml has 'load template' which is not supported")
     public void fieldIndexTestsProto() throws Exception {
-        doRun("field-index-tests-proto.yaml");
+        doRun("field-index-tests-proto.yamsql");
     }
 
     @Override
@@ -315,7 +315,7 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     @Override
     @Disabled("The update-delete-returning.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void updateDeleteReturning() throws Exception {
-        doRun("update-delete-returning.yaml");
+        doRun("update-delete-returning.yamsql");
     }
 
     @Override

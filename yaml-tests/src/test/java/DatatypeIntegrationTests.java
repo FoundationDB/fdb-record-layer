@@ -23,6 +23,6 @@ import org.junit.jupiter.api.Test;
 public class DatatypeIntegrationTests extends YamlTestBase {
     @Test
     void booleanTypes() throws Exception {
-        doRun("boolean.yaml");
+        doRun("boolean.yamsql");
     }
 }

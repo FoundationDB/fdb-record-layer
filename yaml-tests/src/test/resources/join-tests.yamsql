@@ -1,0 +1,114 @@
+#
+# join-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template if exists join_tests_template
+---
+- query: create schema template join_tests_template
+    create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create table dept(id bigint, name string, primary key(id))
+    create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
+    create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
+    create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
+---
+- query: drop database if exists /FRL/JOIN_YAML
+---
+- query: create database /FRL/JOIN_YAML
+---
+- query: create schema /FRL/JOIN_YAML/test with template join_tests_template
+---
+- connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
+---
+- query: INSERT INTO EMP
+    VALUES (1, 'Jack', 'Williams', 1),
+           (2, 'Thomas', 'Johnson', 1),
+           (3, 'Emily', 'Martinez', 1),
+           (4, 'Amelia', 'Johnson', 1),
+           (5, 'Daniel', 'Miller', 2),
+           (6, 'Chloe', 'Jones', 2),
+           (7, 'Charlotte', 'Garcia', 2),
+           (8, 'Megan', 'Miller', 3),
+           (9, 'Harry', 'Smith', 3)
+---
+- query: INSERT INTO DEPT
+    VALUES (1, 'Engineering'),
+           (2, 'Sales'),
+           (3, 'Marketing')
+---
+- query: INSERT INTO PROJECT
+    VALUES (1, 'OLAP', 'Support OLAP queries', 3),
+           (2, 'SEO', 'Increase visibility on popular search engines', 8),
+           (3, 'Feedback', 'Turn customer feedback into actionable items', 5)
+---
+- query: INSERT INTO A VALUES(1, 0, 100,0)
+---
+- query: INSERT INTO B VALUES (4, 0, 0, 200)
+---
+- query: select ida from a where exists (select ida from a where ida = 1);
+- result: [{!l 1}]
+---
+- query: select sq2.y, sq1.x from (select ida as x from a) sq1, (select idb as y from b) sq2;
+- result: [{!l 4, !l 1}]
+---
+# Get names of people working in Engineering:
+- query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
+- unorderedResult: [{"Jack", "Williams"},
+              {"Thomas", "Johnson"},
+              {"Emily", "Martinez"},
+              {"Amelia", "Johnson"}]
+---
+# Get names of people working on a project
+- query: select fname, lname from emp where exists (select * from project where emp_id = emp.id);
+- unorderedResult: [{"Emily", "Martinez"},
+              {"Daniel", "Miller"},
+              {"Megan", "Miller"}]
+---
+# Get names of people working on a project in Sales department
+- query: select fname, lname from
+             (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
+             dept
+         where sq.dept_id = dept.id and dept.name = 'Sales';
+- unorderedResult: [{"Daniel", "Miller"}]
+---
+# three-way join to find which departments' corresponding projects.
+- query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
+- unorderedResult: [{"Engineering", "OLAP"},
+              {"Sales", "Feedback"},
+              {"Marketing", "SEO"}]
+---
+# two-level left-nested join to find which departments' corresponding projects.
+- query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;
+- unorderedResult: [{"Engineering", "OLAP"},
+              {"Sales", "Feedback"},
+              {"Marketing", "SEO"}]
+---
+# two-level right-nested join to find which departments' corresponding projects.
+- query: select sq.name, project.name from project, (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq where project.emp_id = sq.id;
+- unorderedResult: [{"Engineering", "OLAP"},
+              {"Sales", "Feedback"},
+              {"Marketing", "SEO"}]
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop database /FRL/JOIN_YAML
+---
+- query: drop schema template join_tests_template
+...

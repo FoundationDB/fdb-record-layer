@@ -24,172 +24,172 @@ import org.junit.jupiter.api.Test;
 public class YamlIntegrationTests extends YamlTestBase {
     @Test
     public void showcasingTests() throws Exception {
-        doRun("showcasing-tests.yaml");
+        doRun("showcasing-tests.yamsql");
     }
 
     @Test
     public void groupbyTests() throws Exception {
-        doRun("groupby-tests.yaml");
+        doRun("groupby-tests.yamsql");
     }
 
     @Test
     public void standardTests() throws Exception {
-        doRun("standard-tests.yaml");
+        doRun("standard-tests.yamsql");
     }
 
     @Test
     public void standardTestsWithProto() throws Exception {
-        doRun("standard-tests-proto.yaml");
+        doRun("standard-tests-proto.yamsql");
     }
 
     @Test
     public void fieldIndexTestsProto() throws Exception {
-        doRun("field-index-tests-proto.yaml");
+        doRun("field-index-tests-proto.yamsql");
     }
     
     @Test
     public void standardTestsWithMetaData() throws Exception {
-        doRun("standard-tests-metadata.yaml");
+        doRun("standard-tests-metadata.yamsql");
     }
 
     @Test
     public void nullOperator() throws Exception {
-        doRun("null-operator-tests.yaml");
+        doRun("null-operator-tests.yamsql");
     }
 
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
     public void deprecatedFieldsTestsWithProto() throws Exception {
-        doRun("deprecated-fields-tests-proto.yaml");
+        doRun("deprecated-fields-tests-proto.yamsql");
     }
 
     @Test
     public void versionsTests() throws Exception {
-        doRun("versions-tests.yaml");
+        doRun("versions-tests.yamsql");
     }
 
     @Test
     public void scenarioTests() throws Exception {
-        doRun("scenario-tests.yaml");
+        doRun("scenario-tests.yamsql");
     }
 
     @Test
     public void joinTests() throws Exception {
-        doRun("join-tests.yaml");
+        doRun("join-tests.yamsql");
     }
 
     @Test
     public void subqueryTests() throws Exception {
-        doRun("subquery-tests.yaml");
+        doRun("subquery-tests.yamsql");
     }
 
     @Test
     public void selectAStar() throws Exception {
-        doRun("select-a-star.yaml");
+        doRun("select-a-star.yamsql");
     }
 
     @Test
     public void insertsUpdatesDeletes() throws Exception {
-        doRun("inserts-updates-deletes.yaml");
+        doRun("inserts-updates-deletes.yamsql");
     }
 
     @Test
     @Disabled("TODO (Cannot insert into table after dropping and recreating schema template when using EmbeddedJDBCDriver)")
     public void createDropCreateTemplate() throws Exception {
-        doRun("create-drop-create-template.yaml");
+        doRun("create-drop-create-template.yamsql");
     }
 
     @Test
     public void aggregateIndexTests() throws Exception {
-        doRun("aggregate-index-tests.yaml");
+        doRun("aggregate-index-tests.yamsql");
     }
 
     @Test
     public void aggregateEmptyTable() throws Exception {
-        doRun("aggregate-empty-table.yaml");
+        doRun("aggregate-empty-table.yamsql");
     }
 
     @Test
     public void aggregateIndexTestsCount() throws Exception {
-        doRun("aggregate-index-tests-count.yaml");
+        doRun("aggregate-index-tests-count.yamsql");
     }
 
     @Test
     public void aggregateIndexTestsCountEmpty() throws Exception {
-        doRun("aggregate-index-tests-count-empty.yaml");
+        doRun("aggregate-index-tests-count-empty.yamsql");
     }
 
     @Test
     public void limit() throws Exception {
-        doRun("limit.yaml");
+        doRun("limit.yamsql");
     }
 
     @Test
     public void nested() throws Exception {
-        doRun("nested-tests.yaml");
+        doRun("nested-tests.yamsql");
     }
 
     @Test
     public void orderBy() throws Exception {
-        doRun("orderby.yaml");
+        doRun("orderby.yamsql");
     }
 
     @Test
     public void primaryKey() throws Exception {
-        doRun("primary-key-tests.yaml");
+        doRun("primary-key-tests.yamsql");
     }
 
     @Test
     public void sparseIndex() throws Exception {
-        doRun("sparse-index-tests.yaml");
+        doRun("sparse-index-tests.yamsql");
     }
 
     @Test
     public void disabledIndexWithProto() throws Exception {
-        doRun("disabled-index-tests-proto.yaml");
+        doRun("disabled-index-tests-proto.yamsql");
     }
 
     @Test
     public void inPredicate() throws Exception {
-        doRun("in-predicate.yaml");
+        doRun("in-predicate.yamsql");
     }
 
     @Test
     void booleanTypes() throws Exception {
-        doRun("boolean.yaml");
+        doRun("boolean.yamsql");
     }
 
     @Test
     void catalog() throws Exception {
-        doRun("catalog.yaml");
+        doRun("catalog.yamsql");
     }
 
     @Test
     public void caseWhen() throws Exception {
-        doRun("case-when.yaml");
+        doRun("case-when.yamsql");
     }
 
     @Test
     public void updateDeleteReturning() throws Exception {
-        doRun("update-delete-returning.yaml");
+        doRun("update-delete-returning.yamsql");
     }
 
     @Test
     void like() throws Exception {
-        doRun("like.yaml");
+        doRun("like.yamsql");
     }
     
     @Test
     void functions() throws Exception {
-        doRun("functions.yaml");
+        doRun("functions.yamsql");
     }
 
     @Test
     void createDrop() throws Exception {
-        doRun("create-drop.yaml");
+        doRun("create-drop.yamsql");
     }
 
     @Test
     void arrays() throws Exception {
-        doRun("arrays.yaml");
+        doRun("arrays.yamsql");
     }
 }

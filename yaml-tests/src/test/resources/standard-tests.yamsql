@@ -1,0 +1,105 @@
+#
+# standard-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template if exists standard_tests_template
+---
+- query: create schema template standard_tests_template
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col1 from t1
+---
+- query: drop database if exists /FRL/STANDARD_YAML
+---
+- query: create database /FRL/STANDARD_YAML
+---
+- query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
+---
+- connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
+---
+- query: INSERT INTO T1
+    VALUES (1, 10, 1),
+           (2, 10, 2),
+           (3, 10, 3),
+           (4, 10, 4),
+           (5, 10, 5),
+           (6, 20, 6),
+           (7, 20, 7),
+           (8, 20, 8),
+           (9, 20, 9),
+           (10, 20, 10),
+           (11, 20, 11),
+           (12, 20, 12),
+           (13, 20, 13)
+- count: 13
+---
+- query: select id, case when col1 = 10 then 100
+                         when col2 in (6,7,8,9) then 200
+                         else 300 end as NEWCOL
+         from T1
+- result: [{ID: 1, NEWCOL: 100},
+           {ID: 2, NEWCOL: 100},
+           {ID: 3, NEWCOL: 100},
+           {ID: 4, NEWCOL: 100},
+           {ID: 5, NEWCOL: 100},
+           {ID: 6, NEWCOL: 200},
+           {ID: 7, NEWCOL: 200},
+           {ID: 8, NEWCOL: 200},
+           {ID: 9, NEWCOL: 200},
+           {ID: 10, NEWCOL: 300},
+           {ID: 11, NEWCOL: 300},
+           {ID: 12, NEWCOL: 300},
+           {ID: 13, NEWCOL: 300} ]
+---
+- query: select id, case when col1 = 10 then 100
+    when col2 in (6,7,8,9) then 200 end as NEWCOL
+    from T1
+- result: [{ID: 1, NEWCOL: 100},
+           {ID: 2, NEWCOL: 100},
+           {ID: 3, NEWCOL: 100},
+           {ID: 4, NEWCOL: 100},
+           {ID: 5, NEWCOL: 100},
+           {ID: 6, NEWCOL: 200},
+           {ID: 7, NEWCOL: 200},
+           {ID: 8, NEWCOL: 200},
+           {ID: 9, NEWCOL: 200},
+           {ID: 10, NEWCOL: !null x},
+           {ID: 11, NEWCOL: !null x},
+           {ID: 12, NEWCOL: !null x},
+           {ID: 13, NEWCOL: !null x} ]
+---
+- query: select * from (select * from (select * from T1) as x where ID = 5) as y;
+- result: [{ID: !l 5, !l 10, !l 5}]
+---
+- query: select * from (select * from (select * from T1) as x) as y where ID = 5;
+- result: [{ID: !l 5, !l 10, !l 5}]
+---
+- query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
+- result: [{!l 1}]
+---
+- query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
+- result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template standard_tests_template
+---
+- query: drop database /FRL/STANDARD_YAML
+...
