@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async;
+package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.annotation.API;
 

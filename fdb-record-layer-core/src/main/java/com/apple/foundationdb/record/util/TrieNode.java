@@ -29,6 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -76,5 +77,26 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
         return Streams.stream(inPreOrder())
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public boolean equals(final Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null) {
+            return false;
+        }
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+        final TrieNode<?, ?, ?> otherTrieNode = (TrieNode<?, ?, ?>)other;
+        return Objects.equals(getValue(), otherTrieNode.getValue()) &&
+               Objects.equals(getChildrenMap(), otherTrieNode.getChildrenMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getValue(), getChildrenMap());
     }
 }

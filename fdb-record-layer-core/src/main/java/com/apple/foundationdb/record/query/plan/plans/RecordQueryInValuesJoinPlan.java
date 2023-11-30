@@ -122,22 +122,20 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     @SuppressWarnings("fallthrough")
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
-                    return super.basePlanHash(hashKind, BASE_HASH) + PlanHashable.iterablePlanHash(hashKind, inSource.getValues());
+                    return super.basePlanHash(mode, BASE_HASH) + PlanHashable.iterablePlanHash(mode, inSource.getValues());
                 }
                 // fall through
             case FOR_CONTINUATION:
                 if (internal == Bindings.Internal.IN) {
-                    return super.basePlanHash(hashKind, BASE_HASH, inSource.getValues());
+                    return super.basePlanHash(mode, BASE_HASH, inSource.getValues());
                 }
-                // fall through
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return super.basePlanHash(hashKind, BASE_HASH);
+                return super.basePlanHash(mode, BASE_HASH);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " not supported");
         }
     }
 
@@ -152,7 +150,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models this operator as a logical nested loop join
      *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)
-     *         a index lookup for each bound outer value.
+     *         an index lookup for each bound outer value.
      */
     @Nonnull
     @Override

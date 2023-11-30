@@ -274,8 +274,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, evaluableRange);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, evaluableRange);
     }
 
     @Override
@@ -472,7 +472,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * Represents a range that comprises an intersection of a set of {@link Comparisons.Comparison} with reference operands
      * (i.e. {@link ConstantObjectValue}s). The range can be evaluated at compile-time under a given {@link EvaluationContext}.
      */
-    public static class CompilableRange {
+    public static class CompilableRange implements PlanHashable {
 
         @Nonnull
         private final Set<Comparisons.Comparison> compilableComparisons;
@@ -531,6 +531,11 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 }
             }
             return range;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            return PlanHashable.objectPlanHash(mode, compilableComparisons);
         }
 
         @Override

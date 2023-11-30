@@ -47,10 +47,9 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return basePlanHash(hashKind, BASE_HASH);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return basePlanHash(mode, BASE_HASH);
     }
-
 
     @Nonnull
     @Override

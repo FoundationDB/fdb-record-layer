@@ -78,8 +78,8 @@ public class RelativeProbabilityPlanSelector implements PlanSelector {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, probabilities);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, probabilities);
     }
 
     @Override

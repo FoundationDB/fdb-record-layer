@@ -111,15 +111,14 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return seedPlan.planHash(hashKind) + fromSeedPlan.planHash(hashKind) + (needDistinct ? 1 : 0);
+                return seedPlan.planHash(mode) + fromSeedPlan.planHash(mode) + (needDistinct ? 1 : 0);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, seedPlan, fromSeedPlan, needDistinct);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, seedPlan, fromSeedPlan, needDistinct);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 }

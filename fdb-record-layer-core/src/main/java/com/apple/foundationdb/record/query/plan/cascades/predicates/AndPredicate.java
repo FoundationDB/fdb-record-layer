@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are.
- *
+ * <br>
  * For tri-valued logic:
  * <ul>
  * <li>If all children are {@code true}, then {@code true}.</li>
@@ -86,21 +86,20 @@ public class AndPredicate extends AndOrPredicate {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), super.hashCodeWithoutChildren());
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 List<PlanHashable> hashables = new ArrayList<>(getChildren().size() + 1);
                 hashables.add(BASE_HASH);
                 hashables.addAll(getChildren());
-                return PlanHashable.planHashUnordered(hashKind, hashables);
+                return PlanHashable.planHashUnordered(mode, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

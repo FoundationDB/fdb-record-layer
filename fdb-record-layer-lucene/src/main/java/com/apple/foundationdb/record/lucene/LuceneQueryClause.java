@@ -39,6 +39,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PointRangeQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.SynonymQuery;
@@ -145,6 +146,10 @@ public abstract class LuceneQueryClause implements PlanHashable {
         } else if (query instanceof BitSetQuery) {
             BitSetQuery bitsetQuery = (BitSetQuery)query;
             String field = bitsetQuery.getField();
+            highlightingTermsMap.computeIfAbsent(field, key -> new HashSet<>()).add(field.toLowerCase(Locale.ROOT));
+        } else if (query instanceof PointRangeQuery) {
+            PointRangeQuery pointRangeQuery = (PointRangeQuery)query;
+            String field = pointRangeQuery.getField();
             highlightingTermsMap.computeIfAbsent(field, key -> new HashSet<>()).add(field.toLowerCase(Locale.ROOT));
         } else {
             throw new RecordCoreException("This lucene query is not supported for highlighting");

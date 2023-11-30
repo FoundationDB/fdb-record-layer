@@ -306,17 +306,15 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         if (functionQuery) {
             assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
-            assertEquals(316561162, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1660925199, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(33212272, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(316561162, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1660925199, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             // Here I'm really just making sure that (a) the substr_index is not selected, because the
             // function call doesn't appear in the query anyway and (b) that the planner doesn't throw
             // an exception or do something wonky as a result of the presence of this index.
             assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
-            assertEquals(1189784448, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1463869061, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-163843866, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1189784448, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1463869061, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -358,9 +356,8 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[c],[c]]"))))));
-        assertEquals(-76945989, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1921601810, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-2031924515, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-76945989, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(1921601810, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, funcIndex);
@@ -406,13 +403,11 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         assertThat(plan, PlanMatchers.filter(funcFilter, coveringIndexScan(indexScan(allOf(indexName(coveringIndex.getName()), bounds(hasTupleString("([1],>")))))));
         if (negated) {
-            assertEquals(-1785473858, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-842591344, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1235952736, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1785473858, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-842591344, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(-1785473859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1937041998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1964563906, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1785473859, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1937041998, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -552,8 +547,8 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
-            return super.basePlanHash(hashKind, BASE_HASH);
+        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return super.basePlanHash(mode, BASE_HASH);
         }
 
         @Override

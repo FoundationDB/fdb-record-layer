@@ -106,8 +106,9 @@ public class TimeWindowForFunction implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter, leaderboardTimestampParameter);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter,
+                leaderboardTimestampParameter);
     }
 
     @Nonnull

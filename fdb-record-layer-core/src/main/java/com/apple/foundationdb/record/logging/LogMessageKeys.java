@@ -57,6 +57,7 @@ public enum LogMessageKeys {
     TRANSACTION_ID,
     TRANSACTION_NAME,
     AGE_SECONDS,
+    CONSTITUENT,
     // record splitting/unsplitting
     KEY,
     KEY_TUPLE,
@@ -109,6 +110,9 @@ public enum LogMessageKeys {
     INDEX_STATE,
     TARGET_INDEX_NAME,
     TARGET_INDEX_STATE,
+    INDEX_MERGES_LIMIT,
+    INDEX_MERGES_FOUND,
+    INDEX_MERGES_TRIED,
     VALUE_KEY,
     PRIMARY_KEY,
     VALUE,

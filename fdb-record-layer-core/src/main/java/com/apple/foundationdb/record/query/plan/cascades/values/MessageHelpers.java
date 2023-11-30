@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -44,7 +45,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -502,19 +502,6 @@ public class MessageHelpers {
             return this;
         }
 
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof TransformationTrieNode)) {
-                return false;
-            }
-            final TransformationTrieNode transformationTrieNode = (TransformationTrieNode)o;
-            return Objects.equals(getValue(), transformationTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), transformationTrieNode.getChildrenMap());
-        }
-
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
             if (this == other) {
@@ -558,18 +545,13 @@ public class MessageHelpers {
             }
             return nonNullableTest.apply(self, other);
         }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getValue(), getChildrenMap());
-        }
     }
 
     /**
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> {
+    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> implements PlanHashable {
         public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
@@ -578,6 +560,14 @@ public class MessageHelpers {
         @Override
         public CoercionTrieNode getThis() {
             return this;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            if (getChildrenMap() == null) {
+                return 0;
+            }
+            return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
     }
 }

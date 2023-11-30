@@ -35,10 +35,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.zip.CRC32;
 
 /**
@@ -58,19 +54,10 @@ public final class FDBIndexOutput extends IndexOutput {
     private ByteBuffer buffer;
     private final String resourceDescription;
     private final FDBDirectory fdbDirectory;
-    private final long blockSize;
+    private final int blockSize;
     private final CRC32 crc;
     private final long id;
-    private static final ArrayBlockingQueue<ByteBuffer> BUFFERS;
-    private static final int POOL_SIZE = 100;
-    private List<CompletableFuture<Integer>> flushes = new ArrayList<>();
-
-    static {
-        BUFFERS = new ArrayBlockingQueue<>(POOL_SIZE);
-        for (int i = 0; i < POOL_SIZE; i++) {
-            BUFFERS.add(ByteBuffer.allocate(FDBDirectory.DEFAULT_BLOCK_SIZE));
-        }
-    }
+    private long actualSize;
 
     /**
      * Create an FDBIndexOutput given a name and FDBDirectory.
@@ -98,11 +85,9 @@ public final class FDBIndexOutput extends IndexOutput {
         }
         this.resourceDescription = resourceDescription;
         this.fdbDirectory = fdbDirectory;
+        actualSize = 0;
         blockSize = fdbDirectory.getBlockSize();
-        buffer = BUFFERS.poll();
-        if (buffer == null) {
-            buffer = ByteBuffer.allocate((int)blockSize);
-        }
+        buffer = ByteBuffer.allocate(blockSize);
         crc = new CRC32();
         id = fdbDirectory.getIncrement();
     }
@@ -118,12 +103,8 @@ public final class FDBIndexOutput extends IndexOutput {
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
         flush();
-        CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
-        for (CompletableFuture<Integer> future : flushes) {
-            result = result.thenCombine(future, Integer::sum);
-        }
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, result.join(), blockSize));
-        BUFFERS.offer(buffer);
+        buffer = null; // prevent writing after close
+        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
     }
 
     @Override
@@ -150,9 +131,7 @@ public final class FDBIndexOutput extends IndexOutput {
         buffer.put(b);
         crc.update(b);
         currentSize++;
-        if (currentSize % blockSize == 0) {
-            flush();
-        }
+        flushIfFullBuffer();
     }
 
     /**
@@ -197,13 +176,14 @@ public final class FDBIndexOutput extends IndexOutput {
         crc.update(bytes, offset, length);
         int bytesWritten = 0;
         while (bytesWritten < length) {
-            int toWrite = (int) (length - bytesWritten + (currentSize % blockSize) > blockSize ? blockSize - (currentSize % blockSize) : length - bytesWritten);
+            int toWrite = Math.min(
+                    length - bytesWritten, // the total leftover bytes to write
+                    (blockSize - buffer.position()) // the free space in this buffer
+            );
             buffer.put(bytes, bytesWritten + offset, toWrite);
             bytesWritten += toWrite;
             currentSize += toWrite;
-            if (currentSize % blockSize == 0) {
-                flush();
-            }
+            flushIfFullBuffer();
         }
     }
 
@@ -216,8 +196,14 @@ public final class FDBIndexOutput extends IndexOutput {
             buffer.flip();
             byte[] arr = new byte[buffer.remaining()];
             buffer.get(arr);
-            flushes.add(fdbDirectory.writeData(id, (int) ( (currentSize - 1) / blockSize), arr));
-            buffer.clear();
+            actualSize += fdbDirectory.writeData(id, ((currentSize - 1) / blockSize), arr);
+        }
+        buffer.clear();
+    }
+
+    private void flushIfFullBuffer() {
+        if (buffer.position() >= blockSize) {
+            flush();
         }
     }
 

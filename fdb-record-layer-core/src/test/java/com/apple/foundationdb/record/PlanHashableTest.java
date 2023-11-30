@@ -26,89 +26,87 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 
-import static com.apple.foundationdb.record.PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS;
-
 /**
  * Tests for the PlanHashable class.
  */
 public class PlanHashableTest {
     @Test
-    public void oneInt() throws Exception {
-        Assertions.assertEquals(1, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, Integer.valueOf(1)));
+    public void oneInt() {
+        Assertions.assertEquals(1, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1));
     }
 
     @Test
-    public void oneIntVararg() throws Exception {
-        Assertions.assertEquals(992, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, Integer.valueOf(1), null));
+    public void oneIntVararg() {
+        Assertions.assertEquals(992, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1, null));
     }
 
     @Test
-    public void twoIntVararg() throws Exception {
-        Assertions.assertEquals(994, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, Integer.valueOf(1), Integer.valueOf(2)));
+    public void twoIntVararg() {
+        Assertions.assertEquals(994, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1, 2));
     }
 
     @Test
-    public void oneIntList() throws Exception {
-        Assertions.assertEquals(32, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, Collections.singletonList(Integer.valueOf(1))));
+    public void oneIntList() {
+        Assertions.assertEquals(32, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, Collections.singletonList(1)));
     }
 
     @Test
-    public void twoIntList() throws Exception {
-        Assertions.assertEquals(994, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, Arrays.asList(Integer.valueOf(1), Integer.valueOf(2))));
+    public void twoIntList() {
+        Assertions.assertEquals(994, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, Arrays.asList(1, 2)));
     }
 
     @Test
-    public void oneIntArrayOfArrays() throws Exception {
-        Assertions.assertEquals(63, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, new Integer[][] {{Integer.valueOf(1)}}));
+    public void oneIntArrayOfArrays() {
+        Assertions.assertEquals(63, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new Integer[][] {{1}}));
     }
 
     @Test
-    public void twoIntArrayOfArrays() throws Exception {
-        Assertions.assertEquals(1025, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, new Integer[][] {{Integer.valueOf(1), Integer.valueOf(2)}}));
+    public void twoIntArrayOfArrays() {
+        Assertions.assertEquals(1025, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new Integer[][] {{1, 2}}));
     }
 
     @Test
-    public void oneIntArrayOfTwoArrays() throws Exception {
-        Assertions.assertEquals(1986, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, new Integer[][] {{Integer.valueOf(1)}, {Integer.valueOf(2)}}));
+    public void oneIntArrayOfTwoArrays() {
+        Assertions.assertEquals(1986, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new Integer[][] {{1}, {2}}));
     }
 
     @Test
-    public void oneIntListOfTwoLists() throws Exception {
-        Assertions.assertEquals(1986, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, Arrays.asList(Collections.singletonList(Integer.valueOf(1)), Collections.singletonList(Integer.valueOf(2)))));
+    public void oneIntListOfTwoLists() {
+        Assertions.assertEquals(1986, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, Arrays.asList(Collections.singletonList(1), Collections.singletonList(2))));
     }
 
     @Test
-    public void oneIntArrayMixedWithInt() throws Exception {
-        Assertions.assertEquals(1955, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, new Integer[] {Integer.valueOf(1)}, Integer.valueOf(2)));
+    public void oneIntArrayMixedWithInt() {
+        Assertions.assertEquals(1955, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new Integer[] {1}, 2));
     }
 
     @Test
-    public void oneIntListMixedWithInt() throws Exception {
-        Assertions.assertEquals(1955, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, Collections.singletonList(Integer.valueOf(1)), Integer.valueOf(2)));
+    public void oneIntListMixedWithInt() {
+        Assertions.assertEquals(1955, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, Collections.singletonList(1), 2));
     }
 
     @Test
-    public void onePrimitive() throws Exception {
-        Assertions.assertEquals(1, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, 1));
+    public void onePrimitive() {
+        Assertions.assertEquals(1, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1));
     }
 
     @Test
-    public void twoPrimitives() throws Exception {
-        Assertions.assertEquals(994, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, 1, 2));
+    public void twoPrimitives() {
+        Assertions.assertEquals(994, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1, 2));
     }
 
     @Test
-    public void primitiveArray() throws Exception {
-        Assertions.assertEquals(994, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, new int[] {1, 2}));
+    public void primitiveArray() {
+        Assertions.assertEquals(994, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new int[] {1, 2}));
     }
 
     @Test
-    public void primitiveArrayOfArrays() throws Exception {
-        Assertions.assertEquals(32833, PlanHashable.objectPlanHash(STRUCTURAL_WITHOUT_LITERALS, new int[][] {{1, 2}, {3, 4}}));
+    public void primitiveArrayOfArrays() {
+        Assertions.assertEquals(32833, PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, new int[][] {{1, 2}, {3, 4}}));
     }
 
     @Test
-    public void primitiveMixedArrays() throws Exception {
-        Assertions.assertEquals(2018, PlanHashable.objectsPlanHash(STRUCTURAL_WITHOUT_LITERALS, 1, new int[] {2, 3}));
+    public void primitiveMixedArrays() {
+        Assertions.assertEquals(2018, PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, 1, new int[] {2, 3}));
     }
 }

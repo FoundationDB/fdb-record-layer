@@ -29,9 +29,12 @@ import java.util.Set;
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
  * to set and probe the merge policy and merge requests.
  */
-public class IndexDeferredMaintenancePolicy {
+public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = true;
+    private long mergesLimit = 0;
+    private long mergesFound;
+    private long mergesTried;
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -69,5 +72,53 @@ public class IndexDeferredMaintenancePolicy {
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
         this.autoMergeDuringCommit = autoMergeDuringCommit;
+    }
+
+    /**
+     * Limit the number of merges that may be attempted in a single transaction.
+     * @return the max merges allowed
+     */
+    public long getMergesLimit() {
+        return mergesLimit;
+    }
+
+    /**
+     * Set by the caller - see {@link #getMergesLimit()}.
+     * @param mergesLimit the max merges allowed
+     */
+    public void setMergesLimit(final long mergesLimit) {
+        this.mergesLimit = mergesLimit;
+    }
+
+    /**
+     * Report the number of merges found.
+     * @return number of merges found
+     */
+    public long getMergesFound() {
+        return mergesFound;
+    }
+
+    /**
+     * Set by the merger - see {@link #getMergesFound()}.
+     * @param mergesFound number of merges found
+     */
+    public void setMergesFound(final long mergesFound) {
+        this.mergesFound = mergesFound;
+    }
+
+    /**
+     * Report the number of merges attempted in a single transaction.
+     * @return number of merges tried
+     */
+    public long getMergesTried() {
+        return mergesTried;
+    }
+
+    /**
+     * Set by the merger - see {@link #getMergesTried()}.
+     * @param mergesTried number of merges tried
+     */
+    public void setMergesTried(final long mergesTried) {
+        this.mergesTried = mergesTried;
     }
 }

@@ -125,15 +125,14 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return super.basePlanHash(hashKind, BASE_HASH) + comparisonKeyFunction.planHash(hashKind);
+                return super.basePlanHash(mode, BASE_HASH) + comparisonKeyFunction.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return super.basePlanHash(hashKind, BASE_HASH, comparisonKeyFunction);
+                return super.basePlanHash(mode, BASE_HASH, comparisonKeyFunction);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

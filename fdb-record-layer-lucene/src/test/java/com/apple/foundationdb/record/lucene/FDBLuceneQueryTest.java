@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -81,12 +82,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -801,38 +804,50 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
-        CountingThreadFactory threadFactory = new CountingThreadFactory();
-        executorService = Executors.newFixedThreadPool(value, threadFactory);
-        initializeFlat();
-        for (int i = 0; i < 200; i++) {
+        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final ExecutorService oldExecutorService = executorService;
+        try {
+            // limit the FJP size to try and force the # segments to exceed the # threads
+            FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    null, false));
+            CountingThreadFactory threadFactory = new CountingThreadFactory();
+            executorService = Executors.newFixedThreadPool(value, threadFactory);
+            initializeFlat();
+            for (int i = 0; i < 200; i++) {
+                try (FDBRecordContext context = openContext()) {
+                    openRecordStore(context);
+                    String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
+                    final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
+                            .setDocId(i)
+                            .setText(randomWords[1])
+                            .setGroup(2)
+                            .build();
+                    recordStore.saveRecord(dylan);
+                    commit(context);
+                }
+            }
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
-                String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
-                final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
-                        .setDocId(i)
-                        .setText(randomWords[1])
-                        .setGroup(2)
+                final QueryComponent filter1 = new LuceneQueryComponent("*:*", Lists.newArrayList("text"), false);
+                RecordQuery query = RecordQuery.newBuilder()
+                        .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                        .setFilter(filter1)
                         .build();
-                recordStore.saveRecord(dylan);
-                commit(context);
+                setDeferFetchAfterUnionAndIntersection(false);
+                RecordQueryPlan plan = planner.plan(query);
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                    @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
+                            .map(FDBQueriedRecord::getPrimaryKey)
+                            .map(t -> t.getLong(0))
+                            .asList().get();
+                    assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
+                }
             }
-        }
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("*:*", Lists.newArrayList("text"), false);
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
-                    .setFilter(filter1)
-                    .build();
-            setDeferFetchAfterUnionAndIntersection(false);
-            RecordQueryPlan plan = planner.plan(query);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
-                        .map(FDBQueriedRecord::getPrimaryKey)
-                        .map(t -> t.getLong(0))
-                        .asList().get();
-                assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
-            }
+        } finally {
+            // Restore the old executor so as not to disrupt other tests
+            FDBDatabaseFactory.instance().setExecutor(oldExecutor);
+            executorService = oldExecutorService;
         }
     }
 
@@ -1291,33 +1306,43 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
         // (random words) rather than using random English words from a canned text. With English text, Lucene compression
         // reduces the size of the segment such that we need many more records to create the required number of segments
-        FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
-                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-                null, false));
-        FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout( event -> {
-            // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
-            return new ImmutablePair<>(1L, TimeUnit.SECONDS);
-        });
-        // Save many records (create many segments)
-        for (long i = 0 ; i < 20 ; i++) {
+        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout =
+                FDBDatabaseFactory.instance().getDatabase().getAsyncToSyncTimeout();
+        try {
+            // limit the FJP size to try and force the # segments to exceed the # threads
+            FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+                    ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                    null, false));
+            FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout(event -> {
+                // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
+                return new ImmutablePair<>(1L, TimeUnit.SECONDS);
+            });
+            // Save many records (create many segments)
+            for (long i = 0; i < 20; i++) {
+                try (FDBRecordContext context = openContext()) {
+                    openRecordStore(context);
+                    for (int j = 0; j < 10; j++) {
+                        TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                                .setDocId(i * 1000 + j)
+                                .setGroup(1)
+                                .setText(LuceneIndexTestUtils.generateRandomWords(1000)[1])
+                                .build();
+                        recordStore.saveRecord(document1);
+                    }
+                    commit(context);
+                }
+            }
+            // Run a query
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
-                for (int j = 0 ; j < 10 ; j++) {
-                    TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
-                            .setDocId(i * 1000 + j)
-                            .setGroup(1)
-                            .setText(LuceneIndexTestUtils.generateRandomWords(1000)[1])
-                            .build();
-                    recordStore.saveRecord(document1);
-                }
-                commit(context);
+                // Random words are up to 10 characters long, so this would never match
+                assertPrimaryKeys("text:morningstart", false, Set.of());
             }
-        }
-        // Run a query
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-            // Random words are up to 10 characters long, so this would never match
-            assertPrimaryKeys("text:morningstart", false, Set.of());
+        } finally {
+            // Restore the old executor so as not to disrupt other tests
+            FDBDatabaseFactory.instance().setExecutor(oldExecutor);
+            FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
         }
     }
 }

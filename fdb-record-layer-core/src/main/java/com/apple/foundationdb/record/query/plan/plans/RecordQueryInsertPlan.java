@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,10 +63,9 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     private RecordQueryInsertPlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
-                                  @Nonnull final Descriptors.Descriptor targetDescriptor,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, recordType, targetType, targetDescriptor, null, coercionsTrie, computationValue);
+        super(inner, recordType, targetType, null, coercionsTrie, computationValue);
     }
 
     @Override
@@ -93,7 +91,6 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
-                getTargetDescriptor(),
                 getCoercionTrie(),
                 getComputationValue());
     }
@@ -104,19 +101,18 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         return new RecordQueryInsertPlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
                 getTargetType(),
-                getTargetDescriptor(),
                 getCoercionTrie(),
                 getComputationValue());
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(), super.hashCodeWithoutChildren());
+        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), super.hashCodeWithoutChildren());
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode));
     }
 
     @Nonnull
@@ -157,7 +153,6 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      * @param inner an input value to transform
      * @param recordType the name of the record type this update modifies
      * @param targetType a target type to coerce the current record to prior to the update
-     * @param targetDescriptor a descriptor to coerce the current record to prior to the update
      * @param computationValue a value to be computed based on the {@code inner} and
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      *
@@ -167,12 +162,10 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     public static RecordQueryInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
                                                    @Nonnull final String recordType,
                                                    @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Descriptors.Descriptor targetDescriptor,
                                                    @Nonnull final Value computationValue) {
         return new RecordQueryInsertPlan(inner,
                 recordType,
                 targetType,
-                targetDescriptor,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue);
     }

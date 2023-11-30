@@ -116,11 +116,11 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
         if (internal == Bindings.Internal.IN) {
-            return super.basePlanHash(hashKind, BASE_HASH, inComparandSource());
+            return super.basePlanHash(mode, BASE_HASH, inComparandSource());
         } else {
-            return super.basePlanHash(hashKind, BASE_HASH);
+            return super.basePlanHash(mode, BASE_HASH);
         }
     }
 

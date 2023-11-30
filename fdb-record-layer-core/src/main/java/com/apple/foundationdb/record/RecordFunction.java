@@ -69,24 +69,23 @@ public abstract class RecordFunction<T> implements PlanHashable, QueryHashable {
     }
 
     /**
-     * Base implementation of {@link #planHash}.
-     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
-     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * Base implementation of {@link #planHash(PlanHashMode)}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
+     * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
-     * @param hashKind the plan hash kind to use
+     * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
-        switch (hashKind) {
+    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+        switch (mode.getKind()) {
             case LEGACY:
                 return name.hashCode();
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, baseHash, name, hashables);
+                return PlanHashable.objectsPlanHash(mode, baseHash, name, hashables);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

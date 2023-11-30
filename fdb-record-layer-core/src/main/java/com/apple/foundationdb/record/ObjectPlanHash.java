@@ -29,8 +29,9 @@ import javax.annotation.Nonnull;
  * base hash for each object that can be added to the rest of the plan.
  */
 public class ObjectPlanHash implements PlanHashable, QueryHashable {
-    private Object id;
-    private int hashCode;
+    @Nonnull
+    private final Object id;
+    private final int hashCode;
 
     public ObjectPlanHash(@Nonnull final Object id) {
         this.id = id;
@@ -38,7 +39,7 @@ public class ObjectPlanHash implements PlanHashable, QueryHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
         return hashCode;
     }
 

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -65,16 +64,6 @@ public class IndexingThrottle {
     @Nonnull private final Booker booker;
     private final IndexState expectedIndexState;
     private Set<Index> mergeRequiredIndexes = new HashSet<>();
-
-    // These error codes represent a list of errors that can occur if there is too much work to be done
-    // in a single transaction.
-    private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
-            FDBError.TIMED_OUT.code(),
-            FDBError.TRANSACTION_TOO_OLD.code(),
-            FDBError.NOT_COMMITTED.code(),
-            FDBError.TRANSACTION_TIMED_OUT.code(),
-            FDBError.COMMIT_READ_INCOMPLETE.code(),
-            FDBError.TRANSACTION_TOO_LARGE.code()));
 
     static class Booker {
         /**
@@ -144,7 +133,7 @@ public class IndexingThrottle {
                                                @Nullable List<Object> additionalLogMessageKeyValues,
                                                int currTries,
                                                final boolean adjustLimits) {
-            if (currTries >= common.config.getMaxRetries() || fdbException == null || !lessenWorkCodes.contains(fdbException.getCode())) {
+            if (currTries >= common.config.getMaxRetries() || !IndexingBase.shouldLessenWork(fdbException)) {
                 // Here: should not retry or no more retries. There is no real need to handle limits.
                 return false;
             }
@@ -338,7 +327,7 @@ public class IndexingThrottle {
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 expectedIndexStatesOrThrow(store, context);
                 return buildFunction.apply(store, recordsScanned).thenApply(retVal -> {
-                    Set<Index> indexSet = store.getIndexDeferredMaintenancePolicy().getMergeRequiredIndexes();
+                    Set<Index> indexSet = store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
                     if (indexSet != null) {
                         mergeRequiredIndexes.addAll(indexSet);
                     }

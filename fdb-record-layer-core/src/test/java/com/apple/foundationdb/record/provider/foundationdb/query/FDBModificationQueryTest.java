@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -59,22 +60,24 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deletePlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.deleteTarget;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
@@ -149,9 +152,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan,
-                    deletePlan(
-                            typeFilterPlan(scanPlan()))
-                            .where(deleteTarget(equalsObject("RestaurantRecord"))));
+                    deletePlan(typeFilterPlan(scanPlan())));
 
             // dry run delete 1 record
             var resultValues = fetchResultValues(context, plan, record -> {
@@ -370,8 +371,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                 "RestaurantRecord",
-                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
     }
 
@@ -414,8 +414,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                             "RestaurantRecord",
-                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                            TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                            Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 },
                 Optional.empty(),
@@ -521,7 +520,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
                                 "RestaurantRecord",
                                 restaurantType,
-                                TestRecords4Proto.RestaurantRecord.getDescriptor(),
                                 ImmutableMap.of(updatePath, updateValue))));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
@@ -716,7 +714,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         final var innerQun = Quantifier.existential(GroupExpressionRef.of(new UpdateExpression(qun,
                                 "RestaurantRecord",
                                 restaurantType,
-                                TestRecords4Proto.RestaurantRecord.getDescriptor(),
                                 ImmutableMap.of(namePath, LiteralValue.ofScalar("McDonald's")))));
 
                         graphExpansionBuilder = GraphExpansion.builder();
@@ -727,8 +724,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(new InsertExpression(qun,
                                 "RestaurantRecord",
-                                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()),
-                                TestRecords4Proto.RestaurantRecord.getDescriptor())));
+                                Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                     },
@@ -787,6 +783,116 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             });
             Assertions.assertEquals(3, resultValues.size());
         }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testStablePlanHash() throws Exception {
+        final var cascadesPlanner = setUp();
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            var plan1 = getUpdatePlan(cascadesPlanner);
+            var plan2 = getUpdatePlan(cascadesPlanner);
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            var plan1 = getUpdateArrayPlan(cascadesPlanner);
+            var plan2 = getUpdateArrayPlan(cascadesPlanner);
+            Assertions.assertEquals(plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                    plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+    }
+
+    @NonNull
+    private RecordQueryPlan getUpdatePlan(final CascadesPlanner cascadesPlanner) {
+        return cascadesPlanner.planGraph(
+                () -> {
+                    final var reviewerType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantReviewer.getDescriptor());
+
+                    final var allRecordTypes =
+                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+                    var qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
+                                    qun,
+                                    reviewerType)));
+
+                    var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var reviewerId =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "id");
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(reviewerId, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+
+                    // make accessors and resolve them
+                    final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("stats", -1), new FieldValue.Accessor("start_date", -1)));
+                    final var updateValue = new LiteralValue<>(3); // integer, should cause promotion since RestaurantReview.reviewer is of type long
+                    qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
+                            "RestaurantReviewer",
+                            reviewerType,
+                            ImmutableMap.of(updatePath, updateValue))));
+
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+    }
+
+    @NonNull
+    private RecordQueryPlan getUpdateArrayPlan(final CascadesPlanner cascadesPlanner) {
+        return cascadesPlanner.planGraph(
+                () -> {
+                    final var recordDescriptor = TestRecords4Proto.RestaurantRecord.getDescriptor();
+                    final var recordType = Type.Record.fromDescriptor(recordDescriptor);
+
+                    final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+
+                    var qun =
+                            Quantifier.forEach(GroupExpressionRef.of(
+                                    new FullUnorderedScanExpression(allRecordTypes,
+                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new AccessHints())));
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(
+                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                    qun,
+                                    recordType)));
+
+                    var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var rest_no =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
+
+                    graphExpansionBuilder.addPredicate(new ValuePredicate(rest_no, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
+                    qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+
+                    final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("reviews", -1)));
+                    final var updateValue = LightArrayConstructorValue.of(
+                            RecordConstructorValue.ofUnnamed(List.of(LiteralValue.ofScalar(1), LiteralValue.ofScalar(34))),
+                            RecordConstructorValue.ofUnnamed(List.of(LiteralValue.ofScalar(2), LiteralValue.ofScalar(14)))
+                    );
+
+                    qun = Quantifier.forEach(GroupExpressionRef.of(new UpdateExpression(qun,
+                            "RestaurantRecord",
+                            recordType,
+                            ImmutableMap.of(updatePath, updateValue))));
+
+                    return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
     }
 
     @Nonnull

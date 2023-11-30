@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Descriptors;
@@ -89,6 +90,23 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
                 size.add(constituentRecord);
             }
         }
+
+        if (recordType instanceof UnnestedRecordType) {
+            final UnnestedRecordType unnestedRecordType = (UnnestedRecordType) recordType;
+            final String parentName = unnestedRecordType.getParentConstituent().getName();
+            Descriptors.FieldDescriptor positionsField = recordType.getDescriptor().findFieldByName(UnnestedRecordType.POSITIONS_FIELD);
+            Descriptors.Descriptor positionsDescriptor = positionsField.getMessageType();
+            DynamicMessage.Builder positionsBuilder = DynamicMessage.newBuilder(positionsDescriptor);
+            for (Map.Entry<String, FDBStoredRecord<? extends Message>> constituent : constituents.entrySet()) {
+                if (parentName.equals(constituent.getKey())) {
+                    continue;
+                }
+                long index = constituent.getValue().getPrimaryKey().getLong(0);
+                positionsBuilder.setField(positionsDescriptor.findFieldByName(constituent.getKey()), index);
+            }
+            recordBuilder.setField(positionsField, positionsBuilder.build());
+        }
+
         return new FDBSyntheticRecord(Tuple.fromList(constituentPrimaryKeys), recordType, recordBuilder.build(), size, constituents);
     }
 

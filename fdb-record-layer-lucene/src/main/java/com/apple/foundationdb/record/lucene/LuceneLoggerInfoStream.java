@@ -46,7 +46,7 @@ public class LuceneLoggerInfoStream extends InfoStream {
 
     @Override
     public boolean isEnabled(String component) {
-        return true;
+        return loggerForStreamOutput.isTraceEnabled();
     }
 
     @Override

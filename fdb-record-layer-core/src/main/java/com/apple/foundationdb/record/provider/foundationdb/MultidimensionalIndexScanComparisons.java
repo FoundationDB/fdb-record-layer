@@ -98,8 +98,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, prefixScanComparisons, dimensionsScanComparisons,
+    public int planHash(@Nonnull PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, dimensionsScanComparisons,
                 suffixScanComparisons);
     }
 

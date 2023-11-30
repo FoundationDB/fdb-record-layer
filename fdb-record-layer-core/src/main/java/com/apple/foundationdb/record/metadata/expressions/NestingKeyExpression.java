@@ -121,6 +121,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public boolean needsCopyingToPartialRecord() {
+        return child.needsCopyingToPartialRecord();
+    }
+
     @Nonnull
     @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
@@ -193,15 +198,14 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return parent.planHash(hashKind) + getChild().planHash(hashKind);
+                return parent.planHash(mode) + getChild().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, parent, getChild());
+                return PlanHashable.planHash(mode, BASE_HASH, parent, getChild());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

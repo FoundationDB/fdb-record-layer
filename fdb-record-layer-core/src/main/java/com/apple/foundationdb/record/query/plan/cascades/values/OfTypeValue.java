@@ -50,8 +50,8 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, expectedType, child);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, expectedType, child);
     }
 
     @Nonnull
@@ -99,7 +99,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, expectedType);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, expectedType);
     }
 
     @Override

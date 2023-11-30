@@ -64,7 +64,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
         throw new IllegalStateException("Should not be used in a plan");
     }
 

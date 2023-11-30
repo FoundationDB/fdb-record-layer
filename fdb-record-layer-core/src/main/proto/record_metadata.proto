@@ -96,6 +96,7 @@ message MetaData {
   optional int64 subspace_key_counter = 10;
   optional bool uses_subspace_key_counter = 11;
   repeated JoinedRecordType joined_record_types = 12;
+  repeated UnnestedRecordType unnested_record_types = 13;
   extensions 1000 to 2000;
 }
 
@@ -210,6 +211,20 @@ message JoinedRecordType {
 
   repeated JoinConstituent join_constituents = 10;
   repeated Join joins = 11;
+}
+
+message UnnestedRecordType {
+  optional string name = 1;
+  optional Value record_type_key = 2;
+
+  message NestedConstituent {
+    optional string name = 1;
+    optional string parent = 2;
+    optional string type_name = 3;
+    optional KeyExpression nesting_expression = 4;
+  }
+
+  repeated NestedConstituent nested_constituents = 3;
 }
 
 ///////////////////////////////////////////////////

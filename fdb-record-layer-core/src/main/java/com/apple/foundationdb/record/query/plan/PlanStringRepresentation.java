@@ -265,8 +265,7 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
     public PlanStringRepresentation visitDeletePlan(@Nonnull RecordQueryDeletePlan element) {
         // TODO provide proper explain
         return visit(element.getChild())
-                .append(" | UPDATE ")
-                .append(element.getTargetRecordType());
+                .append(" | DELETE ");
     }
 
     @Nonnull

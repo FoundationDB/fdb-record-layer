@@ -19,6 +19,8 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Store file content on own file references [(Issue #2295)](https://github.com/FoundationDB/fdb-record-layer/issues/2295)
+* **Bug fix** Store FieldInfo on file reference [(Issue #2284)](https://github.com/FoundationDB/fdb-record-layer/issues/2284)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +40,73 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.433.0
+
+
+### 3.3.432.0
+
+* **Feature** Add exception info to the applicable IndexingMerger log messages [(Issue #2372)](https://github.com/FoundationDB/fdb-record-layer/issues/2372)
+
+### 3.3.431.0
+
+
+### 3.3.430.0
+
+* **Bug fix** Fix `Column` hash calculation [(Issue #2369)](https://github.com/FoundationDB/fdb-record-layer/issues/2369)
+
+### 3.3.429.0
+
+* **Feature** indexMerge: perform the merging in multiple transaction [(Issue #2343)](https://github.com/FoundationDB/fdb-record-layer/issues/2343)
+
+### 3.3.428.0
+
+* **Bug fix** Convert FDBDirectory.writeData to a regular func [(Issue #2351)](https://github.com/FoundationDB/fdb-record-layer/issues/2351)
+
+### 3.3.427.0
+
+* **Bug fix** Fix BufferOverflowException triggered by FDBIndexOutput [(Issue #2345)](https://github.com/FoundationDB/fdb-record-layer/issues/2345)
+* **Feature** Introduce the synthetic record type `UnnestedRecordType` to allow for more expressive indexes on nested messages [(Issue #2313)](https://github.com/FoundationDB/fdb-record-layer/issues/2313)
+
+### 3.3.426.0
+
+
+### 3.3.425.0
+
+* **Feature** IndexAggregateFunctionCall.extractEqualityBoundFields does not recognize one-of components [(Issue #2341)](https://github.com/FoundationDB/fdb-record-layer/issues/2341)
+
+### 3.3.424.0
+
+* **Bug fix** desensitize plan hash computations from output types [(Issue #2332)](https://github.com/FoundationDB/fdb-record-layer/issues/2332)
+* **Performance** clean up computation of plan hashes [(Issue #2346)](https://github.com/FoundationDB/fdb-record-layer/issues/2346)
+
+### 3.3.423.0
+
+* **Bug fix** RecordQueryAbstractDataModificationPlan does not produce stable hash with CoercionTrieNode [(Issue #2330)](https://github.com/FoundationDB/fdb-record-layer/issues/2330)
+* **Bug fix** mutateRecord in RecordQueryAbstractDataModificationPlan fails when underlying metadata ref changes. [(Issue #2337)](https://github.com/FoundationDB/fdb-record-layer/issues/2337)
+
+### 3.3.422.0
+
+* **Performance** secondary node slot index for r-trees [(Issue #2215)](https://github.com/FoundationDB/fdb-record-layer/issues/2215)
+* **Feature** Lucene: add metric to measure Lucene's find merges [(Issue #2333)](https://github.com/FoundationDB/fdb-record-layer/issues/2333)
+
+### 3.3.421.0
+
+* **Bug fix** Set the UPDATE's PipelineSize to 1 [(Issue #2324)](https://github.com/FoundationDB/fdb-record-layer/issues/2324)
+
+### 3.3.420.0
+
+
+### 3.3.419.0
+
+
+### 3.3.418.0
+
+* **Bug fix** Fix hash code instability in `RecordQueryAbstractDataModificationPlan` [(Issue #2325)](https://github.com/FoundationDB/fdb-record-layer/issues/2325)
+* **Bug fix** Rethrow original IOExceptions exceptions in lucene code [(Issue #2293)](https://github.com/FoundationDB/fdb-record-layer/issues/2293)
+* **Bug fix** Add proper clone to LuceneStoredFieldsReader [(Issue #2297)](https://github.com/FoundationDB/fdb-record-layer/issues/2297)
+* **Performance** Lucene performance: avoid merge calculation before deferring merge [(Issue #2319)](https://github.com/FoundationDB/fdb-record-layer/issues/2319
+* **Feature** LuceneLoggerInfoStream should check if trace is enabled in isEnabled [(Issue #2317)](https://github.com/FoundationDB/fdb-record-layer/issues/2317)
 
 ### 3.3.417.0
 

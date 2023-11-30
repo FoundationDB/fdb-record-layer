@@ -117,15 +117,14 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return keyExpression.planHash(hashKind) + getComparison().planHash(hashKind);
+                return keyExpression.planHash(mode) + getComparison().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, keyExpression, getComparison());
+                return PlanHashable.planHash(mode, BASE_HASH, keyExpression, getComparison());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

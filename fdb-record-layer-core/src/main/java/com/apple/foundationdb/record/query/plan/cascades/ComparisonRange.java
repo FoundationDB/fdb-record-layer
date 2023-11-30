@@ -308,8 +308,8 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, equalityComparison, inequalityComparisons);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, equalityComparison, inequalityComparisons);
     }
 
     @Nonnull

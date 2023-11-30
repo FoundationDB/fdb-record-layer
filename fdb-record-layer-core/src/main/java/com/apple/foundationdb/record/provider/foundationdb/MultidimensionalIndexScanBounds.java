@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.RTree;
+import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.tuple.Tuple;
@@ -87,7 +87,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * a best-effort approach as it is permissible to indicate overlap between {@code mbr} and {@code this} when there
      * is in fact no overlap. The rate of false-positives directly influences the search performance in the
      * multidimensional index.
-     * @param mbr the minimum-bounding {@link com.apple.foundationdb.async.RTree.Rectangle}
+     * @param mbr the minimum-bounding {@link RTree.Rectangle}
      * @return {@code true} if {@code this} overlaps with {@code mbr}
      */
     public boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr) {
@@ -96,7 +96,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
 
     /**
      * Method to compute if the point handed in is contained by this scan bounds object.
-     * @param position the {@link com.apple.foundationdb.async.RTree.Point}
+     * @param position the {@link RTree.Point}
      * @return {@code true} if {@code position} is contained by {@code this}
      */
     public boolean containsPosition(@Nonnull RTree.Point position) {

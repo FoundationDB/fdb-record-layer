@@ -163,7 +163,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStore.class);
 
     public static final int DEFAULT_PIPELINE_SIZE = 10;
-    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> pipelineOperation == PipelineOperation.INSERT ? 1 : DEFAULT_PIPELINE_SIZE;
+    public static final PipelineSizer DEFAULT_PIPELINE_SIZER = pipelineOperation -> {
+        if (pipelineOperation == PipelineOperation.UPDATE ||
+                pipelineOperation == PipelineOperation.INSERT ||
+                pipelineOperation == PipelineOperation.DELETE) {
+            return 1;
+        } else {
+            return DEFAULT_PIPELINE_SIZE;
+        }
+    };
 
     // The maximum number of records to allow before triggering online index builds
     // instead of a transactional rebuild.
@@ -276,7 +284,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private boolean recordsReadConflict;
 
     private boolean storeStateReadConflict;
-    private IndexDeferredMaintenancePolicy indexDeferredMaintenancePolicy;
+    private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
     @Nonnull
     private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
@@ -798,28 +806,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
-        int nconstituents = syntheticRecordType.getConstituents().size();
-        if (nconstituents != primaryKey.size() - 1) {
+        if (syntheticRecordType.getConstituents().size() != primaryKey.size() - 1) {
             throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
         }
-        final Map<String, FDBStoredRecord<? extends Message>> constituents = new ConcurrentHashMap<>(nconstituents);
-        final CompletableFuture<?>[] futures = new CompletableFuture<?>[nconstituents];
-        for (int i = 0; i < nconstituents; i++) {
-            final SyntheticRecordType.Constituent constituent = syntheticRecordType.getConstituents().get(i);
-            final Tuple constituentKey = primaryKey.getNestedTuple(i + 1);
-            if (constituentKey == null) {
-                futures[i] = AsyncUtil.DONE;
-            } else {
-                futures[i] = loadRecordAsync(constituentKey).thenApply(rec -> {
-                    if (rec == null) {
-                        throw new RecordDoesNotExistException("constituent record not found: " + constituent.getName());
-                    }
-                    constituents.put(constituent.getName(), rec);
-                    return null;
-                });
-            }
-        }
-        return CompletableFuture.allOf(futures).thenApply(vignore -> FDBSyntheticRecord.of(syntheticRecordType, constituents));
+        return syntheticRecordType.loadByPrimaryKeyAsync(this, primaryKey);
     }
 
     @Nonnull
@@ -4788,18 +4778,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     /**
      * For some indexes, there are index maintenance operations that could be either done inline, during a record update
-     * operation, or later in the background. The returned policy object lets the caller indicate to the index maintenance
+     * operation, or later in the background. The returned control object lets the caller indicate to the index maintenance
      * that he intends to trigger these deferred maintenance in another, possibly background, transaction.
      * This feature is experimental. The default is to perform all the needed index changes inline.
-     * @return an IndexDeferredMaintenancePolicy object.
+     * @return an {@link IndexDeferredMaintenanceControl} object.
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public synchronized IndexDeferredMaintenancePolicy getIndexDeferredMaintenancePolicy() {
-        if (indexDeferredMaintenancePolicy == null) {
-            indexDeferredMaintenancePolicy = new IndexDeferredMaintenancePolicy();
+    public synchronized IndexDeferredMaintenanceControl getIndexDeferredMaintenanceControl() {
+        if (indexDeferredMaintenanceControl == null) {
+            indexDeferredMaintenanceControl = new IndexDeferredMaintenanceControl();
         }
-        return indexDeferredMaintenancePolicy;
+        return indexDeferredMaintenanceControl;
     }
 
     @Nonnull

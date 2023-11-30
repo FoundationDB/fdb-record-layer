@@ -81,6 +81,13 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
+    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final String name) {
+        this.resultType = computeResultType(columns).withName(name);
+        this.columns = resolveColumns(resultType, columns);
+        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
+        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+    }
+
     @Nonnull
     public List<Column<? extends Value>> getColumns() {
         return columns;
@@ -148,8 +155,9 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
      * messages that make up their fields, etc. That means that in the worst case we now lazily create a dynamic message
      * from a regular message. Note that both messages are required (by their descriptors) to be wire-compatible.
      * Note that we try to avoid making a copy if at all possible.
-     * TODO When https://github.com/FoundationDB/fdb-record-layer/issues/1910 gets addressed this code-path will become
-     *      obsolete and can be removed. In fact, leaving it in wouldn't hurt as a deep copy would be deemed unnecessary.
+     * TODO When this <a href="https://github.com/FoundationDB/fdb-record-layer/issues/1910">issue</a> gets addressed
+     *      this code-path will become obsolete and can be removed. In fact, leaving it in wouldn't hurt as a deep copy
+     *      would be deemed unnecessary.
      * @param typeRepository the type repository
      * @param fieldType the type of the field
      * @param field the object that may or may not be copied
@@ -220,7 +228,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
 
     private int computeHashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION,
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION,
                 BASE_HASH,
                 columns.stream()
                         .map(column -> column.getField().hashCode())
@@ -228,8 +236,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, columns);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, columns);
     }
 
     @Override
@@ -380,11 +388,17 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return resolvedColumnsBuilder.build();
     }
 
-
+    @Nonnull
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
         return new RecordConstructorValue(columns);
     }
 
+    @Nonnull
+    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns, @Nonnull final String name) {
+        return new RecordConstructorValue(columns, name);
+    }
+
+    @Nonnull
     public static RecordConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
         return new RecordConstructorValue(arguments.stream()
                         .map(Column::unnamedOf)

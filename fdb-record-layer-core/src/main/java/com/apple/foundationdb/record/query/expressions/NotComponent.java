@@ -42,7 +42,7 @@ import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that is satisfied when its child component is not satisfied.
- *
+ * <br>
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.MAINTAINED)
@@ -130,15 +130,14 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getChild().planHash(hashKind) + 1;
+                return getChild().planHash(mode) + 1;
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, getChild());
+                return PlanHashable.planHash(mode, BASE_HASH, getChild());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

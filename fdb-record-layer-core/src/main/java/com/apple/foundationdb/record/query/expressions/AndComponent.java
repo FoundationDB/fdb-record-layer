@@ -36,7 +36,7 @@ import java.util.function.Supplier;
 
 /**
  * A {@link QueryComponent} that is satisfied when all of its child components are satisfied.
- *
+ * <br>
  * For tri-valued logic:
  * <ul>
  * <li>If all children are {@code true}, then {@code true}.</li>
@@ -104,15 +104,14 @@ public class AndComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, getChildren());
+                return PlanHashable.planHash(mode, getChildren());
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

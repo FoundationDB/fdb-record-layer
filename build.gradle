@@ -231,6 +231,7 @@ subprojects {
                 // exclude generated Protobuf classes
                 exclude "**/*Proto.java"
                 exclude "**/*ProtoV3.java"
+                options.addBooleanOption('Xwerror', true)
                 options.addStringOption('source', '11')
                 options.with {
                     overview "src/main/javadoc/overview.html"

@@ -237,8 +237,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         // (select the same plan on subsequent plannings).
         //
         if ((a instanceof PlanHashable) && (b instanceof PlanHashable)) {
-            int hA = ((PlanHashable)a).planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS);
-            int hB = ((PlanHashable)b).planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS);
+            int hA = ((PlanHashable)a).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+            int hB = ((PlanHashable)b).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
             return Integer.compare(hA, hB);
         }
 

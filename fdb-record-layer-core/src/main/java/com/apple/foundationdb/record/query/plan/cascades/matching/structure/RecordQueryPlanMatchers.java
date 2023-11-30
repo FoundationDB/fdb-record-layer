@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndex
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -698,6 +699,21 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<ComposedBitmapIndexQueryPlan> composedBitmapPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(ComposedBitmapIndexQueryPlan.class, Extractor.of(ComposedBitmapIndexQueryPlan::getIndexPlans, name -> "indexPlans(" + name + ")"), downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ComposedBitmapIndexQueryPlan> composer(@Nonnull final BindingMatcher<ComposedBitmapIndexQueryPlan.ComposerBase> downstream) {
+        return typedWithDownstream(ComposedBitmapIndexQueryPlan.class, Extractor.of(ComposedBitmapIndexQueryPlan::getComposer, name -> "composer(" + name + ")"), downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ComposedBitmapIndexQueryPlan.ComposerBase> composition(@Nonnull final String compositionString) {
+        return typedWithDownstream(ComposedBitmapIndexQueryPlan.ComposerBase.class, Extractor.of(ComposedBitmapIndexQueryPlan.ComposerBase::toString, name -> "composition(" + name + ")"), PrimitiveMatchers.equalsObject(compositionString));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordQueryExplodePlan> explodePlan() {
         return ofTypeOwning(RecordQueryExplodePlan.class, CollectionMatcher.empty());
     }
@@ -713,14 +729,6 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryDeletePlan> deletePlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryDeletePlan.class, all(downstream));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <M extends RecordQueryDeletePlan> BindingMatcher<M> deleteTarget(@Nonnull BindingMatcher<? extends String> downstream) {
-        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryDeletePlan.class,
-                Extractor.of(RecordQueryDeletePlan::getTargetRecordType, name -> "target(" + name + ")"),
-                downstream);
     }
 
     @Nonnull

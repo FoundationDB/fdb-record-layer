@@ -50,8 +50,8 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return super.basePlanHash(hashKind, BASE_HASH, arguments);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return super.basePlanHash(mode, BASE_HASH, arguments);
     }
 
     @Override

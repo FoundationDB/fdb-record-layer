@@ -222,6 +222,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
                                Tuple groupingKey,
                                Tuple primaryKey) throws IOException {
+        final long startTime = System.nanoTime();
         final List<String> texts = fields.stream()
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
@@ -250,6 +251,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
         }
         newWriter.addDocument(document);
+        state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
     }
 
     @Nonnull
@@ -266,6 +268,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
+        final long startTime = System.nanoTime();
         final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
         final DirectoryReader directoryReader = DirectoryReader.open(oldWriter);
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey).getPrimaryKeySegmentIndex();
@@ -275,7 +278,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
                 long valid = oldWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
                 if (valid > 0) {
-                    state.context.increment(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY);
+                    state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
                     return;
                 }
             }
@@ -297,7 +300,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
         }
         oldWriter.deleteDocuments(query);
-        state.context.increment(LuceneEvents.Counts.LUCENE_DELETE_DOCUMENT_BY_QUERY);
+        state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY, System.nanoTime() - startTime);
     }
 
     @Override

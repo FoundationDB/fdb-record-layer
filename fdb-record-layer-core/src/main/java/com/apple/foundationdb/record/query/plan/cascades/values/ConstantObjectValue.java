@@ -98,7 +98,6 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         return ordinal == otherConstantObjectValue.ordinal;
     }
 
-    @Nonnull
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
         return resultType.getTypeCode() == Type.TypeCode.NULL;
@@ -123,12 +122,12 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Override
     public int hashCodeWithoutChildren() {
-        return planHash(PlanHashKind.FOR_CONTINUATION);
+        return planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, ordinal);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, ordinal);
     }
 
     @Nonnull

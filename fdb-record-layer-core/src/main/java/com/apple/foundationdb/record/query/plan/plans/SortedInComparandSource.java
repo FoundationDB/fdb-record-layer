@@ -49,8 +49,8 @@ public class SortedInComparandSource extends InComparandSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE), getComparison(), reverse);
+    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE), getComparison(), reverse);
     }
 
     @Override

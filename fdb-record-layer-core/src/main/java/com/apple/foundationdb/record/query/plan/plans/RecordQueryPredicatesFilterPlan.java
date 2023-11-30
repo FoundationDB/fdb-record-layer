@@ -138,7 +138,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
@@ -204,16 +203,15 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + conjunctedPredicate.planHash(hashKind);
+                return getInnerPlan().planHash(mode) + conjunctedPredicate.planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
                 // Not using baseSource, since it uses Object.hashCode()
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), conjunctedPredicate);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), conjunctedPredicate);
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

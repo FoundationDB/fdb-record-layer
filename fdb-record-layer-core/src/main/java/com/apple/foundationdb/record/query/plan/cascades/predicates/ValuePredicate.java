@@ -136,8 +136,8 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, value, comparison);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, value, comparison);
     }
 
     @Override

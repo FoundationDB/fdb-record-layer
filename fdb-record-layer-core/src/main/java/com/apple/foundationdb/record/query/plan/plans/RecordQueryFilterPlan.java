@@ -104,11 +104,6 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         return conjunctedFilter.evalAsync(store, context, datum.getQueriedRecord());
     }
 
-    @Override
-    public boolean isReverse() {
-        return getInnerPlan().isReverse();
-    }
-
     @Nonnull
     @Override
     public String toString() {
@@ -171,15 +166,14 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        switch (hashKind) {
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        switch (mode.getKind()) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + getConjunctedFilter().planHash(hashKind);
+                return getInnerPlan().planHash(mode) + getConjunctedFilter().planHash(mode);
             case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, getInnerPlan(), getConjunctedFilter());
+                return PlanHashable.planHash(mode, BASE_HASH, getInnerPlan(), getConjunctedFilter());
             default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
     }
 

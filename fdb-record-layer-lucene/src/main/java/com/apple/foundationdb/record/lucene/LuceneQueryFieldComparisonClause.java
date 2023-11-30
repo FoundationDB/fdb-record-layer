@@ -95,8 +95,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, field, fieldType, comparison);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, field, fieldType, comparison);
     }
 
     @Override

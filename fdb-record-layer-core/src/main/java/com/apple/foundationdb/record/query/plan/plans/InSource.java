@@ -75,10 +75,10 @@ public abstract class InSource implements PlanHashable {
     @Nonnull
     public abstract RecordQueryInJoinPlan toInJoinPlan(@Nonnull Quantifier.Physical innerQuantifier);
 
-    public int baseHash(@Nonnull final PlanHashKind hashKind, @Nonnull ObjectPlanHash objectPlanHash) {
+    public int baseHash(@Nonnull final PlanHashMode mode, @Nonnull ObjectPlanHash objectPlanHash) {
         // TODO We should really use objectPlanHash here, too, but it seems doing so will change a lot
         //      of plan hashes.
-        return objectPlanHash.planHash(hashKind);
+        return objectPlanHash.planHash(mode);
     }
 
     @Nonnull

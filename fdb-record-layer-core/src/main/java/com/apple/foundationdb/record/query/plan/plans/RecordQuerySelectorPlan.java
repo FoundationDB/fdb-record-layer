@@ -152,8 +152,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), isReverse(), planSelector);
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), isReverse(), planSelector);
     }
 
     @Override

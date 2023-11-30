@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -60,7 +61,9 @@ import javax.annotation.Nullable;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -106,6 +109,7 @@ public abstract class IndexingBase {
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
     private long lastTypeStampCheckMillis;
+    private Map<String, IndexingMerger> indexingMergerMap = null;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
@@ -948,15 +952,25 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
         return AsyncUtil.whenAll(indexSet.stream()
-                .map(index2 -> getRunner().runAsync(context ->
-                        openRecordStore(context).thenCompose(store ->
-                    store.getIndexMaintainer(index2).mergeIndex()
-                ))).collect(Collectors.toList()));
+                .map(index -> getIndexingMerger(index).mergeIndex()
+        ).collect(Collectors.toList()));
+    }
+
+    private synchronized IndexingMerger getIndexingMerger(Index index) {
+        if (indexingMergerMap == null) {
+            indexingMergerMap = new HashMap<>();
+        }
+        IndexingMerger merger = indexingMergerMap.get(index.getName());
+        if (merger == null) {
+            merger = new IndexingMerger(index, common, policy.getInitialMergesCountLimit());
+            indexingMergerMap.put(index.getName(), merger);
+        }
+        return merger;
     }
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
         if (policy.shouldDeferMergeDuringIndexing()) {
-            store.getIndexDeferredMaintenancePolicy().setAutoMergeDuringCommit(false);
+            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
         }
     }
 
@@ -1213,6 +1227,22 @@ public abstract class IndexingBase {
             seenSet.add(current);
         }
         return null;
+    }
+
+    protected static boolean shouldLessenWork(@Nullable FDBException ex) {
+        // These error codes represent a list of errors that can occur if there is too much work to be done
+        // in a single transaction.
+        if (ex == null) {
+            return false;
+        }
+        final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
+                FDBError.TIMED_OUT.code(),
+                FDBError.TRANSACTION_TOO_OLD.code(),
+                FDBError.NOT_COMMITTED.code(),
+                FDBError.TRANSACTION_TIMED_OUT.code(),
+                FDBError.COMMIT_READ_INCOMPLETE.code(),
+                FDBError.TRANSACTION_TOO_LARGE.code()));
+        return lessenWorkCodes.contains(ex.getCode());
     }
 }
 
