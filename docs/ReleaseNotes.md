@@ -15,14 +15,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Synthetic record type plans are now only generated if the type has at least one index that requires maintenance [(Issue #2377)](https://github.com/FoundationDB/fdb-record-layer/issues/2377)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Store file content on own file references [(Issue #2295)](https://github.com/FoundationDB/fdb-record-layer/issues/2295)
-* **Bug fix** Store FieldInfo on file reference [(Issue #2284)](https://github.com/FoundationDB/fdb-record-layer/issues/2284)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Cache parsed FieldInfos in lucene index [(Issue #2374)](https://github.com/FoundationDB/fdb-record-layer/issues/2374)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +38,13 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.435.0
+
+* **Bug fix** Synthetic record type plans are now only generated if the type has at least one index that requires maintenance [(Issue #2377)](https://github.com/FoundationDB/fdb-record-layer/issues/2377)
+* **Bug fix** Store file content on own file references [(Issue #2295)](https://github.com/FoundationDB/fdb-record-layer/issues/2295)
+* **Bug fix** Store FieldInfo on file reference [(Issue #2284)](https://github.com/FoundationDB/fdb-record-layer/issues/2284)
+* **Performance** Cache parsed FieldInfos in lucene index [(Issue #2374)](https://github.com/FoundationDB/fdb-record-layer/issues/2374)
 
 ### 3.3.433.0
 
