@@ -315,7 +315,7 @@ public class FDBDirectory extends Directory  {
         writeFDBLuceneFileReference(filename, reference);
     }
 
-    long writeFieldInfos(long id, byte[] value) {
+    void writeFieldInfos(long id, byte[] value) {
         if (id == 0) {
             throw new RecordCoreArgumentException("FieldInfo id should never be 0");
         }
@@ -328,7 +328,6 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
         context.ensureActive().set(key, value);
-        return id;
     }
 
     Stream<Pair<Long, byte[]>> getAllFieldInfosStream() {

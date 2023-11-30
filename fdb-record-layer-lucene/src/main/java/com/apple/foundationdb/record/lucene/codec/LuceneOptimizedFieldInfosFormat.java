@@ -66,17 +66,15 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource") // we extract the FDBDirectory, and that is closeable, but we aren't in charge of closing
     public FieldInfos read(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix, final IOContext iocontext) throws IOException {
-        FieldInfosStorage fieldInfosStorage;
+        final FieldInfosStorage fieldInfosStorage = getFieldInfosStorage(directory);
         final Directory unwrapped = FilterDirectory.unwrap(directory);
         String fileName;
         if (unwrapped instanceof FDBDirectory) {
             // We are reading directly from the FDBDirectory, so the fieldInfosId will be on the .fip file
-            fieldInfosStorage = ((FDBDirectory)unwrapped).getFieldInfosStorage();
             fileName = IndexFileNames.segmentFileName(segmentInfo.name, segmentSuffix, EXTENSION);
         } else if (unwrapped instanceof LuceneOptimizedCompoundReader) {
             // We are reading from a compound directory, so the fieldInfosId will be on the .cfe file
             final LuceneOptimizedCompoundReader compoundReader = (LuceneOptimizedCompoundReader)unwrapped;
-            fieldInfosStorage = ((FDBDirectory)FilterDirectory.unwrap(compoundReader.getDirectory())).getFieldInfosStorage();
             fileName = compoundReader.getEntriesFileName();
         } else {
             throw new RecordCoreException("Unexpected type of directory")
