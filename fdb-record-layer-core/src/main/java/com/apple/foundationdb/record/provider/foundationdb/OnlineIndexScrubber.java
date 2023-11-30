@@ -949,7 +949,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
             if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
                 // The (stored) types to scan, not the (synthetic) types that are indexed.
-                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
+                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null), getTimer())
                         .storedRecordTypesForIndex(index, recordTypes);
             }
         }
