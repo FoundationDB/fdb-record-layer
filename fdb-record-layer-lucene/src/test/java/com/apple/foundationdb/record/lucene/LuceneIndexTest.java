@@ -84,7 +84,6 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1879,39 +1878,44 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    @Disabled("Auto complete does not currently work properly with phrases which contain stop words")
     void autoCompletePhraseSearchIncludingStopWords() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
             final List<KeyExpression> storedFields = ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
 
             addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
-            /*
-             * Note(scottfines): This component is currently commented
-             */
-            // Only the texts containing "united states of" are returned, the last token "of" is queried with term query,
-            // same as the other tokens due to the white space following it
+
+            queryAndAssertAutoCompleteSuggestionsReturned(index,
+                    storedFields,
+                    "text",
+                    "\"united states of ameri\"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america"));
+
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "text",
                     "\"united states of \"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america",
+                            "united states is a country in the continent of america"));
 
+            // Stop-words are interchangeable, so client would have to enforce "exact" stop-word suggestion if required
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "text",
                     "\"united states of\"",
                     ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                            "welcome to the united states of america",
+                            "united states is a country in the continent of america"));
 
-            // Only the texts containing "united states o" are returned, the last token "o" is queried with term query against the NGRAM field
+            // Prefix match on stop-words is not supported and is hard to do. Should be a rare corner case.
+            // The user would have to type the entire stop-word
             queryAndAssertAutoCompleteSuggestionsReturned(index,
                     storedFields,
                     "text",
                     "\"united states o\"",
-                    ImmutableList.of("united states of america",
-                            "welcome to the united states of america"));
+                    ImmutableList.of());
 
             commit(context);
         }
