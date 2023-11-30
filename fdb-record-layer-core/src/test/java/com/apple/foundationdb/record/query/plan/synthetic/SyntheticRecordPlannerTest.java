@@ -1217,10 +1217,6 @@ public class SyntheticRecordPlannerTest {
                     .setOtherRecNo(1415L)
                     .setStrValue("foo")
                     .build();
-            TestRecordsJoinIndexProto.MyOtherRecord otherRecord = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
-                    .setRecNo(1415L)
-                    .setNumValue3(42)
-                    .build();
             recordStore.saveRecord(simpleRecord);
             assertEquals(2L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
@@ -1228,6 +1224,10 @@ public class SyntheticRecordPlannerTest {
             recordStore.markIndexDisabled(joined2Index).join();
 
             timer.reset();
+            TestRecordsJoinIndexProto.MyOtherRecord otherRecord = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .setNumValue3(42)
+                    .build();
             recordStore.saveRecord(otherRecord);
             assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
