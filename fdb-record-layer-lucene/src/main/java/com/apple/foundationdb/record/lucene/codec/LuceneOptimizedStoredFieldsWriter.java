@@ -151,6 +151,7 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
 
     @Override
     public void close() throws IOException {
+        // nothing to do - will be committed to FDB once the transaction commits
     }
 
     @Override

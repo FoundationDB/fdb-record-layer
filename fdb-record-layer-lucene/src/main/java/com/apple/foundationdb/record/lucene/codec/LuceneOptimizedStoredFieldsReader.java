@@ -94,7 +94,7 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
     }
 
     @Override
-    @SuppressWarnings("PMD.ProperCloneImplementation")
+    @SuppressWarnings({"PMD.ProperCloneImplementation", "java:S2975"})
     @SpotBugsSuppressWarnings("CN")
     public LuceneOptimizedStoredFieldsReader clone() {
         return new LuceneOptimizedStoredFieldsReader(directory, si, fieldInfos);
@@ -102,6 +102,7 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
 
     @Override
     public void checkIntegrity() throws IOException {
+        // We do not check integrity on FDB-stored data
     }
 
     @Override
