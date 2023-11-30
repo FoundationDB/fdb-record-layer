@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
@@ -58,6 +57,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
 
     // Lucene Optimized Codec Singleton
     private static final Codec CODEC = LuceneOptimizedCodec.CODEC;
+    public static final boolean USE_COMPOUND_FILE = true;
 
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
@@ -74,8 +74,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, sharedCacheManager, sharedCacheKey,
-                state.index.getBooleanOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false));
+        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE);
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -157,7 +156,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
-                            .setUseCompoundFile(true)
+                            .setUseCompoundFile(USE_COMPOUND_FILE)
                             .setMergePolicy(tieredMergePolicy)
                             .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
                             .setCodec(CODEC)

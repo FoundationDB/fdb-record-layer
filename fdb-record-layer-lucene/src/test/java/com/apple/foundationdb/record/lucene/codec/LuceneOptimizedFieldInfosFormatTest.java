@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FieldInfosStorage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -419,7 +420,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     }
 
     private FDBDirectory createDirectory(final FDBRecordContext context) {
-        return new FDBDirectory(path.toSubspace(context), context, true);
+        return new FDBDirectory(path.toSubspace(context), context, Map.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
     }
 
     private static class LightSegmentInfo {
