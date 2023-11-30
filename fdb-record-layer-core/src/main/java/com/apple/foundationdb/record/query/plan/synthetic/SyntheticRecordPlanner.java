@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -65,15 +66,19 @@ public class SyntheticRecordPlanner {
     private final RecordMetaData recordMetaData;
     @Nonnull
     private final RecordQueryPlanner queryPlanner;
+    @Nullable
+    private final FDBStoreTimer timer;
 
     /**
      * Initialize a new planner.
      * @param recordMetaData meta-data to use for planning
      * @param storeState index enabling state to use for planning
+     * @param timer store timer for collecting metrics during planning
      */
-    public SyntheticRecordPlanner(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState storeState) {
+    public SyntheticRecordPlanner(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState storeState, @Nullable FDBStoreTimer timer) {
         this.recordMetaData = recordMetaData;
         this.queryPlanner = new RecordQueryPlanner(recordMetaData, storeState);
+        this.timer = timer;
     }
 
     /**
@@ -81,7 +86,7 @@ public class SyntheticRecordPlanner {
      * @param store a record store
      */
     public SyntheticRecordPlanner(@Nonnull FDBRecordStore store) {
-        this(store.getRecordMetaData(), store.getRecordStoreState());
+        this(store.getRecordMetaData(), store.getRecordStoreState(), store.getTimer());
     }
 
     /**
@@ -181,8 +186,11 @@ public class SyntheticRecordPlanner {
         Set<String> syntheticRecordTypes = new HashSet<>();
         boolean needDistinct = false;
         for (SyntheticRecordType<?> syntheticRecordType : recordMetaData.getSyntheticRecordTypes().values()) {
-            if (onlyIfIndexed && syntheticRecordType.getIndexes().isEmpty() && syntheticRecordType.getMultiTypeIndexes().isEmpty()) {
+            if (onlyIfIndexed && allIndexesDisabled(syntheticRecordType)) {
                 continue;
+            }
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE);
             }
             for (SyntheticRecordType.Constituent constituent : syntheticRecordType.getConstituents()) {
                 if (constituent.getRecordType() == storedRecordType) {
@@ -209,6 +217,17 @@ public class SyntheticRecordPlanner {
         } else {
             return new SyntheticRecordConcatPlan(subPlans, needDistinct);
         }
+    }
+
+    private boolean allIndexesDisabled(SyntheticRecordType<?> syntheticRecordType) {
+        return allIndexesDisabled(syntheticRecordType.getIndexes()) && allIndexesDisabled(syntheticRecordType.getMultiTypeIndexes());
+    }
+
+    private boolean allIndexesDisabled(@Nonnull Collection<Index> indexes) {
+        if (indexes.isEmpty()) {
+            return true;
+        }
+        return indexes.stream().allMatch(index -> queryPlanner.getRecordStoreState().isDisabled(index));
     }
 
     /**

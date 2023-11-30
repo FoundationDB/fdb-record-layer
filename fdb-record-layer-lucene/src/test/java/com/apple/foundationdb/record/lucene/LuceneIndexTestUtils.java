@@ -66,7 +66,9 @@ public class LuceneIndexTestUtils {
     public static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                    // Common index in Lucene tests, set the option to TRUE to be used in tests
+                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
 
     public static final Index TEXT_AND_STORED = new Index(
             "Simple$test_stored",
@@ -83,7 +85,9 @@ public class LuceneIndexTestUtils {
                     function(LuceneFunctionNames.LUCENE_STORED, field("time")),
                     function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
             LuceneIndexTypes.LUCENE,
-            Collections.emptyMap());
+            ImmutableMap.of(
+                    // Common index in Lucene tests, set the option to TRUE to be used in tests
+                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
 
     public static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(

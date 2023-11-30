@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.SyntheticRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.AbsoluteValueFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
@@ -68,6 +69,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Reco
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultiset;
@@ -107,8 +109,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link SyntheticRecordPlanner}.
@@ -264,6 +268,7 @@ public class SyntheticRecordPlannerTest {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
 
+            timer.reset();
             for (int i = 0; i < 3; i++) {
                 TestRecordsJoinIndexProto.MySimpleRecord.Builder simple = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder();
                 simple.setRecNo(i);
@@ -279,6 +284,9 @@ public class SyntheticRecordPlannerTest {
             recordStore.saveRecord(joining.build());
             joining.setRecNo(102).setSimpleRecNo(2).setOtherRecNo(1002);
             recordStore.saveRecord(joining.build());
+
+            // Because there are no indexes defined on the joined index, none of these updates should actually result in planning
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             context.commit();
         }
@@ -1042,6 +1050,92 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
+    void indexUpdatesOnSameSyntheticTypeSharePlans() {
+        String index1Name = addJoinedIndexToMetaData();
+        SyntheticRecordTypeBuilder<?> syntheticType = metaDataBuilder.getSyntheticRecordType("MultiNestedFieldJoin");
+        String index2Name = "quantityByCity";
+        metaDataBuilder.addIndex(syntheticType, new Index(index2Name, field("order").nest("quantity").groupBy(field("cust").nest("city")), IndexTypes.SUM));
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+            timer.reset();
+
+            TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder()
+                            .setZKey(42)
+                            .setIntRecId(1066L)
+                    )
+                    .setName("Scott")
+                    .setCity("Toronto")
+                    .build();
+            recordStore.saveRecord(customer);
+            // Two indexes should be updated, but only one synthetic type plan should be needed
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+            timer.reset();
+
+            TestRecordsJoinIndexProto.OrderWithHeader order1 = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder()
+                            .setZKey(customer.getHeader().getZKey())
+                            .setRecId("id2")
+                    )
+                    .setOrderNo(101)
+                    .setQuantity(10)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1066"))
+                    .build();
+            recordStore.saveRecord(order1);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+            timer.reset();
+
+            TestRecordsJoinIndexProto.OrderWithHeader order2 = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
+                    .setHeader(TestRecordsJoinIndexProto.Header.newBuilder()
+                            .setZKey(customer.getHeader().getZKey())
+                            .setRecId("id3")
+                    )
+                    .setOrderNo(102)
+                    .setQuantity(15)
+                    .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:1066"))
+                    .build();
+            recordStore.saveRecord(order2);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+            timer.reset();
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            final Index index1 = recordStore.getRecordMetaData().getIndex(index1Name);
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index1, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> index2Entries = cursor.asList().join();
+                assertThat(index2Entries, hasSize(2));
+
+                IndexEntry entry1 = index2Entries.get(0);
+                assertEquals(index1, entry1.getIndex());
+                assertEquals(Tuple.from("Scott", 101L, -1L, Tuple.from(42L, "id2"), Tuple.from(42L, 1066L)), entry1.getKey());
+                assertEquals(TupleHelpers.EMPTY, entry1.getValue());
+
+                IndexEntry entry2 = index2Entries.get(1);
+                assertEquals(index1, entry2.getIndex());
+                assertEquals(Tuple.from("Scott", 102L, -1L, Tuple.from(42L, "id3"), Tuple.from(42L, 1066L)), entry2.getKey());
+                assertEquals(TupleHelpers.EMPTY, entry2.getValue());
+            }
+
+            final Index index2 = recordStore.getRecordMetaData().getIndex(index2Name);
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index2, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                List<IndexEntry> index2Entries = cursor.asList().join();
+                assertThat(index2Entries, hasSize(1));
+                IndexEntry entry = index2Entries.get(0);
+                assertEquals(index2, entry.getIndex());
+                assertEquals(Tuple.from("Toronto"), entry.getKey());
+                assertEquals(Tuple.from(25L), entry.getValue());
+            }
+
+            context.commit();
+        }
+    }
+
+    @Test
     void wontUpdateSyntheticTypeIfUnderlyingIndexesAreDisabled() throws Exception {
         /*
          * If the underlying indexes that are to be updated are not writable, then the synthetic update
@@ -1061,6 +1155,7 @@ public class SyntheticRecordPlannerTest {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
+            timer.reset();
             TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(1L))
                     .setName("Scott")
@@ -1076,6 +1171,7 @@ public class SyntheticRecordPlannerTest {
                     .build();
             recordStore.saveRecord(order);
 
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
             context.commit();
         }
 
@@ -1091,6 +1187,77 @@ public class SyntheticRecordPlannerTest {
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 Assertions.assertEquals(0, cursor.getCount().get(), "Wrote records to a disabled index!");
             }
+        }
+    }
+
+    @Test
+    void updateOnlyNonDisabledSyntheticTypes() {
+        // Create two synthetic record types, each with one index
+        final JoinedRecordTypeBuilder joined1 = metaDataBuilder.addJoinedRecordType("FirstJoinedType");
+        joined1.addConstituent("simple", "MySimpleRecord");
+        joined1.addConstituent("other", "MyOtherRecord");
+        joined1.addJoin("simple", "other_rec_no", "other", "rec_no");
+        final Index joined1Index = new Index("joined1_index", concat(field("simple").nest("str_value"), field("other").nest("num_value_3")));
+        metaDataBuilder.addIndex(joined1, joined1Index);
+
+        final JoinedRecordTypeBuilder joined2 = metaDataBuilder.addJoinedRecordType("SecondJoinedType");
+        joined2.addConstituent("simple", "MySimpleRecord");
+        joined2.addConstituent("other", "MyOtherRecord");
+        joined2.addJoin("simple", "other_rec_no", "other", "rec_no");
+        final Index joined2Index = new Index("joined2_index", concat(field("other").nest("num_value_3"), field("simple").nest("str_value")));
+        metaDataBuilder.addIndex(joined2, joined2Index);
+
+        metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no"); // To facilitate join lookups
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).create();
+
+            TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setOtherRecNo(1415L)
+                    .setStrValue("foo")
+                    .build();
+            recordStore.saveRecord(simpleRecord);
+            assertEquals(2L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+
+            // Disable the index on joined2, but leave the index on joined1
+            recordStore.markIndexDisabled(joined2Index).join();
+
+            timer.reset();
+            TestRecordsJoinIndexProto.MyOtherRecord otherRecord = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
+                    .setRecNo(1415L)
+                    .setNumValue3(42)
+                    .build();
+            recordStore.saveRecord(otherRecord);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+
+            try (RecordCursor<IndexEntry> joined1Cursor = recordStore.scanIndex(joined1Index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                RecordCursorResult<IndexEntry> firstResult = joined1Cursor.getNext();
+                assertTrue(firstResult.hasNext());
+                IndexEntry entry = firstResult.get();
+                assertEquals(joined1Index, entry.getIndex());
+                assertEquals(Tuple.from("foo", 42L, -1L, Tuple.from(1066L), Tuple.from(1415L)), entry.getKey());
+                assertEquals(Tuple.from(), entry.getValue());
+
+                RecordCursorResult<IndexEntry> secondResult = joined1Cursor.getNext();
+                assertFalse(secondResult.hasNext());
+                assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, secondResult.getNoNextReason());
+            }
+
+            recordStore.uncheckedMarkIndexReadable(joined2Index.getName()).join();
+            try (RecordCursor<IndexEntry> joined2Cursor = recordStore.scanIndex(joined2Index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                RecordCursorResult<IndexEntry> firstResult = joined2Cursor.getNext();
+                assertFalse(firstResult.hasNext());
+                assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, firstResult.getNoNextReason());
+            }
+
+            context.commit();
         }
     }
 
@@ -1132,6 +1299,7 @@ public class SyntheticRecordPlannerTest {
         //update the record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            timer.reset();
             //changing the join key should mean deleting it from the synthetic index, unless the index is disabled
             recordStore.deleteRecord(pk);
 
@@ -1142,6 +1310,8 @@ public class SyntheticRecordPlannerTest {
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:2"))
                     .build();
             recordStore.saveRecord(order);
+
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             context.commit();
         }
@@ -1199,6 +1369,8 @@ public class SyntheticRecordPlannerTest {
         //update the record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            timer.reset();
+
             //changing the join key should mean deleting it from the synthetic index, unless the index is disabled
             recordStore.saveRecord(customer.toBuilder().setName("Bob").build());
 
@@ -1209,6 +1381,8 @@ public class SyntheticRecordPlannerTest {
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:2"))
                     .build();
             recordStore.saveRecord(order);
+
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             context.commit();
         }
@@ -1229,7 +1403,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    void updateSyntheticIndexesWhenWriteOnly() throws Exception {
+    void updateRecordWhenSyntheticIndexesIsWriteOnly() throws Exception {
         String indexName = addJoinedIndexToMetaData();
 
         TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
@@ -1255,7 +1429,7 @@ public class SyntheticRecordPlannerTest {
             context.commit();
         }
 
-        //disabling the index should force the index to be treated as empty
+        // Mark the index as write only. The index should not be readable, but it should still get updated when records change
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
             recordStore.markIndexWriteOnly(indexName).get();
@@ -1266,8 +1440,12 @@ public class SyntheticRecordPlannerTest {
         //update the record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            timer.reset();
+
             //changing the join key should mean deleting it from the synthetic index, unless the index is disabled
             recordStore.saveRecord(customer.toBuilder().setName("Bob").build());
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+            timer.reset();
 
             TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("33"))
@@ -1276,6 +1454,7 @@ public class SyntheticRecordPlannerTest {
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:2"))
                     .build();
             recordStore.saveRecord(order);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             context.commit();
         }
@@ -1296,7 +1475,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    void updateSyntheticIndexesWhenInWriteOnly() throws Exception {
+    void insertRecordWhenSyntheticIndexIsWriteOnly() throws Exception {
         String indexName = addJoinedIndexToMetaData();
 
         //write some data
@@ -1331,12 +1510,16 @@ public class SyntheticRecordPlannerTest {
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
+            timer.reset();
+
             TestRecordsJoinIndexProto.CustomerWithHeader customer = TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setIntRecId(2L))
                     .setName("Scott")
                     .setCity("Toronto")
                     .build();
             recordStore.saveRecord(customer);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+            timer.reset();
 
             TestRecordsJoinIndexProto.OrderWithHeader order = TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
                     .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1).setRecId("33"))
@@ -1345,6 +1528,7 @@ public class SyntheticRecordPlannerTest {
                     .setCustRef(TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:2"))
                     .build();
             recordStore.saveRecord(order);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             context.commit();
         }
@@ -1410,7 +1594,10 @@ public class SyntheticRecordPlannerTest {
                 pk = messageFDBStoredRecord.getPrimaryKey();
             }
 
+            timer.reset();
             recordStore.deleteRecord(pk);
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+
             context.commit();
         }
 

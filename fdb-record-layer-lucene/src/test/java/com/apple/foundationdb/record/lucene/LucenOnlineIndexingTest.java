@@ -507,12 +507,12 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                 for (int i = 0; i < 2; i++) {
                     final FDBDirectory directory = new FDBDirectory(
                             recordStore.indexSubspace(index).subspace(Tuple.from(i)),
-                            context, true);
+                            context, index.getOptions());
                     files.addAll(Arrays.asList(directory.listAll()));
                 }
                 return files.toArray(new String[0]);
             } else {
-                final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, true);
+                final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions());
                 return directory.listAll();
             }
         }
@@ -522,7 +522,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
             final Subspace subspace = recordStore.indexSubspace(index);
-            final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, true);
+            final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, index.getOptions());
             return directory.listAll();
         }
     }

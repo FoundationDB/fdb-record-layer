@@ -136,7 +136,7 @@ public class IndexingCommon {
             }
             boolean isSynthetic = false;
             if (types.stream().anyMatch(RecordType::isSynthetic)) {
-                types = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
+                types = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null), getRunner().getTimer())
                         .storedRecordTypesForIndex(targetIndex, types);
                 isSynthetic = true;
             }
