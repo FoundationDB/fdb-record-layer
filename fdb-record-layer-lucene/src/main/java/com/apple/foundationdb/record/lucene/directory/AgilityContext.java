@@ -68,7 +68,7 @@ public class AgilityContext {
     }
 
     private boolean reachedSizeQuota() {
-        return currentWriteSize > 850000;
+        return currentWriteSize > 850_000;
     }
 
     private boolean shouldCommit() {
