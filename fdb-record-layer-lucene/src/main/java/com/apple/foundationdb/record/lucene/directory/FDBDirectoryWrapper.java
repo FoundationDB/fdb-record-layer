@@ -30,13 +30,13 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
-import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
@@ -94,7 +94,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    private static class FDBDirectoryMergeScheduler extends SerialMergeScheduler {
+    private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
         @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;

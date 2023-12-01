@@ -239,12 +239,12 @@ public class FDBDirectory extends Directory  {
             // Already loaded
             return AsyncUtil.DONE;
         }
-        return agilityContext.apply(aContext -> aContext.ensureActive().get(sequenceSubspaceKey).thenAccept(serializedValue -> {
+        return agilityContext.get(sequenceSubspaceKey).thenAccept(serializedValue -> {
             // Replace the counter value in the counter unless something else has already
             // updated it, in which case we want to keep the cached value
             long loadedValue = deserializeFileSequenceCounter(serializedValue);
             fileSequenceCounter.compareAndSet(originalValue, loadedValue);
-        }));
+        });
     }
 
     /**
@@ -430,7 +430,7 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.DATA_SIZE, value.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, value.length));
         }
-        context.ensureActive().set(key, value);
+        agilityContext.set(key, value);
     }
 
     /**
@@ -444,7 +444,7 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
-        context.ensureActive().clear(Range.startsWith(key));
+        agilityContext.clear(Range.startsWith(key));
     }
 
     /**
@@ -493,30 +493,29 @@ public class FDBDirectory extends Directory  {
             return exceptionalFuture;
         }
         final long id = reference.getId();
-        return agilityContext.apply(aContext ->
-                aContext.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
+        return context.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
                     if (sharedCache == null) {
                         return readData(id, block);
                     }
                     final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
                     if (fromShared != null) {
-                        this.context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
+                        context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
                         return CompletableFuture.completedFuture(fromShared);
                     } else {
-                        this.context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
+                        context.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
                         return readData(id, block).thenApply(data -> {
                             sharedCache.putBlockIfAbsent(id, block, data);
                             return data;
                         });
                     }
                 }
-                )));
+                ));
     }
 
     private CompletableFuture<byte[]> readData(long id, int block) {
-        return agilityContext.apply(aContext -> aContext.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
-                aContext.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
-                        .thenApply(LuceneSerializer::decode)));
+        return context.instrument(LuceneEvents.Events.LUCENE_FDB_READ_BLOCK,
+                agilityContext.get(dataSubspace.pack(Tuple.from(id, block)))
+                        .thenApply(LuceneSerializer::decode));
     }
 
     public byte[] readStoredFields(String segmentName, int docId) throws IOException {
@@ -525,7 +524,7 @@ public class FDBDirectory extends Directory  {
 
     private CompletableFuture<byte[]> readStoredFieldsAsync(String segmentName, int docID) {
         return context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
-                context.ensureActive().get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
+                    agilityContext.get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
     }
 
     /**
@@ -548,9 +547,9 @@ public class FDBDirectory extends Directory  {
 
     @VisibleForTesting
     public AsyncIterable<KeyValue> scanStoredFields(String segmentName) {
-        return context.ensureActive()
+        return agilityContext.apply(aContext -> aContext.ensureActive()
                 .getRange(storedFieldsSubspace.subspace(Tuple.from(segmentName)).range(),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR);
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR));
     }
 
     private CompletableFuture<Void> loadFileReferenceCacheForMemoization() {
@@ -671,13 +670,13 @@ public class FDBDirectory extends Directory  {
         if (value == null) {
             return false;
         }
-        agilityContext.accept(aContext -> aContext.ensureActive().clear(metaSubspace.pack(name)));
+        agilityContext.clear(metaSubspace.pack(name));
         final long id = value.getFieldInfosId();
         if (fieldInfosStorage.delete(id)) {
-            agilityContext.accept(aContext -> aContext.ensureActive().clear(fieldInfosSubspace.pack(id)));
+            agilityContext.clear(fieldInfosSubspace.pack(id));
         }
         // Nothing stored here currently.
-        agilityContext.accept(aContext -> aContext.ensureActive().clear(dataSubspace.subspace(Tuple.from(id)).range()));
+        agilityContext.clear(dataSubspace.subspace(Tuple.from(id)).range());
 
         // Delete K/V data: If the deferredDelete flag is on then delete all content from K/V subspace for the segment
         // (this is to support CFS deletion, that will be disjoint from the actual file deletion).
@@ -828,7 +827,7 @@ public class FDBDirectory extends Directory  {
                 }
                 byte[] encodedBytes = LuceneSerializer.encode(value.getBytes(), compressionEnabled, encryptionEnabled);
                 agilityContext.set(metaSubspace.pack(dest), encodedBytes);
-                agilityContext.accept(aContext -> aContext.ensureActive().clear(key));
+                agilityContext.clear(key);
 
                 cache.remove(source);
                 cache.put(dest, value);
@@ -979,7 +978,7 @@ public class FDBDirectory extends Directory  {
     }
 
     public byte[] fileLockGet(byte[] key) {
-        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.apply(aContext -> aContext.ensureActive().get(key)));
+        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
     }
 
     public void fileLockClear(byte[] key) {

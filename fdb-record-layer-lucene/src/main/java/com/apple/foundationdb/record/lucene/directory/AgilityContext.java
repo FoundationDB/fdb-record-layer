@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
@@ -122,5 +123,17 @@ public class AgilityContext {
         if (currentContext != null) {
             currentWriteSize += key.length + value.length;
         }
+    }
+
+    public CompletableFuture<byte[]> get(byte[] key) {
+        return apply(context -> context.ensureActive().get(key));
+    }
+
+    public void clear(byte[] key) {
+        accept(context -> context.ensureActive().clear(key));
+    }
+
+    public void clear(Range range) {
+        accept(context -> context.ensureActive().clear(range));
     }
 }
