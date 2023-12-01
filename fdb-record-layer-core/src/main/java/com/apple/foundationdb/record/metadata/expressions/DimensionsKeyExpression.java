@@ -134,6 +134,11 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return getWholeKey().normalizeKeyForPositions();
     }
 
+    @Override
+    public boolean hasLosslessNormalization() {
+        return getWholeKey().hasLosslessNormalization();
+    }
+
     @Nonnull
     @Override
     protected KeyExpression getSubKeyImpl(final int start, final int end) {

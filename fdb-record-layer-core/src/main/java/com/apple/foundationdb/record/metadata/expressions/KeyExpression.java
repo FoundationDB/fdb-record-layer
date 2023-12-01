@@ -219,15 +219,13 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
 
     /**
      * Method that indicates to the caller if this key expression can be normalized and re-composed in a way
-     * that yields the original expression.
+     * that yields an expression equivalent to the original.
      *
      * @return {@code true} if the key expression has a lossless normalization, {@code false} otherwise
      */
     @API(API.Status.INTERNAL)
     default boolean hasLosslessNormalization() {
-        // TODO make this more adequate to detect subtle semantics changes
-        //      between the original and the derived (normalized) key expression
-        return !createsDuplicates();
+        return true;
     }
 
     /**
