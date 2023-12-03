@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.436.0
+
+
 ### 3.3.435.0
 
 * **Bug fix** Synthetic record type plans are now only generated if the type has at least one index that requires maintenance [(Issue #2377)](https://github.com/FoundationDB/fdb-record-layer/issues/2377)
