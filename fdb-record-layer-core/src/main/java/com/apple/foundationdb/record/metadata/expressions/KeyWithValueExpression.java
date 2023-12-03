@@ -162,6 +162,11 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Override
+    public boolean hasLosslessNormalization() {
+        return getInnerKey().hasLosslessNormalization();
+    }
+
+    @Override
     public int versionColumns() {
         return getInnerKey().versionColumns();
     }

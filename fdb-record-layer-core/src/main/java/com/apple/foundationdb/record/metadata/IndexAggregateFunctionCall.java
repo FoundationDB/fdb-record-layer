@@ -152,8 +152,7 @@ public class IndexAggregateFunctionCall {
                                    ? ImmutableSet.of()
                                    : ImmutableSet.copyOf(groupingExpressions);
         this.groupedExpression = groupedExpression;
-        this.isGroupingPermutable = groupingKeyExpression.getGroupingSubKey().equals(EmptyKeyExpression.EMPTY) ||
-                                    groupingKeyExpression.hasLosslessNormalization();
+        this.isGroupingPermutable = groupingKeyExpression.getGroupingSubKey().hasLosslessNormalization();
     }
 
     @Nonnull
