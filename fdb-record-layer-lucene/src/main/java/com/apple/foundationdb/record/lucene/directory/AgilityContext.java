@@ -21,10 +21,13 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -69,15 +72,23 @@ public interface AgilityContext {
 
         final FDBRecordContextConfig.Builder contextConfigBuilder;
         final FDBDatabase database;
+        final FDBRecordContext callerContext; // for counters updates only
+
         FDBRecordContext currentContext;
         long creationTime;
         int currentWriteSize;
+        long timeQuotaMillis;
+        long sizeQuotaBytes;
 
         // `apply` should be called when returned value is expected
         Agile(FDBRecordContext callerContext) {
+            this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow week read semantic
             database = callerContext.getDatabase();
+            this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
+            this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
+
             callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::commitNow));
         }
 
@@ -94,15 +105,25 @@ public interface AgilityContext {
         }
 
         private boolean reachedTimeQuota() {
-            return now() > creationTime + 3500;
+            return now() > creationTime + timeQuotaMillis;
         }
 
         private boolean reachedSizeQuota() {
-            return currentWriteSize > 850_000;
+            return currentWriteSize > sizeQuotaBytes;
         }
 
         private boolean shouldCommit() {
-            return currentContext != null && (reachedSizeQuota() || reachedTimeQuota());
+            if (currentContext != null) {
+                if (reachedSizeQuota()) {
+                    callerContext.increment(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+                    return true;
+                }
+                if (reachedTimeQuota()) {
+                    callerContext.increment(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void commitIfNeeded() {
@@ -125,31 +146,41 @@ public interface AgilityContext {
 
         @Override
         public <R> R apply(Function<FDBRecordContext, R> function) {
-            createIfNeeded();
-            R ret = function.apply(currentContext);
-            commitIfNeeded();
-            return ret;
+            synchronized (this) {
+                createIfNeeded();
+                R ret = function.apply(currentContext);
+                commitIfNeeded();
+                return ret;
+            }
         }
 
         // `accept` should be called when returned value is not expected
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
-            createIfNeeded();
-            function.accept(currentContext);
-            commitIfNeeded();
+            synchronized (this) {
+                createIfNeeded();
+                function.accept(currentContext);
+                commitIfNeeded();
+            }
         }
 
         @Override
         public void set(byte[] key, byte[] value) {
             accept(context -> context.ensureActive().set(key, value));
-            if (currentContext != null) {
-                currentWriteSize += key.length + value.length;
+            synchronized (this) {
+                // This lock is is here to please spotbug - which refuses to allow this addition as part of the `accept` lambda
+                // (claiming it to be an unsynchronized access)
+                if (currentContext != null) {
+                    currentWriteSize += key.length + value.length;
+                }
             }
         }
 
         @Override
         public void flush() {
-            commitNow();
+            synchronized (this) {
+                commitNow();
+            }
         }
     }
 

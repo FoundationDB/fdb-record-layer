@@ -224,6 +224,10 @@ public class LuceneEvents {
         LUCENE_WRITE_STORED_FIELDS("lucene write stored fields", false),
         /** Number of Delete Stored Fields operations on the FDBDirectory. */
         LUCENE_DELETE_STORED_FIELDS("lucene delete stored fields", false),
+        /** Number of agile context commits after exceeding size quota. */
+        LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
+        /** Number of agile context commits after exceeding time quota. */
+        LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
         ;
 
         private final String title;
