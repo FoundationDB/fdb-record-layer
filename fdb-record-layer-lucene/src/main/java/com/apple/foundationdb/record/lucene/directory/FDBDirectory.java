@@ -182,13 +182,13 @@ public class FDBDirectory extends Directory  {
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean deferDeleteToCompoundFile, boolean useAgilityContext) {
-        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, useAgilityContext,
+                        boolean deferDeleteToCompoundFile, boolean useAgileContext) {
+        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, useAgileContext,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
-                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, boolean useAgilityContext,
+                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, boolean useAgileContext,
                  int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
                  boolean deferDeleteToCompoundFile) {
         Verify.verify(subspace != null);
@@ -220,7 +220,7 @@ public class FDBDirectory extends Directory  {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
-        this.agilityContext = new AgilityContext(context, useAgilityContext);
+        this.agilityContext = AgilityContext.factory(context, useAgileContext);
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -879,7 +879,7 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void close() {
-        agilityContext.commitNow();
+        agilityContext.flush();
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(getLogMessage("close called",
                     LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats()));
@@ -974,7 +974,7 @@ public class FDBDirectory extends Directory  {
 
     public void fileLockSet(byte[] key, byte[] value) {
         agilityContext.set(key, value);
-        agilityContext.commitNow();
+        agilityContext.flush();
     }
 
     public byte[] fileLockGet(byte[] key) {
@@ -987,7 +987,7 @@ public class FDBDirectory extends Directory  {
             tr.addWriteConflictKey(key);
             tr.clear(key);
         });
-        agilityContext.commitNow();
+        agilityContext.flush();
     }
 
     // Map stored segment id back to segment name.

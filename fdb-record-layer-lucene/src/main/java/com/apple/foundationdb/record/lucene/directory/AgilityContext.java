@@ -32,108 +32,157 @@ import java.util.function.Function;
 /**
  * Create floating sub contexts from a caller context and commit when they reach time/write quota.
  */
-public class AgilityContext {
-    final FDBRecordContextConfig.Builder contextConfigBuilder;
-    final FDBDatabase database;
-    final FDBRecordContext callerContext;
-    FDBRecordContext currentContext;
-    long creationTime;
-    int currentWriteSize;
-    final boolean useAgilityContext;
+public interface AgilityContext {
 
-    AgilityContext(FDBRecordContext callerContext, boolean useAgilityContext) {
-        this.callerContext = callerContext;
-        this.useAgilityContext = useAgilityContext;
-        contextConfigBuilder = callerContext.getConfig().toBuilder();
-        contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow week read semantic
-        database = callerContext.getDatabase();
-        if (useAgilityContext) {
-            callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::commitNow));
-        }
-    }
-
-    private long now() {
-        return System.currentTimeMillis();
-    }
-
-    private void createIfNeeded() {
-        if (currentContext == null) {
-            FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
-            currentContext = database.openContext(contextConfig);
-            creationTime = now();
-        }
-    }
-
-    private boolean reachcedTimeQuota() {
-        return now() > creationTime + 3500;
-    }
-
-    private boolean reachedSizeQuota() {
-        return currentWriteSize > 850_000;
-    }
-
-    private boolean shouldCommit() {
-        return currentContext != null && (reachedSizeQuota() || reachcedTimeQuota());
-    }
-
-    private void commitIfNeeded() {
-        if (shouldCommit()) {
-            commitNow();
-        }
-    }
-
-    public synchronized void commitNow() {
-        // This function is called:
-        // 1. when time/size quota is reached.
-        // 2. when object close or callerContext commit are called - the earlier of the two is the effective one.
-        if (currentContext != null) {
-            currentContext.commit();
-            currentContext.close();
-            currentContext = null;
-            currentWriteSize = 0;
-        }
+    static AgilityContext factory(FDBRecordContext callerContext, boolean useAgileContext) {
+        return useAgileContext ? new Agile(callerContext) : new NonAgile(callerContext);
     }
 
     // `apply` should be called when returned value is expected
-    public <R> R apply(Function<FDBRecordContext, R> function) {
-        if (useAgilityContext) {
+    <R> R apply(Function<FDBRecordContext, R> function) ;
+
+    // `accept` should be called when returned value is not expected
+    void accept(final Consumer<FDBRecordContext> function);
+
+    // `set` should be called for writes - keeping track of write size
+    void set(byte[] key, byte[] value);
+
+    void flush();
+
+    default CompletableFuture<byte[]> get(byte[] key) {
+        return apply(context -> context.ensureActive().get(key));
+    }
+
+    default void clear(byte[] key) {
+        accept(context -> context.ensureActive().clear(key));
+    }
+
+    default void clear(Range range) {
+        accept(context -> context.ensureActive().clear(range));
+    }
+
+
+    /**
+     * A floating window (agile) context - create sub contexts and commit them as they reach time/size quota.
+     */
+    class Agile implements AgilityContext {
+
+        final FDBRecordContextConfig.Builder contextConfigBuilder;
+        final FDBDatabase database;
+        FDBRecordContext currentContext;
+        long creationTime;
+        int currentWriteSize;
+
+        // `apply` should be called when returned value is expected
+        Agile(FDBRecordContext callerContext) {
+            contextConfigBuilder = callerContext.getConfig().toBuilder();
+            contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow week read semantic
+            database = callerContext.getDatabase();
+            callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::commitNow));
+        }
+
+        private long now() {
+            return System.currentTimeMillis();
+        }
+
+        private void createIfNeeded() {
+            if (currentContext == null) {
+                FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
+                currentContext = database.openContext(contextConfig);
+                creationTime = now();
+            }
+        }
+
+        private boolean reachedTimeQuota() {
+            return now() > creationTime + 3500;
+        }
+
+        private boolean reachedSizeQuota() {
+            return currentWriteSize > 850_000;
+        }
+
+        private boolean shouldCommit() {
+            return currentContext != null && (reachedSizeQuota() || reachedTimeQuota());
+        }
+
+        private void commitIfNeeded() {
+            if (shouldCommit()) {
+                commitNow();
+            }
+        }
+
+        public synchronized void commitNow() {
+            // This function is called:
+            // 1. when time/size quota is reached.
+            // 2. when object close or callerContext commit are called - the earlier of the two is the effective one.
+            if (currentContext != null) {
+                currentContext.commit();
+                currentContext.close();
+                currentContext = null;
+                currentWriteSize = 0;
+            }
+        }
+
+        @Override
+        public <R> R apply(Function<FDBRecordContext, R> function) {
             createIfNeeded();
             R ret = function.apply(currentContext);
             commitIfNeeded();
             return ret;
-        } else {
-            return function.apply(callerContext);
         }
-    }
 
-    // `accept` should be called when returned value is not expected
-    public void accept(final Consumer<FDBRecordContext> function) {
-        if (useAgilityContext) {
+        // `accept` should be called when returned value is not expected
+        @Override
+        public void accept(final Consumer<FDBRecordContext> function) {
             createIfNeeded();
             function.accept(currentContext);
             commitIfNeeded();
-        } else {
+        }
+
+        public void set(byte[] key, byte[] value) {
+            accept(context -> context.ensureActive().set(key, value));
+            if (currentContext != null) {
+                currentWriteSize += key.length + value.length;
+            }
+        }
+
+        @Override
+        public void flush() {
+            commitNow();
+        }
+    }
+
+    /**
+     * A non-agile context - plainly use caller's context as context and never commit.
+     */
+    class NonAgile implements AgilityContext {
+        final FDBRecordContext callerContext;
+
+        public NonAgile(final FDBRecordContext callerContext) {
+            this.callerContext = callerContext;
+        }
+
+        // `apply` should be called when returned value is expected
+        @Override
+        public <R> R apply(Function<FDBRecordContext, R> function) {
+            return function.apply(callerContext);
+        }
+
+        // `accept` should be called when returned value is not expected
+        @Override
+        public void accept(final Consumer<FDBRecordContext> function) {
             function.accept(callerContext);
         }
-    }
 
-    // `set` should be called for writes - keeping track of write size
-    public void set(byte[] key, byte[] value) {
-        accept(context -> context.ensureActive().set(key, value));
-        if (currentContext != null) {
-            currentWriteSize += key.length + value.length;
+        @Override
+        public void set(byte[] key, byte[] value) {
+            accept(context -> context.ensureActive().set(key, value));
+        }
+
+        @Override
+        public void flush() {
+            // This is a no-op as the caller context should be committed by the caller.
         }
     }
 
-    public CompletableFuture<byte[]> get(byte[] key) {
-        return apply(context -> context.ensureActive().get(key));
-    }
-
-    public void clear(byte[] key) {
-        accept(context -> context.ensureActive().clear(key));
-    }
-
-    public void clear(Range range) {
-        accept(context -> context.ensureActive().clear(range));
-    }
 }

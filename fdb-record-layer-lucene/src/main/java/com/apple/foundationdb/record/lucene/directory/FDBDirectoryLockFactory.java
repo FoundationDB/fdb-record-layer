@@ -64,7 +64,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.directory = directory;
             this.lockName = lockName;
             final Subspace subspace = directory.getSubspace();
-            this.key = subspace.pack("fileLock" + lockName);
+            this.key = subspace.pack("fileLock:" + lockName);
             this.timeStampMillis = System.currentTimeMillis();
             this.value = subspace.pack(this.timeStampMillis);
             directory.fileLockSet(key, value);
