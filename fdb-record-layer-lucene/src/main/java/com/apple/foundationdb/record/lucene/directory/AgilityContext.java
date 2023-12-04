@@ -42,7 +42,7 @@ public interface AgilityContext {
     <R> R apply(Function<FDBRecordContext, R> function) ;
 
     // `accept` should be called when returned value is not expected
-    void accept(final Consumer<FDBRecordContext> function);
+    void accept(Consumer<FDBRecordContext> function);
 
     // `set` should be called for writes - keeping track of write size
     void set(byte[] key, byte[] value);
@@ -139,6 +139,7 @@ public interface AgilityContext {
             commitIfNeeded();
         }
 
+        @Override
         public void set(byte[] key, byte[] value) {
             accept(context -> context.ensureActive().set(key, value));
             if (currentContext != null) {
