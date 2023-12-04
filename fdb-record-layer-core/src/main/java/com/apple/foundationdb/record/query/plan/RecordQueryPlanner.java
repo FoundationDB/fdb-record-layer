@@ -1797,14 +1797,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planOrderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
-        final KeyExpression sort = planContext.query.getSort();
-        KeyExpression candidateKey = planContext.commonPrimaryKey;
-        boolean candidateOnly = false;
-        if (sort != null) {
-            candidateKey = getKeyForMerge(sort, candidateKey);
-            candidateOnly = true;
-        }
-        KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(subplans, candidateKey, candidateOnly);
+        KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(subplans, planContext.query.getSort(), false);
         if (comparisonKey == null) {
             return null;
         }
