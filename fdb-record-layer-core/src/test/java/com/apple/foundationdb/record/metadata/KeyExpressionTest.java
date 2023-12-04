@@ -963,7 +963,8 @@ public class KeyExpressionTest {
                 Arguments.of(concat(field("foo"), field("bar")), true),
                 Arguments.of(field("foo").groupBy(field("bar")), true),
                 Arguments.of(field("parent").nest(field("foo"), field("bar")), true),
-                Arguments.of(field("parent").nest(field("child", FanType.FanOut).nest(field("foo"), field("bar"))), false)
+                Arguments.of(field("parent").nest(field("child", FanType.FanOut).nest(field("foo"), field("bar"))), false),
+                Arguments.of(new GroupingKeyExpression(field("parent", FanType.FanOut).nest(field("foo"), field("bar")), 1), false)
         );
     }
 
