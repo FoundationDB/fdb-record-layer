@@ -70,6 +70,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -525,7 +526,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     recordStore.scanIndex(COMPLEX_PARTITIONED, fullTextSearch(COMPLEX_PARTITIONED, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
-            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, recordStore.indexSubspace(COMPLEX_PARTITIONED), context, "_0.cfs");
+            Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(TupleHelpers.EMPTY.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
         }
     }
 

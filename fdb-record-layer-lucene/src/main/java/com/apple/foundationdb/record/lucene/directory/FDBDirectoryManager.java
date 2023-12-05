@@ -185,9 +185,9 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
+        Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         if (partitionId != null) {
-            mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
+            mapKey = mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
         }
         return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount));
     }
