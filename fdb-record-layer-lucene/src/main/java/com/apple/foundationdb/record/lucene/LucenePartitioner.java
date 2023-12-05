@@ -325,7 +325,7 @@ public class LucenePartitioner {
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
             }
-        }).thenApply($ -> {
+        }).thenApply(ignored -> {
             partitionMetaInfoCache.put(grouping, result);
             return result;
         });

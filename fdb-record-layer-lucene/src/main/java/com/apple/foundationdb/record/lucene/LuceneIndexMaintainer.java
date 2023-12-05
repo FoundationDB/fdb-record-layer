@@ -340,7 +340,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         groupings.addAll(oldRecordFields.keySet());
         CompletableFuture<Void> pInfoFuture = partitioner.isPartitioningEnabled() ? partitioner.loadPartitioningMetadata(groupings) : AsyncUtil.DONE;
 
-        return pInfoFuture.thenAccept($ -> {
+        return pInfoFuture.thenAccept(ignored -> {
             Long oldRecordTimestamp = null;
             Long newRecordTimestamp = null;
             if (partitioner.isPartitioningEnabled()) {
