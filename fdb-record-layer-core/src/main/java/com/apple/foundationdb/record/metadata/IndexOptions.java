@@ -223,14 +223,14 @@ public class IndexOptions {
      * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new
      * partition would be created.
      */
-    public static final String TEXT_DOCUMENT_PARTITIION_HI_WATERMARK = "textDocumentParititionHiWatermark";
+    public static final String TEXT_DOCUMENT_PARTITIION_HI_WATERMARK = "textDocumentPartitionHiWatermark";
 
     /**
      * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for
      * merge with another adjacent partition.
      */
 
-    public static final String TEXT_DOCUMENT_PARTITIION_LO_WATERMARK = "textDocumentParititionLoWatermark";
+    public static final String TEXT_DOCUMENT_PARTITIION_LO_WATERMARK = "textDocumentPartitionLoWatermark";
 
     private IndexOptions() {
     }
