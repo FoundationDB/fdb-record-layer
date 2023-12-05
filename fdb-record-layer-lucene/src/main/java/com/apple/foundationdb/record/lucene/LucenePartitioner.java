@@ -86,10 +86,8 @@ public class LucenePartitioner {
 
     /**
      * return the partition to which a document with a given timestamp should be assigned.
-     * <br/>
      * <b>Note:</b> {@link #loadPartitioningMetadata(Set)} should be called
      * before the first call to this method.
-     * <br/>
      * If no partition currently exists, a new one is created.
      *
      * @param grouping document grouping key
