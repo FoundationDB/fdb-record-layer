@@ -68,31 +68,31 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.timeStampMillis = System.currentTimeMillis();
             this.value = subspace.pack(this.timeStampMillis);
             directory.fileLockSet(key, value);
-            tellme("Set lock");
+            tellMe("Set lock");
         }
 
         @Override
         public void close() {
-            directory.fileLockClear(key);
+            directory.fileLockClear(key, value);
             closed = true;
-            tellme("Release lock");
+            tellMe("Release lock");
         }
 
         @Override
         public void ensureValid() throws IOException {
             if (closed) {
-                tellme("validate: already close");
+                tellMe("validate: already close");
                 throw new AlreadyClosedException("Lock instance already released: " + this);
             }
             final Subspace subspace = directory.getSubspace();
             byte[] currentValue = directory.fileLockGet(key);
             if (currentValue == null) {
-                tellme("validate: null lock");
+                tellMe("validate: null lock");
                 throw new AlreadyClosedException("Lock file was deleted (lock=" + this + ")");
             }
             final long currentTimeStamp = subspace.unpack(currentValue).getLong(0);
             if (currentTimeStamp != timeStampMillis) {
-                tellme("validate: invalid lock", LogMessageKeys.TIME_STARTED_MILLIS, currentValue);
+                tellMe("validate: invalid lock", LogMessageKeys.TIME_STARTED_MILLIS, currentValue);
                 throw new AlreadyClosedException("Lock file changed by an external force at " + currentTimeStamp + ", (lock=" + this + ")");
             }
         }
@@ -103,7 +103,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Nonnull
-        private void tellme(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+        private void tellMe(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
             if (false && LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.build("DirectoryLock: " + staticMsg, keysAndValues)
                         .addKeyAndValue(LogMessageKeys.INDEX_MERGE_LOCK, this)

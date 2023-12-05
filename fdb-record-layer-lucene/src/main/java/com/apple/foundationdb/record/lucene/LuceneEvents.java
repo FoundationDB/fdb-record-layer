@@ -157,7 +157,8 @@ public class LuceneEvents {
         /** Read the field infos data. */
         WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos"),
         /** Read a file lock. */
-        WAIT_LUCENE_FILE_LOCK("lucene read file lock");
+        WAIT_LUCENE_FILE_LOCK("lucene read file lock"),
+        ;
         private final String title;
         private final String logKey;
 

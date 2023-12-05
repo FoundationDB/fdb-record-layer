@@ -982,9 +982,10 @@ public class FDBDirectory extends Directory  {
         return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
     }
 
-    public void fileLockClear(byte[] key) {
+    public void fileLockClear(byte[] key, byte[] value) {
         agilityContext.accept(aContext -> {
             final Transaction tr = aContext.ensureActive();
+            // Q: How can we verify that the current fdb value is as expected?
             tr.addWriteConflictKey(key);
             tr.clear(key);
         });

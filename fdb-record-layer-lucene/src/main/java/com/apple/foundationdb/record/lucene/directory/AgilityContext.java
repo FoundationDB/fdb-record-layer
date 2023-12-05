@@ -42,13 +42,13 @@ public interface AgilityContext {
         return useAgileContext ? new Agile(callerContext) : new NonAgile(callerContext);
     }
 
-    // `apply` should be called when returned value is expected
+    // `apply` should be called when a returned value is expected
     <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) ;
 
-    // `accept` should be called when returned value is not expected
+    // `accept` should be called when a returned value is not expected
     void accept(Consumer<FDBRecordContext> function);
 
-    // `set` should be called for writes - keeping track of write size
+    // `set` should be called for writes - keeping track of write size (if needed)
     void set(byte[] key, byte[] value);
 
     void flush();
@@ -67,19 +67,19 @@ public interface AgilityContext {
 
 
     /**
-     * A floating window (agile) context - create sub contexts and commit them as they reach time/size quota.
+     * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
      */
     class Agile implements AgilityContext {
 
-        final FDBRecordContextConfig.Builder contextConfigBuilder;
-        final FDBDatabase database;
-        final FDBRecordContext callerContext; // for counters updates only
+        private final FDBRecordContextConfig.Builder contextConfigBuilder;
+        private final FDBDatabase database;
+        private final FDBRecordContext callerContext; // for counters updates only
 
-        FDBRecordContext currentContext;
-        long creationTime;
-        int currentWriteSize;
-        long timeQuotaMillis;
-        long sizeQuotaBytes;
+        private FDBRecordContext currentContext;
+        private long creationTime;
+        private int currentWriteSize;
+        private final long timeQuotaMillis;
+        private final long sizeQuotaBytes;
         // Lock plan:
         //   apply/accept - use read lock, release it within the future
         //   create context - synced and under the read lock of apply/accept
@@ -95,12 +95,12 @@ public interface AgilityContext {
         Agile(FDBRecordContext callerContext) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
-            contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow week read semantic
+            contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow weak read semantic
             database = callerContext.getDatabase();
             this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
             this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
 
-            callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::flush));
+            callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
         }
 
         private long now() {
@@ -130,7 +130,8 @@ public interface AgilityContext {
         private boolean shouldCommit() {
             if (currentContext != null && !committingNow) {
                 // Note: committingNow is not atomic nor protected, its role is to make multiple threads waiting
-                // to commit the same transaction a rare (yet harmless) event.
+                // to commit the same transaction a rare (yet harmless) event. Not just to boost performance, but
+                // also to avoid ForkJoinPool deadlocks.
                 if (reachedSizeQuota()) {
                     callerContext.increment(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
                     return true;
@@ -207,7 +208,7 @@ public interface AgilityContext {
      * A non-agile context - plainly use caller's context as context and never commit.
      */
     class NonAgile implements AgilityContext {
-        final FDBRecordContext callerContext;
+        private final FDBRecordContext callerContext;
 
         public NonAgile(final FDBRecordContext callerContext) {
             this.callerContext = callerContext;
