@@ -350,7 +350,7 @@ public class LucenePartitioner {
 
         Optional<LucenePartitionInfoProto.LucenePartitionInfo> partitionOpt = partitionsForGroup
                 .stream()
-                .filter(p -> p.getFrom() >= timestamp && p.getTo() <= timestamp)
+                .filter(p -> p.getFrom() <= timestamp && p.getTo() >= timestamp)
                 .findAny();
 
         return partitionOpt.orElse(null);
