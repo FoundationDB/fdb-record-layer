@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -42,7 +43,7 @@ public interface AgilityContext {
     }
 
     // `apply` should be called when returned value is expected
-    <R> R apply(Function<FDBRecordContext, R> function) ;
+    <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) ;
 
     // `accept` should be called when returned value is not expected
     void accept(Consumer<FDBRecordContext> function);
@@ -79,8 +80,18 @@ public interface AgilityContext {
         int currentWriteSize;
         long timeQuotaMillis;
         long sizeQuotaBytes;
+        // Lock plan:
+        //   apply/accept - use read lock, release it within the future
+        //   create context - synced and under the read lock of apply/accept
+        //   commitNow - use write lock to ensure exclusivity
+        // also:
+        //   create and commit context functions are each synchronized
+        //   committingNow boolean is used to prevent threads cluttering at the commit function when a quota is reached
+        private final StampedLock lock = new StampedLock();
+        private final Object createLockSync = new Object();
+        private final Object commitLockSync = new Object();
+        private boolean committingNow = false;
 
-        // `apply` should be called when returned value is expected
         Agile(FDBRecordContext callerContext) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
@@ -89,7 +100,7 @@ public interface AgilityContext {
             this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
             this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
 
-            callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::commitNow));
+            callerContext.getOrCreateCommitCheck("FDBDirectory", name -> () -> CompletableFuture.runAsync(this::flush));
         }
 
         private long now() {
@@ -97,10 +108,14 @@ public interface AgilityContext {
         }
 
         private void createIfNeeded() {
-            if (currentContext == null) {
-                FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
-                currentContext = database.openContext(contextConfig);
-                creationTime = now();
+            // Called by accept/apply, protected with a read lock
+            synchronized (createLockSync) {
+                if (currentContext == null) {
+                    FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
+                    currentContext = database.openContext(contextConfig);
+                    creationTime = now();
+                    currentWriteSize = 0;
+                }
             }
         }
 
@@ -113,7 +128,9 @@ public interface AgilityContext {
         }
 
         private boolean shouldCommit() {
-            if (currentContext != null) {
+            if (currentContext != null && !committingNow) {
+                // Note: committingNow is not atomic nor protected, its role is to make multiple threads waiting
+                // to commit the same transaction a rare (yet harmless) event.
                 if (reachedSizeQuota()) {
                     callerContext.increment(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
                     return true;
@@ -132,55 +149,57 @@ public interface AgilityContext {
             }
         }
 
-        public synchronized void commitNow() {
+        public void commitNow() {
             // This function is called:
-            // 1. when time/size quota is reached.
-            // 2. when object close or callerContext commit are called - the earlier of the two is the effective one.
-            if (currentContext != null) {
-                currentContext.commit();
-                currentContext.close();
-                currentContext = null;
-                currentWriteSize = 0;
-            }
-        }
-
-        @Override
-        public <R> R apply(Function<FDBRecordContext, R> function) {
-            synchronized (this) {
-                createIfNeeded();
-                R ret = function.apply(currentContext);
-                commitIfNeeded();
-                return ret;
-            }
-        }
-
-        // `accept` should be called when returned value is not expected
-        @Override
-        public void accept(final Consumer<FDBRecordContext> function) {
-            synchronized (this) {
-                createIfNeeded();
-                function.accept(currentContext);
-                commitIfNeeded();
-            }
-        }
-
-        @Override
-        public void set(byte[] key, byte[] value) {
-            accept(context -> context.ensureActive().set(key, value));
-            synchronized (this) {
-                // This lock is is here to please spotbug - which refuses to allow this addition as part of the `accept` lambda
-                // (claiming it to be an unsynchronized access)
+            // 1. when a time/size quota is reached.
+            // 2. during caller's close or callerContext commit - the earlier of the two is the effective one.
+            synchronized (commitLockSync) {
                 if (currentContext != null) {
-                    currentWriteSize += key.length + value.length;
+                    committingNow = true;
+                    final long stamp = lock.writeLock();
+
+                    currentContext.commit();
+                    currentContext.close();
+                    currentContext = null;
+                    currentWriteSize = 0;
+
+                    lock.unlock(stamp);
+                    committingNow = false;
                 }
             }
         }
 
         @Override
+        public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
+            final long stamp = lock.readLock();
+            createIfNeeded();
+            return function.apply(currentContext).thenApply(ret -> {
+                lock.unlock(stamp);
+                commitIfNeeded();
+                return ret;
+            });
+        }
+
+        @Override
+        public void accept(final Consumer<FDBRecordContext> function) {
+            final long stamp = lock.readLock();
+            createIfNeeded();
+            function.accept(currentContext);
+            lock.unlock(stamp);
+            commitIfNeeded();
+        }
+
+        @Override
+        public void set(byte[] key, byte[] value) {
+            accept(context -> {
+                context.ensureActive().set(key, value);
+                currentWriteSize += key.length + value.length;
+            });
+        }
+
+        @Override
         public void flush() {
-            synchronized (this) {
-                commitNow();
-            }
+            commitNow();
         }
     }
 
@@ -194,13 +213,11 @@ public interface AgilityContext {
             this.callerContext = callerContext;
         }
 
-        // `apply` should be called when returned value is expected
         @Override
-        public <R> R apply(Function<FDBRecordContext, R> function) {
+        public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             return function.apply(callerContext);
         }
 
-        // `accept` should be called when returned value is not expected
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
             function.accept(callerContext);

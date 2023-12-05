@@ -27,7 +27,6 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -333,8 +332,7 @@ public class FDBDirectory extends Directory  {
     Stream<Pair<Long, byte[]>> getAllFieldInfosStream() {
         return context.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()))
-                        .asList())
+                agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList()))
                 .stream()
                 .map(keyValue -> Pair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
@@ -546,10 +544,10 @@ public class FDBDirectory extends Directory  {
     }
 
     @VisibleForTesting
-    public AsyncIterable<KeyValue> scanStoredFields(String segmentName) {
+    public CompletableFuture<List<KeyValue>> scanStoredFields(String segmentName) {
         return agilityContext.apply(aContext -> aContext.ensureActive()
                 .getRange(storedFieldsSubspace.subspace(Tuple.from(segmentName)).range(),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR));
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.ITERATOR).asList());
     }
 
     private CompletableFuture<Void> loadFileReferenceCacheForMemoization() {
@@ -558,17 +556,20 @@ public class FDBDirectory extends Directory  {
         final ConcurrentHashMap<Long, AtomicInteger> fieldInfosCount = new ConcurrentHashMap<>();
         // Issue a range read with StreamingMode.WANT_ALL (instead of default ITERATOR) because this needs to read the
         // entire range before doing anything with the data
-        final AsyncIterable<KeyValue> rangeIterable = agilityContext.apply(aContext -> aContext.ensureActive()
-                .getRange(metaSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL));
-        CompletableFuture<Void> future = AsyncUtil.forEach(rangeIterable, kv -> {
-            String name = metaSubspace.unpack(kv.getKey()).getString(0);
-            final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
-            outMap.put(name, fileReference);
-            if (fileReference.getFieldInfosId() != 0) {
-                fieldInfosCount.computeIfAbsent(fileReference.getFieldInfosId(), key -> new AtomicInteger(0))
-                        .incrementAndGet();
-            }
-        }, context.getExecutor()).thenAccept(ignore -> {
+        final CompletableFuture<List<KeyValue>> rangeList = agilityContext.apply(aContext -> aContext.ensureActive()
+                .getRange(metaSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL).asList());
+        CompletableFuture<Void> future = rangeList.thenApply(list -> {
+            list.forEach(kv -> {
+                String name = metaSubspace.unpack(kv.getKey()).getString(0);
+                final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
+                outMap.put(name, fileReference);
+                if (fileReference.getFieldInfosId() != 0) {
+                    fieldInfosCount.computeIfAbsent(fileReference.getFieldInfosId(), key -> new AtomicInteger(0))
+                            .incrementAndGet();
+                }
+            });
+            return null;
+        }).thenAccept(ignore -> {
             if (LOGGER.isDebugEnabled()) {
                 List<String> displayList = new ArrayList<>(outMap.size());
                 long totalSize = 0L;
