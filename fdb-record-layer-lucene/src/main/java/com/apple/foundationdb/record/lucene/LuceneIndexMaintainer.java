@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
@@ -105,6 +106,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
     private boolean serializerErrorLogged = false;
+    private final LucenePartitioner partitioner;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
@@ -115,6 +117,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.autoCompleteAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos);
         String formatString = state.index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
+        partitioner = new LucenePartitioner(state);
     }
 
     public LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector() {
@@ -147,7 +150,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
-                    scanQuery.getGroupKey(), scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
+                    scanQuery.getGroupKey(), partitioner.selectQueryPartitionId(scanQuery.getGroupKey()), scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
                     scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), indexAnalyzerSelector, autoCompleteAnalyzerSelector);
         }
 
@@ -157,7 +160,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             LuceneScanSpellCheck scanSpellcheck = (LuceneScanSpellCheck)scanBounds;
             return new LuceneSpellCheckRecordCursor(scanSpellcheck.getFields(), scanSpellcheck.getWord(),
-                    executor, scanProperties, state, scanSpellcheck.getGroupKey());
+                    executor, scanProperties, state, scanSpellcheck.getGroupKey(), partitioner.selectQueryPartitionId(scanSpellcheck.getGroupKey()));
         }
 
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
@@ -221,13 +224,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("PMD.CloseResource")
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
                                Tuple groupingKey,
+                               Integer partitionId,
                                Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
         final List<String> texts = fields.stream()
                 .filter(f -> f.getType().equals(LuceneIndexExpressions.DocumentFieldType.TEXT))
                 .map(f -> (String) f.getValue()).collect(Collectors.toList());
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(texts));
+        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(texts));
 
         BytesRef ref = new BytesRef(keySerializer.asPackedByteArray(primaryKey));
         // use packed Tuple for the Stored and Sorted fields
@@ -267,11 +271,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
-    private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
+    private void deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
-        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
+        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
         final DirectoryReader directoryReader = DirectoryReader.open(oldWriter);
-        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey).getPrimaryKeySegmentIndex();
+        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
         if (segmentIndex != null) {
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
             if (documentIndexEntry != null) {
@@ -305,7 +309,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public CompletableFuture<Void> mergeIndex() {
-        return directoryManager.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""));
+        return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
     }
 
     @Nonnull
@@ -332,28 +336,78 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         LOG.trace("update oldFields={}, newFields{}", oldRecordFields, newRecordFields);
 
-        // delete old
-        try {
-            for (Tuple t : oldRecordFields.keySet()) {
-                // oldRecord cannot be null here since in that case the oldRecordFields would have been empty
-                deleteDocument(t, Objects.requireNonNull(oldRecord).getPrimaryKey());
+        Set<Tuple> groupings = new HashSet<>(newRecordFields.keySet());
+        groupings.addAll(oldRecordFields.keySet());
+        CompletableFuture<Void> pInfoFuture = partitioner.isPartitioningEnabled() ? partitioner.loadPartitioningMetadata(groupings) : AsyncUtil.DONE;
+
+        return pInfoFuture.thenAccept($ -> {
+            Long oldRecordTimestamp = null;
+            Long newRecordTimestamp = null;
+            if (partitioner.isPartitioningEnabled()) {
+                // get partition timestamp value from record
+                newRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), newRecord);
+                oldRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), oldRecord);
+                if (newRecordTimestamp == null) {
+                    throw new RuntimeException("error getting partitioning timestamp: " + partitioner.getPartitionTimestampFieldName());
+                }
             }
-        } catch (IOException e) {
-            throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
+
+            // delete old
+            try {
+                for (Tuple t : oldRecordFields.keySet()) {
+                    LucenePartitionInfoProto.LucenePartitionInfo partition = null;
+                    if (partitioner.isPartitioningEnabled()) {
+                        // find the document's partition
+                        partition = partitioner.locateInPartition(t, oldRecordTimestamp);
+                        if (partition == null) {
+                            throw new RecordCoreException("Issue deleting old index keys (partition not found)", "oldRecord", oldRecord);
+                        }
+                        partitioner.removeFromAndSavePartitionMetadata(t, partition);
+                    }
+                    // oldRecord cannot be null here since in that case the oldRecordFields would have been empty
+                    deleteDocument(t, partition == null ? null : partition.getId(), Objects.requireNonNull(oldRecord).getPrimaryKey());
+                }
+            } catch (IOException e) {
+                throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
+            }
+
+            // update new
+            try {
+                for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
+                    Integer partitionId = null;
+                    if (partitioner.isPartitioningEnabled()) {
+                        LucenePartitionInfoProto.LucenePartitionInfo partition = partitioner.assignWritePartition(entry.getKey(), newRecordTimestamp);
+                        partitioner.addToAndSavePartitionMetadata(entry.getKey(), partition, newRecordTimestamp);
+                        partitionId = partition.getId();
+                    }
+                    // newRecord cannot be null here since in that case newRecordFields would have been empty
+                    writeDocument(entry.getValue(), entry.getKey(), partitionId, Objects.requireNonNull(newRecord).getPrimaryKey());
+                }
+            } catch (IOException e) {
+                throw new RecordCoreException("Issue updating new index keys", e)
+                        .addLogInfo("newRecord", newRecord);
+            }
+        });
+
+    }
+
+    private <M extends Message> Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nullable FDBIndexableRecord<M> record) {
+        if (record == null) {
+            return null;
         }
 
-        // update new
-        try {
-            for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
-                // newRecord cannot be null here since in that case newRecordFields would have been empty
-                writeDocument(entry.getValue(), entry.getKey(), Objects.requireNonNull(newRecord).getPrimaryKey());
+        for (Map.Entry<Descriptors.FieldDescriptor, Object> field : record.getRecord().getAllFields().entrySet()) {
+            if (fieldName.equalsIgnoreCase(field.getKey().getName())) {
+                if (field.getValue() instanceof Long) {
+                    return (Long)field.getValue();
+                }
+                if (field.getValue() instanceof Double) {
+                    return ((Double)field.getValue()).longValue();
+                }
             }
-        } catch (IOException e) {
-            throw new RecordCoreException("Issue updating new index keys", e)
-                    .addLogInfo("newRecord", newRecord);
         }
 
-        return AsyncUtil.DONE;
+        return null;
     }
 
     private FieldType getTextFieldType(LuceneDocumentFromRecord.DocumentField field) {
@@ -463,8 +517,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @VisibleForTesting
-    protected FDBDirectory getDirectory(@Nonnull Tuple groupingKey) {
-        return directoryManager.getDirectory(groupingKey);
+    protected FDBDirectory getDirectory(@Nonnull Tuple groupingKey, @Nullable Integer partitionId) {
+        return directoryManager.getDirectory(groupingKey, partitionId);
     }
 
     /**

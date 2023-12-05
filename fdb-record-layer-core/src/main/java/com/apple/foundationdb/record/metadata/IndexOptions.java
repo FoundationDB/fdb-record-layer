@@ -213,6 +213,25 @@ public class IndexOptions {
      */
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
+    /**
+     * Option to designate a record field as the timestamp by which the corresponding document would be partitioned in
+     * Lucene.
+     */
+    public static final String TEXT_DOCUMENT_PARTITION_TIMESTAMP = "textDocumentPartitionTimestamp";
+
+    /**
+     * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new
+     * partition would be created.
+     */
+    public static final String TEXT_DOCUMENT_PARTITIION_HI_WATERMARK = "textDocumentParititionHiWatermark";
+
+    /**
+     * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for
+     * merge with another adjacent partition.
+     */
+
+    public static final String TEXT_DOCUMENT_PARTITIION_LO_WATERMARK = "textDocumentParititionLoWatermark";
+
     private IndexOptions() {
     }
 }

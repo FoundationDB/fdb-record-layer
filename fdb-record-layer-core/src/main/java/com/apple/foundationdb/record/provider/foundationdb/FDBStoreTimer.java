@@ -460,6 +460,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_SYSTEM_KEY("wait for reading a key from the FDB system keyspace"),
         /** Wait to perform validation of resolver reverse directory mapping. */
         WAIT_VALIDATE_RESOLVER("wait validating resolver"),
+        /** wait to load partition metadata for one or more grouping key. */
+        WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata")
         ;
 
         private final String title;
