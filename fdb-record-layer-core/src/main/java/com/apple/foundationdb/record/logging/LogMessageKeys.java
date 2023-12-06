@@ -308,6 +308,8 @@ public enum LogMessageKeys {
     // Record context properties
     PROPERTY_NAME,
     PROPERTY_TYPE,
+
+    REF_ID
     ;
 
     private final String logKey;
