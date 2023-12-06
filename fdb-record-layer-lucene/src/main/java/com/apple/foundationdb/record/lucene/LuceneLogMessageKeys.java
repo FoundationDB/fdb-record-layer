@@ -66,6 +66,7 @@ public enum LuceneLogMessageKeys {
     POINTER,
     POSITION,
     REFERENCE_CACHE_STATUS,
+    REF_ID,
     RESOURCE,
     SEEK_NUM,
 
