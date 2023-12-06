@@ -50,6 +50,7 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
@@ -974,24 +975,61 @@ public class FDBDirectory extends Directory  {
         return ref.getId();
     }
 
-    public void fileLockSet(byte[] key, byte[] value) {
-        agilityContext.set(key, value);
+    private byte[] fileLockKey(String lockName) {
+        return subspace.pack("fileLock:" + lockName);
+    }
+
+    private byte[] fileLockValue(long timeStampMillis) {
+        return subspace.pack(timeStampMillis);
+    }
+
+    public void fileLockSet(String lockName, long timeStampMillis) {
+        byte[] key = fileLockKey(lockName);
+        byte[] value = fileLockValue(timeStampMillis);
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
+                agilityContext.apply(aContext ->
+                        aContext.ensureActive().get(key)
+                                .thenAccept(val -> {
+                                    if (val != null) {
+                                        long existingTimeStamp =  subspace.unpack(val).getLong(0);
+                                        if (existingTimeStamp > (timeStampMillis - DateUtils.MILLIS_PER_HOUR) &&
+                                                existingTimeStamp < (timeStampMillis + DateUtils.MILLIS_PER_HOUR)) {
+                                            // Here: this lock valid
+                                            throw new RecordCoreException("FileLock: Set: found old lock")
+                                                    .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                                                            LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
+                                        }
+                                        // Here: this lock is either too old, or in the future. Still it.
+                                        if (LOGGER.isWarnEnabled()) {
+                                            LOGGER.warn(getLogMessage("FileLock: Set: found old lock, discard it",
+                                                    LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                                                    LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis));
+                                        }
+                                    }
+                                    aContext.ensureActive().set(key, value);
+                                })
+                ));
         agilityContext.flush();
     }
 
-    public byte[] fileLockGet(byte[] key) {
-        return context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
+    public long fileLockGet(String lockName) {
+        // return time stamp if exists, 0 if not
+        byte[] key = fileLockKey(lockName);
+        byte[] val = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
+        return val == null || val.length < 2 ? 0 : subspace.unpack(val).getLong(0);
     }
 
-    public void fileLockClear(byte[] key, byte[] value) {
+    public void fileLockClear(String lockName, long timeStampMillis) {
+        byte[] key = fileLockKey(lockName);
+        byte[] value = fileLockValue(timeStampMillis);
         context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
                 agilityContext.apply(aContext ->
                         aContext.ensureActive().get(key)
                                 .thenAccept(val -> {
                                     if (!Arrays.equals(value, val)) {
-                                        throw new RecordCoreException("File lock does not match assumption")
-                                                .addLogInfo(LogMessageKeys.EXPECTED, value,
-                                                        LogMessageKeys.ACTUAL, val);
+                                        throw new RecordCoreException("FileLock: Clear: found unexpected lock")
+                                                .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, val,
+                                                        LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
                                     }
                                     final Transaction tr = aContext.ensureActive();
                                     tr.addWriteConflictKey(key);
