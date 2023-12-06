@@ -269,14 +269,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
     private void deleteDocument(Tuple groupingKey, Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
-        final IndexWriter oldWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
-        final DirectoryReader directoryReader = DirectoryReader.open(oldWriter);
+        final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, indexAnalyzerSelector.provideIndexAnalyzer(""));
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey).getPrimaryKeySegmentIndex();
         if (segmentIndex != null) {
+            final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
             if (documentIndexEntry != null) {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
-                long valid = oldWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
+                long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
                 if (valid > 0) {
                     state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
                     return;
@@ -299,7 +299,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // fallback to the old way (less efficient)
             query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(keySerializer.asPackedByteArray(primaryKey)));
         }
-        oldWriter.deleteDocuments(query);
+        indexWriter.deleteDocuments(query);
         state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY, System.nanoTime() - startTime);
     }
 
