@@ -72,6 +72,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -983,12 +984,20 @@ public class FDBDirectory extends Directory  {
     }
 
     public void fileLockClear(byte[] key, byte[] value) {
-        agilityContext.accept(aContext -> {
-            final Transaction tr = aContext.ensureActive();
-            // Q: How can we verify that the current fdb value is as expected?
-            tr.addWriteConflictKey(key);
-            tr.clear(key);
-        });
+        context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
+                agilityContext.apply(aContext ->
+                        aContext.ensureActive().get(key)
+                                .thenAccept(val -> {
+                                    if (!Arrays.equals(value, val)) {
+                                        throw new RecordCoreException("File lock does not match assumption")
+                                                .addLogInfo(LogMessageKeys.EXPECTED, value,
+                                                        LogMessageKeys.ACTUAL, val);
+                                    }
+                                    final Transaction tr = aContext.ensureActive();
+                                    tr.addWriteConflictKey(key);
+                                    tr.clear(key);
+                                })
+                ));
         agilityContext.flush();
     }
 
