@@ -51,7 +51,7 @@ public class FDBLuceneFileReference {
     private static ByteString getContentFromProto(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         if (protoMessage.getColumnBitSetWordsCount() != 0 || protoMessage.hasEntries() || protoMessage.hasSegmentInfo()) {
             throw new RecordCoreException("FileReference has old file content")
-                    .addLogInfo(protoMessage.getId());
+                    .addLogInfo("ref_id", protoMessage.getId());
         }
         return protoMessage.getContent();
     }
