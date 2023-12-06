@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -36,6 +38,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier sourceAlias,
                                           @Nonnull CorrelationIdentifier targetAlias);
+
 
     @Nonnull
     static Optional<Value> pushValueThroughFetch(@Nonnull final Value toBePushedValue,
@@ -64,6 +67,9 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         // the translation was successful if the translated value is not correlated to sourceAlias anymore
         return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
     }
+
+    @Nonnull
+    Optional<IndexKeyValueToPartialRecord> compileIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType);
 
     private static boolean isOfPushableTypes(@Nonnull Value toBePushedValue) {
         if (toBePushedValue instanceof FieldValue) {

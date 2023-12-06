@@ -26,9 +26,14 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -36,12 +41,14 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -51,7 +58,7 @@ import java.util.function.Function;
  * through one of their child plans will not implement this interface.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPlanWithMatchCandidate {
+public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPlanWithMatchCandidate, RecordPlanWithFetch {
 
     /**
      * Gets the name of the index used by this plan.
@@ -97,7 +104,74 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
     }
 
     @Nonnull
+    @Override
     RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords();
+
+    /**
+     * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
+     * if the planner believes the required fields can be covered by this index.
+     * @return {@code true} if plan is allowed for covering index
+     */
+    default boolean allowedForCoveringIndexPlan() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    default Optional<RecordQueryPlan> removeFetchMaybe() {
+        final Optional<ScanWithFetchMatchCandidate> scanWithFetchMatchCandidateOptional = resolveMatchCandidateForValuePush();
+        if (scanWithFetchMatchCandidateOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final ScanWithFetchMatchCandidate scanWithFetchMatchCandidate = scanWithFetchMatchCandidateOptional.get();
+        final List<RecordType> queriedRecordTypes = scanWithFetchMatchCandidate.getQueriedRecordTypes();
+        if (queriedRecordTypes.size() > 1) {
+            return Optional.empty();
+        }
+
+        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
+        final Optional<IndexKeyValueToPartialRecord> indexKeyValueToPartialRecordOptional =
+                scanWithFetchMatchCandidate.compileIndexKeyValueToPartialRecordMaybe(recordType);
+        if (indexKeyValueToPartialRecordOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord = indexKeyValueToPartialRecordOptional.get();
+
+        return Optional.of(new RecordQueryCoveringIndexPlan(this,
+                recordType.getName(),
+                AvailableFields.NO_FIELDS, // not used except for old planner properties
+                indexKeyValueToPartialRecord));
+    }
+
+    @Nonnull
+    private Optional<ScanWithFetchMatchCandidate> resolveMatchCandidateForValuePush() {
+        if (!allowedForCoveringIndexPlan()) {
+            return Optional.empty();
+        }
+
+        if (getMatchCandidateMaybe().isEmpty()) {
+            return Optional.empty();
+        }
+
+        final MatchCandidate matchCandidate = getMatchCandidate();
+        if (!(matchCandidate instanceof ScanWithFetchMatchCandidate)) {
+            return Optional.empty();
+        }
+
+        return Optional.of((ScanWithFetchMatchCandidate)matchCandidate);
+    }
+
+    @Nonnull
+    @Override
+    default TranslateValueFunction getPushValueFunction() {
+        final Optional<ScanWithFetchMatchCandidate> scanWithFetchMatchCandidateOptional = resolveMatchCandidateForValuePush();
+        if (scanWithFetchMatchCandidateOptional.isEmpty()) {
+            return TranslateValueFunction.UNABLE_TO_TRANSLATE;
+        }
+
+        final ScanWithFetchMatchCandidate scanWithFetchMatchCandidate = scanWithFetchMatchCandidateOptional.get();
+        return scanWithFetchMatchCandidate::pushValueThroughFetch;
+    }
 
     /**
      * Rewrite the planner graph for better visualization of a query index plan.
@@ -116,7 +190,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
     }
 
     /**
-     * Create an planner graph for this index scan. Note that this method allows for composition with the covering
+     * Create a planner graph for this index scan. Note that this method allows for composition with the covering
      * index scan path. It is called by {@link #rewritePlannerGraph} to create the subgraph but allows for greater
      * flexibility and parameterization of the constituent parts.
      *
@@ -131,13 +205,4 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
                                          @Nonnull NodeInfo nodeInfo,
                                          @Nonnull List<String> additionalDetails,
                                          @Nonnull Map<String, Attribute> additionalAttributeMap);
-
-    /**
-     * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
-     * if the planner believes the required fields can be covered by this index.
-     * @return {@code true} if plan is allowed for covering index
-     */
-    default boolean allowedForCoveringIndexPlan() {
-        return true;
-    }
 }

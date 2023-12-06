@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -213,6 +213,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.ofNullable(primaryKey);
+    }
+
+    @Nonnull
+    @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesSupplier.get();
     }
@@ -225,10 +231,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
-
-        final var baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
@@ -238,23 +241,53 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
-                                baseRecordType,
+                                (Type.Record)baseType,
                                 matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                 @Nonnull final PlanContext planContext,
                                                                 @Nonnull final Memoizer memoizer,
                                                                 @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                final boolean isReverse,
-                                                                @Nonnull Type.Record baseRecordType) {
+                                                                final boolean isReverse) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
 
-        final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
+        final RecordType recordType = Iterables.getOnlyElement(getQueriedRecordTypes());
+        final Optional<IndexKeyValueToPartialRecord> indexKeyValueToPartialRecordOptional =
+                compileIndexKeyValueToPartialRecordMaybe(recordType);
+        if (indexKeyValueToPartialRecordOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord = indexKeyValueToPartialRecordOptional.get();
+
+        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
+        final RecordQueryPlanWithIndex indexPlan =
+                new RecordQueryIndexPlan(index.getName(),
+                        getPrimaryKeyMaybe().orElseThrow(() -> new RecordCoreException("primary key is not resolved")),
+                        scanParameters,
+                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                        isReverse,
+                        false,
+                        partialMatch.getMatchCandidate(),
+                        (Type.Record)baseType,
+                        partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
+
+        final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
+                recordType.getName(),
+                AvailableFields.NO_FIELDS, // not used except for old planner properties
+                indexKeyValueToPartialRecord);
+
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
+                coveringIndexPlan::pushValueThroughFetch, baseType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<IndexKeyValueToPartialRecord> compileIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType) {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
@@ -271,7 +304,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
             if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
+                @SuppressWarnings("UnstableApiUsage") final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
                 if (!addCoveringField(builder, (FieldValue)valueValue, fieldData)) {
                     return Optional.empty();
@@ -279,30 +312,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             }
         }
 
-        if (!builder.isValid()) {
-            return Optional.empty();
-        }
-
-        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
-        final RecordQueryPlanWithIndex indexPlan =
-                new RecordQueryIndexPlan(index.getName(),
-                        primaryKey,
-                        scanParameters,
-                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                        isReverse,
-                        false,
-                        partialMatch.getMatchCandidate(),
-                        baseRecordType,
-                        partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
-
-        final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                recordType.getName(),
-                AvailableFields.NO_FIELDS, // not used except for old planner properties
-                builder.build());
-
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
-                coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return builder.isValid() ? Optional.of(builder.build()) : Optional.empty();
     }
 
     @Nonnull

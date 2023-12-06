@@ -67,7 +67,7 @@ import java.util.function.Supplier;
  * into full records by fetching the records by primary key.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild {
+public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild, RecordPlanWithFetch {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Fetch-From-Partial-Record-Plan");
 
     @Nonnull
@@ -121,6 +121,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     @Override
+    public Optional<RecordQueryPlan> removeFetchMaybe() {
+        return Optional.of(inner.getRangesOverPlan());
+    }
+
+    @Nonnull
+    @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
@@ -131,6 +137,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
+    @Override
     public FetchIndexRecords getFetchIndexRecords() {
         return fetchIndexRecords;
     }
@@ -152,6 +159,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
+    @Override
     public TranslateValueFunction getPushValueFunction() {
         return translateValueFunction;
     }
@@ -166,11 +174,6 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Override
     public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction, resultType, fetchIndexRecords);
-    }
-
-    @Nonnull
-    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier sourceAlias, @Nonnull CorrelationIdentifier targetAlias) {
-        return translateValueFunction.translateValue(value, sourceAlias, targetAlias);
     }
 
     @Nonnull

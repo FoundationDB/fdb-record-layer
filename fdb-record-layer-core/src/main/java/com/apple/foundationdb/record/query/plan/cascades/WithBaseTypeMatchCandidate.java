@@ -1,5 +1,5 @@
 /*
- * WithBaseQuantifierMatchCandidate.java
+ * WithBaseTypeMatchCandidate.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
  * Trait to implement some default logic for {@link MatchCandidate}s that are defined using a base quantifier, that is,
  * match candidates that are not true join indexes.
  */
-public interface WithBaseQuantifierMatchCandidate extends MatchCandidate {
+public interface WithBaseTypeMatchCandidate extends MatchCandidate {
 
     @Nonnull
     Type getBaseType();

@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
@@ -482,13 +481,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Override
     public Cardinalities visitInsertExpression(@Nonnull final InsertExpression insertExpression) {
         return fromChild(insertExpression);
-    }
-
-    @Nonnull
-    @Override
-    public Cardinalities visitPrimaryScanExpression(@Nonnull final PrimaryScanExpression element) {
-        // TODO do better
-        return Cardinalities.unknownMaxCardinality();
     }
 
     @Nonnull

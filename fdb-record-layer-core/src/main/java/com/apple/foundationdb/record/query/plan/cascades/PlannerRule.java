@@ -50,10 +50,4 @@ public interface PlannerRule<R, C extends PlannerRuleCall<R>, T> {
 
     @Nonnull
     BindingMatcher<T> getMatcher();
-
-    /**
-     * Marker interface for rules that run in pre-order.
-     */
-    interface PreOrderRule {
-    }
 }

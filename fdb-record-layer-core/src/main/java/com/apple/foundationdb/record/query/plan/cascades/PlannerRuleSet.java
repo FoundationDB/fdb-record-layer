@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
@@ -46,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.InComparisonToExplodeRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MatchIntermediateRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MatchLeafRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.MergeFetchIntoCoveringIndexRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.MergeProjectionAndFetchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.NormalizePredicatesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PartitionBinarySelectRule;
@@ -136,26 +134,14 @@ public class PlannerRuleSet {
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
-            new PushTypeFilterBelowFilterRule(),
-            new ImplementPhysicalScanRule(),
             new ImplementIntersectionRule(),
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
             new ImplementUniqueRule(),
             new RemoveSortRule(),
-            new PushDistinctBelowFilterRule(),
-            new MergeFetchIntoCoveringIndexRule(),
-            new PushInJoinThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
-            new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
-            new PushMapThroughFetchRule(),
-            new PushFilterThroughFetchRule(),
-            new PushDistinctThroughFetchRule(),
-            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionOnValuesPlan.class),
-            new PushSetOperationThroughFetchRule<>(RecordQueryUnionOnValuesPlan.class),
-            new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class),
-            new PushSetOperationThroughFetchRule<>(RecordQueryInUnionOnValuesPlan.class),
             new RemoveProjectionRule(),
+            // TODO this should be improved to not depend on the fetch directly
             new MergeProjectionAndFetchRule(),
             new ImplementInJoinRule(),
             new ImplementInUnionRule(),
@@ -168,6 +154,20 @@ public class PlannerRuleSet {
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
             new ImplementUpdateRule()
+    );
+
+    private static final List<? extends CascadesRule<? extends RelationalExpression>> PHYSICAL_OPTIMIZATION_RULES = ImmutableList.of(
+            new PushTypeFilterBelowFilterRule(),
+            new PushDistinctBelowFilterRule(),
+            new PushInJoinThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
+            new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
+            new PushMapThroughFetchRule(),
+            new PushFilterThroughFetchRule(),
+            new PushDistinctThroughFetchRule(),
+            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionOnValuesPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnionOnValuesPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryInUnionOnValuesPlan.class)
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
@@ -189,6 +189,7 @@ public class PlannerRuleSet {
                     .addAll(PREORDER_RULES)
                     .addAll(EXPLORATION_RULES)
                     .addAll(IMPLEMENTATION_RULES)
+                    .addAll(PHYSICAL_OPTIMIZATION_RULES)
                     .build();
 
     public static final PlannerRuleSet DEFAULT = new PlannerRuleSet(ALL_EXPRESSION_RULES);
@@ -219,12 +220,12 @@ public class PlannerRuleSet {
     }
 
     @Nonnull
-    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression) {
+    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull final RelationalExpression expression) {
         return getExpressionRules(expression, r -> true);
     }
 
     @Nonnull
-    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression,
+    public Stream<CascadesRule<? extends RelationalExpression>> getExpressionRules(@Nonnull final RelationalExpression expression,
                                                                                    @Nonnull final Predicate<CascadesRule<? extends RelationalExpression>> rulePredicate) {
         return Streams.concat(ruleIndex.get(expression.getClass()).stream(), alwaysRules.stream()).filter(rulePredicate);
     }

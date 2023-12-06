@@ -69,6 +69,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordPlanWithFetch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -538,6 +539,11 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchFromPartialRecordPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryFetchFromPartialRecordPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordPlanWithFetch> withAnyFetchPlan() {
+        return RelationalExpressionMatchers.ofType(RecordPlanWithFetch.class);
     }
 
     @Nonnull

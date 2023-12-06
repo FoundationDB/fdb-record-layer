@@ -37,7 +37,7 @@ import java.util.Objects;
  * Trait to implement some default logic for {@link MatchCandidate}s that are defined over value index-like
  * data structures such as {@link PrimaryScanMatchCandidate} and {@link ValueIndexScanMatchCandidate}.
  */
-public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
+public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseTypeMatchCandidate {
     /**
      This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
      * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
@@ -31,23 +32,25 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordPlanWithFetch;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.withAnyFetchPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
@@ -127,10 +130,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends CascadesRule<P> {
+public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends CascadesRule<P> implements PhysicalOptimizationRule {
     @Nonnull
-    private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
-            fetchFromPartialRecordPlan(anyPlan());
+    private static final BindingMatcher<RecordPlanWithFetch> fetchPlanMatcher = withAnyFetchPlan();
 
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
@@ -165,10 +167,10 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
             }
         }
 
-        final List<? extends RecordQueryFetchFromPartialRecordPlan> fetchPlans = bindings.getAll(fetchPlanMatcher);
+        final List<? extends RecordPlanWithFetch> fetchPlans = bindings.getAll(fetchPlanMatcher);
         final ImmutableList<TranslateValueFunction> dependentFunctions =
                 fetchPlans.stream()
-                        .map(RecordQueryFetchFromPartialRecordPlan::getPushValueFunction)
+                        .map(RecordPlanWithFetch::getPushValueFunction)
                         .collect(ImmutableList.toImmutableList());
 
         Verify.verify(quantifiersOverFetches.size() == fetchPlans.size());
@@ -176,8 +178,33 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final CorrelationIdentifier sourceAlias = Quantifier.uniqueID();
 
-        final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(sourceAlias, Quantifiers.getFlowedTypeForSetOperation(quantifiersOverFetches));
-        final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
+        final List<? extends Value> requiredValues =
+                setOperationPlan.getRequiredValues(sourceAlias, Quantifiers.getFlowedTypeForSetOperation(quantifiersOverFetches));
+        final Set<CorrelationIdentifier> pushableAliasesByValue =
+                setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues, sourceAlias);
+
+        final ImmutableSet.Builder<CorrelationIdentifier> pushableAliasesBuilder = ImmutableSet.builder();
+        final ImmutableList.Builder<Quantifier.Physical> pushableQuantifiersBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<RecordPlanWithFetch> withoutFetchPlansBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<TranslateValueFunction> pushableDependentFunctionsBuilder = ImmutableList.builder();
+        for (int i = 0; i < quantifiersOverFetches.size(); i++) {
+            final Quantifier.Physical quantifier = quantifiersOverFetches.get(i);
+            final CorrelationIdentifier alias = quantifier.getAlias();
+            if (pushableAliasesByValue.contains(alias)) {
+                final Optional<RecordQueryPlan> withoutFetchPlanOptional = fetchPlans.get(i).removeFetchMaybe();
+                if (withoutFetchPlanOptional.isPresent()) {
+                    pushableAliasesBuilder.add(alias);
+                    pushableQuantifiersBuilder.add(quantifier);
+                    withoutFetchPlansBuilder.add(fetchPlans.get(i));
+                    pushableDependentFunctionsBuilder.add(dependentFunctions.get(i));
+                }
+            }
+        }
+
+        final ImmutableSet<CorrelationIdentifier> pushableAliases = pushableAliasesBuilder.build();
+        final ImmutableList<Quantifier.Physical> pushableQuantifiers = pushableQuantifiersBuilder.build();
+        final ImmutableList<RecordPlanWithFetch> withoutFetchPlans = withoutFetchPlansBuilder.build();
+        final ImmutableList<TranslateValueFunction> pushableDependentFunctions = pushableDependentFunctionsBuilder.build();
 
         // if set operation is dynamic all aliases must be pushable
         if (setOperationPlan.isDynamic()) {
@@ -191,22 +218,6 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
             }
         }
 
-        final ImmutableList.Builder<Quantifier.Physical> pushableQuantifiersBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<RecordQueryFetchFromPartialRecordPlan> pushableFetchPlansBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<TranslateValueFunction> pushableDependentFunctionsBuilder = ImmutableList.builder();
-        for (int i = 0; i < quantifiersOverFetches.size(); i++) {
-            final Quantifier.Physical quantifier = quantifiersOverFetches.get(i);
-            if (pushableAliases.contains(quantifier.getAlias())) {
-                pushableQuantifiersBuilder.add(quantifier);
-                pushableFetchPlansBuilder.add(fetchPlans.get(i));
-                pushableDependentFunctionsBuilder.add(dependentFunctions.get(i));
-            }
-        }
-
-        final ImmutableList<Quantifier.Physical> pushableQuantifiers = pushableQuantifiersBuilder.build();
-        final ImmutableList<RecordQueryFetchFromPartialRecordPlan> pushableFetchPlans = pushableFetchPlansBuilder.build();
-        final ImmutableList<TranslateValueFunction> pushableDependentFunctions = pushableDependentFunctionsBuilder.build();
-
         final ImmutableList<Quantifier.Physical> nonPushableQuantifiers =
                 setOperationPlan.getQuantifiers()
                         .stream()
@@ -215,7 +226,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                         .collect(ImmutableList.toImmutableList());
 
         RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
-        for (final var pushableFetchPlan : pushableFetchPlans) {
+        for (final var pushableFetchPlan : withoutFetchPlans) {
             if (fetchIndexRecords == null) {
                 fetchIndexRecords = pushableFetchPlan.getFetchIndexRecords();
             } else {
@@ -226,9 +237,8 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         }
 
         final List<? extends ExpressionRef<? extends RecordQueryPlan>> newPushedInnerPlans =
-                pushableFetchPlans
+                withoutFetchPlans
                         .stream()
-                        .map(RecordQueryFetchFromPartialRecordPlan::getChild)
                         .map(call::memoizePlans)
                         .collect(ImmutableList.toImmutableList());
 

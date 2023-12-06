@@ -37,7 +37,8 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
@@ -57,6 +58,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -144,8 +146,8 @@ import java.util.function.Supplier;
  *
  * {@link ExploreExpression}
  *     enqueues
- *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
- *         all transformations ({@link TransformExpression}) for current (group, expression)
+ *         all transformations ({@link TransformExploreMatchPartition}) for match partitions of current (group, expression)
+ *         all transformations ({@link TransformExploreExpression}) for current (group, expression)
  *         {@link ExploreGroup} for all ranged over groups
  *
  * after execution of any TransformXXX
@@ -156,7 +158,7 @@ import java.util.function.Supplier;
  *
  * {@link AdjustMatch}
  *     enqueues
- *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+ *         all transformations ({@link TransformExplorePartialMatch}) for current (group, expression, partial match)
  *
  * {@link OptimizeInputs}
  *     enqueues
@@ -168,18 +170,18 @@ import java.util.function.Supplier;
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
- *         Transforms on expressions {@link TransformExpression}: These are the classical transforms creating new
+ *         Transforms on expressions {@link TransformExploreExpression}: These are the classical transforms creating new
  *         variations in the expression memoization structure. The root for the corresponding rules is always of type
  *         {@link RelationalExpression}.
  *     </li>
  *     <li>
- *         Transforms on partial matches {@link TransformPartialMatch}: These transforms are executed when a partial
+ *         Transforms on partial matches {@link TransformExplorePartialMatch}: These transforms are executed when a partial
  *         match is found and typically only yield other new partial matches for the <em>current</em> (group, expression)
  *         pair. The root for the corresponding rules is always of type {@link PartialMatch}.
  *     </li>
  *     <li>
- *         Transforms on match partitions {@link TransformMatchPartition}: These transforms are executed only after
- *         all transforms (both {@link TransformExpression}s and {@link TransformPartialMatch}) have been executed
+ *         Transforms on match partitions {@link TransformExploreMatchPartition}: These transforms are executed only after
+ *         all transforms (both {@link TransformExploreExpression}s and {@link TransformExplorePartialMatch}) have been executed
  *         for a current (group, expression). Note, that this kind transformation task can be repeatedly executed for
  *         a given group but it is guaranteed to only be executed once for a (group, expression) pair.
  *         The root for the corresponding rules is always of type {@link MatchPartition}. These are the rules that react
@@ -455,6 +457,21 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
+    private void optimizeExpression(@Nonnull PlanContext context,
+                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                    @Nonnull final RelationalExpression expression,
+                                    @Nonnull final EvaluationContext evaluationContext) {
+        final var rulesIterator =
+                ruleSet.getExpressionRules(expression, rule -> configuration.isRuleEnabled(rule))
+                        .filter(rule -> rule instanceof PhysicalOptimizationRule).iterator();
+        if (rulesIterator.hasNext()) {
+            taskStack.push(new OptimizeTransform(context, group, expression, rulesIterator,
+                    evaluationContext));
+        } else {
+            System.out.println("done2");
+        }
+    }
+
     /**
      * Represents actual tasks in the task stack of the planner.
      */
@@ -538,6 +555,10 @@ public class CascadesPlanner implements QueryPlanner {
                 }
 
                 group.pruneWith(bestMember);
+
+                // optimize the expression
+                optimizeExpression(context, group, bestMember, evaluationContext);
+
                 group.commitExploration();
             }
         }
@@ -664,8 +685,8 @@ public class CascadesPlanner implements QueryPlanner {
      * <br>
      * {@link ExploreExpression}
      *     enqueues
-     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
-     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         all transformations ({@link TransformExploreMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExploreExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
      */
     private abstract class AbstractExploreExpression extends ExploreTask {
@@ -689,6 +710,7 @@ public class CascadesPlanner implements QueryPlanner {
             // what happens towards the leaves of the tree.
             ruleSet.getExpressionRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
                     .filter(rule -> !(rule instanceof PreOrderRule) &&
+                                    !(rule instanceof PhysicalOptimizationRule) &&
                                     shouldEnqueueRule(rule))
                     .forEach(this::enqueueTransformTask);
 
@@ -708,11 +730,11 @@ public class CascadesPlanner implements QueryPlanner {
         protected abstract boolean shouldEnqueueRule(@Nonnull CascadesRule<?> rule);
 
         private void enqueueTransformTask(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
-            taskStack.push(new TransformExpression(getContext(), getGroup(), getExpression(), rule, getEvaluationContext()));
+            taskStack.push(new TransformExploreExpression(getContext(), getGroup(), getExpression(), rule, getEvaluationContext()));
         }
 
         private void enqueueTransformMatchPartition(CascadesRule<? extends MatchPartition> rule) {
-            taskStack.push(new TransformMatchPartition(getContext(), getGroup(), getExpression(), rule, getEvaluationContext()));
+            taskStack.push(new TransformExploreMatchPartition(getContext(), getGroup(), getExpression(), rule, getEvaluationContext()));
         }
 
         private void enqueueExploreGroup(ExpressionRef<? extends RelationalExpression> rangesOver) {
@@ -737,8 +759,8 @@ public class CascadesPlanner implements QueryPlanner {
      * <br>
      * {@link ExploreExpression}
      *     enqueues
-     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
-     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         all transformations ({@link TransformExploreMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExploreExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
      */
     private class ReExploreExpression extends AbstractExploreExpression {
@@ -769,8 +791,8 @@ public class CascadesPlanner implements QueryPlanner {
      * <br>
      * {@link ExploreExpression}
      *     enqueues
-     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
-     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         all transformations ({@link TransformExploreMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExploreExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
      */
     private class ExploreExpression extends AbstractExploreExpression {
@@ -792,12 +814,12 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-
     /**
-     * Abstract base class for all transformations. All transformations are defined on a sub class of
+     * Abstract base class for all transformations. All transformations are defined on a subclass of
      * {@link RelationalExpression}, {@link PartialMatch}, of {@link MatchPartition}.
+     * @param <C> the kind of rule call this transform uses
      */
-    private abstract class AbstractTransform implements Task {
+    private abstract class AbstractTransform<C extends CascadesRuleCall> implements Task {
         @Nonnull
         private final PlanContext context;
         @Nonnull
@@ -842,6 +864,11 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
+        public EvaluationContext getEvaluationContext() {
+            return evaluationContext;
+        }
+
+        @Nonnull
         protected abstract Object getBindable();
 
         @Nonnull
@@ -877,7 +904,7 @@ public class CascadesPlanner implements QueryPlanner {
 
             rule.getMatcher()
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
-                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, bindings, evaluationContext))
+                    .map(this::createRuleCall)
                     .forEach(ruleCall -> {
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
                             throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");
@@ -894,41 +921,10 @@ public class CascadesPlanner implements QueryPlanner {
                     });
         }
 
-        protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
-            ruleCall.run();
+        @Nonnull
+        protected abstract C createRuleCall(final PlannerBindings bindings);
 
-            //
-            // Handle produced artifacts (through yield...() calls)
-            //
-            for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
-                taskStack.push(new AdjustMatch(getContext(), getGroup(), getExpression(), newPartialMatch, evaluationContext));
-            }
-
-            for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
-                exploreExpressionAndOptimizeInputs(getContext(), getGroup(), newExpression, true, evaluationContext);
-            }
-
-            final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedRequirements();
-            if (!referencesWithPushedRequirements.isEmpty()) {
-                //
-                // There are two distinct cases:
-                // (1) the rule is a pre-order rule -- we can assume that all other rules rooted at this expression
-                //     will follow after the exploration of the subgraph .
-                // (2) the rule is not a pre-order rule -- we need to push a new task onto the stack after the
-                //     re-exploration using the newly pushed requirement.
-                //
-                if (!(rule instanceof PreOrderRule)) {
-                    taskStack.push(this);
-                }
-                for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
-                    if (!((GroupExpressionRef<? extends RelationalExpression>)reference).hasNeverBeenExplored()) {
-                        taskStack.push(new ExploreGroup(context, reference, evaluationContext));
-                    }
-                }
-            }
-        }
+        protected abstract void executeRuleCall(@Nonnull C ruleCall);
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
@@ -942,14 +938,64 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     /**
+     * Abstract base class for all transformations. All transformations are defined on a sub class of
+     * {@link RelationalExpression}, {@link PartialMatch}, of {@link MatchPartition}.
+     */
+    private abstract class AbstractExploreTransform extends AbstractTransform<CascadesExplorationRuleCall> {
+        protected AbstractExploreTransform(@Nonnull PlanContext context,
+                                           @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                           @Nonnull RelationalExpression expression,
+                                           @Nonnull CascadesRule<?> rule,
+                                           @Nonnull final EvaluationContext evaluationContext) {
+            super(context, group, expression, rule, evaluationContext);
+        }
+
+        protected void executeRuleCall(@Nonnull final CascadesExplorationRuleCall ruleCall) {
+            ruleCall.run();
+
+            //
+            // Handle produced artifacts (through yield...() calls)
+            //
+            for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, getGroup(), getBindable(), getRule(), ruleCall)));
+                taskStack.push(new AdjustMatch(getContext(), getGroup(), getExpression(), newPartialMatch, getEvaluationContext()));
+            }
+
+            for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
+                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, getGroup(), getBindable(), getRule(), ruleCall)));
+                exploreExpressionAndOptimizeInputs(getContext(), getGroup(), newExpression, true, getEvaluationContext());
+            }
+
+            final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedRequirements();
+            if (!referencesWithPushedRequirements.isEmpty()) {
+                //
+                // There are two distinct cases:
+                // (1) the rule is a pre-order rule -- we can assume that all other rules rooted at this expression
+                //     will follow after the exploration of the subgraph .
+                // (2) the rule is not a pre-order rule -- we need to push a new task onto the stack after the
+                //     re-exploration using the newly pushed requirement.
+                //
+                if (!(getRule() instanceof PreOrderRule)) {
+                    taskStack.push(this);
+                }
+                for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
+                    if (!((GroupExpressionRef<? extends RelationalExpression>)reference).hasNeverBeenExplored()) {
+                        taskStack.push(new ExploreGroup(getContext(), reference, getEvaluationContext()));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Class to transform an expression using a rule.
      */
-    private class TransformExpression extends AbstractTransform {
-        public TransformExpression(@Nonnull PlanContext context,
-                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
-                                   @Nonnull RelationalExpression expression,
-                                   @Nonnull CascadesRule<? extends RelationalExpression> rule,
-                                   @Nonnull final EvaluationContext evaluationContext) {
+    private class TransformExploreExpression extends AbstractExploreTransform {
+        public TransformExploreExpression(@Nonnull PlanContext context,
+                                          @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                          @Nonnull RelationalExpression expression,
+                                          @Nonnull CascadesRule<? extends RelationalExpression> rule,
+                                          @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, rule, evaluationContext);
         }
 
@@ -972,20 +1018,25 @@ public class CascadesPlanner implements QueryPlanner {
                     .putAll(super.getInitialBindings())
                     .build();
         }
+
+        @Nonnull
+        protected CascadesExplorationRuleCall createRuleCall(final PlannerBindings bindings) {
+            return new CascadesExplorationRuleCall(getContext(), getRule(), getGroup(), traversal, bindings, getEvaluationContext());
+        }
     }
 
     /**
      * Class to transform a match partition using a rule.
      */
-    private class TransformMatchPartition extends AbstractTransform {
+    private class TransformExploreMatchPartition extends AbstractExploreTransform {
         @Nonnull
         private final Supplier<MatchPartition> matchPartitionSupplier;
 
-        public TransformMatchPartition(@Nonnull PlanContext context,
-                                       @Nonnull GroupExpressionRef<RelationalExpression> group,
-                                       @Nonnull RelationalExpression expression,
-                                       @Nonnull CascadesRule<? extends MatchPartition> rule,
-                                       @Nonnull final EvaluationContext evaluationContext) {
+        public TransformExploreMatchPartition(@Nonnull PlanContext context,
+                                              @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                              @Nonnull RelationalExpression expression,
+                                              @Nonnull CascadesRule<? extends MatchPartition> rule,
+                                              @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, rule, evaluationContext);
             this.matchPartitionSupplier = Suppliers.memoize(() -> MatchPartition.of(group, expression));
         }
@@ -995,21 +1046,26 @@ public class CascadesPlanner implements QueryPlanner {
         protected Object getBindable() {
             return matchPartitionSupplier.get();
         }
+
+        @Nonnull
+        protected CascadesExplorationRuleCall createRuleCall(final PlannerBindings bindings) {
+            return new CascadesExplorationRuleCall(getContext(), getRule(), getGroup(), traversal, bindings, getEvaluationContext());
+        }
     }
 
     /**
      * Class to transform a match partial match using a rule.
      */
-    private class TransformPartialMatch extends AbstractTransform {
+    private class TransformExplorePartialMatch extends AbstractExploreTransform {
         @Nonnull
         private final PartialMatch partialMatch;
 
-        public TransformPartialMatch(@Nonnull PlanContext context,
-                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
-                                     @Nonnull RelationalExpression expression,
-                                     @Nonnull PartialMatch partialMatch,
-                                     @Nonnull CascadesRule<? extends PartialMatch> rule,
-                                     @Nonnull final EvaluationContext evaluationContext) {
+        public TransformExplorePartialMatch(@Nonnull PlanContext context,
+                                            @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                            @Nonnull RelationalExpression expression,
+                                            @Nonnull PartialMatch partialMatch,
+                                            @Nonnull CascadesRule<? extends PartialMatch> rule,
+                                            @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, rule, evaluationContext);
             this.partialMatch = partialMatch;
         }
@@ -1018,6 +1074,75 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         protected Object getBindable() {
             return partialMatch;
+        }
+
+        @Nonnull
+        protected CascadesExplorationRuleCall createRuleCall(final PlannerBindings bindings) {
+            return new CascadesExplorationRuleCall(getContext(), getRule(), getGroup(), traversal, bindings, getEvaluationContext());
+        }
+    }
+
+    /**
+     * Optimize an expression. This is a flavor of a transformation that causes an expression to be replaced by an
+     * optimized expression. All transformations are defined on a subclass of {@link RelationalExpression}.
+     * <br>
+     * Simplified enqueue/execute overview:
+     * <br>
+     * {@link OptimizeTransform}
+     *     executes the current rule (as given by the iterator passed in);
+     *     if the current rule yielded a new expression; rerun {@link OptimizeTransform} starting at the first rule;
+     *     if the current rule did not yield a new expression; enqueue {@link OptimizeTransform} for the next rule (as
+     *     given by the iterator passed in).
+     */
+    private class OptimizeTransform extends AbstractTransform<CascadesOptimizationRuleCall> {
+        @Nonnull
+        private final Iterator<CascadesRule<? extends RelationalExpression>> rulesIterator;
+
+        protected OptimizeTransform(@Nonnull PlanContext context,
+                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                    @Nonnull RelationalExpression expression,
+                                    @Nonnull Iterator<CascadesRule<? extends RelationalExpression>> rulesIterator,
+                                    @Nonnull final EvaluationContext evaluationContext) {
+            super(context, group, expression, rulesIterator.next(), evaluationContext);
+            this.rulesIterator = rulesIterator;
+        }
+
+        @Nonnull
+        @Override
+        protected Object getBindable() {
+            return getExpression();
+        }
+
+        @Nonnull
+        @Override
+        protected CascadesOptimizationRuleCall createRuleCall(final PlannerBindings bindings) {
+            return new CascadesOptimizationRuleCall(getContext(), getRule(), getGroup(), traversal, bindings,
+                    getEvaluationContext());
+        }
+
+        @Override
+        protected boolean shouldExecute() {
+            return super.shouldExecute() && getGroup().containsExactly(getExpression());
+        }
+
+        @Override
+        protected void executeRuleCall(@Nonnull final CascadesOptimizationRuleCall ruleCall) {
+            ruleCall.run();
+
+            if (ruleCall.getNewExpression() == null) {
+                // enqueue the next optimization transform task if there is one
+                if (rulesIterator.hasNext()) {
+                    taskStack.push(new OptimizeTransform(getContext(), getGroup(), getExpression(), rulesIterator, getEvaluationContext()));
+                } else {
+                    System.out.println("done");
+                }
+            } else {
+                //
+                // We made progress; reset the rules iterator and start again; note that group has already been
+                // pruned with newExpression in the yield() call.
+                //
+                optimizeExpression(getContext(), getGroup(), ruleCall.getNewExpression(), getEvaluationContext());
+            }
         }
     }
 
@@ -1029,7 +1154,7 @@ public class CascadesPlanner implements QueryPlanner {
      * <br>
      * {@link AdjustMatch}
      *     enqueues
-     *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+     *         all transformations ({@link TransformExplorePartialMatch}) for current (group, expression, partial match)
      */
     private class AdjustMatch extends ExploreTask {
         @Nonnull
@@ -1047,7 +1172,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         public void execute() {
             ruleSet.getPartialMatchRules(rule -> configuration.isRuleEnabled(rule))
-                    .forEach(rule -> taskStack.push(new TransformPartialMatch(getContext(), getGroup(), getExpression(), partialMatch, rule, getEvaluationContext())));
+                    .forEach(rule -> taskStack.push(new TransformExplorePartialMatch(getContext(), getGroup(), getExpression(), partialMatch, rule, getEvaluationContext())));
         }
 
         @Override

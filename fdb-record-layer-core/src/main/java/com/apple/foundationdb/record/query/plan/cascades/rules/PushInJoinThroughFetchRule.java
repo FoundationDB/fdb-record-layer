@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordPlanWithFetch;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
@@ -37,10 +38,11 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.withAnyFetchPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
@@ -82,12 +84,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *        {@link RecordQueryInValuesJoinPlan} and {@link RecordQueryInParameterJoinPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends CascadesRule<P> {
+public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends CascadesRule<P> implements PhysicalOptimizationRule {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
-    private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
-            RecordQueryPlanMatchers.fetchFromPartialRecordPlan(innerPlanMatcher);
+    private static final BindingMatcher<RecordPlanWithFetch> fetchPlanMatcher = withAnyFetchPlan();
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
@@ -106,8 +105,12 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryInJoinPlan inJoinPlan = bindings.get(getMatcher());
-        final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
-        final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
+        final RecordPlanWithFetch fetchPlan = bindings.get(fetchPlanMatcher);
+        final Optional<RecordQueryPlan> innerPlanOptional = fetchPlan.removeFetchMaybe();
+        if (innerPlanOptional.isEmpty()) {
+            return;
+        }
+        final RecordQueryPlan innerPlan = innerPlanOptional.get();
 
         final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlans(innerPlan));
 

@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
 /**
  * Case class that represents a grouping index with aggregate function(s).
  */
-public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQuantifierMatchCandidate {
+public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseTypeMatchCandidate {
 
     // The backing index metadata structure.
     @Nonnull

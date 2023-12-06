@@ -22,23 +22,25 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordPlanWithFetch;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.map;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.withAnyFetchPlan;
 
 /**
  * A rule that pushes a map expression containing a {@link Value} that can be evaluated on a partial record of keys and
@@ -113,12 +115,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
+public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> implements PhysicalOptimizationRule {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
-    private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
-            RecordQueryPlanMatchers.fetchFromPartialRecordPlan(innerPlanMatcher);
+    private static final BindingMatcher<RecordPlanWithFetch> fetchPlanMatcher = withAnyFetchPlan();
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
@@ -135,9 +134,13 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryMapPlan mapPlan = bindings.get(root);
-        final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
+        final RecordPlanWithFetch fetchPlan = bindings.get(fetchPlanMatcher);
         final Quantifier.Physical quantifierOverFetch = bindings.get(quantifierOverFetchMatcher);
-        final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
+        final Optional<RecordQueryPlan> innerPlanOptional = fetchPlan.removeFetchMaybe();
+        if (innerPlanOptional.isEmpty()) {
+            return;
+        }
+        final RecordQueryPlan innerPlan = innerPlanOptional.get();
 
         // Note that physical operators are already simplified
         final var resultValue = mapPlan.getResultValue();
@@ -145,7 +148,7 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
         // try to push these field values
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         final var pushedResultValueOptional =
-                fetchPlan.pushValue(resultValue, quantifierOverFetch.getAlias(), newInnerAlias);
+                fetchPlan.pushValueMaybe(resultValue, quantifierOverFetch.getAlias(), newInnerAlias);
         if (pushedResultValueOptional.isEmpty()) {
             return;
         }
