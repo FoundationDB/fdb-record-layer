@@ -67,14 +67,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile String writerAnalyzerId;
 
-    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount) {
+    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount, boolean useAgilityContext) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE);
+        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, useAgilityContext);
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 

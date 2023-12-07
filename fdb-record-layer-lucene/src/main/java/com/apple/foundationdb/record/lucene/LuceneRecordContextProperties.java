@@ -80,4 +80,14 @@ public final class LuceneRecordContextProperties {
      * This controls the number of threads used when opening segments in parallel.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_OPEN_PARALLELISM = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.open.parallelism", 16);
+
+    /**
+     * During merge, commit the agile context right after this time quota is reached. Milliseconds units.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AGILE_COMMIT_TIME_QUOTA = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.agile.time.quota", 4000);
+
+    /**
+     * During merge, commit the agile context right after write size exceeds this value. Bytes units.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AGILE_COMMIT_SIZE_QUOTA = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.agile.size.quota", 900_000);
 }

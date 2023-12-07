@@ -113,6 +113,7 @@ public enum LogMessageKeys {
     INDEX_MERGES_LIMIT,
     INDEX_MERGES_FOUND,
     INDEX_MERGES_TRIED,
+    INDEX_MERGE_LOCK,
     VALUE_KEY,
     PRIMARY_KEY,
     VALUE,
