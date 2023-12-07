@@ -123,6 +123,7 @@ public class FDBDirectory extends Directory  {
     private static final int PRIMARY_KEY_SUBSPACE = 4;
     private static final int FIELD_INFOS_SUBSPACE = 5;
     private static final int STORED_FIELDS_SUBSPACE = 6;
+    private static final int FILE_LOCK_SUBSPACE = 7;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     @Nonnull
@@ -132,6 +133,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace dataSubspace;
     private final Subspace fieldInfosSubspace;
     private final Subspace storedFieldsSubspace;
+    private final Subspace fileLockSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -203,6 +205,7 @@ public class FDBDirectory extends Directory  {
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
+        this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -976,11 +979,16 @@ public class FDBDirectory extends Directory  {
     }
 
     private byte[] fileLockKey(String lockName) {
-        return subspace.pack("fileLock:" + lockName);
+        return fileLockSubspace.pack(Tuple.from(lockName));
     }
 
-    private byte[] fileLockValue(long timeStampMillis) {
-        return subspace.pack(timeStampMillis);
+    private static byte[] fileLockValue(long timeStampMillis) {
+        return Tuple.from(timeStampMillis).pack();
+    }
+
+    private static long fileLockValueToTimestamp(byte[] value) {
+        return value == null || value.length < 2 ? 0 :
+               Tuple.fromBytes(value).getLong(0);
     }
 
     public void fileLockSet(String lockName, long timeStampMillis) {
@@ -991,22 +999,24 @@ public class FDBDirectory extends Directory  {
                         aContext.ensureActive().get(key)
                                 .thenAccept(val -> {
                                     if (val != null) {
-                                        long existingTimeStamp =  subspace.unpack(val).getLong(0);
+                                        long existingTimeStamp =  fileLockValueToTimestamp(val);
                                         if (existingTimeStamp > (timeStampMillis - DateUtils.MILLIS_PER_HOUR) &&
                                                 existingTimeStamp < (timeStampMillis + DateUtils.MILLIS_PER_HOUR)) {
-                                            // Here: this lock valid
+                                            // Here: this lock is valid
                                             throw new RecordCoreException("FileLock: Set: found old lock")
                                                     .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                                             LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
                                         }
-                                        // Here: this lock is either too old, or in the future. Still it.
+                                        // Here: this lock is either too old, or in the future. Steal it
                                         if (LOGGER.isWarnEnabled()) {
                                             LOGGER.warn(getLogMessage("FileLock: Set: found old lock, discard it",
                                                     LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                                     LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis));
                                         }
                                     }
-                                    aContext.ensureActive().set(key, value);
+                                    final Transaction tr = aContext.ensureActive();
+                                    tr.addWriteConflictKey(key);
+                                    tr.set(key, value);
                                 })
                 ));
         agilityContext.flush();
@@ -1016,7 +1026,7 @@ public class FDBDirectory extends Directory  {
         // return time stamp if exists, 0 if not
         byte[] key = fileLockKey(lockName);
         byte[] val = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
-        return val == null || val.length < 2 ? 0 : subspace.unpack(val).getLong(0);
+        return fileLockValueToTimestamp(val);
     }
 
     public void fileLockClear(String lockName, long timeStampMillis) {
@@ -1028,7 +1038,8 @@ public class FDBDirectory extends Directory  {
                                 .thenAccept(val -> {
                                     if (!Arrays.equals(value, val)) {
                                         throw new RecordCoreException("FileLock: Clear: found unexpected lock")
-                                                .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, val,
+                                                .addLogInfo(LogMessageKeys.ACTUAL, val,
+                                                        LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, fileLockValueToTimestamp(val),
                                                         LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
                                     }
                                     final Transaction tr = aContext.ensureActive();
