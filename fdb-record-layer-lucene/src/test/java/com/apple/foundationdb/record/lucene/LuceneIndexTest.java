@@ -43,6 +43,9 @@ import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -62,6 +65,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -79,6 +83,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -372,10 +377,19 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         hook.apply(metaDataBuilder);
-        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
-                .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
-                .createOrOpen();
-        setupPlanner(null);
+        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData()).createOrOpen();
+
+        PlannableIndexTypes indexTypes = new PlannableIndexTypes(
+                Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                Sets.newHashSet(IndexTypes.TEXT),
+                Sets.newHashSet(LuceneIndexTypes.LUCENE)
+        );
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setPlanOtherAttemptWholeFilter(false)
+                .build());
     }
 
     @Nonnull
@@ -528,6 +542,55 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(TupleHelpers.EMPTY.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+        }
+    }
+
+    private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+
+        //set up the joined index
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
+        joined.addConstituent("complex", "ComplexDocument");
+        joined.addConstituent("simple", "SimpleDocument");
+        joined.addJoin("simple", field("group"), "complex", field("group"));
+
+        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
+                field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+                field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
+                )
+        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(IndexOptions.TEXT_DOCUMENT_PARTITION_TIMESTAMP, "complex.time")));
+        metaDataBuilder.addIndex("SimpleDocument", "simple$group", field("group"));
+    }
+
+    @Test
+    void partitionedJoinedIndexTest() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, LuceneIndexTest::joinedPartitionedLuceneIndexMetadataHook);
+
+            TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+                    .setGroup(42)
+                    .setDocId(5)
+                    .setIsSeen(true)
+                    .setTime(System.currentTimeMillis())
+                    .build();
+            TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setGroup(42)
+                    .setText("Four score and seven years ago our fathers brought forth")
+                    .build();
+            recordStore.saveRecord(cd);
+            recordStore.saveRecord(sd);
+
+            String luceneSearch = "simple_text: \"fathers\"";
+            QueryComponent filter = new LuceneQueryComponent(luceneSearch, List.of("simple", "complex"));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("luceneJoinedPartitionedIdx")
+                    .setFilter(filter)
+                    .setRequiredResults(List.of(Key.Expressions.field("simple").nest("text")))
+                    .build();
+            final RecordQueryPlan plan = planner.plan(query);
+            final List<?> results = plan.execute(recordStore).asList().join();
+            assertNotNull(results);
+            assertEquals(1, results.size());
+            commit(context);
         }
     }
 

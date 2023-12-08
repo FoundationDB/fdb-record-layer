@@ -98,7 +98,7 @@ public class LucenePartitioner {
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitions = partitionMetaInfoCache.get(grouping);
         if (partitions == null) {
             // if loadPartitioningMetadata(...) was called earlier, then this should never happen
-            throw new RuntimeException("Internal Error");
+            throw new RecordCoreException("Internal Error");
         }
 
         if (partitions.isEmpty()) {
@@ -323,7 +323,7 @@ public class LucenePartitioner {
             try {
                 result.add(LucenePartitionInfoProto.LucenePartitionInfo.parseFrom(kv.getValue()));
             } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
+                throw new RecordCoreException(e);
             }
         }).thenApply(ignored -> {
             partitionMetaInfoCache.put(grouping, result);

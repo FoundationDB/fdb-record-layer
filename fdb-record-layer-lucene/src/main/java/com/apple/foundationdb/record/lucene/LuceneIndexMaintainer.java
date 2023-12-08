@@ -347,8 +347,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 // get partition timestamp value from record
                 newRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), newRecord);
                 oldRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), oldRecord);
+
                 if (newRecordTimestamp == null) {
-                    throw new RuntimeException("error getting partitioning timestamp: " + partitioner.getPartitionTimestampFieldName());
+                    throw new RecordCoreArgumentException("error getting partitioning timestamp: " + partitioner.getPartitionTimestampFieldName());
                 }
             }
 
@@ -396,7 +397,28 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return null;
         }
 
-        for (Map.Entry<Descriptors.FieldDescriptor, Object> field : record.getRecord().getAllFields().entrySet()) {
+        int dotIndex = fieldName.indexOf('.');
+        String containingTypeName = null;
+        String actualFieldName = fieldName;
+        if (dotIndex >= 0) {
+            // nested
+            containingTypeName = fieldName.substring(0, dotIndex);
+            actualFieldName = fieldName.substring(dotIndex + 1);
+        }
+        if (containingTypeName != null) {
+            for (Map.Entry<Descriptors.FieldDescriptor, Object> field : record.getRecord().getAllFields().entrySet()) {
+                if (containingTypeName.equalsIgnoreCase(field.getKey().getName()) && field.getValue() instanceof Message) {
+                    return getPartitioningTimestampValue(actualFieldName, ((Message) field.getValue()).getAllFields());
+                }
+            }
+        } else {
+            return getPartitioningTimestampValue(actualFieldName, record.getRecord().getAllFields());
+        }
+        return null;
+    }
+
+    private Long getPartitioningTimestampValue(@Nonnull String fieldName, Map<Descriptors.FieldDescriptor, Object> fields) {
+        for (Map.Entry<Descriptors.FieldDescriptor, Object> field : fields.entrySet()) {
             if (fieldName.equalsIgnoreCase(field.getKey().getName())) {
                 if (field.getValue() instanceof Long) {
                     return (Long)field.getValue();
@@ -406,7 +428,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 }
             }
         }
-
         return null;
     }
 
@@ -414,12 +435,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         FieldType ft = new FieldType();
 
         try {
-            ft.setIndexOptions(getIndexOptions((String) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS),
-                            LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name())));
+            ft.setIndexOptions(getIndexOptions((String)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_INDEX_OPTIONS),
+                    LuceneFunctionNames.LuceneFieldIndexOptions.DOCS_AND_FREQS_AND_POSITIONS.name())));
             ft.setTokenized(true);
             ft.setStored(field.isStored());
-            ft.setStoreTermVectors((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
-            ft.setStoreTermVectorPositions((boolean) Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
+            ft.setStoreTermVectors((boolean)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTORS), false));
+            ft.setStoreTermVectorPositions((boolean)Objects.requireNonNullElse(field.getConfig(LuceneFunctionNames.LUCENE_FULL_TEXT_FIELD_WITH_TERM_VECTOR_POSITIONS), false));
             ft.setOmitNorms(true);
             ft.freeze();
         } catch (ClassCastException ex) {
