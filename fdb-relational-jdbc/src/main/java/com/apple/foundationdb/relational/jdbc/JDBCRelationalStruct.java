@@ -30,7 +30,7 @@ public final class JDBCRelationalStruct {
      * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalStruct} builder.
      * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalStruct}.
      */
-    static RelationalStructBuilder newBuilder() {
+    public static RelationalStructBuilder newBuilder() {
         return new RelationalStructFacade.RelationalStructFacadeBuilder();
     }
 }
