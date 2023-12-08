@@ -124,7 +124,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable Integer partitionId) {
         try {
-            getDirectoryWrapper(groupingKey, partitionId).mergeIndex(analyzerWrapper);
+            getDirectoryWrapper(groupingKey, partitionId, true).mergeIndex(analyzerWrapper);
         } catch (IOException e) {
             throw new RecordCoreStorageException("Lucene mergeIndex failed", e);
         }
@@ -185,11 +185,15 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
+        return getDirectoryWrapper(groupingKey, partitionId, false);
+    }
+
+    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, boolean useAgilityContext) {
+        final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         if (partitionId != null) {
             mapKey = mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
         }
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount));
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, useAgilityContext));
     }
 
     @Nonnull

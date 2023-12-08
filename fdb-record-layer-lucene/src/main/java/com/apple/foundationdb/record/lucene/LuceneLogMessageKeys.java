@@ -59,6 +59,8 @@ public enum LuceneLogMessageKeys {
     INPUT,
     LENGTH,
     LOCK_NAME,
+    LOCK_EXISTING_TIMESTAMP,
+    LOCK_TIMESTAMP,
     MERGE_SOURCE,
     MERGE_TRIGGER,
     OFFSET,
@@ -66,6 +68,7 @@ public enum LuceneLogMessageKeys {
     POINTER,
     POSITION,
     REFERENCE_CACHE_STATUS,
+    REF_ID,
     RESOURCE,
     SEEK_NUM,
 

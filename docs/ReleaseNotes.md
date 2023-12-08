@@ -22,7 +22,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** The old planner chooses a better plan ordering key for union comparisons to allow ordered union plans in more cases [(Issue #2336)](https://github.com/FoundationDB/fdb-record-layer/issues/2336)
+* **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,15 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.439.0
+
+* **Bug fix** Fix Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
+* **Performance** Support segment merging across transactions & larger segments [(Issue #2375)](https://github.com/FoundationDB/fdb-record-layer/issues/2375)
+
+### 3.3.438.0
+
+* **Performance** The old planner chooses a better plan ordering key for union comparisons to allow ordered union plans in more cases [(Issue #2336)](https://github.com/FoundationDB/fdb-record-layer/issues/2336)
 
 ### 3.3.437.0
 

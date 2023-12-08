@@ -354,7 +354,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
     private void assertDocCountPerSegment(FDBDirectory directory, List<String> expectedSegmentNames, List<Integer> expectedDocsPerSegment) throws Exception {
         for (int i = 0; i < expectedSegmentNames.size(); i++) {
-            List<KeyValue> keyValues = directory.scanStoredFields(expectedSegmentNames.get(i)).asList().get();
+            List<KeyValue> keyValues = directory.scanStoredFields(expectedSegmentNames.get(i)).get();
             assertEquals(expectedDocsPerSegment.get(i), keyValues.size());
         }
     }
