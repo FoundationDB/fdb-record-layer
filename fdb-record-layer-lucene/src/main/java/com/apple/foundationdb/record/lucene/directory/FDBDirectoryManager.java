@@ -189,7 +189,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, boolean useAgilityContext) {
-        final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
+        Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         if (partitionId != null) {
             mapKey = mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
         }
