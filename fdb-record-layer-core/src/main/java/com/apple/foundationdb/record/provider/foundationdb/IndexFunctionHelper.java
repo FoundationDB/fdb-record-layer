@@ -146,9 +146,7 @@ public class IndexFunctionHelper {
                 .flatMap(index ->
                         functionCall.enumerateIndexAggregateFunctionCandidates(index.getName())
                                 .flatMap(indexAggregateFunction -> {
-                                    // System.out.println("indexAggregateFunction:" + indexAggregateFunction);
                                     final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
-                                    // System.out.println("indexMaintainer class:" + indexMaintainer.getClass());
                                     return indexMaintainer.canEvaluateAggregateFunction(indexAggregateFunction)
                                            ? Stream.of(Pair.of(indexAggregateFunction, indexMaintainer))
                                            : Stream.empty();

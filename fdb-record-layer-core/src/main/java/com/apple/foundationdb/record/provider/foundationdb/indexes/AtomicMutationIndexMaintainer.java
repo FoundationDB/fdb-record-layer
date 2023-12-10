@@ -201,22 +201,6 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
-        /*
-        System.out.println("matchesAggregateFunction:" + matchesAggregateFunction(function));
-        System.out.println("functionOperand:" + function.getOperand());
-
-        System.out.println("state.index:" + state.index);
-        System.out.println("indexRoot:" + state.index.getRootExpression());
-
-
-        System.out.println("functionOperand groupedKey:" + IndexFunctionHelper.getGroupedKey(function.getOperand()));
-        System.out.println("indexRoot groupedKey:" + IndexFunctionHelper.getGroupedKey(state.index.getRootExpression()));
-        System.out.println("functionOperand groupingKey:" + IndexFunctionHelper.getGroupingKey(function.getOperand()));
-        System.out.println("indexRoot groupingKey:" + IndexFunctionHelper.getGroupingKey(state.index.getRootExpression()));
-        System.out.println("groupedKey equal:" + IndexFunctionHelper.getGroupedKey(function.getOperand()).equals(IndexFunctionHelper.getGroupedKey(state.index.getRootExpression())));
-        System.out.println("groupingkey isPrefix:" + IndexFunctionHelper.getGroupingKey(function.getOperand()).isPrefixKey(IndexFunctionHelper.getGroupingKey(state.index.getRootExpression())));
-
-         */
         return matchesAggregateFunction(function) &&
                IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }

@@ -93,8 +93,6 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
-        System.out.println("root expression:" + state.index.getRootExpression());
-        System.out.println("ungrouped:" + ungroupedAggregateOperand(function.getOperand()));
         return (FunctionNames.MIN.equals(function.getName()) ||
                 FunctionNames.MAX.equals(function.getName())) &&
                 ungroupedAggregateOperand(function.getOperand()).isPrefixKey(state.index.getRootExpression());
