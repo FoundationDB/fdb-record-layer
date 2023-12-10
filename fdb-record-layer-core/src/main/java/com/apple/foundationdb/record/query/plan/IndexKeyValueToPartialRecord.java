@@ -368,6 +368,12 @@ public class IndexKeyValueToPartialRecord {
                 if (fieldDescriptor.isRequired() && fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
                     nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType(), true));
                 }
+                if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
+                    Builder builder = nestedBuilders.get(fieldDescriptor.getName());
+                    if (builder != null) {
+                        builder.addRequiredMessageFields();
+                    }
+                }
             }
         }
 

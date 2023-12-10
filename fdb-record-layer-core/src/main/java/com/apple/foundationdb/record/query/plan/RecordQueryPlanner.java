@@ -2000,12 +2000,14 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
+        System.out.println("planCoveringAggregateIndex called with index:" + index + " indexExpr:" + indexExpr);
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
             return null;
         }
         final RecordType recordType = recordTypes.iterator().next();
+        System.out.println("plan with recordType:" + recordType);
         final PlanContext planContext = getPlanContext(query);
         planContext.rankComparisons = new RankComparisons(query.getFilter(), planContext.indexes);
         // Repeated fields will be scanned one at a time by covering aggregate, so there is no issue with fan out.
