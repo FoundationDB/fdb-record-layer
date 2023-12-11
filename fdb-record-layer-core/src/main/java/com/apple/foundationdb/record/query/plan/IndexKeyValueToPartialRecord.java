@@ -384,8 +384,6 @@ public class IndexKeyValueToPartialRecord {
         public boolean isValid(boolean allowRepeated) {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() && !hasField(fieldDescriptor.getName())) {
-                    System.out.println("required field is not present:" + fieldDescriptor.getName());
-                    System.out.println("nested descriptor:" + recordDescriptor.toProto());
                     return false;
                 }
                 if (!allowRepeated && fieldDescriptor.isRepeated() && hasField(fieldDescriptor.getName())) {
