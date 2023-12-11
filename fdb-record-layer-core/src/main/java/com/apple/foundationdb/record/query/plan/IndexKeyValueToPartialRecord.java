@@ -368,13 +368,8 @@ public class IndexKeyValueToPartialRecord {
                 if (fieldDescriptor.isRequired() && fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
                     nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType(), true));
                 }
-                if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
-                    Builder builder = nestedBuilders.get(fieldDescriptor.getName());
-                    if (builder != null) {
-                        builder.addRequiredMessageFields();
-                    }
-                }
             }
+            nestedBuilders.values().forEach(Builder::addRequiredMessageFields);
         }
 
         /**
@@ -389,6 +384,8 @@ public class IndexKeyValueToPartialRecord {
         public boolean isValid(boolean allowRepeated) {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() && !hasField(fieldDescriptor.getName())) {
+                    System.out.println("required field is not present:" + fieldDescriptor.getName());
+                    System.out.println("nested descriptor:" + recordDescriptor.toProto());
                     return false;
                 }
                 if (!allowRepeated && fieldDescriptor.isRepeated() && hasField(fieldDescriptor.getName())) {

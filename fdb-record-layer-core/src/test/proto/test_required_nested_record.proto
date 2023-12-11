@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package com.apple.foundationdb.record.test_required_nested_record;
+
+option java_package = "com.apple.foundationdb.record";
+option java_outer_classname = "TestRequiredNestedRecordProto";
+
+
+message Header {
+  optional int64 id = 1;
+  optional string name = 2;
+}
+
+message NestedRecord {
+  required Header header = 1;
+  optional string message = 2;
+}
+
+message MyNestedRecord {
+  required NestedRecord nestedRecord = 1;
+  optional string state = 2;
+}
