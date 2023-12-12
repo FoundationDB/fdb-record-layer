@@ -36,7 +36,6 @@ import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.codecs.TermVectorsFormat;
-import org.apache.lucene.codecs.lucene87.Lucene87Codec;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
@@ -65,25 +64,31 @@ public class TestingCodec extends Codec {
 
     public TestingCodec() {
         super("RLT");
-        underlying = new LuceneOptimizedCodec(Lucene87Codec.Mode.BEST_SPEED);
+        underlying = LuceneOptimizedCodec.CODEC;
     }
 
     /**
      * Some of the tests expect to be able to continue reading from the associated readers after the underlying file
      * has been deleted; this wraps the readers and forces them to read data when constructed.
-     * @param disableLaziness {@code true} to disable laziness, {@code false} to set it back to the default
      */
-    public static void setDisableLaziness(boolean disableLaziness) {
-        TestingCodec.disableLaziness = disableLaziness;
+    public static void disableLaziness() {
+        TestingCodec.disableLaziness = true;
     }
 
     /**
      * Some of the tests expect to be able to continue reading from the associated readers after the underlying file
      * has been deleted; this wraps the readers and forces the live docs to be read data when constructed.
-     * @param disableLazinessForLiveDocs {@code true} to disable laziness, {@code false} to set it back to the default
      */
-    public static void setDisableLazinessForLiveDocs(final boolean disableLazinessForLiveDocs) {
-        TestingCodec.disableLazinessForLiveDocs = disableLazinessForLiveDocs;
+    public static void disableLazinessForLiveDocs() {
+        TestingCodec.disableLazinessForLiveDocs = true;
+    }
+
+    /**
+     * Reset all of the static configs back to the default state.
+     */
+    public static void reset() {
+        disableLaziness = false;
+        disableLazinessForLiveDocs = false;
     }
 
     @Override

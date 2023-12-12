@@ -60,8 +60,8 @@ public class TestFDBDirectory extends FDBDirectory {
     private static boolean fullBufferToSurviveDeletes;
     private static boolean allowAddIndexes;
 
-    private static AtomicReference<Pair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
-    private static AtomicReference<Pair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
+    private static final AtomicReference<Pair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
+    private static final AtomicReference<Pair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
 
     public TestFDBDirectory() {
         super(new Subspace(Tuple.from("record-test", "unit", "lucene")),
@@ -94,11 +94,9 @@ public class TestFDBDirectory extends FDBDirectory {
      * <p>
      *     If you set this to {@code true} make sure to set it back to {@code false} in a {@code finally} block.
      * </p>
-     *
-     * @param newValue {@code true} to buffer the contents of all returned {@code IndexInput}s.
      */
-    public static void setFullBufferToSurviveDeletes(final boolean newValue) {
-        TestFDBDirectory.fullBufferToSurviveDeletes = newValue;
+    public static void useFullBufferToSurviveDeletes() {
+        TestFDBDirectory.fullBufferToSurviveDeletes = true;
     }
 
     /**
@@ -115,12 +113,16 @@ public class TestFDBDirectory extends FDBDirectory {
      * The code that is run when this is enabled analyzes the stack trace and copies the data that is not stored in
      * files to the destination.
      * </p>
-     *
-     * @param allowAddIndexes {@code true} to allow copying of non-file data during {@link IndexWriter#addIndexes},
-     * {@code false} to not do anything special.
      */
-    public static void setAllowAddIndexes(boolean allowAddIndexes) {
-        TestFDBDirectory.allowAddIndexes = allowAddIndexes;
+    public static void allowAddIndexes() {
+        TestFDBDirectory.allowAddIndexes = true;
+    }
+
+    public static void reset() {
+        TestFDBDirectory.fullBufferToSurviveDeletes = false;
+        allowAddIndexes = false;
+        previousFieldInfos.set(null);
+        previousStoredFields.set(null);
     }
 
     @Nonnull

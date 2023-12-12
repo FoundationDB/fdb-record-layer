@@ -84,25 +84,17 @@ public class LuceneOptimizedCodec extends Codec {
         }
     };
 
-    public static final Codec CODEC = new LuceneOptimizedCodec();
+    public static final LuceneOptimizedCodec CODEC = new LuceneOptimizedCodec();
 
     /**
      * Instantiates a new codec.
+     * <p>
+     *     The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
+     * </p>
      */
     public LuceneOptimizedCodec() {
-        this(Lucene87Codec.Mode.BEST_SPEED);
-    }
-
-    /**
-     * Instantiates a new codec, specifying the stored fields compression
-     * mode to use.
-     * The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
-     * @param mode stored fields compression mode to use for newly
-     *             flushed/merged segments.
-     */
-    public LuceneOptimizedCodec(Lucene87Codec.Mode mode) {
         super("RL");
-        baseCodec = new Lucene87Codec(mode);
+        baseCodec = new Lucene87Codec(Lucene87Codec.Mode.BEST_SPEED);
         compoundFormat = new LuceneOptimizedCompoundFormat(new Lucene50CompoundFormat());
         segmentInfoFormat = new Lucene86SegmentInfoFormat();
         pointsFormat = new LuceneOptimizedPointsFormat(baseCodec.pointsFormat());
@@ -112,7 +104,6 @@ public class LuceneOptimizedCodec extends Codec {
         liveDocsFormat = new LuceneOptimizedLiveDocsFormat(baseCodec.liveDocsFormat());
         fieldInfosFormat = new LuceneOptimizedFieldInfosFormat();
     }
-
 
     @Override
     public PostingsFormat postingsFormat() {

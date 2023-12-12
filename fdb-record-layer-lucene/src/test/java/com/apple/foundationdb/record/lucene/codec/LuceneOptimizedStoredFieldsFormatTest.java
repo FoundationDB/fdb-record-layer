@@ -65,6 +65,7 @@ import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.apache.lucene.util.Version;
+import org.junit.Before;
 import org.junit.BeforeClass;
 
 import java.io.IOException;
@@ -118,47 +119,38 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     }
 
     @Override
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        TestingCodec.reset();
+        TestFDBDirectory.reset();
+    }
+
+    @Override
     public void testNumericField() throws Exception {
-        TestingCodec.setDisableLaziness(true);
-        try {
-            super.testNumericField();
-        } finally {
-            TestingCodec.setDisableLaziness(false);
-        }
+        TestingCodec.disableLaziness();
+        super.testNumericField();
     }
 
     @Override
     public void testRandomExceptions() throws Exception {
         // Failed due to UncheckedIOException with @Seed("6EA33D597F925691")
-        TestingCodec.setDisableLazinessForLiveDocs(true);
-        try {
-            super.testRandomExceptions();
-        } finally {
-            TestingCodec.setDisableLazinessForLiveDocs(false);
-        }
+        TestingCodec.disableLazinessForLiveDocs();
+        super.testRandomExceptions();
     }
 
     @Override
     @Nightly // copied from base implementation, it doesn't appear to be inherited
     public void testRamBytesUsed() throws IOException {
-        TestingCodec.setDisableLaziness(true);
-        TestFDBDirectory.setFullBufferToSurviveDeletes(true);
-        try {
-            super.testRamBytesUsed();
-        } finally {
-            TestFDBDirectory.setFullBufferToSurviveDeletes(false);
-            TestingCodec.setDisableLaziness(false);
-        }
+        TestingCodec.disableLaziness();
+        TestFDBDirectory.useFullBufferToSurviveDeletes();
+        super.testRamBytesUsed();
     }
 
     @Override
     public void testMismatchedFields() throws Exception {
-        TestFDBDirectory.setAllowAddIndexes(true);
-        try {
-            super.testMismatchedFields();
-        } finally {
-            TestFDBDirectory.setAllowAddIndexes(false);
-        }
+        TestFDBDirectory.allowAddIndexes();
+        super.testMismatchedFields();
     }
 
     /**
