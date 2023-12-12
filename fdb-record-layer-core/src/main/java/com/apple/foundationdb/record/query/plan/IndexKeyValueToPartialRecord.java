@@ -369,6 +369,7 @@ public class IndexKeyValueToPartialRecord {
                     nestedBuilders.putIfAbsent(fieldDescriptor.getName(), new Builder(fieldDescriptor.getMessageType(), true));
                 }
             }
+            nestedBuilders.values().forEach(Builder::addRequiredMessageFields);
         }
 
         /**
