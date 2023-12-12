@@ -39,6 +39,26 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.440.0
+
+* **Feature** Lucene Property: Add a property to disable agility context [(Issue #2403)](https://github.com/FoundationDB/fdb-record-layer/issues/2403)
+
+### 3.3.439.0
+
+* **Bug fix** Fix Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
+* **Performance** Support segment merging across transactions & larger segments [(Issue #2375)](https://github.com/FoundationDB/fdb-record-layer/issues/2375)
+
+### 3.3.438.0
+
+* **Performance** The old planner chooses a better plan ordering key for union comparisons to allow ordered union plans in more cases [(Issue #2336)](https://github.com/FoundationDB/fdb-record-layer/issues/2336)
+
+### 3.3.437.0
+
+* **Bug fix** `IndexAggregateFunctionCall.isGroupingPermutable` is now too liberal [(Issue #2388)](https://github.com/FoundationDB/fdb-record-layer/issues/2388)
+
+### 3.3.436.0
+
+
 ### 3.3.435.0
 
 * **Bug fix** Synthetic record type plans are now only generated if the type has at least one index that requires maintenance [(Issue #2377)](https://github.com/FoundationDB/fdb-record-layer/issues/2377)

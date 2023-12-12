@@ -122,6 +122,15 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
+    public boolean hasLosslessNormalization() {
+        if (parent.getFanType() == FanType.FanOut && child.getColumnSize() > 1) {
+            // Multiple repeated children will be correlated by each parent, whereas the normalized version is a cross-product.
+            return false;
+        }
+        return child.hasLosslessNormalization();
+    }
+
+    @Override
     public boolean needsCopyingToPartialRecord() {
         return child.needsCopyingToPartialRecord();
     }

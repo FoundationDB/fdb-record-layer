@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactory;
+import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactoryProvider;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -40,6 +42,8 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.PhraseQuery;
@@ -61,6 +65,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -69,6 +74,9 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     public static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteQueryClause.class);
+
+    // Used as a marker at the end to capture the stop-word gaps between the initial phrase and the end prefix when parsing the search key
+    private static final String NONSTOPWORD = "$nonstopword";
 
     @Nonnull
     private final String search;
@@ -102,21 +110,20 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
 
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
-
         final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
                         .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, fieldDerivationMap);
-        final var queryAnalyzer = analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer();
 
-        // Determine the tokens from the query key
-        final var tokens = new ArrayList<String>();
-        final var prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
-        final Set<String> tokenSet = Sets.newHashSet(tokens);
+        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
+        final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
+                analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
+
 
         final var finalQuery = phraseQueryNeeded
-                               ? buildQueryForPhraseMatching(fields, tokens, prefixToken)
-                               : buildQueryForTermsMatching(fields, tokenSet, prefixToken);
+                               ? buildQueryForPhraseMatching(parser, fields, searchKey)
+                               : buildQueryForTermsMatching(analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
@@ -125,7 +132,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
                     .toString());
         }
 
-        return new BoundQuery(finalQuery);
+        return toBoundQuery(finalQuery);
     }
 
     @Override
@@ -229,40 +236,135 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         return prefixToken;
     }
 
+    /**
+     * Constructs a query to match a phrase search, with the last token treated as a prefix.
+     * This is to match "united states of" against "United States of America"
+     *
+     * @param parser Lucene parser with given fields and analyzer
+     * @param fieldNames the fields to match against
+     * @param phrase the phrase part of the search key
+     * @param prefix the prefix (last token) of the search key
+     * @param useGapForPrefix option to represent the last token as a gap (if it's a stopword)
+     * @return a Lucene Query that matches phrase using the last token as a prefix
+     */
     @Nonnull
-    public static Query buildQueryForPhraseMatching(@Nonnull Collection<String> fieldNames,
-                                                    @Nonnull List<String> matchedTokens,
-                                                    @Nullable String prefixToken) {
-        // Construct a query that is essentially:
-        //  - in any field,
-        //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
+    public static Query buildPhraseQueryWithPrefix(@Nonnull QueryParser parser,
+                                                   @Nonnull Collection<String> fieldNames,
+                                                   @Nonnull String phrase,
+                                                   @Nullable String prefix,
+                                                   final boolean useGapForPrefix) {
+
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
-
         for (String field : fieldNames) {
-            PhraseQuery.Builder phraseQueryBuilder = new PhraseQuery.Builder();
-            for (String token : matchedTokens) {
-                phraseQueryBuilder.add(new Term(field, token));
+            Query phraseQuery = parser.createPhraseQuery(field, phrase + " " + NONSTOPWORD);
+            if (!(phraseQuery instanceof TermQuery || phraseQuery instanceof PhraseQuery)) {
+                throw new RecordCoreException("Unsupported phrase type in auto-complete");
             }
-            Query fieldQuery;
-            if (prefixToken == null) {
-                fieldQuery = phraseQueryBuilder.build();
-            } else {
-                fieldQuery = getPhrasePrefixQuery(field, phraseQueryBuilder.build(), prefixToken);
-            }
-            queryBuilder.add(fieldQuery, BooleanClause.Occur.SHOULD);
-        }
 
+            SpanNearQuery.Builder spanQuery = new SpanNearQuery.Builder(field, true).setSlop(0);
+
+            if (phraseQuery instanceof PhraseQuery) {
+                PhraseQuery pq = (PhraseQuery) phraseQuery;
+                Term[] terms = pq.getTerms();
+                int[] positions = pq.getPositions();
+                int prevPosition = -1;
+                boolean endsWithGap = false;
+                for (int i = 0; i < positions.length; i++) {
+                    if (positions[i] - 1 > prevPosition) {
+                        spanQuery.addGap(positions[i] - 1 - prevPosition);
+                        endsWithGap = true;
+                    }
+
+                    if (i < positions.length - 1) {
+                        spanQuery.addClause(new SpanTermQuery(terms[i]));
+                        endsWithGap = false;
+                    }
+
+                    prevPosition = positions[i];
+                }
+                if (useGapForPrefix && !endsWithGap) {
+                    spanQuery.addGap(1);
+                }
+            } else {
+                spanQuery.addClause(new SpanTermQuery(((TermQuery)phraseQuery).getTerm()));
+            }
+
+            if (!useGapForPrefix && prefix != null) {
+                SpanQuery lastTokenQuery = new SpanMultiTermQueryWrapper<>(new PrefixQuery(new Term(field, prefix)));
+                FieldMaskingSpanQuery fieldMask = new FieldMaskingSpanQuery(lastTokenQuery, field);
+                spanQuery.addClause(fieldMask);
+            }
+
+            queryBuilder.add(spanQuery.build(), BooleanClause.Occur.SHOULD);
+        }
         queryBuilder.setMinimumNumberShouldMatch(1);
         return queryBuilder.build();
     }
 
     @Nonnull
-    private static Query buildQueryForTermsMatching(@Nonnull Collection<String> fieldNames,
-                                                    @Nonnull Set<String> tokenSet,
-                                                    @Nullable String prefixToken) {
+    public static Query buildQueryForPhraseMatching(@Nonnull QueryParser parser,
+                                                    @Nonnull Collection<String> fieldNames,
+                                                    @Nonnull String searchKey) {
+        // Construct a query that is essentially:
+        //  - in any field,
+        //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
+        String phrase = null;
+        String prefix = null;
+        final int prefixBegin = searchKey.lastIndexOf(" ");
+
+        if (prefixBegin > -1) {
+            phrase = searchKey.substring(0, prefixBegin);
+        }
+
+        if (prefixBegin < searchKey.length() - 1) {
+            prefix = searchKey.substring(prefixBegin + 1);
+        }
+
+        if (phrase == null && prefix == null) {
+            throw new RecordCoreException("Invalid auto-complete input: empty key");
+        }
+
+        if (phrase != null) {
+            BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
+            booleanQueryBuilder.add(buildPhraseQueryWithPrefix(parser, fieldNames, phrase, prefix, false), BooleanClause.Occur.SHOULD);
+            if (prefix != null && isStopWord(parser, prefix)) {
+                booleanQueryBuilder.add(buildPhraseQueryWithPrefix(parser, fieldNames, phrase, prefix, true), BooleanClause.Occur.SHOULD);
+            }
+            booleanQueryBuilder.setMinimumNumberShouldMatch(1);
+            return booleanQueryBuilder.build();
+        } else {
+            try {
+                return parser.parse(prefix + "*");
+            } catch (final Exception ioe) {
+                throw new RecordCoreException("Unable to parse search given for query", ioe);
+            }
+        }
+    }
+
+    private static boolean isStopWord(@Nonnull QueryParser queryParser, @Nonnull String prefix) {
+        try {
+            final Query query = queryParser.parse(prefix);
+            if (query instanceof BooleanQuery) {
+                return ((BooleanQuery) query).clauses().isEmpty();
+            } else {
+                return false;
+            }
+        } catch (final Exception ioe) {
+            return false;
+        }
+    }
+
+    @Nonnull
+    private static Query buildQueryForTermsMatching(@Nonnull Analyzer queryAnalyzer,
+                                                    @Nonnull Collection<String> fieldNames,
+                                                    @Nonnull String searchKey) {
         // Construct a query that is essentially:
         //  - in any field,
         //  - all of the tokens must occur (with the last one as a prefix)
+        final var tokens = new ArrayList<String>();
+        final var prefixToken = getQueryTokens(queryAnalyzer, searchKey, tokens);
+        final Set<String> tokenSet = Sets.newHashSet(tokens);
+
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
 
         for (String field : fieldNames) {
@@ -277,19 +379,5 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         }
         queryBuilder.setMinimumNumberShouldMatch(1);
         return queryBuilder.build();
-    }
-
-    @Nonnull
-    private static Query getPhrasePrefixQuery(@Nonnull String fieldName, @Nonnull PhraseQuery phraseQuery, @Nonnull String lastToken) {
-        Term[] terms = phraseQuery.getTerms();
-        SpanNearQuery.Builder spanQuery = new SpanNearQuery.Builder(fieldName, true); // field
-        for (Term term : terms) {
-            spanQuery.addClause(new SpanTermQuery(term));
-        }
-        SpanQuery lastTokenQuery = new SpanMultiTermQueryWrapper<>(new PrefixQuery(new Term(fieldName, lastToken)));
-        FieldMaskingSpanQuery fieldMask = new FieldMaskingSpanQuery(lastTokenQuery, fieldName);
-        spanQuery.addClause(fieldMask);
-
-        return spanQuery.build();
     }
 }

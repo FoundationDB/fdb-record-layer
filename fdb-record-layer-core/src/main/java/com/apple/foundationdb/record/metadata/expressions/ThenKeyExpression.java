@@ -202,6 +202,16 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
+    public boolean hasLosslessNormalization() {
+        for (KeyExpression key : children) {
+            if (!key.hasLosslessNormalization()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public int versionColumns() {
         int versionColumns = 0;
         for (KeyExpression subkey : getChildren()) {

@@ -166,6 +166,16 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
+    public boolean hasLosslessNormalization() {
+        for (KeyExpression key : children) {
+            if (!key.hasLosslessNormalization()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public int versionColumns() {
         return children.stream().mapToInt(KeyExpression::versionColumns).sum();
     }

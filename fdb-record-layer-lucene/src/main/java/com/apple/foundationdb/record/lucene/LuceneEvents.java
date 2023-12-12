@@ -155,8 +155,10 @@ public class LuceneEvents {
         /** Look up primary key segment. */
         WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key"),
         /** Read the field infos data. */
-        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos");
-
+        WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos"),
+        /** Read a file lock. */
+        WAIT_LUCENE_FILE_LOCK("lucene read file lock"),
+        ;
         private final String title;
         private final String logKey;
 
@@ -223,6 +225,10 @@ public class LuceneEvents {
         LUCENE_WRITE_STORED_FIELDS("lucene write stored fields", false),
         /** Number of Delete Stored Fields operations on the FDBDirectory. */
         LUCENE_DELETE_STORED_FIELDS("lucene delete stored fields", false),
+        /** Number of agile context commits after exceeding size quota. */
+        LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
+        /** Number of agile context commits after exceeding time quota. */
+        LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
         ;
 
         private final String title;

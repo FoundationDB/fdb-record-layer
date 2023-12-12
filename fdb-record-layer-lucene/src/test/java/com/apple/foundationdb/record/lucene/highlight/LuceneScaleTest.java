@@ -224,7 +224,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useRewritePlanner) {
+        if (useCascadesPlanner) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         } else {
             if (indexTypes == null) {
@@ -577,7 +577,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
 
         public void search() throws ExecutionException, InterruptedException {
-            useRewritePlanner = false;
+            useCascadesPlanner = false;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
                 final String searchWord = searchWords.get(random.nextInt(searchWords.size()));
