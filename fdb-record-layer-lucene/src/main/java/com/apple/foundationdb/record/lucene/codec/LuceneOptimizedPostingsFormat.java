@@ -27,7 +27,7 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
-import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
+import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader_OLD;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Terms;
@@ -73,7 +73,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         private LazyFieldsProducer(final SegmentReadState state) {
             fieldsProducer = LazyCloseable.supply(() -> {
-                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
+                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader_OLD(state);
                 return new BlockTreeTermsReader(postingsReader, state);
             });
         }

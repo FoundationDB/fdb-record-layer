@@ -27,6 +27,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -527,6 +528,15 @@ public class FDBDirectory extends Directory  {
                 context.ensureActive().get(storedFieldsSubspace.pack(Tuple.from(segmentName, docID))));
     }
 
+    // TODO: return Byte[]
+    public List<Integer> getAllPostingFields(final String segmentName) {
+        return null;
+    }
+
+    public byte[] getFieldMetadata(String segmentName, int fieldNumber) {
+        return null;
+    }
+
     /**
      * Lists all file names in the subspace. Puts all references in the cache.
      * Logs the count of references, and the total size of the data.
@@ -1008,5 +1018,25 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public String getIndexOption(@Nonnull String key) {
         return indexOptions.get(key);
+    }
+
+    public byte[] getPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
+        return new byte[0];
+    }
+
+    public AsyncIterator<KeyValue> scanPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
+        return null;
+    }
+
+    public AsyncIterator<KeyValue> scanAllPostingsTermsAsync(final String segmentName, final int number) {
+        return null;
+    }
+
+    public byte[] getTermDocuments(final String segmentName, final int number, final long ord) {
+        return new byte[0];
+    }
+
+    public byte[] getTermDocumentPositions(final String segmentName, final int number, final long ord, final int docId) {
+        return new byte[0];
     }
 }
