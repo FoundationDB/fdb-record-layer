@@ -22,7 +22,7 @@ buildscript {
     repositories {
         if (Boolean.parseBoolean(mavenLocalEnabled)) {
             mavenLocal()
-            logger.warn 'Warning: you have enabled maven local repository. This should only be used on local workstations to test undeployed library dependencies.'
+            logger.log(LogLevel.WARN, 'Warning: you have enabled maven local repository. This should only be used on local workstations to test undeployed library dependencies.')
         }
         mavenCentral()
     }
