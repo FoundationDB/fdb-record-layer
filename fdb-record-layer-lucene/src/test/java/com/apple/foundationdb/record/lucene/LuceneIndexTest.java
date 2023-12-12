@@ -1375,8 +1375,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertTrue(mergeHappened);
     }
 
-    @Test
-    void testMultipleUpdateSegments() {
+    @ParameterizedTest
+    @BooleanSource
+    void testMultipleUpdateSegments(boolean autoMerge) {
         final Index index = COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX;
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
@@ -1395,13 +1396,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);
             for (int i = 0; i < 10; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(i, numbersText(i), "", 0));
             }
             context.commit();
         }
-        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), lessThan(5));
-        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(5));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(10));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_FIND_MERGES), lessThan(5));
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             final long segmentCountAfter = getSegmentCount(index, Tuple.from(0));
