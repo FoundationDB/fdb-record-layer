@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -86,6 +87,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
@@ -779,11 +782,13 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testRecordUpdateReducedMergeForciingAgileSizeQuota() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) {
         // emulate repeating merge until until unchanged, with a tiny size quota
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, 100);
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, 100)
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT, disableAgilityContext);
 
         Index index = SIMPLE_TEXT_SUFFIXES;
 
@@ -810,19 +815,25 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         newLength = listFiles(index).length;
-        final int sizeCommitCount = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA).getCount();
+        assertTrue(newLength < oldLength);
+        final StoreTimer.Counter counter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+
+        if (disableAgilityContext) {
+            assertNull(counter);
+            return;
+        }
+
+        assertNotNull(counter);
+        final int sizeCommitCount = counter.getCount();
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
                      " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes() +
                      " sizeCommitCount: " + sizeCommitCount);
         // Got "old=161 new=19 needMerge=null sizeCommitCount: 64"
-
-        assertTrue(newLength < oldLength);
         assertTrue(sizeCommitCount > 10);
     }
 
-
     @Test
-    void testRecordUpdateReducedMergeForciingAgileTimeQuota() {
+    void testRecordUpdateReducedMergeForcingAgileTimeQuota() {
         // emulate repeating merge until until unchanged, with a tiny size quota
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1);
