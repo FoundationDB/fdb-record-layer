@@ -90,4 +90,8 @@ public final class LuceneRecordContextProperties {
      * During merge, commit the agile context right after write size exceeds this value. Bytes units.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_AGILE_COMMIT_SIZE_QUOTA = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.agile.size.quota", 900_000);
+    /**
+     * If set to true, disable the agility context feature and force every merge to be performed in a single transaction.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_AGILE_DISABLE_AGILITY_CONTEXT = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.agile.disabled", false);
 }
