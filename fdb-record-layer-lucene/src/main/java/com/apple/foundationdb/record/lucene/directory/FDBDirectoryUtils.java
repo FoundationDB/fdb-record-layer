@@ -33,6 +33,8 @@ import javax.annotation.Nonnull;
  */
 public class FDBDirectoryUtils {
 
+    private FDBDirectoryUtils() {
+    }
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
