@@ -141,6 +141,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasToString;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1374,6 +1375,43 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertTrue(mergeHappened);
     }
 
+    @ParameterizedTest
+    @BooleanSource
+    void testMultipleUpdateSegments(boolean autoMerge) {
+        final Index index = COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX;
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            for (int i = 0; i < 20; i++) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(i, "", "", 0));
+            }
+            context.commit();
+        }
+        final long segmentCountBefore;
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            segmentCountBefore = getSegmentCount(index, Tuple.from(0));
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);
+            for (int i = 0; i < 10; i++) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(i, numbersText(i), "", 0));
+            }
+            context.commit();
+        }
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(10));
+        assertThat(timer.getCount(LuceneEvents.Events.LUCENE_FIND_MERGES), lessThan(5));
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            final long segmentCountAfter = getSegmentCount(index, Tuple.from(0));
+            assertThat(segmentCountAfter - segmentCountBefore, lessThan(5L));
+        }
+    }
+
     @Test
     void testGroupedMultipleUpdate() {
         final Index index = COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX;
@@ -1422,7 +1460,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return IntStream.range(1, nums.length)
             .filter(n -> i % n == 0)
             .mapToObj(n -> nums[n])
-            .collect(Collectors.joining(" "));        
+            .collect(Collectors.joining(" "));
     }
 
     private String matchAll(String... words) {
@@ -2728,6 +2766,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private FDBDirectory getDirectory(final Index index, final Tuple groupingKey) {
         return getIndexMaintainer(index).getDirectory(groupingKey);
+    }
+
+    private long getSegmentCount(final Index index, final Tuple groupingKey) {
+        final String[] files = getDirectory(index, groupingKey).listAll();
+        return Arrays.stream(files).filter(FDBDirectory::isCompoundFile).count();
     }
 
     private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) {

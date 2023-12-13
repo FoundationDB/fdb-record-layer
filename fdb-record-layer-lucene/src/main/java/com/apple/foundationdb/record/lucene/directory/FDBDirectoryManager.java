@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.MergeScheduler;
@@ -204,6 +205,10 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Nonnull
     public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
         return getDirectoryWrapper(groupingKey).getWriter(analyzerWrapper);
+    }
+
+    public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey) throws IOException {
+        return getDirectoryWrapper(groupingKey).getWriterReader(false);
     }
 
     @Nonnull
