@@ -373,7 +373,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param newRecord record to be written
      * @param groupingKey grouping key
      * @return partition id
-     * @param <M> Message
      */
     private <M extends Message> Integer addWrittenDocumentToPartition(@Nullable FDBIndexableRecord<M> newRecord, @Nonnull Tuple groupingKey) {
         if (newRecord == null || !partitioner.isPartitioningEnabled()) {
@@ -397,7 +396,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @param oldRecord record to be deleted
      * @param groupingKey grouping key
      * @return partition id (or null if partitioning isn't enabled)
-     * @param <M> Message
      */
     private <M extends Message> Integer removeDeletedDocumentFromPartition(@Nullable FDBIndexableRecord<M> oldRecord, @Nonnull Tuple groupingKey) {
         if (oldRecord == null || !partitioner.isPartitioningEnabled()) {
