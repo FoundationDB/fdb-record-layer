@@ -276,7 +276,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
         if (segmentIndex != null) {
-            final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey);
+            final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
             if (documentIndexEntry != null) {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
@@ -341,32 +341,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         CompletableFuture<Void> pInfoFuture = partitioner.isPartitioningEnabled() ? partitioner.loadPartitioningMetadata(groupings) : AsyncUtil.DONE;
 
         return pInfoFuture.thenAccept(ignored -> {
-            Long oldRecordTimestamp = null;
-            Long newRecordTimestamp = null;
-            if (partitioner.isPartitioningEnabled()) {
-                // get partition timestamp value from record
-                newRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), newRecord);
-                oldRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), oldRecord);
-
-                if (newRecordTimestamp == null) {
-                    throw new RecordCoreArgumentException("error getting partitioning timestamp: " + partitioner.getPartitionTimestampFieldName());
-                }
-            }
-
             // delete old
             try {
                 for (Tuple t : oldRecordFields.keySet()) {
-                    LucenePartitionInfoProto.LucenePartitionInfo partition = null;
-                    if (partitioner.isPartitioningEnabled()) {
-                        // find the document's partition
-                        partition = partitioner.locateInPartition(t, oldRecordTimestamp);
-                        if (partition == null) {
-                            throw new RecordCoreException("Issue deleting old index keys (partition not found)", "oldRecord", oldRecord);
-                        }
-                        partitioner.removeFromAndSavePartitionMetadata(t, partition);
-                    }
+                    Integer partitionId = removeDeletedDocumentFromPartition(oldRecord, t);
                     // oldRecord cannot be null here since in that case the oldRecordFields would have been empty
-                    deleteDocument(t, partition == null ? null : partition.getId(), Objects.requireNonNull(oldRecord).getPrimaryKey());
+                    deleteDocument(t, partitionId, Objects.requireNonNull(oldRecord).getPrimaryKey());
                 }
             } catch (IOException e) {
                 throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
@@ -375,12 +355,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // update new
             try {
                 for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
-                    Integer partitionId = null;
-                    if (partitioner.isPartitioningEnabled()) {
-                        LucenePartitionInfoProto.LucenePartitionInfo partition = partitioner.assignWritePartition(entry.getKey(), newRecordTimestamp);
-                        partitioner.addToAndSavePartitionMetadata(entry.getKey(), partition, newRecordTimestamp);
-                        partitionId = partition.getId();
-                    }
+                    Integer partitionId = addWrittenDocumentToPartition(newRecord, entry.getKey());
                     // newRecord cannot be null here since in that case newRecordFields would have been empty
                     writeDocument(entry.getValue(), entry.getKey(), partitionId, Objects.requireNonNull(newRecord).getPrimaryKey());
                 }
@@ -392,8 +367,56 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     }
 
-    private <M extends Message> Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nullable FDBIndexableRecord<M> record) {
-        if (record == null) {
+    /**
+     * add a new written record to its partition metadata.
+     *
+     * @param newRecord record to be written
+     * @param groupingKey grouping key
+     * @return partition id
+     * @param <M> Message
+     */
+    private <M extends Message> Integer addWrittenDocumentToPartition(@Nullable FDBIndexableRecord<M> newRecord, @Nonnull Tuple groupingKey) {
+        if (newRecord == null || !partitioner.isPartitioningEnabled()) {
+            return null;
+        }
+
+        Long newRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), newRecord);
+        if (newRecordTimestamp == null) {
+            throw new RecordCoreArgumentException("error getting partitioning timestamp: " + partitioner.getPartitionTimestampFieldName());
+        }
+
+        LucenePartitionInfoProto.LucenePartitionInfo partition = partitioner.assignWritePartition(groupingKey, newRecordTimestamp);
+        partitioner.addToAndSavePartitionMetadata(groupingKey, partition, newRecordTimestamp);
+
+        return partition.getId();
+    }
+
+    /**
+     * remove a deleted document from its partition metadata.
+     *
+     * @param oldRecord record to be deleted
+     * @param groupingKey grouping key
+     * @return partition id (or null if partitioning isn't enabled)
+     * @param <M> Message
+     */
+    private <M extends Message> Integer removeDeletedDocumentFromPartition(@Nullable FDBIndexableRecord<M> oldRecord, @Nonnull Tuple groupingKey) {
+        if (oldRecord == null || !partitioner.isPartitioningEnabled()) {
+            return null;
+        }
+
+        Long oldRecordTimestamp = getPartitioningTimestampValue(partitioner.getPartitionTimestampFieldName(), oldRecord);
+
+        // find the document's partition
+        LucenePartitionInfoProto.LucenePartitionInfo partition = partitioner.locateInPartition(groupingKey, oldRecordTimestamp);
+        if (partition == null) {
+            throw new RecordCoreException("Issue deleting old index keys (partition not found)", "oldRecord", oldRecord);
+        }
+        partitioner.removeFromAndSavePartitionMetadata(groupingKey, partition);
+        return partition.getId();
+    }
+
+    private <M extends Message> Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nullable FDBIndexableRecord<M> rec) {
+        if (rec == null) {
             return null;
         }
 
@@ -406,13 +429,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             actualFieldName = fieldName.substring(dotIndex + 1);
         }
         if (containingTypeName != null) {
-            for (Map.Entry<Descriptors.FieldDescriptor, Object> field : record.getRecord().getAllFields().entrySet()) {
+            for (Map.Entry<Descriptors.FieldDescriptor, Object> field : rec.getRecord().getAllFields().entrySet()) {
                 if (containingTypeName.equalsIgnoreCase(field.getKey().getName()) && field.getValue() instanceof Message) {
                     return getPartitioningTimestampValue(actualFieldName, ((Message) field.getValue()).getAllFields());
                 }
             }
         } else {
-            return getPartitioningTimestampValue(actualFieldName, record.getRecord().getAllFields());
+            return getPartitioningTimestampValue(actualFieldName, rec.getRecord().getAllFields());
         }
         return null;
     }

@@ -113,7 +113,7 @@ public class LucenePartitioner {
         }
 
         return selectWritePartition(partitions, timestamp);
-        // TODO: check and split the assigned partition if it's too big
+        // TO DO: check and split the assigned partition if it's too big
     }
 
     /**
@@ -219,7 +219,7 @@ public class LucenePartitioner {
         // Just starting a new partition with a single email would mean that we would have to combine relevancy search results or autocomplete search results, otherwise, they may just get results from 1 email, which would be bad.
         // ----------------------------------------------------------
 
-        // the current implementation below partially implements the above (minus splitting partitions). The rest will be added later (TODO)
+        // the current implementation below partially implements the above (minus splitting partitions). The rest will be added later (TO DO)
 
         // shortcut
         if (partitions.size() == 1) {

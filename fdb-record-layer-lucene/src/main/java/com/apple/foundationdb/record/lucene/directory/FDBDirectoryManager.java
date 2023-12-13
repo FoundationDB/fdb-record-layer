@@ -102,7 +102,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner.isPartitioningEnabled() ? 0 : null /* TODO */);
+            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner.isPartitioningEnabled() ? 0 : null /* TO DO */);
             return AsyncUtil.DONE;
         }
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
@@ -120,7 +120,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEach(groupingKey ->
-                        mergeIndex(analyzerWrapper, groupingKey, partitioner.isPartitioningEnabled() ? 0 : null /* TODO */));
+                        mergeIndex(analyzerWrapper, groupingKey, partitioner.isPartitioningEnabled() ? 0 : null /* TO DO */));
     }
 
     private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable Integer partitionId) {
@@ -211,8 +211,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper);
     }
 
-    public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey) throws IOException {
-        return getDirectoryWrapper(groupingKey).getWriterReader(false);
+    public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
+        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader(false);
     }
 
     @Nonnull
