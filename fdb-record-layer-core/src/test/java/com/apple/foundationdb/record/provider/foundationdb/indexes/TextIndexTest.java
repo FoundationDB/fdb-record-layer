@@ -2345,11 +2345,19 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.not(Query.field("tag").oneOfThem().equalsValue("3:2")),
                             1, 758136569));
 
+            planner.setConfiguration(planner.getConfiguration().asBuilder().setOmitPrimaryKeyInUnionOrderingKey(true).build());
             assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 6L)),
                     queryComplexDocumentsWithOr((OrComponent) Query.or(
                             Query.field("text").text().containsAll("unit named after"),
                             Query.field("text").text().containsPhrase("אן ארמיי און פלאט")
                     ), 0, -396375489));
+
+            planner.setConfiguration(planner.getConfiguration().asBuilder().setOmitPrimaryKeyInUnionOrderingKey(false).build());
+            assertEquals(Arrays.asList(Tuple.from(0L, 0L), Tuple.from(0L, 6L)),
+                    queryComplexDocumentsWithOr((OrComponent) Query.or(
+                            Query.field("text").text().containsAll("unit named after"),
+                            Query.field("text").text().containsPhrase("אן ארמיי און פלאט")
+                    ), 0, -1558384887));
 
             assertEquals(Collections.singletonList(Tuple.from(1L, 5L)),
                     queryComplexDocumentsWithIndex(
