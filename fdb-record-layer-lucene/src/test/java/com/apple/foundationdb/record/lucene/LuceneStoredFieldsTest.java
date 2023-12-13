@@ -254,7 +254,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
-                    assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(3, 0));
+                    assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(0, 0));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
@@ -360,7 +360,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useRewritePlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }

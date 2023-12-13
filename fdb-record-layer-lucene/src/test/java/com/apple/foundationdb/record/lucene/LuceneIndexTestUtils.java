@@ -118,23 +118,17 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
-    static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
-                                                                   final KeySpacePath path,
-                                                                   final String document,
-                                                                   final Index index) {
-        return rebuildIndexMetaData(context, path, document, index, false);
-    }
-
     public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
                                                                           final KeySpacePath path,
                                                                           final String document,
-                                                                          final Index index, boolean useRewritePlanner) {
+                                                                          final Index index,
+                                                                          boolean useCascadesPlanner) {
         FDBRecordStore store = openRecordStore(context, path, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
 
-        QueryPlanner planner = setupPlanner(store, null, useRewritePlanner);
+        QueryPlanner planner = setupPlanner(store, null, useCascadesPlanner);
         return Pair.of(store, planner);
     }
 

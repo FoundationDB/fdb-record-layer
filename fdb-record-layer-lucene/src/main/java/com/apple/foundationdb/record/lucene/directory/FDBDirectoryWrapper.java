@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -66,15 +67,18 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile String writerAnalyzerId;
+    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
+    private volatile DirectoryReader writerReader;
 
     FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount, boolean useAgilityContext) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
+        final boolean useAgility = useAgilityContext && Boolean.FALSE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT));
 
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, useAgilityContext);
+        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, useAgility);
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -84,14 +88,25 @@ class FDBDirectoryWrapper implements AutoCloseable {
 
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
-        IndexWriter indexWriter = writer;
         if (writer == null) {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
                     state.context.getExecutor(),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
         } else {
-            return DirectoryReader.open(indexWriter);
+            return getWriterReader(true);
         }
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    public DirectoryReader getWriterReader(boolean flush) throws IOException {
+        if (flush || writerReader == null) {
+            synchronized (this) {
+                if (flush || writerReader == null) {
+                    writerReader = DirectoryReader.open(Objects.requireNonNull(writer));
+                }
+            }
+        }
+        return writerReader;
     }
 
     private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
@@ -162,12 +177,17 @@ class FDBDirectoryWrapper implements AutoCloseable {
                             .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
-                    IndexWriter oldWriter = writer;
-                    if (oldWriter != null) {
-                        oldWriter.close();
+                    if (writer != null) {
+                        writer.close();
                     }
                     writer = new IndexWriter(directory, indexWriterConfig);
                     writerAnalyzerId = analyzerWrapper.getUniqueIdentifier();
+
+                    if (writerReader != null) {
+                        writerReader.close();
+                        writerReader = null;
+                    }
+
                     // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
                     mergeControl.setMergeRequiredIndexes(state.index);
                 }
@@ -179,11 +199,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        IndexWriter indexWriter = writer;
-        if (indexWriter != null) {
-            indexWriter.close();
+        if (writer != null) {
+            writer.close();
             writer = null;
             writerAnalyzerId = null;
+            if (writerReader != null) {
+                writerReader.close();
+                writerReader = null;
+            }
         }
         directory.close();
     }

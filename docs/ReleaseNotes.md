@@ -39,6 +39,10 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.440.0
+
+* **Feature** Lucene Property: Add a property to disable agility context [(Issue #2403)](https://github.com/FoundationDB/fdb-record-layer/issues/2403)
+
 ### 3.3.439.0
 
 * **Bug fix** Fix Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
