@@ -129,6 +129,13 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     }
 
     @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        TestingCodec.reset();
+        TestFDBDirectory.reset();
+    }
+
+    @Override
     public void testNumericField() throws Exception {
         TestingCodec.disableLaziness();
         super.testNumericField();
