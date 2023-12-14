@@ -96,7 +96,7 @@ public interface AgilityContext {
         getCallerContext().increment(count, size);
     }
 
-    default void recordEvent(@Nonnull StoreTimer.Event event, long timeDelta ) {
+    default void recordEvent(@Nonnull StoreTimer.Event event, long timeDelta) {
         getCallerContext().record(event, timeDelta);
     }
 
