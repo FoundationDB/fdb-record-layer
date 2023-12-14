@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LucenePlanner;
 import com.apple.foundationdb.record.lucene.LuceneQueryComponent;
+import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import com.apple.foundationdb.record.metadata.Index;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -79,6 +81,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -159,6 +162,18 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
          * beginning;, this can be any string.
          */
         static final String ISOLATION_ID = "default";
+
+        /**
+         * The probability (in one thousandth units) of performing an explicit merge, if merge is requested.
+         * This can be used to emulate accumulation of merges before a workitem is executed.
+         * A value of 1000 will mean merge every time, 0 means never merge.
+         */
+        static final int MERGE_PROBABLITY_OF_1000 = 25;
+
+        /**
+         * Max merge size in megabytes.
+         */
+        static final double LUCENE_MERGE_MAX_SIZE = 50.0;
     }
 
     private enum Command {
@@ -185,7 +200,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             "open_context_count", "range_deletes_count", "range_fetches_count", "range_keyvalues_fetched_count",
             "range_query_direct_buffer_miss_count", "range_reads_count", "reads_count", "save_record_count",
             "writes_count", "lucene_delete_document_by_query_count", "lucene_delete_document_by_primary_key_count",
-            "lucene_merge_count");
+            "lucene_merge_count", "lucene_agile_commits_size_quota", "lucene_agile_commits_time_quota");
 
     private static final String INDEX_NAME = "text_and_number_idx";
     private static final Index INDEX = new Index(
@@ -323,15 +338,26 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         if (indexesRequireMerge == null) {
             return;
         }
+        if (ThreadLocalRandom.current().nextInt(1000) < (1000 - Config.MERGE_PROBABLITY_OF_1000)) {
+            return;
+        }
+        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, Config.LUCENE_MERGE_MAX_SIZE);
+
+        long startMillis;
         FDBStoreTimer mergeTimer = new FDBStoreTimer();
-        long startMillis = System.currentTimeMillis();
-        for (final Index index : indexesRequireMerge) {
-            final OnlineIndexer onlineIndexer = OnlineIndexer.newBuilder()
-                    .addTargetIndex(index)
-                    .setRecordStore(recordStore)
-                    .setTimer(mergeTimer)
-                    .build();
-            onlineIndexer.mergeIndex();
+        try (FDBRecordContext context = openContext(insertProps)) {
+            createOrOpenRecordStore(context, recordStore.getRecordMetaData());
+            startMillis = System.currentTimeMillis();
+
+            for (final Index index : indexesRequireMerge) {
+                final OnlineIndexer onlineIndexer = OnlineIndexer.newBuilder()
+                        .addTargetIndex(index)
+                        .setRecordStore(recordStore)
+                        .setTimer(mergeTimer)
+                        .build();
+                onlineIndexer.mergeIndex();
+            }
         }
 
         if (mergeCsv != null) {
