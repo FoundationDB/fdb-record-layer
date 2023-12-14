@@ -145,7 +145,7 @@ public class FDBIndexInput extends IndexInput {
     @Nonnull
     private FDBLuceneFileReference getFileReference() {
         if (actualReference == null) {
-            actualReference = fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
+            actualReference = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
             if (actualReference == null) {
                 throw new RecordCoreException("File Reference missing for open IndexInput")
                         .addLogInfo(LuceneLogMessageKeys.RESOURCE, resourceDescription);
@@ -156,7 +156,7 @@ public class FDBIndexInput extends IndexInput {
 
     private byte[] getCurrentData() {
         if (actualCurrentData == null) {
-            actualCurrentData = fdbDirectory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, currentData);
+            actualCurrentData = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, currentData);
         }
         return actualCurrentData;
     }

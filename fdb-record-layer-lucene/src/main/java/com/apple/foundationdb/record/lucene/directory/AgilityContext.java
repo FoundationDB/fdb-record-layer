@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.StampedLock;
@@ -65,6 +68,38 @@ public interface AgilityContext {
         accept(context -> context.ensureActive().clear(range));
     }
 
+    @Nonnull
+    FDBRecordContext getCallerContext();
+
+    default <T> CompletableFuture<T> instrument(StoreTimer.Event event,
+                                                CompletableFuture<T> future ) {
+        return getCallerContext().instrument(event, future);
+    }
+
+    default <T> CompletableFuture<T> instrument(StoreTimer.Event event,
+                                                CompletableFuture<T> future,
+                                                long start) {
+        return getCallerContext().instrument(event, future, start);
+    }
+
+    default void increment(@Nonnull StoreTimer.Count count) {
+        getCallerContext().increment(count);
+    }
+
+    default void increment(@Nonnull StoreTimer.Count count, int size) {
+        getCallerContext().increment(count, size);
+    }
+
+    default void recordEvent(@Nonnull StoreTimer.Event event, long timeDelta ) {
+        getCallerContext().record(event, timeDelta);
+    }
+
+    @Nullable
+    default <T> T asyncToSync(StoreTimer.Wait event,
+                              @Nonnull CompletableFuture<T> async) {
+        return getCallerContext().asyncToSync(event, async);
+    }
+
 
     /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
@@ -101,6 +136,12 @@ public interface AgilityContext {
             this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
 
             callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
+        }
+
+        @Override
+        @Nonnull
+        public FDBRecordContext getCallerContext() {
+            return callerContext;
         }
 
         private long now() {
@@ -232,6 +273,12 @@ public interface AgilityContext {
         @Override
         public void flush() {
             // This is a no-op as the caller context should be committed by the caller.
+        }
+
+        @Override
+        @Nonnull
+        public FDBRecordContext getCallerContext() {
+            return callerContext;
         }
     }
 
