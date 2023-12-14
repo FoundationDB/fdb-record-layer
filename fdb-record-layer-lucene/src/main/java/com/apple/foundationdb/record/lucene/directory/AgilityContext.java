@@ -136,7 +136,7 @@ public interface AgilityContext {
         Agile(FDBRecordContext callerContext) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
-            contextConfigBuilder.setWeakReadSemantics(null); // Since this context may be used for retries, do not allow weak read semantic
+            contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
             database = callerContext.getDatabase();
             this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
             this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
