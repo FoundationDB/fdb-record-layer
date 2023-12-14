@@ -153,9 +153,9 @@ public class TestFDBDirectory extends FDBDirectory {
                         name.endsWith("." + LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)) {
                     final String segmentName = IndexFileNames.parseSegmentName(name);
                     final byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
-                    final List<KeyValue> rawStoredFields = context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
-                            context.instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
-                                    context.ensureActive().getRange(key, ByteArrayUtil.strinc(key)).asList()));
+                    final List<KeyValue> rawStoredFields = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
+                            getAgilityContext().instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
+                                    getAgilityContext().getRange(key, ByteArrayUtil.strinc(key))));
                     final Map<Long, byte[]> storedFields = rawStoredFields.stream().collect(Collectors.toMap(
                             keyValue -> storedFieldsSubspace.unpack(keyValue.getKey()).getLong(1),
                             keyValue -> keyValue.getValue()

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.StampedLock;
@@ -66,6 +68,10 @@ public interface AgilityContext {
 
     default void clear(Range range) {
         accept(context -> context.ensureActive().clear(range));
+    }
+
+    default CompletableFuture<List<KeyValue>> getRange(byte[] begin, byte[] end) {
+        return apply(context -> context.ensureActive().getRange(begin, end).asList());
     }
 
     @Nonnull
