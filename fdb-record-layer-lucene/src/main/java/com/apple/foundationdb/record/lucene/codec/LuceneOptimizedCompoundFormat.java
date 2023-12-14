@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -30,7 +31,6 @@ import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
@@ -74,7 +74,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         Set<String> filteredFiles = filterMarkerFiles(si.files());
         si.setFiles(filteredFiles);
         @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
-        final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
+        final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(dir);
         compoundFormat.write(dir, si, context);
         si.setFiles(filesForAfter);
         final String fieldInfosFileName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst().orElseThrow();
