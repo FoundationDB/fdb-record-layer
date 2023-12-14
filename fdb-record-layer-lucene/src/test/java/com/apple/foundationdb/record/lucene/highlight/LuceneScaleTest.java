@@ -164,7 +164,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         static final String ISOLATION_ID = "default";
 
         /**
-         * The probability (in promills) of performing an explicit merge, if merge is requested.
+         * The probability (in one thousandth units) of performing an explicit merge, if merge is requested.
          * This can be used to emulate accumulation of merges before a workitem is executed.
          * A value of 1000 will mean merge every time, 0 means never merge.
          */
