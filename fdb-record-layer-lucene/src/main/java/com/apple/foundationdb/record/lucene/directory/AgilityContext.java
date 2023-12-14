@@ -74,6 +74,10 @@ public interface AgilityContext {
         return apply(context -> context.ensureActive().getRange(begin, end).asList());
     }
 
+    /**
+     * This function returns the caller's context. If called by external entities, it should only be used for testing.
+     * @return caller's context
+     */
     @Nonnull
     FDBRecordContext getCallerContext();
 
