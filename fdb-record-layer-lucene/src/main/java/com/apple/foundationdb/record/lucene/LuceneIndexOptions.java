@@ -95,7 +95,7 @@ public class LuceneIndexOptions {
      * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for
      * merge with another adjacent partition.
      */
-    public static final String INDEX__PARTITIION_LO_WATERMARK = "partitionLoWatermark";
+    public static final String INDEX_PARTITIION_LO_WATERMARK = "partitionLoWatermark";
 
     private LuceneIndexOptions() {
     }

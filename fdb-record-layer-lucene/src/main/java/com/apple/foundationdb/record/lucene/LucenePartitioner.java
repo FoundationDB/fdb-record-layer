@@ -321,10 +321,8 @@ public class LucenePartitioner {
     @Nonnull
     private Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nonnull Map<Descriptors.FieldDescriptor, Object> fields) {
         for (Map.Entry<Descriptors.FieldDescriptor, Object> field : fields.entrySet()) {
-            if (fieldName.equalsIgnoreCase(field.getKey().getName())) {
-                if (field.getValue() instanceof Long) {
-                    return (Long)field.getValue();
-                }
+            if (fieldName.equalsIgnoreCase(field.getKey().getName()) && field.getValue() instanceof Long) {
+                return (Long)field.getValue();
             }
         }
         throw new RecordCoreArgumentException("error getting partitioning timestamp", "fieldName", getPartitionTimestampFieldName());
