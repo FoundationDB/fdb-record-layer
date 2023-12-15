@@ -70,7 +70,7 @@ public class LucenePartitioner {
      * @return partition id, or <code>null</code> if partitioning isn't enabled
      */
     @Nullable
-    public Integer selectQueryPartitionId(Tuple groupKey) {
+    public Integer selectQueryPartitionId(@Nonnull Tuple groupKey) {
         Integer partitionId = null;
         if (isPartitioningEnabled()) {
             partitionId = 0;
@@ -129,7 +129,7 @@ public class LucenePartitioner {
      * @return assigned partition id
      */
     @Nonnull
-    private Integer addToAndSavePartitionMetadata(@Nonnull final Tuple groupKey, final Long timestamp) {
+    private Integer addToAndSavePartitionMetadata(@Nonnull final Tuple groupKey, @Nonnull final Long timestamp) {
         LucenePartitionInfoProto.LucenePartitionInfo assignedPartition =
                 state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getOrCreatePartitionInfo(groupKey, timestamp));
 
@@ -199,7 +199,7 @@ public class LucenePartitioner {
      * @return partition metadata key
      */
     @Nonnull
-    private byte[] partitionMetadataKeyFromTimestamp(Tuple groupKey, long timestamp) {
+    private byte[] partitionMetadataKeyFromTimestamp(@Nonnull Tuple groupKey, long timestamp) {
         return state.indexSubspace.pack(Tuple.from(groupKey, PARTITION_META_SUBSPACE, timestamp));
     }
 
