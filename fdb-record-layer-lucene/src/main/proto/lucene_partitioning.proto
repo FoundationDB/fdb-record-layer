@@ -24,8 +24,12 @@ package com.apple.foundationdb.record.lucene;
 option java_outer_classname = "LucenePartitionInfoProto";
 
 message LucenePartitionInfo {
-  required uint32 id = 1;
-  required uint64 from = 2;
-  required uint64 to = 3;
-  required uint32 count = 4;
+  /* partition id */
+  required int32 id = 1;
+  /* documents in this partition are at or later than this */
+  required bytes from = 2;
+  /* documents in this partition are at or earlier than this */
+  required bytes to = 3;
+  /* count of documents in this partition */
+  required int32 count = 4;
 }

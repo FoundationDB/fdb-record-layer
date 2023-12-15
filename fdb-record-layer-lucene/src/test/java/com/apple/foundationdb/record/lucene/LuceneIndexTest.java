@@ -74,7 +74,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -121,6 +120,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_TIMESTAMP;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
@@ -200,11 +200,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE);
 
     protected static final Index COMPLEX_PARTITIONED = new Index("Complex$partitioned",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                 IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                IndexOptions.TEXT_DOCUMENT_PARTITION_TIMESTAMP, "time"));
+                    INDEX_PARTITION_BY_TIMESTAMP, "time"));
 
     private static final List<KeyExpression> COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS = ImmutableList.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
     private static final Index COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE = new Index("Complex$text_multiple_grouped_autocomplete",
@@ -532,22 +532,40 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void basicPartitionTest() {
+    void basicGroupedPartitionedTest() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, "kilroy was here", 2, 2, false, Instant.now().toEpochMilli()));
-            recordStore.saveRecord(createComplexDocument(7777L, WAYLON, "ereh saw yorlik", 1, 2, true, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
-            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 6666L)),
-                    recordStore.scanIndex(COMPLEX_PARTITIONED, fullTextSearch(COMPLEX_PARTITIONED, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, "", 1, 2, false, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, "", 2, 2, false, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, "", 2, 2, true, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", "", 1, 2, true, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+
+            // should find only one match for ENGINEER_JOKE (the other match is in the other group)
+            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 7777L)),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 2), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
-            Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(TupleHelpers.EMPTY.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
-            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            // should not find any match for WAYLON in this group (it's in the other group)
+            assertIndexEntryPrimaryKeyTuples(Set.of(),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:things", 1), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+
+            Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            Subspace partition2Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(2, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+
+            // now delete ENGINEER_JOKE from group 1, and verify
+            recordStore.deleteRecord(Tuple.from(1, 6666L));
+            assertIndexEntryPrimaryKeyTuples(Set.of(),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ScanProperties.FORWARD_SCAN));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition2Subspace, context, "_0.cfs");
         }
+
     }
 
     private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
-
         //set up the joined index
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
         joined.addConstituent("complex", "ComplexDocument");
@@ -558,7 +576,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                 field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
                 )
-        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(IndexOptions.TEXT_DOCUMENT_PARTITION_TIMESTAMP, "complex.time")));
+        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.time")));
         metaDataBuilder.addIndex("SimpleDocument", "simple$group", field("group"));
     }
 

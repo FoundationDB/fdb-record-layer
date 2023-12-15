@@ -234,7 +234,7 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
-    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, long group, int score, boolean isSeen, double time) {
+    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, long group, int score, boolean isSeen, long time) {
         return TestRecordsTextProto.ComplexDocument.newBuilder()
                 .setDocId(docId)
                 .setText(text)

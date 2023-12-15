@@ -102,7 +102,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner.isPartitioningEnabled() ? 0 : null /* TO DO */);
+            // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
+            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner.isPartitioningEnabled() ? 0 : null);
             return AsyncUtil.DONE;
         }
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
@@ -116,11 +117,12 @@ public class FDBDirectoryManager implements AutoCloseable {
                 null,
                 ScanProperties.FORWARD_SCAN);
 
+        // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
         return cursor
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEach(groupingKey ->
-                        mergeIndex(analyzerWrapper, groupingKey, partitioner.isPartitioningEnabled() ? 0 : null /* TO DO */));
+                        mergeIndex(analyzerWrapper, groupingKey, partitioner.isPartitioningEnabled() ? 0 : null));
     }
 
     private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable Integer partitionId) {
