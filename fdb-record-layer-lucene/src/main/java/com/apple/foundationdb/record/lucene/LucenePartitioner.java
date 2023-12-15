@@ -266,7 +266,7 @@ public class LucenePartitioner {
                         if (!createIfNotExists) {
                             throw new RecordCoreException("Partition metadata not found", "timestamp", timestamp);
                         } else {
-                            return newPartitionMetadata();
+                            return newPartitionMetadata(timestamp);
                         }
                     } else {
                         return oldestPartition;
@@ -334,11 +334,11 @@ public class LucenePartitioner {
      * @return partition metadata instance
      */
     @Nonnull
-    private LucenePartitionInfoProto.LucenePartitionInfo newPartitionMetadata() {
+    private LucenePartitionInfoProto.LucenePartitionInfo newPartitionMetadata(long timestamp) {
         return LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
                 .setCount(0)
                 .setTo(ByteString.copyFrom(Tuple.from(0L).pack()))
-                .setFrom(ByteString.copyFrom(Tuple.from(0L).pack()))
+                .setFrom(ByteString.copyFrom(Tuple.from(timestamp).pack()))
                 .setId(0)
                 .build();
     }
