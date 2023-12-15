@@ -550,14 +550,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:things", 1), null, ScanProperties.FORWARD_SCAN));
             assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
-
-            Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
-            Subspace partition2Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(2, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
-
             // now delete ENGINEER_JOKE from group 1, and verify
             recordStore.deleteRecord(Tuple.from(1, 6666L));
             assertIndexEntryPrimaryKeyTuples(Set.of(),
                     recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ScanProperties.FORWARD_SCAN));
+
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition2Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(2, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
 
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition2Subspace, context, "_0.cfs");

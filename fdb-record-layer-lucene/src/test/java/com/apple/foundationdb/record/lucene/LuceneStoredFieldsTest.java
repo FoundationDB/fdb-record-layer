@@ -293,8 +293,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     Tuple.from(7, 1625L), true));
             queryAndAssertFieldsTuple(query, "time", Map.of(
                     Tuple.from(6, 1624L), 8123L,
-                    Tuple.from(7, 1625L), 9123L)
-                    );
+                    Tuple.from(7, 1625L), 9123L));
 
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
