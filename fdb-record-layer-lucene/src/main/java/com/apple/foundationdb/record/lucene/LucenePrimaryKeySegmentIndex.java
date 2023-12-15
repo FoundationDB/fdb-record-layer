@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -52,6 +53,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -76,15 +78,21 @@ public class LucenePrimaryKeySegmentIndex {
      */
     @VisibleForTesting
     public List<List<Object>> readAllEntries() {
+        AtomicReference<List<List<Object>>> list = new AtomicReference<>();
+        directory.getAgilityContext().accept(aContext -> readAllEntries(aContext, list));
+        return list.get();
+    }
+
+    private void readAllEntries(FDBRecordContext aContext, AtomicReference<List<List<Object>>> list) {
         List<Tuple> tuples;
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(subspace)
-                .setContext(directory.getContext())
+                .setContext(aContext)
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
-                RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = directory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList());
+                 RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
+            tuples = aContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList());
         }
-        return tuples.stream().map(t -> {
+        list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
             // Replace segment id with segment name to make inspection easier.
             String name = directory.primaryKeySegmentName((Long)items.get(items.size() - 2));
@@ -93,7 +101,7 @@ public class LucenePrimaryKeySegmentIndex {
             }
             items.set(items.size() - 1, ((Long)items.get(items.size() - 1)).intValue());
             return items;
-        }).collect(Collectors.toList());
+        }).collect(Collectors.toList()));
     }
 
     /**
@@ -126,10 +134,17 @@ public class LucenePrimaryKeySegmentIndex {
      */
     @Nullable
     public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
+        final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
+        directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
+        return doc.get();
+    }
+
+    private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
+                                            @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
         final SegmentInfos segmentInfos = ((StandardDirectoryReader)FilterDirectoryReader.unwrap(directoryReader)).getSegmentInfos();
         final Subspace keySubspace = subspace.subspace(primaryKey);
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
-                .setContext(directory.getContext())
+                .setContext(aContext)
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                 RecordCursor<DocumentIndexEntry> documents = kvs.map(kv -> {
@@ -149,8 +164,8 @@ public class LucenePrimaryKeySegmentIndex {
                     }
                     return null;
                 }).filter(Objects::nonNull)) {
-            return directory.getContext().asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                    documents.first()).orElse(null);
+            doc.set(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    documents.first()).orElse(null));
         }
     }
 
@@ -239,8 +254,8 @@ public class LucenePrimaryKeySegmentIndex {
                 }
             }
 
-            directory.getContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
-            directory.getContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
+            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
+            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
 
             return docCount;
         }
@@ -294,9 +309,9 @@ public class LucenePrimaryKeySegmentIndex {
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
         final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId, docId).pack());
         if (add) {
-            directory.getContext().ensureActive().set(entryKey, new byte[0]);
+            directory.getAgilityContext().set(entryKey, new byte[0]);
         } else {
-            directory.getContext().ensureActive().clear(entryKey);
+            directory.getAgilityContext().clear(entryKey);
         }
     }
 
