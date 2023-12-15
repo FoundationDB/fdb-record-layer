@@ -107,6 +107,7 @@ public class LucenePartitioner {
      *
      * @param newRecord record to be written
      * @param groupingKey grouping key
+     * @param <M> message
      * @return partition id or <code>null</code> if partitioning isn't enabled on index
      */
     @Nullable
@@ -154,6 +155,7 @@ public class LucenePartitioner {
      *
      * @param oldRecord record to be deleted
      * @param groupingKey grouping key
+     * @param <M> message
      * @return partition id or <code>null</code> if partitioning isn't enabled on index
      */
     @Nullable
