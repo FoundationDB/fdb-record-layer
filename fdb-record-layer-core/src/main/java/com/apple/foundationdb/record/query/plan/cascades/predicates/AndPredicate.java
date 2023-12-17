@@ -134,6 +134,18 @@ public class AndPredicate extends AndOrPredicate {
         return new AndPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
+    @Override
+    public boolean isTautology() {
+        return getChildren().stream()
+                .allMatch(QueryPredicate::isTautology);
+    }
+
+    @Override
+    public boolean isContradiction() {
+        return getChildren().stream()
+                .anyMatch(QueryPredicate::isContradiction);
+    }
+
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                      @Nonnull QueryPredicate... operands) {
         return of(toList(first, second, operands), false);

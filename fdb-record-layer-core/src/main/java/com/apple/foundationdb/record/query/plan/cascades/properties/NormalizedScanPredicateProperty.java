@@ -23,13 +23,19 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -51,29 +57,44 @@ import java.util.Objects;
  * filter factor. Note that such a number can always be computed without actually materializing the CNF.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
+public class NormalizedScanPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
     @Nonnull
-    private static final NormalizedResidualPredicateProperty INSTANCE = new NormalizedResidualPredicateProperty();
+    private static final NormalizedScanPredicateProperty INSTANCE = new NormalizedScanPredicateProperty();
 
     @Nonnull
     @Override
     public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
-        return visitUnionPlan(unionPlan);
+        return visitSetPlan(unionPlan);
     }
 
     @Nonnull
     @Override
     public QueryPredicate visitRecordQueryUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unionPlan) {
-        return visitUnionPlan(unionPlan);
+        return visitSetPlan(unionPlan);
     }
 
     @Nonnull
-    protected QueryPredicate visitUnionPlan(@Nonnull final RecordQuerySetPlan unionPlan) {
-        final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
-                .filter(Objects::nonNull)
-                .filter(predicate -> !predicate.isTautology())
-                .collect(ImmutableList.toImmutableList());
-        return OrPredicate.orOrTrue(predicatesFromQuantifiers);
+    @Override
+    public QueryPredicate visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionPlan) {
+        return visitSetPlan(intersectionPlan);
+    }
+
+    @Nonnull
+    private QueryPredicate visitSetPlan(@Nonnull final RecordQuerySetPlan setPlan) {
+        final var predicatesFromQuantifiers = visitQuantifiers(setPlan);
+
+        QueryPredicate minScanPredicate = null;
+        long minConjuncts = Long.MAX_VALUE;
+        for (final QueryPredicate predicate : predicatesFromQuantifiers) {
+            final long numConjuncts = countNormalizedConjuncts(predicate);
+
+            if (minScanPredicate == null || numConjuncts < minConjuncts) {
+                minScanPredicate = predicate;
+                minConjuncts = numConjuncts;
+            }
+        }
+
+        return minScanPredicate == null ? ConstantPredicate.TRUE : minScanPredicate;
     }
 
     @Nonnull
@@ -81,14 +102,23 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
     public QueryPredicate evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<QueryPredicate> childResults) {
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
-        childResults.stream()
-                .filter(Objects::nonNull)
-                .filter(predicate -> !predicate.isTautology())
-                .forEach(resultPredicatesBuilder::add);
+        if (expression instanceof RecordQueryCoveringIndexPlan) {
+            expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
+        }
 
-        if (expression instanceof RelationalExpressionWithPredicates) {
-            ((RelationalExpressionWithPredicates)expression).getPredicates()
-                    .stream()
+        if (expression instanceof RecordQueryPlanWithComparisons) {
+            final var planWithComparisons = (RecordQueryPlanWithComparisons)expression;
+            if (planWithComparisons.hasComparisons()) {
+                planWithComparisons.getComparisons()
+                        .stream()
+                        .map(comparison ->
+                                new ValuePredicate(QuantifiedObjectValue.of(Quantifier.uniqueID(), Type.any()), comparison))
+                        .filter(predicate -> !predicate.isTautology())
+                        .forEach(resultPredicatesBuilder::add);
+            }
+        } else {
+            childResults.stream()
+                    .filter(Objects::nonNull)
                     .filter(predicate -> !predicate.isTautology())
                     .forEach(resultPredicatesBuilder::add);
         }

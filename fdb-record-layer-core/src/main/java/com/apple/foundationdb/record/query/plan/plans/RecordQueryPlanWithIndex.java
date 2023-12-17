@@ -131,7 +131,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
 
         final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
         final Optional<IndexKeyValueToPartialRecord> indexKeyValueToPartialRecordOptional =
-                scanWithFetchMatchCandidate.compileIndexKeyValueToPartialRecordMaybe(recordType);
+                scanWithFetchMatchCandidate.computeIndexKeyValueToPartialRecordMaybe(recordType);
         if (indexKeyValueToPartialRecordOptional.isEmpty()) {
             return Optional.empty();
         }

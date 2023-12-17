@@ -69,7 +69,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
     }
 
     @Nonnull
-    Optional<IndexKeyValueToPartialRecord> compileIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType);
+    Optional<IndexKeyValueToPartialRecord> computeIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType);
 
     private static boolean isOfPushableTypes(@Nonnull Value toBePushedValue) {
         if (toBePushedValue instanceof FieldValue) {

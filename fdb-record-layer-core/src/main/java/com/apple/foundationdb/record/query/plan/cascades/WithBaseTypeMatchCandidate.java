@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import javax.annotation.Nonnull;
 
 /**
- * Trait to implement some default logic for {@link MatchCandidate}s that are defined using a base quantifier, that is,
- * match candidates that are not true join indexes.
+ * Trait to implement some default logic for {@link MatchCandidate}s that are defined using a base type, that is,
+ * match candidates that do not represent true join indexes.
  */
 public interface WithBaseTypeMatchCandidate extends MatchCandidate {
 

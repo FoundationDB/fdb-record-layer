@@ -20,12 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
-import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -34,11 +32,9 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -231,63 +227,21 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
-        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder)
-                .orElseGet(() ->
-                        new RecordQueryIndexPlan(index.getName(),
-                                primaryKey,
-                                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
-                                planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                                reverseScanOrder,
-                                false,
-                                partialMatch.getMatchCandidate(),
-                                (Type.Record)baseType,
-                                matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
-    }
-
-    @Nonnull
-    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                @Nonnull final PlanContext planContext,
-                                                                @Nonnull final Memoizer memoizer,
-                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                                final boolean isReverse) {
-        if (queriedRecordTypes.size() > 1) {
-            return Optional.empty();
-        }
-
-        final RecordType recordType = Iterables.getOnlyElement(getQueriedRecordTypes());
-        final Optional<IndexKeyValueToPartialRecord> indexKeyValueToPartialRecordOptional =
-                compileIndexKeyValueToPartialRecordMaybe(recordType);
-        if (indexKeyValueToPartialRecordOptional.isEmpty()) {
-            return Optional.empty();
-        }
-        final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord = indexKeyValueToPartialRecordOptional.get();
-
-        final IndexScanParameters scanParameters = IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
-        final RecordQueryPlanWithIndex indexPlan =
-                new RecordQueryIndexPlan(index.getName(),
-                        getPrimaryKeyMaybe().orElseThrow(() -> new RecordCoreException("primary key is not resolved")),
-                        scanParameters,
-                        planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                        isReverse,
-                        false,
-                        partialMatch.getMatchCandidate(),
-                        (Type.Record)baseType,
-                        partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
-
-        final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
-                recordType.getName(),
-                AvailableFields.NO_FIELDS, // not used except for old planner properties
-                indexKeyValueToPartialRecord);
-
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
-                coveringIndexPlan::pushValueThroughFetch, baseType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+        return new RecordQueryIndexPlan(index.getName(),
+                primaryKey,
+                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                planContext.getPlannerConfiguration().getIndexFetchMethod(),
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                reverseScanOrder,
+                false,
+                partialMatch.getMatchCandidate(),
+                (Type.Record)baseType,
+                matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
     }
 
     @Nonnull
     @Override
-    public Optional<IndexKeyValueToPartialRecord> compileIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType) {
+    public Optional<IndexKeyValueToPartialRecord> computeIndexKeyValueToPartialRecordMaybe(@Nonnull final RecordType recordType) {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
         for (int i = 0; i < indexKeyValues.size(); i++) {

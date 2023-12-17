@@ -185,25 +185,35 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final ImmutableSet.Builder<CorrelationIdentifier> pushableAliasesBuilder = ImmutableSet.builder();
         final ImmutableList.Builder<Quantifier.Physical> pushableQuantifiersBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<RecordPlanWithFetch> withoutFetchPlansBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<RecordQueryPlan> withoutFetchPlansBuilder = ImmutableList.builder();
         final ImmutableList.Builder<TranslateValueFunction> pushableDependentFunctionsBuilder = ImmutableList.builder();
+        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
         for (int i = 0; i < quantifiersOverFetches.size(); i++) {
             final Quantifier.Physical quantifier = quantifiersOverFetches.get(i);
             final CorrelationIdentifier alias = quantifier.getAlias();
             if (pushableAliasesByValue.contains(alias)) {
-                final Optional<RecordQueryPlan> withoutFetchPlanOptional = fetchPlans.get(i).removeFetchMaybe();
+                final RecordPlanWithFetch fetchPlan = fetchPlans.get(i);
+                final Optional<RecordQueryPlan> withoutFetchPlanOptional = fetchPlan.removeFetchMaybe();
                 if (withoutFetchPlanOptional.isPresent()) {
                     pushableAliasesBuilder.add(alias);
                     pushableQuantifiersBuilder.add(quantifier);
-                    withoutFetchPlansBuilder.add(fetchPlans.get(i));
+                    withoutFetchPlansBuilder.add(withoutFetchPlanOptional.get());
                     pushableDependentFunctionsBuilder.add(dependentFunctions.get(i));
+
+                    if (fetchIndexRecords == null) {
+                        fetchIndexRecords = fetchPlan.getFetchIndexRecords();
+                    } else {
+                        if (fetchIndexRecords != fetchPlan.getFetchIndexRecords()) {
+                            return;
+                        }
+                    }
                 }
             }
         }
 
         final ImmutableSet<CorrelationIdentifier> pushableAliases = pushableAliasesBuilder.build();
         final ImmutableList<Quantifier.Physical> pushableQuantifiers = pushableQuantifiersBuilder.build();
-        final ImmutableList<RecordPlanWithFetch> withoutFetchPlans = withoutFetchPlansBuilder.build();
+        final ImmutableList<RecordQueryPlan> withoutFetchPlans = withoutFetchPlansBuilder.build();
         final ImmutableList<TranslateValueFunction> pushableDependentFunctions = pushableDependentFunctionsBuilder.build();
 
         // if set operation is dynamic all aliases must be pushable
@@ -224,17 +234,6 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                         .map(quantifier -> (Quantifier.Physical)quantifier)
                         .filter(quantifier -> !pushableAliases.contains(quantifier.getAlias()))
                         .collect(ImmutableList.toImmutableList());
-
-        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
-        for (final var pushableFetchPlan : withoutFetchPlans) {
-            if (fetchIndexRecords == null) {
-                fetchIndexRecords = pushableFetchPlan.getFetchIndexRecords();
-            } else {
-                if (fetchIndexRecords != pushableFetchPlan.getFetchIndexRecords()) {
-                    return;
-                }
-            }
-        }
 
         final List<? extends ExpressionRef<? extends RecordQueryPlan>> newPushedInnerPlans =
                 withoutFetchPlans

@@ -467,8 +467,6 @@ public class CascadesPlanner implements QueryPlanner {
         if (rulesIterator.hasNext()) {
             taskStack.push(new OptimizeTransform(context, group, expression, rulesIterator,
                     evaluationContext));
-        } else {
-            System.out.println("done2");
         }
     }
 
@@ -1097,6 +1095,7 @@ public class CascadesPlanner implements QueryPlanner {
     private class OptimizeTransform extends AbstractTransform<CascadesOptimizationRuleCall> {
         @Nonnull
         private final Iterator<CascadesRule<? extends RelationalExpression>> rulesIterator;
+        private RelationalExpression newExpression;
 
         protected OptimizeTransform(@Nonnull PlanContext context,
                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
@@ -1105,6 +1104,7 @@ public class CascadesPlanner implements QueryPlanner {
                                     @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, rulesIterator.next(), evaluationContext);
             this.rulesIterator = rulesIterator;
+            this.newExpression = null;
         }
 
         @Nonnull
@@ -1126,22 +1126,33 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        protected void executeRuleCall(@Nonnull final CascadesOptimizationRuleCall ruleCall) {
-            ruleCall.run();
+        public void execute() {
+            super.execute();
 
-            if (ruleCall.getNewExpression() == null) {
-                // enqueue the next optimization transform task if there is one
+            if (newExpression == null) {
                 if (rulesIterator.hasNext()) {
                     taskStack.push(new OptimizeTransform(getContext(), getGroup(), getExpression(), rulesIterator, getEvaluationContext()));
-                } else {
-                    System.out.println("done");
                 }
             } else {
                 //
-                // We made progress; reset the rules iterator and start again; note that group has already been
+                // We made progress; reset the rules iterator and start again; note that the group has already been
                 // pruned with newExpression in the yield() call.
                 //
-                optimizeExpression(getContext(), getGroup(), ruleCall.getNewExpression(), getEvaluationContext());
+                optimizeExpression(getContext(), getGroup(), newExpression, getEvaluationContext());
+            }
+        }
+
+        @Override
+        protected void executeRuleCall(@Nonnull final CascadesOptimizationRuleCall ruleCall) {
+            ruleCall.run();
+
+            if (ruleCall.getNewExpression() != null) {
+                //
+                // We made progress; reset the rules iterator and start again; note that the group has already been
+                // pruned with newExpression in the yield() call.
+                //
+                Verify.verify(this.newExpression == null);
+                this.newExpression = ruleCall.getNewExpression();
             }
         }
     }

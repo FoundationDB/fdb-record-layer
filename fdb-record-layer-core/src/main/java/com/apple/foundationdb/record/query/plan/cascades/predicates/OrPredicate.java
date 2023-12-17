@@ -322,6 +322,19 @@ public class OrPredicate extends AndOrPredicate {
         return new OrPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
+    @Override
+    public boolean isTautology() {
+        return getChildren().stream()
+                .anyMatch(QueryPredicate::isTautology);
+    }
+
+    @Override
+    public boolean isContradiction() {
+        return getChildren().stream()
+                .allMatch(QueryPredicate::isContradiction);
+    }
+
+
     @Nonnull
     public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                     @Nonnull QueryPredicate... operands) {
