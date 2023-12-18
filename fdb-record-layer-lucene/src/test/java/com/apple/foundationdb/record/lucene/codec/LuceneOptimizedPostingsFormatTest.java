@@ -1,5 +1,5 @@
 /*
- * LuceneOptimizedStoredFieldsFormatTest.java
+ * LuceneOptimizedPostingsFormatTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,20 +20,17 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+
 import com.carrotsearch.randomizedtesting.annotations.Seed;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.compressing.CompressingCodec;
 import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
+import org.apache.lucene.index.BasePostingsFormatTestCase;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
-import org.junit.Before;
 import org.junit.BeforeClass;
 
 import java.io.IOException;
-import java.util.Random;
 
 /**
  * Test for {@link LuceneOptimizedStoredFieldsFormat} that gets the actual test cases from {@link BaseStoredFieldsFormatTestCase}.
@@ -52,74 +49,28 @@ import java.util.Random;
 @TestRuleLimitSysouts.Limit(bytes = 50_000L) // 50k assuming debug logging
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
-public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
-
-    public LuceneOptimizedStoredFieldsFormatTest() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.getDatabase();
-    }
+public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCase {
 
     @BeforeClass
-    public static void beforeClass() throws Exception {
-        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
-        // but that class is JUnit4
-        FDBTestBase.initFDB();
-        FDBTestBase.setupBlockingInAsyncDetection();
+    public static void beforeClass() {
+        BaseIndexFileFormatTestCaseUtils.beforeClass();
     }
 
     @Override
     protected Codec getCodec() {
-        if (isUsingFDBDirectory()) {
-            return new TestingCodec();
-        } else {
-            return CompressingCodec.randomInstance(new Random());
-        }
-    }
-
-    private static boolean isUsingFDBDirectory() {
-        return System.getProperty("tests.directory", "random").equals(TestFDBDirectory.class.getName());
+        return BaseIndexFileFormatTestCaseUtils.getCodec();
     }
 
     @Override
-    @Before
     public void setUp() throws Exception {
         super.setUp();
-        TestingCodec.reset();
-        TestFDBDirectory.reset();
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        TestingCodec.reset();
-        TestFDBDirectory.reset();
-    }
-
-    @Override
-    public void testNumericField() throws Exception {
-        TestingCodec.disableLaziness();
-        super.testNumericField();
-    }
-
-    @Override
-    public void testRandomExceptions() throws Exception {
-        // Failed due to UncheckedIOException with @Seed("6EA33D597F925691")
-        TestingCodec.disableLazinessForLiveDocs();
-        super.testRandomExceptions();
-    }
-
-    @Override
-    @Nightly // copied from base implementation, it doesn't appear to be inherited
-    public void testRamBytesUsed() throws IOException {
-        TestingCodec.disableLaziness();
-        TestFDBDirectory.useFullBufferToSurviveDeletes();
-        super.testRamBytesUsed();
-    }
-
-    @Override
-    public void testMismatchedFields() throws Exception {
-        TestFDBDirectory.allowAddIndexes();
-        super.testMismatchedFields();
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override
