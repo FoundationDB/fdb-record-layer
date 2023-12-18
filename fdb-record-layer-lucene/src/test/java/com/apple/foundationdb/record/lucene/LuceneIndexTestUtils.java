@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -257,5 +258,20 @@ public class LuceneIndexTestUtils {
                         .setThirdValue("thirdValue" + docId)
                         .build())
                 .build();
+    }
+
+    /**
+     * Try to force a segment merge on the provided store using the given index. The merge will be triggered if there are
+     * sufficient conditions for one.
+     * @param recordStore the store where the index is stored
+     * @param index the Lucene indes to merge
+     */
+    public static void mergeSegments(final FDBRecordStore recordStore, final Index index) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .build()) {
+            indexBuilder.mergeIndex();
+        }
     }
 }
