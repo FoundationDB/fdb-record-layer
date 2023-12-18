@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.apache.lucene.store.AlreadyClosedException;
+import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -34,11 +38,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -50,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for FDBDirectory validating it can function as a backing store
@@ -233,4 +241,62 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertThat(String.format("Metric %s should be called at most %d times", metric, maximumValue),
                 timer.getCount(metric), lessThanOrEqualTo(maximumValue));
     }
+
+
+    @Test
+    void testFileLock() throws IOException {
+        String lockName = "file.lock";
+        final Lock lock1 = directory.obtainLock(lockName);
+        lock1.ensureValid();
+        RecordCoreException e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
+        assertTrue(e.getMessage().contains("found old lock"));
+        lock1.ensureValid();
+        lock1.close();
+        assertThrows(AlreadyClosedException.class, lock1::ensureValid);
+        final Lock lock2 = directory.obtainLock(lockName);
+        lock2.ensureValid();
+        e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
+        assertTrue(e.getMessage().contains("found old lock"));
+        lock2.ensureValid();
+        lock2.close();
+    }
+
+    @Test
+    void testAgilityContext() throws ExecutionException, InterruptedException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            final AgilityContext agilityContext = AgilityContext.factory(context, true);
+            agilityContextTestSingleThread(0, agilityContext);
+            agilityContextTestSingleThread(1, agilityContext);
+            agilityContextTestSingleThread(1, agilityContext);
+
+            for (int loop = 0; loop < 20; loop++) {
+                IntStream.rangeClosed(0, 17).parallel().forEach(i -> {
+                    try {
+                        agilityContextTestSingleThread(i, agilityContext);
+                    } catch (ExecutionException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+        }
+    }
+
+    private void agilityContextTestSingleThread(int i, AgilityContext agilityContext) throws ExecutionException, InterruptedException {
+        byte[] key = Tuple.from(500, i).pack();
+        byte[] val = Tuple.from(i).pack();
+        try {
+            agilityContext.set(key, val);
+            if (random.nextInt(10) > 7) { // keep some un-flushed values
+                final byte[] bytes = agilityContext.get(key).get();
+                long readVal = Tuple.fromBytes(bytes).getLong(0); // maybe flushed, probably not
+                assertEquals(readVal, i);
+                agilityContext.flush();
+                readVal = Tuple.fromBytes(bytes).getLong(0); // surely flushed
+                assertEquals(readVal, i);
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
