@@ -204,7 +204,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                 IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    INDEX_PARTITION_BY_TIMESTAMP, "time"));
+                    INDEX_PARTITION_BY_TIMESTAMP, "timestamp"));
 
     private static final List<KeyExpression> COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS = ImmutableList.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
     private static final Index COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE = new Index("Complex$text_multiple_grouped_autocomplete",
@@ -535,10 +535,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void basicGroupedPartitionedTest() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, "", 1, 2, false, Instant.now().toEpochMilli()));
-            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, "", 2, 2, false, Instant.now().toEpochMilli()));
-            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, "", 2, 2, true, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
-            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", "", 1, 2, true, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
 
             // should find only one match for ENGINEER_JOKE (the other match is in the other group)
             assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 7777L)),
@@ -575,7 +575,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                 field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
                 )
-        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.time")));
+        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp")));
         metaDataBuilder.addIndex("SimpleDocument", "simple$group", field("group"));
     }
 
@@ -588,7 +588,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .setGroup(42)
                     .setDocId(5)
                     .setIsSeen(true)
-                    .setTime(System.currentTimeMillis())
+                    .setTimestamp(System.currentTimeMillis())
                     .build();
             TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
                     .setGroup(42)

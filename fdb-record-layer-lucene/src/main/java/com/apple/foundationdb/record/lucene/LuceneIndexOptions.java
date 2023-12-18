@@ -79,6 +79,7 @@ public class LuceneIndexOptions {
      * Whether to use the StoredFields format that stores data in K/V (TRUE) pairs or in the standard Lucene file (FALSE).
      */
     public static final String OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED = "optimizedStoredFieldsFormatEnabled";
+
     /**
      * Option to designate a record field as the timestamp by which the corresponding document would be partitioned in
      * Lucene.
@@ -89,13 +90,13 @@ public class LuceneIndexOptions {
      * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new
      * partition would be created.
      */
-    public static final String INDEX_PARTITIION_HI_WATERMARK = "partitionHiWatermark";
+    public static final String INDEX_PARTITION_HI_WATERMARK = "partitionHiWatermark";
 
     /**
      * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for
      * merge with another adjacent partition.
      */
-    public static final String INDEX_PARTITIION_LO_WATERMARK = "partitionLoWatermark";
+    public static final String INDEX_PARTITION_LOW_WATERMARK = "partitionLowWatermark";
 
     private LuceneIndexOptions() {
     }

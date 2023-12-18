@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
@@ -187,7 +188,7 @@ public class LucenePartitioner {
 
         if (builder.getCount() < 0) {
             // should never happen
-            throw new RecordCoreException("Issue updating Lucene partition metadata (resulting count < 0)", "partitionId", assignedPartition.getId());
+            throw new RecordCoreException("Issue updating Lucene partition metadata (resulting count < 0)", LogMessageKeys.PARTITION_ID, assignedPartition.getId());
         }
         savePartitionMetadata(groupKey, builder);
         return assignedPartition.getId();
@@ -266,7 +267,7 @@ public class LucenePartitioner {
                 return getOldestPartition(groupKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
                         if (!createIfNotExists) {
-                            throw new RecordCoreException("Partition metadata not found", "timestamp", timestamp);
+                            throw new RecordCoreException("Partition metadata not found", LogMessageKeys.PARTITIONING_TIMESTAMP, timestamp);
                         } else {
                             return newPartitionMetadata(timestamp);
                         }
@@ -307,7 +308,7 @@ public class LucenePartitioner {
         } else {
             return getPartitioningTimestampValue(actualFieldName, rec.getRecord().getAllFields());
         }
-        throw new RecordCoreArgumentException("error getting partitioning timestamp", "fieldName" , getPartitionTimestampFieldName());
+        throw new RecordCoreArgumentException("error getting partitioning timestamp", LogMessageKeys.FIELD_NAME , getPartitionTimestampFieldName());
     }
 
     /**
@@ -325,7 +326,7 @@ public class LucenePartitioner {
                 return (Long)field.getValue();
             }
         }
-        throw new RecordCoreArgumentException("error getting partitioning timestamp", "fieldName", getPartitionTimestampFieldName());
+        throw new RecordCoreArgumentException("error getting partitioning timestamp", LogMessageKeys.FIELD_NAME, getPartitionTimestampFieldName());
     }
 
     /**
@@ -337,7 +338,7 @@ public class LucenePartitioner {
     private LucenePartitionInfoProto.LucenePartitionInfo newPartitionMetadata(long timestamp) {
         return LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
                 .setCount(0)
-                .setTo(ByteString.copyFrom(Tuple.from(0L).pack()))
+                .setTo(ByteString.copyFrom(Tuple.from(timestamp).pack()))
                 .setFrom(ByteString.copyFrom(Tuple.from(timestamp).pack()))
                 .setId(0)
                 .build();

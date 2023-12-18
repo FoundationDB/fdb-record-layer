@@ -306,6 +306,10 @@ public enum LogMessageKeys {
     HASH_FUNCTION,
     HASH,
 
+    // Lucene
+    PARTITION_ID,
+    PARTITIONING_TIMESTAMP,
+
     // Record context properties
     PROPERTY_NAME,
     PROPERTY_TYPE,

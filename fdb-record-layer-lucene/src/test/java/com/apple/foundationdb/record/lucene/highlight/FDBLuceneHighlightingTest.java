@@ -114,7 +114,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
     void highlightedNumberRangeQuery() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_STORED_COMPLEX);
-            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, 12, false, 8123));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, 12, false, 8.123));
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
                             recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND group: 5"), null, ScanProperties.FORWARD_SCAN),
@@ -129,7 +129,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4913 TO 8142]"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4.913 TO 8.142]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(Collections.emptyList(),
                     recordStore.fetchIndexRecords(
@@ -141,7 +141,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(Collections.emptyList(),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "time: [4913 TO 8142]"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "time: [4.913 TO 8.142]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
         }
     }
