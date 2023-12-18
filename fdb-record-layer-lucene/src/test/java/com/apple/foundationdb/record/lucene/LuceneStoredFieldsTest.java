@@ -408,3 +408,4 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         return useOptimizedStoredFieldFormat ? TEXT_AND_STORED_COMPLEX : TEXT_AND_STORED_COMPLEX_WITHOUT_OPT_STORED_FIELDS;
     }
 }
+
