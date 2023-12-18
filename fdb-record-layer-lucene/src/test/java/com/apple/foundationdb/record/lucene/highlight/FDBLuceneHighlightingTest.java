@@ -129,7 +129,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(List.of("Hello {record} layer"),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4.913 TO 8.142]"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "text: record AND time: [4.913442 TO 8.14234]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(Collections.emptyList(),
                     recordStore.fetchIndexRecords(
@@ -141,7 +141,7 @@ public class FDBLuceneHighlightingTest extends FDBRecordStoreTestBase {
                             IndexOrphanBehavior.ERROR));
             assertRecordHighlights(Collections.emptyList(),
                     recordStore.fetchIndexRecords(
-                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "time: [4.913 TO 8.142]"), null, ScanProperties.FORWARD_SCAN),
+                            recordStore.scanIndex(TEXT_AND_STORED_COMPLEX, fullTextSearch(TEXT_AND_STORED_COMPLEX, "time: [4.913442 TO 8.14234]"), null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR));
         }
     }
