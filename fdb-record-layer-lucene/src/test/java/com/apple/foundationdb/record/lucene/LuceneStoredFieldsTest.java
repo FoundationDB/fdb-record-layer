@@ -161,6 +161,9 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testInsertDeleteDocuments(boolean useOptimizedStoredFieldsFormat) throws Exception {
         Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
+                .build();
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -176,8 +179,21 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.deleteRecord(Tuple.from(1547L));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
+            LuceneIndexTestUtils.mergeSegments(recordStore, index);
+            if (useOptimizedStoredFieldsFormat) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                    // After a merge, all tombstones are removed and one document remains
+                    assertDocCountPerSegment(directory, List.of("_0", "_1", "_2"), List.of(0, 0, 1));
+                }
+                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+            }
         }
     }
 
@@ -206,6 +222,9 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testInsertUpdateDocuments(boolean useOptimizedStoredFieldsFormat) throws Exception {
         Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
+                .build();
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -221,10 +240,22 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            recordStore.updateRecord(createSimpleDocument(1624L, "Document 4 modified", 2));
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(
                     1623L, "Document 3 modified",
-                    1624L, "Document 2"));
+                    1624L, "Document 4 modified"));
+            LuceneIndexTestUtils.mergeSegments(recordStore, index);
+            if (useOptimizedStoredFieldsFormat) {
+                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                    // All 3 segments are going to merge to one with all documents
+                    assertDocCountPerSegment(directory, List.of("_0", "_1", "_2", "_3"), List.of(0, 0, 0, 3));
+                }
+            }
         }
     }
 
@@ -232,6 +263,9 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testDeleteAllDocuments(boolean useOptimizedStoredFieldsFormat) throws Exception {
         Index index = getSimpleTextIndex(useOptimizedStoredFieldsFormat);
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
+                .build();
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -247,13 +281,14 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecord(Tuple.from(1547L));
             context.commit();
         }
-        try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of());
+            LuceneIndexTestUtils.mergeSegments(recordStore, index);
             if (useOptimizedStoredFieldsFormat) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    // When deleting all docs from the index, the last segment (_1) gets removed, leaving the _0 segment with the 3 tombstones
+                    // When deleting all docs from the index, the first segment (_0) was merged away and the last segment (_1) gets removed
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(0, 0));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
@@ -373,3 +408,4 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         return useOptimizedStoredFieldFormat ? TEXT_AND_STORED_COMPLEX : TEXT_AND_STORED_COMPLEX_WITHOUT_OPT_STORED_FIELDS;
     }
 }
+
