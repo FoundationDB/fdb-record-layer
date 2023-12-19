@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
@@ -253,8 +254,7 @@ public class FDBIndexInput extends IndexInput {
         final FDBLuceneFileReference fileReference = getFileReference();
         return new FDBIndexInput(sliceDescription, resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
                 new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
-                offset + initialOffset, 0L, currentBlock, currentData
-                );
+                offset + initialOffset, 0L, currentBlock, currentData);
     }
 
     /**
@@ -279,6 +279,9 @@ public class FDBIndexInput extends IndexInput {
     @Override
     public byte readByte() throws IOException {
         final FDBLuceneFileReference fileReference = getFileReference();
+        if (position >= fileReference.getSize()) {
+            throw new EOFException("read past EOF: " + this);
+        }
         try {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
             position++;
@@ -304,9 +307,13 @@ public class FDBIndexInput extends IndexInput {
      * @param length length
      */
     @Override
-    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
+    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
         int bytesRead = 0;
-        long blockSize = getFileReference().getBlockSize();
+        final FDBLuceneFileReference fileReference = getFileReference();
+        if (position + length > fileReference.getSize()) {
+            throw new EOFException("read past EOF: " + this);
+        }
+        long blockSize = fileReference.getBlockSize();
         while (bytesRead < length) {
             long inBlockPosition = (absolutePosition() % blockSize);
             int toRead = (int) (length - bytesRead + inBlockPosition > blockSize ? blockSize - inBlockPosition : length - bytesRead);
