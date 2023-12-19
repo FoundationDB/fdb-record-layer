@@ -112,6 +112,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private boolean exhausted = false;
     @Nullable
     private final Tuple groupingKey;
+    @Nullable final Integer partitionId;
     @Nullable
     private final List<String> storedFields;
     @Nonnull
@@ -141,6 +142,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable Sort sort,
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
+                       @Nullable Integer partitionId,
                        @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable Map<String, Set<String>> termMap,
                        @Nullable final List<String> storedFields,
@@ -174,6 +176,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
+        this.partitionId = partitionId;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.termMap = termMap;
         this.analyzerSelector = analyzerSelector;
@@ -256,7 +259,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey);
+        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
     }
 
     private void maybePerformScan() throws IOException {
