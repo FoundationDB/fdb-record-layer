@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
@@ -42,13 +40,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -97,14 +92,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB =
                 FindExpressionProperty.evaluate(interestingPlanClasses, b);
 
-        if (planOpsMapA.get(RecordQueryPlanWithIndex.class).size() == 1 && planOpsMapB.get(RecordQueryPlanWithIndex.class).size() == 1) {
-            final var indexA = Iterables.getOnlyElement(planOpsMapA.get(RecordQueryPlanWithIndex.class));
-            final var indexB = Iterables.getOnlyElement(planOpsMapB.get(RecordQueryPlanWithIndex.class));
-            if (isStartsWith(indexA) || isStartsWith(indexB)) {
-                System.out.println("here");
-            }
-        }
-
         final Cardinalities cardinalitiesA = CardinalitiesProperty.evaluate(a);
         final Cardinalities cardinalitiesB = CardinalitiesProperty.evaluate(b);
 
@@ -133,16 +120,16 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             }
         }
 
-        int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
-                NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
-        if (unsatisfiedFilterCompare != 0) {
-            return unsatisfiedFilterCompare;
-        }
-
         int scanFilterCompare = Long.compare(NormalizedScanPredicateProperty.countNormalizedConjuncts(b),
                 NormalizedScanPredicateProperty.countNormalizedConjuncts(a));
         if (scanFilterCompare != 0) {
             return scanFilterCompare;
+        }
+
+        int normalizedResidualPredicateCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
+                NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
+        if (normalizedResidualPredicateCompare != 0) {
+            return normalizedResidualPredicateCompare;
         }
 
         final int numDataAccessA =
@@ -260,30 +247,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         }
 
         return 0;
-    }
-
-    boolean isStartsWith(final RelationalExpression plan) {
-        if (plan instanceof RecordQueryIndexPlan) {
-            final var indexPlan = (RecordQueryIndexPlan)plan;
-            final var sc = indexPlan.getScanComparisons().getInequalityComparisons();
-            if (sc.size() == 1) {
-                final var first = Iterables.getOnlyElement(sc);
-                return first.getType() == Comparisons.Type.STARTS_WITH;
-            }
-        } else if (plan instanceof RecordQueryPredicatesFilterPlan) {
-            final var predicatesPlan = (RecordQueryPredicatesFilterPlan)plan;
-            for (final var predicate : predicatesPlan.getPredicates()) {
-                if (predicate instanceof ValuePredicate) {
-                    final var comparison = ((ValuePredicate)predicate).getComparison();
-                    if (comparison.getType() == Comparisons.Type.STARTS_WITH) {
-                        return true;
-                    }
-                } else if (predicate instanceof PredicateWithValue) {
-                    System.out.println("yikes");
-                }
-            }
-        }
-        return false;
     }
 
     @Nonnull
