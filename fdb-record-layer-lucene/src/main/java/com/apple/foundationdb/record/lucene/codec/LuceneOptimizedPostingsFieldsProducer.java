@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsReaderBase;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.Terms;
@@ -37,7 +38,9 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
@@ -49,17 +52,28 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
     private final FieldInfos fieldInfos;
 
     private LazyOpener<List<String>> fieldsSupplier;
+    // order-preserving map of field numbers to field metadata
+    private final LazyOpener<LinkedHashMap<Long, PostingsFieldMetadata>> fieldMetadataSupplier;
+    private final LazyOpener<List<String>> fieldNameSupplier;
 
     public LuceneOptimizedPostingsFieldsProducer(final PostingsReaderBase postingsReader, SegmentReadState state, @Nonnull Directory directory) {
         this.postingsReader = postingsReader;
         this.directory = toFdbDirectory(directory);
         this.segmentName = state.segmentInfo.name;
         this.fieldInfos = state.fieldInfos;
-        fieldsSupplier = LazyOpener.supply(() ->
-                // get the field numbers, convert to field names
-                this.directory.getAllPostingFields(segmentName).stream()
-                        .map(field -> fieldInfos.fieldInfo(field))
-                        .map(field -> field.name)
+
+        fieldMetadataSupplier = LazyOpener.supply(() -> {
+            LinkedHashMap<Long, PostingsFieldMetadata> result = new LinkedHashMap<>();
+            this.directory.getAllPostingFieldMetadataStream(segmentName)
+                    .forEach(pair -> result.put(pair.getKey(), new PostingsFieldMetadata(pair.getValue())));
+            return result;
+        });
+        fieldNameSupplier = LazyOpener.supply(() ->
+                // Get the field names from the field numbers
+                // The iteration order is preserved from the map
+                fieldMetadataSupplier.get().keySet().stream()
+                        .map(fieldNumber -> fieldInfos.fieldInfo(fieldNumber.intValue()))
+                        .map(fieldInfo -> fieldInfo.name)
                         .collect(Collectors.toList()));
     }
 
@@ -76,7 +90,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
         if (LOG.isTraceEnabled()) {
             LOG.trace("iterator");
         }
-        return fieldsSupplier.getUnchecked().iterator();
+        return fieldNameSupplier.getUnchecked().iterator();
     }
 
     @Override
@@ -85,7 +99,10 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
             LOG.trace("terms");
         }
         assert field != null;
-        return new LuceneOptimizedTerms(segmentName, fieldInfos.fieldInfo(field), directory, postingsReader);
+        FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        // Since we need to iterate over all the fields it is OK to not lazily get the metadata here since we already brought it already
+        PostingsFieldMetadata metadata = fieldMetadataSupplier.get().get(fieldInfo.number);
+        return new LuceneOptimizedTerms(segmentName, fieldInfo, metadata, directory, postingsReader);
     }
 
     @Override
@@ -93,7 +110,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
         if (LOG.isTraceEnabled()) {
             LOG.trace("size");
         }
-        return fieldsSupplier.getUnchecked().size();
+        return fieldNameSupplier.getUnchecked().size();
     }
 
     @Override

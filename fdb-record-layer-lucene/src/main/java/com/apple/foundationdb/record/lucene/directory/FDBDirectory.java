@@ -123,6 +123,7 @@ public class FDBDirectory extends Directory  {
     private static final int PRIMARY_KEY_SUBSPACE = 4;
     private static final int FIELD_INFOS_SUBSPACE = 5;
     private static final int STORED_FIELDS_SUBSPACE = 6;
+    private static final int POSTINGS_FIELD_METADATA_SUBSPACE = 7;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     @Nonnull
@@ -132,6 +133,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace dataSubspace;
     private final Subspace fieldInfosSubspace;
     private final Subspace storedFieldsSubspace;
+    private final Subspace postingsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -204,6 +206,7 @@ public class FDBDirectory extends Directory  {
         this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
+        this.postingsSubspace = subspace.subspace(Tuple.from(POSTINGS_FIELD_METADATA_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -339,6 +342,22 @@ public class FDBDirectory extends Directory  {
                 .stream()
                 .map(keyValue -> Pair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
+
+    public Stream<Pair<Long, byte[]>> getAllPostingFieldMetadataStream(String segmentName) {
+        // TODO: Need to close the stream once done
+        final Subspace fieldSub = postingsSubspace.subspace(Tuple.from(segmentName));
+        return context.asyncToSync(
+                        LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA,
+                        context.ensureActive().getRange(fieldSub.range())
+                                .asList())
+                .stream()
+                .map(keyValue -> Pair.of(fieldSub.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
+    }
+
+    public byte[] getFieldMetadata(String segmentName, int fieldNumber) {
+        return null;
+    }
+
 
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)
@@ -529,12 +548,24 @@ public class FDBDirectory extends Directory  {
     }
 
     // TODO: return Byte[]
-    public List<Integer> getAllPostingFields(final String segmentName) {
+    public byte[] getPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
+        return new byte[0];
+    }
+
+    public AsyncIterator<KeyValue> scanPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
         return null;
     }
 
-    public byte[] getFieldMetadata(String segmentName, int fieldNumber) {
+    public AsyncIterator<KeyValue> scanAllPostingsTermsAsync(final String segmentName, final int number) {
         return null;
+    }
+
+    public byte[] getTermDocuments(final String segmentName, final int number, final long ord) {
+        return new byte[0];
+    }
+
+    public byte[] getTermDocumentPositions(final String segmentName, final int number, final long ord, final int docId) {
+        return new byte[0];
     }
 
     /**
@@ -1018,25 +1049,5 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public String getIndexOption(@Nonnull String key) {
         return indexOptions.get(key);
-    }
-
-    public byte[] getPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
-        return new byte[0];
-    }
-
-    public AsyncIterator<KeyValue> scanPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
-        return null;
-    }
-
-    public AsyncIterator<KeyValue> scanAllPostingsTermsAsync(final String segmentName, final int number) {
-        return null;
-    }
-
-    public byte[] getTermDocuments(final String segmentName, final int number, final long ord) {
-        return new byte[0];
-    }
-
-    public byte[] getTermDocumentPositions(final String segmentName, final int number, final long ord, final int docId) {
-        return new byte[0];
     }
 }

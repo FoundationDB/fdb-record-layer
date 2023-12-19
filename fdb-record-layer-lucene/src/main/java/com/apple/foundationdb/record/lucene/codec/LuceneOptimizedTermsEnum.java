@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.PostingsReaderBase;
