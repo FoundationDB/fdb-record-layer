@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for permuted min / max type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
+public class MinMaxIndexTest extends FDBRecordStoreTestBase {
 
     protected static final String INDEX_NAME = "permuted";
 
@@ -58,7 +58,7 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         return md -> {
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
                     Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1),
-                    min ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
+                    min ? IndexTypes.MIN : IndexTypes.MAX,
                     Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1")));
         };
     }
@@ -195,7 +195,7 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
             md.removeIndex(COUNT_UPDATES_INDEX.getName());
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
                     Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed", "str_value_indexed", "num_value_unique").group(1),
-                    IndexTypes.PERMUTED_MAX, Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "2")));
+                    IndexTypes.MAX, Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "2")));
         };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

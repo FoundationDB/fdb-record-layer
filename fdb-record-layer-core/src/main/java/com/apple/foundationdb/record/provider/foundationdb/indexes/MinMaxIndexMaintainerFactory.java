@@ -39,13 +39,13 @@ import java.util.Arrays;
 import java.util.Set;
 
 /**
- * A factory for {@link PermutedMinMaxIndexMaintainer} indexes.
+ * A factory for {@link MinMaxIndexMaintainer} indexes.
  */
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
-public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFactory {
+public class MinMaxIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = {
-        IndexTypes.PERMUTED_MIN, IndexTypes.PERMUTED_MAX
+        IndexTypes.MIN, IndexTypes.MAX
     };
 
     @Override
@@ -64,7 +64,7 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
                 validateGrouping(1);
                 int groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
                 validateNotVersion();
-                int permutedSize = PermutedMinMaxIndexMaintainer.getPermutedSize(index);
+                int permutedSize = MinMaxIndexMaintainer.getPermutedSize(index);
                 if (permutedSize < 0) {
                     throw new MetaDataException("permuted size cannot be negative", LogMessageKeys.INDEX_NAME, index.getName());
                 } else if (permutedSize == 0) {
@@ -87,7 +87,7 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-        return new PermutedMinMaxIndexMaintainer(state);
+        return new MinMaxIndexMaintainer(state);
     }
 
 }

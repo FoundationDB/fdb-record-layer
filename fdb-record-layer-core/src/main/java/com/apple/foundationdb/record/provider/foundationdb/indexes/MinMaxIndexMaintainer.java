@@ -61,7 +61,7 @@ import java.util.concurrent.CompletableFuture;
  * for an ordered range of {@code group} value(s) (including just a single group), list the maximum {@code value} for each {@code subgroup}, ordered by that maximum.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
+public class MinMaxIndexMaintainer extends StandardIndexMaintainer {
     protected enum Type {
         MIN, MAX
     }
@@ -69,7 +69,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     private final Type type;
     private final int permutedSize;
 
-    public PermutedMinMaxIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public MinMaxIndexMaintainer(@Nonnull IndexMaintainerState state) {
         super(state);
         type = getType(state.index);
         permutedSize = getPermutedSize(state.index);
@@ -84,10 +84,10 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     protected static Type getType(@Nonnull Index index) {
-        if (IndexTypes.PERMUTED_MIN.equals(index.getType())) {
+        if (IndexTypes.MIN.equals(index.getType())) {
             return Type.MIN;
         }
-        if (IndexTypes.PERMUTED_MAX.equals(index.getType())) {
+        if (IndexTypes.MAX.equals(index.getType())) {
             return Type.MAX;
         }
         throw new MetaDataException("Unknown index type for " + index);

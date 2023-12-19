@@ -152,12 +152,12 @@ public class IndexTypes {
     /**
      * An index remembering minimum values in a way that can enumerate minima ordered by value and not (part of the) group.
      */
-    public static final String PERMUTED_MIN = "permuted_" + FunctionNames.MIN;
+    public static final String MIN = FunctionNames.MIN;
 
     /**
      * An index remembering maximum values in a way that can enumerate maxima ordered by value and not (part of the) group.
      */
-    public static final String PERMUTED_MAX = "permuted_" + FunctionNames.MAX;
+    public static final String MAX = FunctionNames.MAX;
 
     /**
      * An index using multiple numerical dimensions based on a Hilbert R-tree.
