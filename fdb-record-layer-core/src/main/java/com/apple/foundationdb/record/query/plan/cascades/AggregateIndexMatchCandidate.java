@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -48,6 +50,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 
@@ -167,6 +170,15 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return index.isUnique();
     }
 
+    public boolean isPermuted() {
+        return IndexTypes.PERMUTED_MAX.equals(index.getType()) || IndexTypes.PERMUTED_MIN.equals(index.getType());
+    }
+
+    private int getPermutedCount() {
+        @Nullable String permutedSizeOption = index.getOption(IndexOptions.PERMUTED_SIZE_OPTION);
+        return permutedSizeOption == null ? 0 : Integer.parseInt(permutedSizeOption);
+    }
+
     @Nonnull
     @Override
     public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
@@ -177,11 +189,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
+        final AliasMap aliasMap = AliasMap.of(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+            int permutedIndex = indexWithPermutation(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeys.get(permutedIndex);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
@@ -202,9 +217,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             // Compute a Value for this normalized key.
             //
+            final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            /*
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             baseType);
+             */
 
             builder.add(
                     MatchedOrderingPart.of(value,
@@ -213,6 +231,23 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
 
         return builder.build();
+    }
+
+    private int indexWithPermutation(int i) {
+        if (isPermuted()) {
+            int permutedCount = getPermutedCount();
+            final GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression)index.getRootExpression();
+            int groupingCount = groupingKeyExpression.getGroupingCount();
+            if ( i < groupingCount - permutedCount) {
+                return i;
+            } else if (i >= groupingCount - permutedCount && i < groupingCount - permutedCount + groupingKeyExpression.getGroupedCount()) {
+                return i + permutedCount;
+            } else {
+                return i - permutedCount;
+            }
+        } else {
+            return i;
+        }
     }
 
     @Nonnull
@@ -226,30 +261,36 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             return Ordering.emptyOrder();
         }
 
+        final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
+        final AliasMap aliasMap = AliasMap.of(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+
         // TODO include the aggregate Value itself in the ordering.
         final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
-            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
-            final var comparison = equalityComparisons.get(i);
+            int permutedIndex = indexWithPermutation(i);
+            if (permutedIndex < normalizedKeyExpressions.size()) {
+                final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
 
-            if (normalizedKeyExpression.createsDuplicates()) {
-                continue;
+                if (normalizedKeyExpression.createsDuplicates()) {
+                    continue;
+                }
             }
 
-            final var normalizedValue =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
-                            baseType);
-            equalityBoundValueMapBuilder.put(normalizedValue, comparison);
+            final var comparison = equalityComparisons.get(i);
+            equalityBoundValueMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), comparison);
         }
 
         final var result = ImmutableList.<OrderingPart>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
-            final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
+            int permutedIndex = indexWithPermutation(i);
+            if (permutedIndex < normalizedKeyExpressions.size()) {
+                final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
 
-            if (normalizedKeyExpression.createsDuplicates()) {
-                break;
+                if (normalizedKeyExpression.createsDuplicates()) {
+                    break;
+                }
             }
 
             //
@@ -259,8 +300,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // I think that restriction can be relaxed.
             //
             final var normalizedValue =
+                    /*
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             baseType);
+                     */
+                    deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
             result.add(OrderingPart.of(normalizedValue, isReverse));
         }
@@ -316,11 +360,47 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
         Verify.verify(selectHavingFields.size() >= groupingCount);
 
+        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);
+        if (isPermuted()) {
+            addFieldsForPermutedIndexEntry(selectHavingFields, groupingCount, builder);
+        } else {
+            addFieldsForNonPermutedIndexEntry(selectHavingFields, groupingCount, builder);
+        }
+
+        if (!builder.isValid()) {
+            throw new RecordCoreException(String.format("could not generate a covering index scan operator for '%s'; Invalid mapping between index entries to partial record", index.getName()));
+        }
+        return builder.build();
+    }
+
+    private void addFieldsForPermutedIndexEntry(@Nonnull List<Value> selectHavingFields, int groupingCount, @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+        // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
+        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), groupingColn-permuted+1, ..., groupingColn) VALUE()
+        // groupingCount                : n+1
+        int permutedCount = getPermutedCount();
+
+        for (int i = 0; i < selectHavingFields.size(); i++) {
+            final Value keyValue = selectHavingFields.get(i);
+            if (keyValue instanceof FieldValue) {
+                int havingIndex;
+                if (i >= groupingCount - permutedCount && i < groupingCount) {
+                    havingIndex = i + permutedCount;
+                } else if (i >= groupingCount) {
+                    havingIndex = i - permutedCount;
+                } else {
+                    havingIndex = i;
+                }
+                final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(havingIndex));
+                addCoveringField(builder, (FieldValue)keyValue, fieldData);
+            }
+        }
+    }
+
+    private void addFieldsForNonPermutedIndexEntry(@Nonnull List<Value> selectHavingFields, int groupingCount, @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
         // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
         // groupingCount                : n+1
         // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
 
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);
         for (int i = 0; i < groupingCount; i++) {
             final Value keyValue = selectHavingFields.get(i);
             if (keyValue instanceof FieldValue) {
@@ -335,11 +415,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
             }
         }
-
-        if (!builder.isValid()) {
-            throw new RecordCoreException(String.format("could not generate a covering index scan operator for '%s'; Invalid mapping between index entries to partial record", index.getName()));
-        }
-        return builder.build();
     }
 
     @Nonnull

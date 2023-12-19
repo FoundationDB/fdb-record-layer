@@ -141,10 +141,16 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * Min aggregation {@code Value}.
      */
-    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
 
         public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexName() {
+            return IndexTypes.PERMUTED_MIN;
         }
 
         @Nonnull
@@ -164,10 +170,16 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * Max aggregation {@code Value}.
      */
-    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
 
         public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexName() {
+            return IndexTypes.PERMUTED_MAX;
         }
 
         @Nonnull

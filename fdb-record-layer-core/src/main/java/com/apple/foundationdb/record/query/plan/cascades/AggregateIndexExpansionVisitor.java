@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -52,6 +53,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,6 +81,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     private final GroupingKeyExpression groupingKeyExpression;
 
+    private final int columnPermutations;
+
     /**
      * Constructs a new instance of {@link AggregateIndexExpansionVisitor}.
      *
@@ -91,6 +95,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
         this.recordTypes = recordTypes;
+        @Nullable String permutationOption = index.getOption(IndexOptions.PERMUTED_SIZE_OPTION);
+        this.columnPermutations = permutationOption == null ? 0 : Integer.parseInt(permutationOption);
+    }
+
+    public boolean isPermuted() {
+        return IndexTypes.PERMUTED_MAX.equals(index.getType()) || IndexTypes.PERMUTED_MIN.equals(index.getType());
     }
 
     /**
@@ -136,7 +146,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var traversal = ExpressionRefTraversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
                 traversal,
-                selectWhereQunAndPlaceholders.getRight().stream().map(Placeholder::getParameterAlias).collect(Collectors.toList()),
+                placeHolderAliases,
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
                 groupByQun.getRangesOver().get().getResultValue(),
@@ -191,7 +201,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
-        // we need to refer to the following colum later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
+        // we need to refer to the following column later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
         // to it using an ordinal FieldAccessor (we do the same in plan generation).
         builder.addResultColumn(Column.unnamedOf(groupingValue));
         Stream.concat(Stream.of(baseQuantifier), selectWhereGraphExpansion.getQuantifiers().stream())
@@ -246,9 +256,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         final var placeholderAliases = ImmutableList.<CorrelationIdentifier>builder();
         final var selectHavingGraphExpansionBuilder = GraphExpansion.builder().addQuantifier(groupByQun);
+        final List<Value> groupingValues = groupingValueReference == null ? Collections.emptyList() : Values.deconstructRecord(groupingValueReference);
         if (groupingValueReference != null) {
             int i = 0;
-            for (final var groupingValue : Values.deconstructRecord(groupingValueReference)) {
+            // final int lastGroupingPrefix = groupingValues.size() - columnPermutations;
+            for (final var groupingValue : groupingValues) {
                 final var field = (FieldValue)groupingValue;
                 final var placeholder = groupingValue.asPlaceholder(selectWherePlaceholders.get(i++).getParameterAlias());
                 placeholderAliases.add(placeholder.getParameterAlias());
@@ -259,7 +271,25 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             }
         }
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
-        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), placeholderAliases.build());
+        final List<CorrelationIdentifier> finalPlaceholders;
+        if (isPermuted()) {
+            Placeholder placeholder = Placeholder.newInstance(aggregateValueReference, newParameterAlias());
+            placeholderAliases.add(placeholder.getParameterAlias());
+            selectHavingGraphExpansionBuilder.addPlaceholder(placeholder).addPredicate(placeholder);
+            if (columnPermutations > 0) {
+                List<CorrelationIdentifier> unpermutedAliases = placeholderAliases.build();
+                finalPlaceholders = ImmutableList.<CorrelationIdentifier>builder()
+                        .addAll(unpermutedAliases.subList(0, groupingValues.size() - columnPermutations))
+                        .add(placeholder.getParameterAlias())
+                        .addAll(unpermutedAliases.subList(groupingValues.size() - columnPermutations, groupingValues.size()))
+                        .build();
+            } else {
+                finalPlaceholders = placeholderAliases.build();
+            }
+        } else {
+            finalPlaceholders = placeholderAliases.build();
+        }
+        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), finalPlaceholders);
     }
 
     @Nonnull
@@ -270,6 +300,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();
     }
 }
