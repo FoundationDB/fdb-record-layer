@@ -90,7 +90,7 @@ public class LuceneIndexOptions {
      * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new
      * partition would be created.
      */
-    public static final String INDEX_PARTITION_HI_WATERMARK = "partitionHiWatermark";
+    public static final String INDEX_PARTITION_HIGH_WATERMARK = "partitionHighWatermark";
 
     /**
      * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for

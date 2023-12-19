@@ -29,21 +29,27 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_TIMESTAMP;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Waits.WAIT_LOAD_LUCENE_PARTITION_METADATA;
 
 /**
@@ -51,16 +57,52 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LucenePartitioner {
+    private static final ConcurrentHashMap<String, KeyExpression> partitioningKeyExpressionCache = new ConcurrentHashMap<>();
     public static final int PARTITION_META_SUBSPACE = 0;
     public static final int PARTITION_DATA_SUBSPACE = 1;
     private final IndexMaintainerState state;
     private final boolean partitioningEnabled;
     private final String partitionTimestampFieldName;
+    private final KeyExpression partitioningKeyExpression;
 
     public LucenePartitioner(@Nonnull IndexMaintainerState state) {
         this.state = state;
         partitionTimestampFieldName = state.index.getOption(INDEX_PARTITION_BY_TIMESTAMP);
         this.partitioningEnabled = partitionTimestampFieldName != null;
+        if (partitioningEnabled && (partitionTimestampFieldName.isEmpty() || partitionTimestampFieldName.isBlank())) {
+            throw new RecordCoreArgumentException("Invalid partition timestamp field name", LogMessageKeys.FIELD_NAME, partitionTimestampFieldName);
+        }
+        this.partitioningKeyExpression = makePartitioningKeyExpression(partitionTimestampFieldName);
+    }
+
+    /**
+     * make (and cache) a key expression from the partitioning field name.
+     *
+     * @param partitionTimestampFieldName partitioning field name
+     * @return key expression
+     */
+    @Nullable
+    private KeyExpression makePartitioningKeyExpression(@Nullable final String partitionTimestampFieldName) {
+        if (partitionTimestampFieldName == null) {
+            return null;
+        }
+
+        return partitioningKeyExpressionCache.computeIfAbsent(partitionTimestampFieldName, k -> {
+            // here, partitionTimestampFieldName is not null/empty/blank
+            String[] nameComponents = k.split("\\.");
+
+            // nameComponents.length >= 1
+            if (nameComponents.length == 1) {
+                // no nesting
+                return field(nameComponents[0]);
+            }
+            // nameComponents.length >= 2
+            List<KeyExpression> fields = Arrays.stream(nameComponents).map(Key.Expressions::field).collect(Collectors.toList());
+            for (int i = fields.size() - 1; i > 0; i--) {
+                fields.set(i - 1, ((FieldKeyExpression) fields.get(i - 1)).nest(fields.get(i)));
+            }
+            return fields.get(0);
+        });
     }
 
     /**
@@ -118,7 +160,7 @@ public class LucenePartitioner {
         }
         return addToAndSavePartitionMetadata(
                 groupingKey,
-                getPartitioningTimestampValue(Objects.requireNonNull(getPartitionTimestampFieldName()), newRecord));
+                getPartitioningTimestampValue(newRecord));
     }
 
     /**
@@ -164,7 +206,7 @@ public class LucenePartitioner {
         if (!isPartitioningEnabled()) {
             return null;
         }
-        return removeFromAndSavePartitionMetadata(groupingKey, getPartitioningTimestampValue(Objects.requireNonNull(getPartitionTimestampFieldName()), oldRecord));
+        return removeFromAndSavePartitionMetadata(groupingKey, getPartitioningTimestampValue(oldRecord));
     }
 
     /**
@@ -284,50 +326,25 @@ public class LucenePartitioner {
     /**
      * get the <code>long</code> timestamp value from a {@link FDBIndexableRecord}, given a field name.
      *
-     * @param fieldName field name
+     * @param <M> record type
      * @param rec record
      * @return long if field is found
      * @throws RecordCoreException if no field of type <code>long</code> with given name is found
      */
     @Nonnull
-    private <M extends Message> Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nonnull FDBIndexableRecord<M> rec) {
-        int dotIndex = fieldName.indexOf('.');
-        String containingTypeName = null;
-        String actualFieldName = fieldName;
-        if (dotIndex >= 0) {
-            // nested
-            containingTypeName = fieldName.substring(0, dotIndex);
-            actualFieldName = fieldName.substring(dotIndex + 1);
-        }
-        if (containingTypeName != null) {
-            for (Map.Entry<Descriptors.FieldDescriptor, Object> field : rec.getRecord().getAllFields().entrySet()) {
-                if (containingTypeName.equalsIgnoreCase(field.getKey().getName()) && field.getValue() instanceof Message) {
-                    return getPartitioningTimestampValue(actualFieldName, ((Message) field.getValue()).getAllFields());
-                }
+    private <M extends Message> Long getPartitioningTimestampValue(@Nonnull FDBIndexableRecord<M> rec) {
+        try {
+            Key.Evaluated evaluatedKey = partitioningKeyExpression.evaluateSingleton(rec);
+            if (evaluatedKey.size() == 1) {
+                return evaluatedKey.getLong(0);
             }
-        } else {
-            return getPartitioningTimestampValue(actualFieldName, rec.getRecord().getAllFields());
+        } catch (Exception e) {
+            throw new RecordCoreException("invalid type for partitioning key", e);
         }
-        throw new RecordCoreArgumentException("error getting partitioning timestamp", LogMessageKeys.FIELD_NAME , getPartitionTimestampFieldName());
+        // evaluatedKey.size() != 1
+        throw new RecordCoreException("unexpected result when evaluating partition field");
     }
 
-    /**
-     * get the <code>long</code> timestamp value from a collection of fields, given a field name.
-     *
-     * @param fieldName field name
-     * @param fields fields to look in
-     * @return long if found
-     * @throws RecordCoreException if no field of type <code>long</code> with given name is found
-     */
-    @Nonnull
-    private Long getPartitioningTimestampValue(@Nonnull String fieldName, @Nonnull Map<Descriptors.FieldDescriptor, Object> fields) {
-        for (Map.Entry<Descriptors.FieldDescriptor, Object> field : fields.entrySet()) {
-            if (fieldName.equalsIgnoreCase(field.getKey().getName()) && field.getValue() instanceof Long) {
-                return (Long)field.getValue();
-            }
-        }
-        throw new RecordCoreArgumentException("error getting partitioning timestamp", LogMessageKeys.FIELD_NAME, getPartitionTimestampFieldName());
-    }
 
     /**
      * helper - create a new partition metadata instance.
