@@ -79,15 +79,19 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     private int currentPosition = 0;
     @Nullable
     private final Tuple groupingKey;
+    @Nullable
+    private final Integer partitionId;
     private final List<String> fields;
     private boolean closed;
 
 
-    public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields, @Nonnull String wordToSpellCheck,
+    public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields,
+                                        @Nonnull String wordToSpellCheck,
                                         @Nonnull final Executor executor,
                                         final ScanProperties scanProperties,
                                         @Nonnull final IndexMaintainerState state,
-                                        @Nullable Tuple groupingKey) {
+                                        @Nullable Tuple groupingKey,
+                                        @Nullable Integer partitionId) {
         this.fields = fields;
         this.wordToSpellCheck = wordToSpellCheck;
         this.executor = executor;
@@ -96,6 +100,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
                 scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
         this.groupingKey = groupingKey;
+        this.partitionId = partitionId;
         this.spellchecker = new DirectSpellChecker();
         this.timer = state.context.getTimer();
         this.closed = false;
@@ -160,7 +165,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey);
+        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
     }
 
     private void spellcheck() throws IOException {

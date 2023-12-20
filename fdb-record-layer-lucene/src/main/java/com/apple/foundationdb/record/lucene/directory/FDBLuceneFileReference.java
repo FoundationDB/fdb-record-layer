@@ -24,11 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFileSystemProto;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 
 /**
  * A File Reference record laying out the id, size, and block size.
@@ -51,7 +53,7 @@ public class FDBLuceneFileReference {
     private static ByteString getContentFromProto(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
         if (protoMessage.getColumnBitSetWordsCount() != 0 || protoMessage.hasEntries() || protoMessage.hasSegmentInfo()) {
             throw new RecordCoreException("FileReference has old file content")
-                    .addLogInfo("ref_id", protoMessage.getId());
+                    .addLogInfo(LuceneLogMessageKeys.REF_ID, protoMessage.getId());
         }
         return protoMessage.getContent();
     }

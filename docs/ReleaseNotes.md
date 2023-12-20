@@ -16,7 +16,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 ### NEXT_RELEASE
 
 * **Bug fix** Fixe Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Make stored fields test less flaky [(Issue #2401)](https://github.com/FoundationDB/fdb-record-layer/issues/2401)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -28,7 +28,7 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Add lucene partitioning metadata [(Issue #2390)](https://github.com/FoundationDB/fdb-record-layer/issues/2390)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,24 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.442.0
+
+* **Feature** FDBDirecotry: remove references to caller context to avoid future mis-usage [(Issue #2412)](https://github.com/FoundationDB/fdb-record-layer/issues/2412)
+* **Feature** LuceneScaleTest: Add merge options to test configuration [(Issue #2410)](https://github.com/FoundationDB/fdb-record-layer/issues/2410)
+
+### 3.3.441.0
+
+* **Bug fix** To avoid breaking continuations during a deployment, the improvement to union key matching added in [3.3.348.0](#333480) is now guarded by a planner configuration flag [(Issue #2408)](https://github.com/FoundationDB/fdb-record-layer/issues/2408)
+
+### 3.3.440.0
+
+* **Feature** Lucene Property: Add a property to disable agility context [(Issue #2403)](https://github.com/FoundationDB/fdb-record-layer/issues/2403)
+
+### 3.3.439.0
+
+* **Bug fix** Fix Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
+* **Performance** Support segment merging across transactions & larger segments [(Issue #2375)](https://github.com/FoundationDB/fdb-record-layer/issues/2375)
 
 ### 3.3.438.0
 

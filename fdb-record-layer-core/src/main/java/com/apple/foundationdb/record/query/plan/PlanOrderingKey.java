@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpre
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -276,14 +277,7 @@ public class PlanOrderingKey {
             components.add(planOrderingKey.getKeys().get(nextNonPrefix));
             nextNonPrefix++;
         }
-
-        if (components.isEmpty()) {
-            return EmptyKeyExpression.EMPTY;
-        } else if (components.size() == 1) {
-            return components.get(0);
-        } else {
-            return new ThenKeyExpression(components);
-        }
+        return combine(components);
     }
 
     /**
@@ -311,5 +305,41 @@ public class PlanOrderingKey {
             nextNonPrefix++;
         }
         return true;
+    }
+
+    /**
+     * Find a candidate key for the sort that includes (at least) the given primary key. This finds a candidate
+     * ordering key that contains the primary key columns and is compatible with as many plans as possible.
+     *
+     * @param plans the list of plans to check for a candidate ordering
+     * @param primaryKey the primary key to preserve within the ordering key
+     * @return a key that contains the primary key and is compatible with the ordering of at least one plan
+     */
+    @Nonnull
+    public static KeyExpression candidateContainingPrimaryKey(@Nonnull Collection<RecordQueryPlanner.ScoredPlan> plans, @Nonnull KeyExpression primaryKey) {
+        KeyExpression candidateKey = primaryKey;
+        for (RecordQueryPlanner.ScoredPlan scoredPlan : plans) {
+            PlanOrderingKey planOrderingKey = scoredPlan.planOrderingKey;
+            if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
+                // Widen the plan to include all non-equality bound fields in the plan
+                List<KeyExpression> newKeys = planOrderingKey.getKeys().subList(
+                        Math.min(planOrderingKey.getPrefixSize(), planOrderingKey.getPrimaryKeyStart()),
+                        planOrderingKey.getKeys().size()
+                );
+                candidateKey = combine(newKeys);
+            }
+        }
+        return candidateKey;
+    }
+
+    @Nonnull
+    private static KeyExpression combine(@Nonnull List<KeyExpression> keys) {
+        if (keys.isEmpty()) {
+            return EmptyKeyExpression.EMPTY;
+        } else if (keys.size() == 1) {
+            return keys.get(0);
+        } else {
+            return new ThenKeyExpression(keys);
+        }
     }
 }

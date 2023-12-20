@@ -32,16 +32,19 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -84,6 +87,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
@@ -92,7 +97,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useRewritePlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }
@@ -166,7 +171,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest5() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 17);
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 20);
     }
 
     @Test
@@ -615,19 +620,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         int newLength = allFiles.length;
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
         assertTrue(newLength < oldLength);
-        oldLength = newLength;
-
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setRecordStore(recordStore)
-                .setIndex(index)
-                .build()) {
-            indexBuilder.mergeIndex();
-        }
-
-        allFiles = listFiles(index);
-        newLength = allFiles.length;
-        LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength);
-        assertTrue(newLength < oldLength);
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -789,4 +781,96 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             indexBuilder.mergeIndex();
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) {
+        // emulate repeating merge until until unchanged, with a tiny size quota
+        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, 100)
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT, disableAgilityContext);
+
+        Index index = SIMPLE_TEXT_SUFFIXES;
+
+        RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(SIMPLE_DOC, index);
+        };
+
+        // write records
+        populateDataSplitSegments(index, 42, 10);
+
+        int oldLength = listFiles(index).length;
+        int newLength;
+        FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = openContext(insertProps)) {
+            openRecordStore(context, hook);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+            commit(context);
+        }
+        newLength = listFiles(index).length;
+        assertTrue(newLength < oldLength);
+        final StoreTimer.Counter counter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+
+        if (disableAgilityContext) {
+            assertNull(counter);
+            return;
+        }
+
+        assertNotNull(counter);
+        final int sizeCommitCount = counter.getCount();
+        LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
+                     " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes() +
+                     " sizeCommitCount: " + sizeCommitCount);
+        // Got "old=161 new=19 needMerge=null sizeCommitCount: 64"
+        assertTrue(sizeCommitCount > 10);
+    }
+
+    @Test
+    void testRecordUpdateReducedMergeForcingAgileTimeQuota() {
+        // emulate repeating merge until until unchanged, with a tiny size quota
+        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1);
+
+        Index index = SIMPLE_TEXT_SUFFIXES;
+
+        RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(SIMPLE_DOC, index);
+        };
+
+        // write records
+        populateDataSplitSegments(index, 42, 10);
+
+        int oldLength = listFiles(index).length;
+        int newLength;
+        FDBStoreTimer timer = new FDBStoreTimer();
+        try (FDBRecordContext context = openContext(insertProps)) {
+            openRecordStore(context, hook);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+            commit(context);
+        }
+        newLength = listFiles(index).length;
+        final int timeCommitCount = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA).getCount();
+        LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
+                     " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes() +
+                     " timeCommitCount: " + timeCommitCount);
+        // Got "old=161 new=19 needMerge=null timeCommitCount: 58"
+
+        assertTrue(newLength < oldLength);
+        assertTrue(timeCommitCount > 0);
+    }
 }
+
