@@ -80,7 +80,7 @@ public class LuceneOptimizedFieldInfoFormatTest extends BaseFieldInfoFormatTestC
     }
 
     /**
-     * Ignored test because we don't call {@link Directory#openInput}.
+     * Ignored test because we don't call {@link Directory#openInput} in {@link LuceneOptimizedFieldInfosFormat#read}.
      * @throws Exception if an unexpected exception occurs
      */
     @Override
@@ -90,7 +90,7 @@ public class LuceneOptimizedFieldInfoFormatTest extends BaseFieldInfoFormatTestC
     }
 
     /**
-     * Ignored test because we don't call {@link Directory#openInput}.
+     * Ignored test because we don't call {@link Directory#openInput} in {@link LuceneOptimizedFieldInfosFormat#read}.
      * @throws Exception if an unexpected exception occurs
      */
     @Override
