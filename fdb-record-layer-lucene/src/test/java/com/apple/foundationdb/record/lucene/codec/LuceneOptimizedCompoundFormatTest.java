@@ -160,14 +160,11 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
      * <p>
      * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      * </p>
-     * <p>
-     * Currently ignored because it takes 2 minutes trying to write 500MB to a single file.
-     * </p>
      *
      * @throws IOException if there's issues
      */
     @Override
-    @Ignore
+    @Ignore("Locally this test takes 2 minutes trying to write 500MB to a single file")
     public void testLargeCFS() throws IOException {
         final String testfile = "_123.test";
         IOContext context = new IOContext(new FlushInfo(0, 512 * 1024 * 1024));

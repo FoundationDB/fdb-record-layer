@@ -26,7 +26,6 @@ import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.BaseFieldInfoFormatTestCase;
 import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -79,22 +78,14 @@ public class LuceneOptimizedFieldInfoFormatTest extends BaseFieldInfoFormatTestC
         BaseIndexFileFormatTestCaseUtils.testMultiClose(this);
     }
 
-    /**
-     * Ignored test because we don't call {@link Directory#openInput} in {@link LuceneOptimizedFieldInfosFormat#read}.
-     * @throws Exception if an unexpected exception occurs
-     */
     @Override
-    @Ignore
+    @Ignore("LuceneOptimizedFieldInfosFormat doesn't call openInput")
     public void testExceptionOnCloseInput() throws Exception {
         super.testExceptionOnCloseInput();
     }
 
-    /**
-     * Ignored test because we don't call {@link Directory#openInput} in {@link LuceneOptimizedFieldInfosFormat#read}.
-     * @throws Exception if an unexpected exception occurs
-     */
     @Override
-    @Ignore
+    @Ignore("LuceneOptimizedFieldInfosFormat doesn't call openInput")
     public void testExceptionOnOpenInput() throws Exception {
         super.testExceptionOnOpenInput();
     }

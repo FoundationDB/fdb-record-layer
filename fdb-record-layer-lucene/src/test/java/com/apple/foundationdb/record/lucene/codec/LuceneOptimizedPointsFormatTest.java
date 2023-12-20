@@ -78,16 +78,8 @@ public class LuceneOptimizedPointsFormatTest extends BasePointsFormatTestCase {
         BaseIndexFileFormatTestCaseUtils.testMultiClose(this);
     }
 
-    /**
-     * {@link BasePointsFormatTestCase#testWithExceptions()} creates a fsDirectory, and we only work with
-     * {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory}.
-     * <p>
-     *     Inlining requires copying multiple helper private methods.
-     * </p>
-     * @throws Exception if an unexpected exception happens
-     */
     @Override
-    @Ignore
+    @Ignore("Always makes an FSDirectory, and copying the implementation would require copying a lot of private methods")
     public void testWithExceptions() throws Exception {
         super.testWithExceptions();
     }
