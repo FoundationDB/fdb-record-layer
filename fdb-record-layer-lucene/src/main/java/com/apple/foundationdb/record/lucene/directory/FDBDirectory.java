@@ -27,7 +27,6 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -139,7 +138,7 @@ public class FDBDirectory extends Directory  {
     private final Subspace fieldInfosSubspace;
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
-    private final Subspace postingsSubspace;
+    private final Subspace postingsMetadataSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -211,7 +210,7 @@ public class FDBDirectory extends Directory  {
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
-        this.postingsSubspace = subspace.subspace(Tuple.from(POSTINGS_FIELD_METADATA_SUBSPACE));
+        this.postingsMetadataSubspace = subspace.subspace(Tuple.from(POSTINGS_FIELD_METADATA_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -349,12 +348,11 @@ public class FDBDirectory extends Directory  {
     }
 
     public Stream<Pair<Long, byte[]>> getAllPostingFieldMetadataStream(String segmentName) {
-        // TODO: Need to close the stream once done
-        final Subspace fieldSub = postingsSubspace.subspace(Tuple.from(segmentName));
-        return context.asyncToSync(
-                        LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA,
-                        context.ensureActive().getRange(fieldSub.range())
-                                .asList())
+        // TODO: Need to close the stream once done?
+        final Subspace fieldSub = postingsMetadataSubspace.subspace(Tuple.from(segmentName));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA,
+                agilityContext.apply(context -> context.ensureActive().getRange(fieldSub.range()).asList()))
                 .stream()
                 .map(keyValue -> Pair.of(fieldSub.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
