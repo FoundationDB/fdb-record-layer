@@ -73,7 +73,7 @@ public class UpdateWithContinuationTest {
     @Test
     void updateWithSimpleFieldTest() throws Exception {
         final var fieldToUpdate = "name";
-        final Function<RelationalConnection, Object> updateValue = (conn) -> "blahText";
+        final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
         final var expectedValue = updateValue.apply(null);
         testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
     }
@@ -85,9 +85,9 @@ public class UpdateWithContinuationTest {
                 FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
                 FieldDescription.primitive("SCHOOL_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                 FieldDescription.primitive("HOMETOWN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
-        final Function<RelationalConnection, Object> updateValue = (conn) -> {
+        final Function<RelationalConnection, Object> updateValue = conn -> {
             try {
-                return conn.createStruct("ReviewerStats", new Object[] {123L, "blah", "blah2"});
+                return conn.createStruct("ReviewerStats", new Object[]{123L, "blah", "blah2"});
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
@@ -99,7 +99,7 @@ public class UpdateWithContinuationTest {
     void updateWithArrayFieldTest() throws Exception {
         final var fieldToUpdate = "secrets";
         final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
-        final Function<RelationalConnection, Object> updateValue = (conn) -> {
+        final Function<RelationalConnection, Object> updateValue = conn -> {
             try {
                 return conn.createArrayOf("BINARY", array.stream().map(t -> Arrays.copyOf(t, t.length)).toArray());
             } catch (SQLException e) {

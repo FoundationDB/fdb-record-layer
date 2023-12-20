@@ -341,8 +341,8 @@ public class Scopes {
             Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
                     String.format("Order by column %s is duplicated in the order by clause", (column.getValue() instanceof VersionValue ? "version" : column.getField().getFieldName())), ErrorCode.COLUMN_ALREADY_EXISTS);
             if (projectionValue != null) {
-                final var fields = ((Type.Record)(projectionValue.getResultType())).getFields();
-                for (int i = 0; i < fields.size(); ++i) {
+                final var fields = ((Type.Record) (projectionValue.getResultType())).getFields();
+                for (int i = 0; i < fields.size(); i++) {
                     if (fields.get(i).equals(column.getField())) {
                         orderByCardinals.add(i);
                     }

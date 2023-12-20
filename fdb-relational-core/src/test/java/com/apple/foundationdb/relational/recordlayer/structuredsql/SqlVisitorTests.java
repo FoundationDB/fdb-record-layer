@@ -110,7 +110,6 @@ public class SqlVisitorTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateString).build()) {
             final var updateStatement = "update T1 set a = 42 where pk = 444";
             final var updateBuilder = ddl.setSchemaAndGetConnection().createStatementBuilderFactory().updateStatementBuilder(updateStatement);
-            final var ef = ddl.getConnection().createExpressionBuilderFactory();
             updateBuilder.withOption(StructuredQuery.QueryOptions.DRY_RUN);
             Assertions.assertEquals(Set.of(StructuredQuery.QueryOptions.DRY_RUN), updateBuilder.getOptions());
             var generatedQuery = updateBuilder.build().getSqlQuery();

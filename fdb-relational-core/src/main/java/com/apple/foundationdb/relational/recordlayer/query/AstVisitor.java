@@ -972,9 +972,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         } else if (ctx.STAR() != null) {
             return handleDelayedExpansion(null);
         }
-        final var columns = (ctx.expressionWithName() != null)
-                ? visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName()))
-                : visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
+        final var columns = (ctx.expressionWithName() != null) ?
+                visitRecordFieldContextsUnderReorderings(ImmutableList.of(ctx.expressionWithName())) :
+                visitRecordFieldContextsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var structName = Assert.notNullUnchecked(ParserUtils.normalizeString(ParserUtils.safeCastLiteral(visit(ctx.ofTypeClause().uid()), String.class), caseSensitive));
             return RecordConstructorValue.ofColumnsAndName(columns, structName);
@@ -1587,9 +1587,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final Typed tableNameTyped = (Typed) tableNameCtx.accept(this);
         Assert.thatUnchecked(tableNameTyped instanceof QualifiedIdentifierValue);
         final var targetTypeName = ParserUtils.safeCastLiteral(tableNameTyped, String.class);
-        final var quantifierAlias = aliasCtx != null
-                ? ParserUtils.safeCastLiteral(visit(aliasCtx), String.class)
-                : targetTypeName;
+        final var quantifierAlias = aliasCtx != null ?
+                ParserUtils.safeCastLiteral(visit(aliasCtx), String.class) :
+                targetTypeName;
         final var aliasId = CorrelationIdentifier.of(quantifierAlias);
         var fromExpression = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableNameTyped, context, scopes, new AccessHints());
         var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));

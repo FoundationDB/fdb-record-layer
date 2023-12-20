@@ -530,7 +530,6 @@ class RelationalStructFacade implements RelationalStruct {
     private static final class RelationalStructFacadeMetaData implements StructMetaData {
         private final ListColumnMetadata metadata;
 
-
         private RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
             this.metadata = metadata;
         }

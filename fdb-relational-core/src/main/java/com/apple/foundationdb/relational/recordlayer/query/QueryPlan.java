@@ -205,9 +205,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         public static PlanHashable.PlanHashMode getCurrentPlanHashMode(@Nonnull final Options options) {
             final String planHashModeAsString = options.getOption(Options.Name.CURRENT_PLAN_HASH_MODE);
-            return planHashModeAsString == null
-                   ? PlanHashable.CURRENT_FOR_CONTINUATION
-                   : PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
+            return planHashModeAsString == null ?
+                    PlanHashable.CURRENT_FOR_CONTINUATION :
+                    PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
         }
 
         @Nonnull
