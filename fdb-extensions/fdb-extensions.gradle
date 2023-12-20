@@ -37,17 +37,6 @@ dependencies {
     testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 }
 
-test {
-    useJUnitPlatform {
-        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
-            excludeTags 'RequiresFDB'
-        }
-        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
-            excludeTags 'Slow'
-        }
-    }
-}
-
 publishing {
     publications {
         library(MavenPublication) {

@@ -25,20 +25,46 @@ if (hasProperty('testEnableCoverage')) {
     }
 }
 
+def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
+def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 test {
-    useJUnit {
+    useJUnitPlatform {
+        if (skipFDB) {
+            excludeTags 'RequiresFDB'
+        }
+        if (skipSlow) {
+            excludeTags 'Slow'
+            systemProperty "junit.jupiter.execution.timeout.default", "2s"
+        } else {
+            systemProperty "junit.jupiter.execution.timeout.default", "5m"
+        }
+        excludeTags 'Performance'
     }
 }
 
-task jenkinsUnitTest(type: Test) {
-    apply plugin: "jacoco"
-    useJUnit {
+task performanceTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'Performance'
+        enableAssertions = false
     }
-    if (project.hasProperty('testsToRun')) {
-        include testsToRun
+}
+
+task destructiveTest(type: Test) {
+    useJUnitPlatform {
+        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
+            excludeTags 'RequiresFDB'
+        }
+        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
+            excludeTags 'Slow'
+        }
+        excludeTags 'Performance'
+
+        includeTags 'WipesFDB'
+        maxParallelForks = 1
     }
-    outputs.upToDateWhen { false } // always re-run test tasks
-    jacoco.destinationFile = file("$buildDir/jacoco/${project.name}.jacocoTest.exec")
+    reports {
+        junitXml.destination = file("${buildDir}/test-results/destructive")
+    }
 }
 
 jacoco {
@@ -73,9 +99,6 @@ def configureTestTask = { propertyPrefix, task ->
     task.systemProperties['log4j2.configurationFile'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
     task.systemProperties['mme.app.useLog4jPropertyConfigurator'] = 'false'
 
-    // JUnit configuration parameters
-    task.systemProperties['junit.jupiter.execution.timeout.default'] = '5 m'
-
     task.maxParallelForks = Integer.getInteger(propertyPrefix + '.maxParallelForks', 1)
     task.forkEvery = Integer.getInteger(propertyPrefix + '.forkEvery', 0)
 
@@ -86,6 +109,16 @@ def configureTestTask = { propertyPrefix, task ->
     if (excludes != null) {
         task.exclude excludes
     }
+
+    // Configure whether or not tests will validate that asyncToSync isn't being called in async
+    // context.  See BlockingInAsyncDetection class for details on values.
+
+    // disable BLOCKING_DETECTION to better simulate performance
+    if (task.name != 'performanceTest') {
+        task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
+            System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
+    }
+
 
     def reportsDirProperty = "${task.name}.reportsDir".toString()
     handled.add(reportsDirProperty)
