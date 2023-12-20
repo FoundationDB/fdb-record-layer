@@ -88,12 +88,12 @@ subprojects {
         p.tasks.withType(Test) { testTask ->
             jacocoReportTask.mustRunAfter testTask
 
-            testTask.doLast {
-                if (testTask.jacoco.destinationFile.exists()) {
-                    mergeExecFiles.executionData testTask.jacoco.destinationFile
-                    logger.info "Adding UnitTest dest " + testTask.jacoco.destinationFile
-                }
-            }
+//             testTask.doLast {
+//                 if (testTask.jacoco.destinationFile.exists()) {
+//                     mergeExecFiles.executionData testTask.jacoco.destinationFile
+//                     logger.info "Adding UnitTest dest " + testTask.jacoco.destinationFile
+//                 }
+//             }
         }
 
         p.task('copyCoverageClasses', type: Copy) {

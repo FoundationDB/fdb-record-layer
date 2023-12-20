@@ -20,6 +20,9 @@
 
 if (hasProperty('testEnableCoverage')) {
     apply plugin: 'jacoco'
+    jacoco {
+        toolVersion = jacocoVersion
+    }
     tasks.withType(Test) { task ->
         finalizedBy "jacoco${task.name.capitalize()}Report"
     }
@@ -65,10 +68,6 @@ task destructiveTest(type: Test) {
     reports {
         junitXml.destination = file("${buildDir}/test-results/destructive")
     }
-}
-
-jacoco {
-    toolVersion = jacocoVersion
 }
 
 def configureTestTask = { propertyPrefix, task ->
