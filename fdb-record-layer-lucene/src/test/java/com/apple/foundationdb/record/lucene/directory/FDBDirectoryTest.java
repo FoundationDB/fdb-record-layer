@@ -126,6 +126,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testMissingSeek() {
         final CompletableFuture<byte[]> seekFuture = directory.readBlock(
+                new EmptyIndexInput("Test Empty"),
                 "testDescription",
                 directory.getFDBLuceneFileReferenceAsync("testReference"),
                 1
@@ -138,11 +139,13 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testWriteSeekData() throws Exception {
         directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1, 1));
-        assertNull(directory.readBlock("testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
+        final EmptyIndexInput emptyInput = new EmptyIndexInput("Empty Input");
+        assertNull(directory.readBlock(emptyInput,
+                "testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
         directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 1, 200));
         byte[] data = "test string for write".getBytes();
         directory.writeData(2, 1, data);
-        assertNotNull(directory.readBlock("testReference2",
+        assertNotNull(directory.readBlock(emptyInput, "testReference2",
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
         directory.getCallerContext().commit();

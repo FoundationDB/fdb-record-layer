@@ -46,8 +46,7 @@ import static com.google.common.base.Verify.verify;
 @API(API.Status.EXPERIMENTAL)
 public class FDBIndexInput extends IndexInput {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBIndexInput.class);
-    private final String resourceDescription;
-    private final String nestedResourceDescription;
+    private final String fileName;
     private final FDBDirectory fdbDirectory;
     private final CompletableFuture<FDBLuceneFileReference> reference;
     /*
@@ -64,53 +63,24 @@ public class FDBIndexInput extends IndexInput {
 
     /**
      * Constructor to create an FDBIndexInput from a file referenced in the metadata keyspace.
+     * <p>
+     *     This constructor will begin an asynchronous query (lookahead) to the first block.
+     * </p>
      *
-     * This constructor will begin an asynchronous query (lookahead) to the first block.
-     *
-     * @param resourceDescription opaque description of file; used for logging
+     * @param fileName the name of the file being read
      * @param fdbDirectory FDB directory mapping
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory) throws IOException {
-        this(resourceDescription, resourceDescription, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription), 0L,
+    public FDBIndexInput(@Nonnull final String fileName, @Nonnull final FDBDirectory fdbDirectory) throws IOException {
+        this(fileName, fileName, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(fileName), 0L,
                 0L, 0, null);
-    }
-
-    /**
-     * Constructor to create and FDBIndexInput from a file referenced in the metadata keyspace.
-     *
-     * This constructor will <b>not</b> perform an asynchronous (lookahead) to the first block and will
-     * need to be <i>sliced</i> to provide correct results.
-     *
-     * This is currently used by the LuceneOptimizedCompoundReader to not have to read its first block unless needed.
-     *
-     * @param resourceDescription opaque description of file; used for logging
-     * @param fdbDirectory FDB directory mapping
-     * @param initialOffset initialOffset
-     * @param position currentBlockPosition
-     * @throws IOException exception
-     */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory, long initialOffset, long position) throws IOException {
-        super(resourceDescription);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.of("initWithoutInitialRead()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
-        }
-        this.resourceDescription = resourceDescription;
-        this.nestedResourceDescription = resourceDescription; // Not Nested
-        this.fdbDirectory = fdbDirectory;
-        this.reference = fdbDirectory.getFDBLuceneFileReferenceAsync(resourceDescription);
-        this.position = position;
-        this.initialOffset = initialOffset;
-        this.currentBlock = -1;
-        this.currentData = CompletableFuture.completedFuture(new byte[0]);
     }
 
     /**
      * Constructor that is utilized by splice calls to take into account initial offsets and modifications to length.
      *
-     * @param nestedResourceDescription opaque description of file; used for logging
      * @param resourceDescription opaque description of file; used for logging
+     * @param fileName opaque description of file; used for logging
      * @param fdbDirectory FDB directory mapping
      * @param reference future Reference
      * @param initialOffset initialOffset
@@ -119,16 +89,15 @@ public class FDBIndexInput extends IndexInput {
      * @param currentData future with CurrentData Fetch
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String nestedResourceDescription, @Nonnull final String resourceDescription, @Nonnull final FDBDirectory fdbDirectory,
+    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final String fileName, @Nonnull final FDBDirectory fdbDirectory,
                          @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
                          int currentBlock, @Nullable CompletableFuture<byte[]> currentData) throws IOException {
         super(resourceDescription);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("init()",
-                    LuceneLogMessageKeys.RESOURCE, resourceDescription));
+                    LuceneLogMessageKeys.RESOURCE, fileName));
         }
-        this.resourceDescription = resourceDescription;
-        this.nestedResourceDescription = nestedResourceDescription;
+        this.fileName = fileName;
         this.fdbDirectory = fdbDirectory;
         this.reference = reference;
         this.position = position;
@@ -149,7 +118,7 @@ public class FDBIndexInput extends IndexInput {
             actualReference = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
             if (actualReference == null) {
                 throw new RecordCoreException("File Reference missing for open IndexInput")
-                        .addLogInfo(LuceneLogMessageKeys.RESOURCE, resourceDescription);
+                        .addLogInfo(LuceneLogMessageKeys.RESOURCE, fileName);
             }
         }
         return actualReference;
@@ -167,7 +136,7 @@ public class FDBIndexInput extends IndexInput {
      *
      */
     private void readBlock() {
-        this.currentData = fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, currentBlock);
+        this.currentData = fdbDirectory.readBlock(this, fileName, reference, currentBlock);
         this.actualCurrentData = null;
     }
 
@@ -252,7 +221,7 @@ public class FDBIndexInput extends IndexInput {
         // Good Place to perform stack dumps if you want to know who is performing a read...
         //Thread.dumpStack();
         final FDBLuceneFileReference fileReference = getFileReference();
-        return new FDBIndexInput(sliceDescription, resourceDescription, fdbDirectory, CompletableFuture.completedFuture(
+        return new FDBIndexInput(getFullSliceDescription(sliceDescription), fileName, fdbDirectory, CompletableFuture.completedFuture(
                 new FDBLuceneFileReference(fileReference.getId(), length, length, fileReference.getBlockSize())),
                 offset + initialOffset, 0L, currentBlock, currentData);
     }
@@ -286,7 +255,7 @@ public class FDBIndexInput extends IndexInput {
             int probe = (int)(absolutePosition() % fileReference.getBlockSize());
             position++;
             byte[] data = getCurrentData();
-            verify(data != null, "current Data is null: " + resourceDescription + " " + fileReference.getId());
+            verify(data != null, "current Data is null: " + fileName + " " + fileReference.getId());
             return data[probe];
         } finally {
             if (absolutePosition() % fileReference.getBlockSize() == 0) {
@@ -352,7 +321,7 @@ public class FDBIndexInput extends IndexInput {
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
-                .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, resourceDescription)
+                .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, fileName)
                 .toString();
     }
 
@@ -365,7 +334,7 @@ public class FDBIndexInput extends IndexInput {
      */
     public int prefetch(int beginBlock, int length) {
         for (int i = 0; i < length; i++) {
-            fdbDirectory.readBlock(nestedResourceDescription, resourceDescription, reference, beginBlock + i);
+            fdbDirectory.readBlock(this, fileName, reference, beginBlock + i);
         }
         return length;
     }
