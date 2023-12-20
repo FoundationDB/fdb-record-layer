@@ -113,6 +113,7 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
      * {@code FDBDirectory}, which doesn't necessarily call through. At the very least this breaks
      * {@link LuceneOptimizedFieldInfosFormat}, which expects to have {@code directory.createOutput(filename).close()}
      * to create the file reference.
+     *
      * @throws IOException if an unexpected exception is thrown
      */
     @Seed("C185081D42F0F43D")
@@ -126,7 +127,9 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
      * {@link BaseDocValuesFormatTestCase#doTestSortedSetVsStoredFields(int, int, int, int, int)}, except in that
      * version it always creates a FSDirectory, whereas here, if testing against FDB we use the directory under test.
      * <p>
-     * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
+     *     You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
+     *     The code was also reformatted, and two instances of {@code String stringValues[]} were changed to
+     *     {@code String[] stringValues}.
      * </p>
      *
      * @throws IOException if there's issues
@@ -147,89 +150,89 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
 
         Set<String> valueSet = new HashSet<String>();
         for (int i = 0; i < 10000 && valueSet.size() < maxUniqueValues; ++i) {
-          final int length = TestUtil.nextInt(random(), minLength, maxLength);
-          valueSet.add(TestUtil.randomSimpleString(random(), length));
+            final int length = TestUtil.nextInt(random(), minLength, maxLength);
+            valueSet.add(TestUtil.randomSimpleString(random(), length));
         }
         String[] uniqueValues = valueSet.toArray(new String[0]);
 
         // index some docs
         if (VERBOSE) {
-          System.out.println("\nTEST: now add numDocs=" + numDocs);
+            System.out.println("\nTEST: now add numDocs=" + numDocs);
         }
         for (int i = 0; i < numDocs; i++) {
-          Document doc = new Document();
-          Field idField = new StringField("id", Integer.toString(i), Field.Store.NO);
-          doc.add(idField);
-          int numValues = TestUtil.nextInt(random(), 0, maxValuesPerDoc);
-          // create a random set of strings
-          Set<String> values = new TreeSet<>();
-          for (int v = 0; v < numValues; v++) {
-            values.add(RandomPicks.randomFrom(random(), uniqueValues));
-          }
+            Document doc = new Document();
+            Field idField = new StringField("id", Integer.toString(i), Field.Store.NO);
+            doc.add(idField);
+            int numValues = TestUtil.nextInt(random(), 0, maxValuesPerDoc);
+            // create a random set of strings
+            Set<String> values = new TreeSet<>();
+            for (int v = 0; v < numValues; v++) {
+                values.add(RandomPicks.randomFrom(random(), uniqueValues));
+            }
 
-          // add ordered to the stored field
-          for (String v : values) {
-            doc.add(new StoredField("stored", v));
-          }
+            // add ordered to the stored field
+            for (String v : values) {
+                doc.add(new StoredField("stored", v));
+            }
 
-          // add in any order to the dv field
-          ArrayList<String> unordered = new ArrayList<>(values);
-          Collections.shuffle(unordered, random());
-          for (String v : unordered) {
-            doc.add(new SortedSetDocValuesField("dv", newBytesRef(v)));
-          }
+            // add in any order to the dv field
+            ArrayList<String> unordered = new ArrayList<>(values);
+            Collections.shuffle(unordered, random());
+            for (String v : unordered) {
+                doc.add(new SortedSetDocValuesField("dv", newBytesRef(v)));
+            }
 
-          writer.addDocument(doc);
-          if (random().nextInt(31) == 0) {
-            writer.commit();
-          }
+            writer.addDocument(doc);
+            if (random().nextInt(31) == 0) {
+                writer.commit();
+            }
         }
 
         // delete some docs
-        int numDeletions = random().nextInt(numDocs /10);
+        int numDeletions = random().nextInt(numDocs / 10);
         if (VERBOSE) {
-          System.out.println("\nTEST: now delete " + numDeletions + " docs");
+            System.out.println("\nTEST: now delete " + numDeletions + " docs");
         }
         for (int i = 0; i < numDeletions; i++) {
-          int id = random().nextInt(numDocs);
-          writer.deleteDocuments(new Term("id", Integer.toString(id)));
+            int id = random().nextInt(numDocs);
+            writer.deleteDocuments(new Term("id", Integer.toString(id)));
         }
 
         // compare
         if (VERBOSE) {
-          System.out.println("\nTEST: now get reader");
+            System.out.println("\nTEST: now get reader");
         }
         DirectoryReader ir = writer.getReader();
         TestUtil.checkReader(ir);
         for (LeafReaderContext context : ir.leaves()) {
-          LeafReader r = context.reader();
-          SortedSetDocValues docValues = r.getSortedSetDocValues("dv");
-          for (int i = 0; i < r.maxDoc(); i++) {
-            String stringValues[] = r.document(i).getValues("stored");
-            if (docValues != null) {
-              if (docValues.docID() < i) {
-                docValues.nextDoc();
-              }
+            LeafReader r = context.reader();
+            SortedSetDocValues docValues = r.getSortedSetDocValues("dv");
+            for (int i = 0; i < r.maxDoc(); i++) {
+                String[] stringValues = r.document(i).getValues("stored");
+                if (docValues != null) {
+                    if (docValues.docID() < i) {
+                        docValues.nextDoc();
+                    }
+                }
+                if (docValues != null && stringValues.length > 0) {
+                    assertEquals(i, docValues.docID());
+                    for (int j = 0; j < stringValues.length; j++) {
+                        assert docValues != null;
+                        long ord = docValues.nextOrd();
+                        assert ord != NO_MORE_ORDS;
+                        BytesRef scratch = docValues.lookupOrd(ord);
+                        assertEquals(stringValues[j], scratch.utf8ToString());
+                    }
+                    assertEquals(NO_MORE_ORDS, docValues.nextOrd());
+                }
             }
-            if (docValues != null && stringValues.length > 0) {
-              assertEquals(i, docValues.docID());
-              for (int j = 0; j < stringValues.length; j++) {
-                assert docValues != null;
-                long ord = docValues.nextOrd();
-                assert ord != NO_MORE_ORDS;
-                BytesRef scratch = docValues.lookupOrd(ord);
-                assertEquals(stringValues[j], scratch.utf8ToString());
-              }
-              assertEquals(NO_MORE_ORDS, docValues.nextOrd());
-            }
-          }
         }
         if (VERBOSE) {
-          System.out.println("\nTEST: now close reader");
+            System.out.println("\nTEST: now close reader");
         }
         ir.close();
         if (VERBOSE) {
-          System.out.println("TEST: force merge");
+            System.out.println("TEST: force merge");
         }
         writer.forceMerge(1);
 
@@ -237,43 +240,45 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
         ir = writer.getReader();
         TestUtil.checkReader(ir);
         for (LeafReaderContext context : ir.leaves()) {
-          LeafReader r = context.reader();
-          SortedSetDocValues docValues = r.getSortedSetDocValues("dv");
-          for (int i = 0; i < r.maxDoc(); i++) {
-            String stringValues[] = r.document(i).getValues("stored");
-            if (docValues.docID() < i) {
-              docValues.nextDoc();
+            LeafReader r = context.reader();
+            SortedSetDocValues docValues = r.getSortedSetDocValues("dv");
+            for (int i = 0; i < r.maxDoc(); i++) {
+                String[] stringValues = r.document(i).getValues("stored");
+                if (docValues.docID() < i) {
+                    docValues.nextDoc();
+                }
+                if (docValues != null && stringValues.length > 0) {
+                    assertEquals(i, docValues.docID());
+                    for (int j = 0; j < stringValues.length; j++) {
+                        assert docValues != null;
+                        long ord = docValues.nextOrd();
+                        assert ord != NO_MORE_ORDS;
+                        BytesRef scratch = docValues.lookupOrd(ord);
+                        assertEquals(stringValues[j], scratch.utf8ToString());
+                    }
+                    assertEquals(NO_MORE_ORDS, docValues.nextOrd());
+                }
             }
-            if (docValues != null && stringValues.length > 0) {
-              assertEquals(i, docValues.docID());
-              for (int j = 0; j < stringValues.length; j++) {
-                assert docValues != null;
-                long ord = docValues.nextOrd();
-                assert ord != NO_MORE_ORDS;
-                BytesRef scratch = docValues.lookupOrd(ord);
-                assertEquals(stringValues[j], scratch.utf8ToString());
-              }
-              assertEquals(NO_MORE_ORDS, docValues.nextOrd());
-            }
-          }
         }
         if (VERBOSE) {
-          System.out.println("TEST: close reader");
+            System.out.println("TEST: close reader");
         }
         ir.close();
         if (VERBOSE) {
-          System.out.println("TEST: close writer");
+            System.out.println("TEST: close writer");
         }
         writer.close();
         if (VERBOSE) {
-          System.out.println("TEST: close dir");
+            System.out.println("TEST: close dir");
         }
         dir.close();
     }
 
     /**
-     * This is a direct copy of the {@link BaseDocValuesFormatTestCase#doTestSortedVsStoredFields(int, double, Supplier)},
-     * except in that version it always creates a FSDirectory, whereas here, if testing against FDB we use the directory
+     * This is a direct copy of the
+     * {@link BaseDocValuesFormatTestCase#doTestSortedVsStoredFields(int, double, Supplier)},
+     * except in that version it always creates a FSDirectory, whereas here, if testing against FDB we use the
+     * directory
      * under test.
      * <p>
      * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
@@ -303,45 +308,45 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
 
         // index some docs
         for (int i = 0; i < numDocs; i++) {
-          if (random().nextDouble() > density) {
-            writer.addDocument(new Document());
-            continue;
-          }
-          idField.setStringValue(Integer.toString(i));
-          byte[] buffer = bytes.get();
-          storedField.setBytesValue(buffer);
-          dvField.setBytesValue(buffer);
-          writer.addDocument(doc);
-          if (random().nextInt(31) == 0) {
-            writer.commit();
-          }
+            if (random().nextDouble() > density) {
+                writer.addDocument(new Document());
+                continue;
+            }
+            idField.setStringValue(Integer.toString(i));
+            byte[] buffer = bytes.get();
+            storedField.setBytesValue(buffer);
+            dvField.setBytesValue(buffer);
+            writer.addDocument(doc);
+            if (random().nextInt(31) == 0) {
+                writer.commit();
+            }
         }
 
         // delete some docs
-        int numDeletions = random().nextInt(numDocs /10);
+        int numDeletions = random().nextInt(numDocs / 10);
         for (int i = 0; i < numDeletions; i++) {
-          int id = random().nextInt(numDocs);
-          writer.deleteDocuments(new Term("id", Integer.toString(id)));
+            int id = random().nextInt(numDocs);
+            writer.deleteDocuments(new Term("id", Integer.toString(id)));
         }
 
         // compare
         DirectoryReader ir = writer.getReader();
         TestUtil.checkReader(ir);
         for (LeafReaderContext context : ir.leaves()) {
-          LeafReader r = context.reader();
-          BinaryDocValues docValues = DocValues.getBinary(r, "dv");
-          docValues.nextDoc();
-          for (int i = 0; i < r.maxDoc(); i++) {
-            BytesRef binaryValue = r.document(i).getBinaryValue("stored");
-            if (binaryValue == null) {
-              assertTrue(docValues.docID() > i);
-            } else {
-              assertEquals(i, docValues.docID());
-              assertEquals(binaryValue, docValues.binaryValue());
-              docValues.nextDoc();
+            LeafReader r = context.reader();
+            BinaryDocValues docValues = DocValues.getBinary(r, "dv");
+            docValues.nextDoc();
+            for (int i = 0; i < r.maxDoc(); i++) {
+                BytesRef binaryValue = r.document(i).getBinaryValue("stored");
+                if (binaryValue == null) {
+                    assertTrue(docValues.docID() > i);
+                } else {
+                    assertEquals(i, docValues.docID());
+                    assertEquals(binaryValue, docValues.binaryValue());
+                    docValues.nextDoc();
+                }
             }
-          }
-          assertEquals(DocIdSetIterator.NO_MORE_DOCS, docValues.docID());
+            assertEquals(DocIdSetIterator.NO_MORE_DOCS, docValues.docID());
         }
         ir.close();
         writer.forceMerge(1);
@@ -350,20 +355,20 @@ public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestC
         ir = writer.getReader();
         TestUtil.checkReader(ir);
         for (LeafReaderContext context : ir.leaves()) {
-          LeafReader r = context.reader();
-          BinaryDocValues docValues = DocValues.getBinary(r, "dv");
-          docValues.nextDoc();
-          for (int i = 0; i < r.maxDoc(); i++) {
-            BytesRef binaryValue = r.document(i).getBinaryValue("stored");
-            if (binaryValue == null) {
-              assertTrue(docValues.docID() > i);
-            } else {
-              assertEquals(i, docValues.docID());
-              assertEquals(binaryValue, docValues.binaryValue());
-              docValues.nextDoc();
+            LeafReader r = context.reader();
+            BinaryDocValues docValues = DocValues.getBinary(r, "dv");
+            docValues.nextDoc();
+            for (int i = 0; i < r.maxDoc(); i++) {
+                BytesRef binaryValue = r.document(i).getBinaryValue("stored");
+                if (binaryValue == null) {
+                    assertTrue(docValues.docID() > i);
+                } else {
+                    assertEquals(i, docValues.docID());
+                    assertEquals(binaryValue, docValues.binaryValue());
+                    docValues.nextDoc();
+                }
             }
-          }
-          assertEquals(DocIdSetIterator.NO_MORE_DOCS, docValues.docID());
+            assertEquals(DocIdSetIterator.NO_MORE_DOCS, docValues.docID());
         }
         ir.close();
         writer.close();

@@ -110,20 +110,20 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
         } else {
             dir = newMockFSDirectory(createTempDir("CFSManySubFiles"));
         }
+        // fileCount was originally FILE_COUNT, but that goes against checkStyle
+        final int fileCount = atLeast(500);
         // --END CUSTOM--
-
-        final int FILE_COUNT = atLeast(500);
 
         List<String> files = new ArrayList<>();
         SegmentInfo si = newSegmentInfo(dir, "_123");
-        for (int fileIdx = 0; fileIdx < FILE_COUNT; fileIdx++) {
-          String file = "_123." + fileIdx;
-          files.add(file);
-          try (IndexOutput out = dir.createOutput(file, newIOContext(random()))) {
-            CodecUtil.writeIndexHeader(out, "Foo", 0, si.getId(), "suffix");
-            out.writeByte((byte) fileIdx);
-            CodecUtil.writeFooter(out);
-          }
+        for (int fileIdx = 0; fileIdx < fileCount; fileIdx++) {
+            String file = "_123." + fileIdx;
+            files.add(file);
+            try (IndexOutput out = dir.createOutput(file, newIOContext(random()))) {
+                CodecUtil.writeIndexHeader(out, "Foo", 0, si.getId(), "suffix");
+                out.writeByte((byte)fileIdx);
+                CodecUtil.writeFooter(out);
+            }
         }
 
         assertEquals(0, dir.getFileHandleCount());
@@ -132,22 +132,22 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
         si.getCodec().compoundFormat().write(dir, si, IOContext.DEFAULT);
         Directory cfs = si.getCodec().compoundFormat().getCompoundReader(dir, si, IOContext.DEFAULT);
 
-        final IndexInput[] ins = new IndexInput[FILE_COUNT];
-        for (int fileIdx = 0; fileIdx < FILE_COUNT; fileIdx++) {
-          ins[fileIdx] = cfs.openInput("_123." + fileIdx, newIOContext(random()));
-          CodecUtil.checkIndexHeader(ins[fileIdx], "Foo", 0, 0, si.getId(), "suffix");
+        final IndexInput[] ins = new IndexInput[fileCount];
+        for (int fileIdx = 0; fileIdx < fileCount; fileIdx++) {
+            ins[fileIdx] = cfs.openInput("_123." + fileIdx, newIOContext(random()));
+            CodecUtil.checkIndexHeader(ins[fileIdx], "Foo", 0, 0, si.getId(), "suffix");
         }
 
         assertEquals(1, dir.getFileHandleCount());
 
-        for (int fileIdx = 0; fileIdx < FILE_COUNT; fileIdx++) {
-          assertEquals((byte) fileIdx, ins[fileIdx].readByte());
+        for (int fileIdx = 0; fileIdx < fileCount; fileIdx++) {
+            assertEquals((byte)fileIdx, ins[fileIdx].readByte());
         }
 
         assertEquals(1, dir.getFileHandleCount());
 
-        for(int fileIdx=0;fileIdx<FILE_COUNT;fileIdx++) {
-          ins[fileIdx].close();
+        for (int fileIdx = 0; fileIdx < fileCount; fileIdx++) {
+            ins[fileIdx].close();
         }
         cfs.close();
 
@@ -158,10 +158,10 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
      * This is a direct copy of the {@link BaseCompoundFormatTestCase#testLargeCFS()}, except in that version it
      * always creates a FSDirectory, whereas here, if testing against FDB we use the directory under test.
      * <p>
-     *     You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
+     * You can search for "--BEGIN CUSTOM--" and "--END CUSTOM--" in the code to see exactly which lines.
      * </p>
      * <p>
-     *     Currently ignored because it takes 2 minutes trying to write 500MB to a single file.
+     * Currently ignored because it takes 2 minutes trying to write 500MB to a single file.
      * </p>
      *
      * @throws IOException if there's issues
@@ -170,7 +170,7 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
     @Ignore
     public void testLargeCFS() throws IOException {
         final String testfile = "_123.test";
-        IOContext context = new IOContext(new FlushInfo(0, 512*1024*1024));
+        IOContext context = new IOContext(new FlushInfo(0, 512 * 1024 * 1024));
 
         // --BEGIN CUSTOM--
         Directory dir;
@@ -184,12 +184,12 @@ public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCas
 
         SegmentInfo si = newSegmentInfo(dir, "_123");
         try (IndexOutput out = dir.createOutput(testfile, context)) {
-          CodecUtil.writeIndexHeader(out, "Foo", 0, si.getId(), "suffix");
-          byte[] bytes = new byte[512];
-          for(int i=0;i<1024*1024;i++) {
-            out.writeBytes(bytes, 0, bytes.length);
-          }
-          CodecUtil.writeFooter(out);
+            CodecUtil.writeIndexHeader(out, "Foo", 0, si.getId(), "suffix");
+            byte[] bytes = new byte[512];
+            for (int i = 0; i < 1024 * 1024; i++) {
+                out.writeBytes(bytes, 0, bytes.length);
+            }
+            CodecUtil.writeFooter(out);
         }
 
         si.setFiles(Collections.singleton(testfile));
