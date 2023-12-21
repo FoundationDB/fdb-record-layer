@@ -191,7 +191,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     for (int i = 1700; i < 1900; i += 17) {
                         final long iFinal = i;
                         // occasionally, we wish to have multiple writers
-                        int numWriters = 1 + Integer.numberOfLeadingZeros(i) / 2;
+                        int numWriters = 1 + Integer.numberOfTrailingZeros(i) / 2;
                         if (threadNum < numWriters) {
                             agilityContext.accept(aContext -> {
                                 final Transaction tr = aContext.ensureActive();
@@ -217,7 +217,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             });
                         }
                     }
-                    context.commit();
+                    agilityContext.flush();
                 }
             });
         }
@@ -232,7 +232,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             for (int i = 1700; i < 1900; i += 17) {
                 final long iFinal = i;
                 // occasionally, we wish to have multiple writers
-                int numWriters = 1 + Integer.numberOfLeadingZeros(i) / 2;
+                int numWriters = 1; // in this test, two writes may conflict each other
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
