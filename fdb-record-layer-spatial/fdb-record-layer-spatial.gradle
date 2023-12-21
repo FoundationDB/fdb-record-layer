@@ -69,7 +69,7 @@ task unzipGeonames(dependsOn: downloadGeonames, type: Copy) {
 
 def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 if (!skipSlow) {
-    test.dependsOn unzipGeonames
+    processTestResources.dependsOn unzipGeonames
 }
 
 publishing {
