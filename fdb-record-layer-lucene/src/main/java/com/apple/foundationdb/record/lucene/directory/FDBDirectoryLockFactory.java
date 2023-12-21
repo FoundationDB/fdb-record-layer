@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Produce a lock over {@link FDBDirectory}.
@@ -66,7 +67,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
             this.timeStampMillis = System.currentTimeMillis();
-            fileLockSet( timeStampMillis);
+            fileLockSet(timeStampMillis);
         }
 
         @Override
@@ -78,14 +79,18 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         @Override
         public void ensureValid() {
             if (closed) {
-                throw new AlreadyClosedException("Lock instance already released: " + this);
+                throw new AlreadyClosedException("Lock instance already released. This=" + this);
+            }
+            final long now = System.currentTimeMillis();
+            if (now > timeStampMillis + TimeUnit.MINUTES.toMillis(30)) {
+                throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
             long existingValue = fileLockGet();
             if (existingValue == 0) {
-                throw new AlreadyClosedException("Lock file was deleted (lock=" + this + ")");
+                throw new AlreadyClosedException("Lock file was deleted. This=" + this);
             }
             if (existingValue != timeStampMillis) {
-                throw new AlreadyClosedException("Lock file changed by an external force at " + existingValue + ", (lock=" + this + ")");
+                throw new AlreadyClosedException("Lock file changed by an external force at " + existingValue + ". This=" + this);
             }
         }
 
@@ -95,7 +100,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         private static long fileLockValueToTimestamp(byte[] value) {
-            return value == null || value.length < 2 ? 0 :
+            return value == null ? 0 :
                    Tuple.fromBytes(value).getLong(0);
         }
 
@@ -124,7 +129,6 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         aContext.ensureActive().set(fileLockKey, value);
                                     })
                     ));
-            agilityContext.flush();
         }
 
         public long fileLockGet() {
@@ -148,7 +152,6 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         aContext.ensureActive().clear(fileLockKey);
                                     })
                     ));
-            agilityContext.flush();
         }
 
 
