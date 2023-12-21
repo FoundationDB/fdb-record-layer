@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 class AgilityContextTest extends FDBRecordStoreTestBase {
     int loopCount = 20;
-    int threadCount = 8; // if exceed 8, may cause an execution pool deadlock
+    int threadCount = 5; // if exceeds a certain size, may cause an execution pool deadlock
 
     void testAgilityContextConcurrentSingleObject(final AgilityContext agilityContext, boolean doFlush) throws ExecutionException, InterruptedException {
         agilityContextTestSingleThread(0, agilityContext, doFlush);
