@@ -173,8 +173,6 @@ allprojects {
     }
 }
 
-apply from: file('gradle/coverage.gradle')
-
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 

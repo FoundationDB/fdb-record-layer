@@ -28,6 +28,10 @@ if (hasProperty('testEnableCoverage')) {
     }
 }
 
+tasks.withType(JacocoReport) { task ->
+    task.reports.xml.required = true
+}
+
 def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
 def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 test {
