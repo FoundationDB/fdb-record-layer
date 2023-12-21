@@ -114,31 +114,27 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 String line;
                 int count = 0;
                 while ((line = reader.readLine()) != null) {
-                    try {
-                        String[] split = line.split("\t");
-                        if (Integer.parseInt(split[14]) < minPopulation) {
-                            continue;
-                        }
-                        TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
-                                .setGeoNameId(Integer.parseInt(split[0]))
-                                .setName(split[1])
-                                .setNameAscii(split[2])
-                                .setCountry(split[8]);
-                        cityBuilder.getLocationBuilder()
-                                .setLatitude(Double.parseDouble(split[4]))
-                                .setLongitude(Double.parseDouble(split[5]));
-                        recordStore.saveRecord(cityBuilder.build());
-                        count++;
-                        if (count > 100) {
-                            commit(context);
-                            context.close();
-                            total += count;
-                            count = 0;
-                            context = openContext();
-                            recordStore = recordStore.asBuilder().setContext(context).open();
-                        }
-                    } catch (Exception ex) {
-                        LOGGER.error("loadCities(): Failed to parse line " + line, ex);
+                    String[] split = line.split("\t");
+                    if (Integer.parseInt(split[14]) < minPopulation) {
+                        continue;
+                    }
+                    TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
+                            .setGeoNameId(Integer.parseInt(split[0]))
+                            .setName(split[1])
+                            .setNameAscii(split[2])
+                            .setCountry(split[8]);
+                    cityBuilder.getLocationBuilder()
+                            .setLatitude(Double.parseDouble(split[4]))
+                            .setLongitude(Double.parseDouble(split[5]));
+                    recordStore.saveRecord(cityBuilder.build());
+                    count++;
+                    if (count > 100) {
+                        commit(context);
+                        context.close();
+                        total += count;
+                        count = 0;
+                        context = openContext();
+                        recordStore = recordStore.asBuilder().setContext(context).open();
                     }
                 }
                 commit(context);
