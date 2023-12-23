@@ -30,21 +30,25 @@ import org.apache.lucene.util.BytesRef;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 //TODO: Do we need to extend BlockTermState?
 public class LuceneOptimizedBlockTermState extends BlockTermState {
     private BytesRef term;
     private LucenePostingsProto.TermInfo termInfo;
 
-    public LuceneOptimizedBlockTermState(@Nonnull final KeyValue keyValue) throws IOException {
-        Tuple tuple = Tuple.fromBytes(keyValue.getKey());
-        this.term = new BytesRef(tuple.getBytes(tuple.size() - 1));
-        this.termInfo = LucenePostingsProto.TermInfo.parseFrom(keyValue.getValue());
-        assert term != null: "Term Cannot Be Null";
-        assert termInfo != null: "Term Cannot Be Null";
-        this.docFreq = termInfo.getDocFreq();
-        this.totalTermFreq = termInfo.getTotalTermFreq();
-        this.ord = termInfo.getOrd();
+    public LuceneOptimizedBlockTermState(@Nonnull final byte[] term, @Nonnull final byte[] termInfo) {
+        try {
+            this.term = new BytesRef(term);
+            this.termInfo = LucenePostingsProto.TermInfo.parseFrom(termInfo);
+            assert term != null: "Term Cannot Be Null";
+            assert termInfo != null: "TermInfo Cannot Be Null";
+            this.docFreq = this.termInfo.getDocFreq();
+            this.totalTermFreq = this.termInfo.getTotalTermFreq();
+            this.ord = this.termInfo.getOrd();
+        } catch (InvalidProtocolBufferException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     // TODO: @Nonull params?

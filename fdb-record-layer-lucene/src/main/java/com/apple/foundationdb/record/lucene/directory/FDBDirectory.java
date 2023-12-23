@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIn
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
@@ -68,6 +69,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockFactory;
+import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,6 +131,9 @@ public class FDBDirectory extends Directory  {
     private static final int STORED_FIELDS_SUBSPACE = 6;
     private static final int FILE_LOCK_SUBSPACE = 7;
     private static final int POSTINGS_FIELD_METADATA_SUBSPACE = 8;
+    private static final int POSTINGS_TERMS_SUBSPACE = 9;
+    private static final int POSTINGS_DOCUMENTS_SUBSPACE = 10;
+    private static final int POSTINGS_POSITIONS_SUBSPACE = 11;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -139,6 +144,9 @@ public class FDBDirectory extends Directory  {
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
     private final Subspace postingsMetadataSubspace;
+    private final Subspace postingsTermsSubspace;
+    private final Subspace postingsDocumentsSubspace;
+    private final Subspace postingsPositionsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -211,6 +219,9 @@ public class FDBDirectory extends Directory  {
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.postingsMetadataSubspace = subspace.subspace(Tuple.from(POSTINGS_FIELD_METADATA_SUBSPACE));
+        this.postingsTermsSubspace = subspace.subspace(Tuple.from(POSTINGS_TERMS_SUBSPACE));
+        this.postingsDocumentsSubspace = subspace.subspace(Tuple.from(POSTINGS_DOCUMENTS_SUBSPACE));
+        this.postingsPositionsSubspace = subspace.subspace(Tuple.from(POSTINGS_POSITIONS_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -357,10 +368,82 @@ public class FDBDirectory extends Directory  {
                 .map(keyValue -> Pair.of(fieldSub.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
 
-    public byte[] getFieldMetadata(String segmentName, int fieldNumber) {
-        return null;
+    @Nullable
+    public Pair<byte[], byte[]> getFirstPostingsTerm(final String segmentName, final int fieldNumber) {
+        final Subspace termsSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
+                agilityContext.apply(context -> {
+                    // Scan for the term matching the termBytes or the one immediately following
+                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range()).iterator();
+                    return iterator.onHasNext().thenApply(hasNext -> {
+                        if (Boolean.TRUE.equals(hasNext)) {
+                            final KeyValue next = iterator.next();
+                            return Pair.of(termsSub.unpack(next.getKey()).getBytes(0), next.getValue());
+                        } else {
+                            return null;
+                        }
+                    });
+                }));
     }
 
+    @Nullable
+    public byte[] getPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term) {
+        byte[] termBytes = copyFrom(term);
+        final byte[] key = postingsTermsSubspace.pack(Tuple.from(segmentName, fieldNumber, termBytes));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
+                agilityContext.apply(context -> context.ensureActive().get(key)));
+    }
+
+    public enum RangeStart {INCLUSIVE, EXCLUSIVE};
+
+    /**
+     * Scan for the next term element: Either the one matching the given parameters or the one immediately following.
+     * @param segmentName
+     * @param fieldNumber
+     * @param term
+     * @param rangeStart
+     * @return
+     */
+    @Nullable
+    public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeStart rangeStart) {
+        byte[] termBytes;
+        if (rangeStart == RangeStart.INCLUSIVE) {
+            termBytes = copyFrom(term);
+        } else {
+            termBytes = ByteArrayUtil.keyAfter(copyFrom(term));
+        }
+        final Subspace termsSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber, termBytes));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
+                agilityContext.apply(context -> {
+                    // Scan for the term matching the termBytes or the one immediately following
+                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range()).iterator();
+                    return iterator.onHasNext().thenApply(hasNext -> {
+                        if (Boolean.TRUE.equals(hasNext)) {
+                            final KeyValue next = iterator.next();
+                            return Pair.of(termsSub.unpack(next.getKey()).getBytes(0), next.getValue());
+                        } else {
+                            return null;
+                        }
+                    });
+                }));
+    }
+
+    public byte[] getTermDocuments(final String segmentName, final int fieldNumber, final long termOrd) {
+        final byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_DOCUMENTS,
+                agilityContext.apply(context -> context.ensureActive().get(key)));
+    }
+
+    public byte[] getTermDocumentPositions(final String segmentName, final int fieldNumber, final long ord, final int docId) {
+        final byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, ord, docId));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_POSITIONS,
+                agilityContext.apply(context -> context.ensureActive().get(key)));
+    }
 
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)
@@ -556,25 +639,8 @@ public class FDBDirectory extends Directory  {
         return rawBytes;
     }
 
-    // TODO: return Byte[]
-    public byte[] getPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
-        return new byte[0];
-    }
-
-    public AsyncIterator<KeyValue> scanPostingsTerm(final String segmentName, final int number, final Tuple termBytes) {
-        return null;
-    }
-
     public AsyncIterator<KeyValue> scanAllPostingsTermsAsync(final String segmentName, final int number) {
         return null;
-    }
-
-    public byte[] getTermDocuments(final String segmentName, final int number, final long ord) {
-        return new byte[0];
-    }
-
-    public byte[] getTermDocumentPositions(final String segmentName, final int number, final long ord, final int docId) {
-        return new byte[0];
     }
 
     /**
@@ -1147,5 +1213,14 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public String getIndexOption(@Nonnull String key) {
         return indexOptions.get(key);
+    }
+
+    /**
+     * Utility to return the actual bytes from a BytesRef (produce a copy of the slice of the original)
+     * @param bytesRef
+     * @return
+     */
+    private byte[] copyFrom(BytesRef bytesRef) {
+        return Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset+bytesRef.length);
     }
 }

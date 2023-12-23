@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.FieldInfo;
@@ -40,7 +41,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
@@ -51,14 +51,14 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
     private final String segmentName;
     private final FieldInfos fieldInfos;
 
-    private LazyOpener<List<String>> fieldsSupplier;
     // order-preserving map of field numbers to field metadata
+    // This reads all the data at once (though we may need to optimize it to only read the fields we need)
     private final LazyOpener<LinkedHashMap<Long, PostingsFieldMetadata>> fieldMetadataSupplier;
     private final LazyOpener<List<String>> fieldNameSupplier;
 
     public LuceneOptimizedPostingsFieldsProducer(final PostingsReaderBase postingsReader, SegmentReadState state, @Nonnull Directory directory) {
         this.postingsReader = postingsReader;
-        this.directory = toFdbDirectory(directory);
+        this.directory = FDBDirectoryUtils.getFDBDirectory(directory);
         this.segmentName = state.segmentInfo.name;
         this.fieldInfos = state.fieldInfos;
 
@@ -100,7 +100,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
         }
         assert field != null;
         FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
-        // Since we need to iterate over all the fields it is OK to not lazily get the metadata here since we already brought it already
+        // Since we need to iterate over all the fields it is OK to get all the metadata here since we already brought it anyway
         PostingsFieldMetadata metadata = fieldMetadataSupplier.get().get(fieldInfo.number);
         return new LuceneOptimizedTerms(segmentName, fieldInfo, metadata, directory, postingsReader);
     }
@@ -141,23 +141,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "(fields=" + fieldsSupplier.getUnchecked().size() + ",delegate=" + postingsReader + ")";
+        // TODO: Maybe not a good idea to fetch all fields in toString
+        return getClass().getSimpleName() + "(fields=" + fieldMetadataSupplier.getUnchecked().size() + ",delegate=" + postingsReader + ")";
     }
-
-    /**
-     * TODO: This is to be replaced by the shared utility once that PR gets merged in.
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    private FDBDirectory toFdbDirectory(Directory directory) {
-        Directory delegate = FilterDirectory.unwrap(directory);
-        if (delegate instanceof LuceneOptimizedCompoundReader) {
-            delegate = ((LuceneOptimizedCompoundReader)delegate).getDirectory();
-        }
-        if (delegate instanceof FDBDirectory) {
-            return (FDBDirectory)delegate;
-        } else {
-            throw new RuntimeException("Expected FDB Directory " + delegate.getClass());
-        }
-    }
-
 }

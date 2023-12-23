@@ -20,10 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.tuple.Tuple;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.ImpactsEnum;
@@ -33,7 +31,6 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.util.AttributeSource;
 import org.apache.lucene.util.BytesRef;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 
 // TODO: extends BaseTermsEnum???
@@ -44,7 +41,6 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
     private final PostingsReaderBase postingsReader;
 
     private LuceneOptimizedBlockTermState currentTermState;
-    private AsyncIterator<KeyValue> currentIterator;
     private AttributeSource atts;
 
     public LuceneOptimizedTermsEnum(final String segmentName, final FieldInfo fieldInfo, final FDBDirectory directory, final PostingsReaderBase postingsReader) {
@@ -56,11 +52,10 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public boolean seekExact(final BytesRef text) throws IOException {
-        // TODO: Do we need to reset the iterator?
-        Tuple termBytes = byteRefToTuple(text);
-        byte[] termData = directory.getPostingsTerm(segmentName, fieldInfo.number, termBytes);
+        byte[] termData = directory.getPostingsTerm(segmentName, fieldInfo.number, text);
         if (termData != null) {
             // TODO: This leaves the same instance in place - why is this necessary?
+            // TODO: If null, should we reset the current state?
             // currentTermState = new CurrentTermState(text, termData);
             currentTermState.copyFrom(text, termData);
         }
@@ -69,13 +64,11 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public SeekStatus seekCeil(final BytesRef text) throws IOException {
-        // TODO: Do we need to reset the iterator?
-        Tuple termBytes = byteRefToTuple(text);
-        // Keep the iterator around for subsequent next() calls
-        currentIterator = directory.scanPostingsTerm(segmentName, fieldInfo.number, termBytes);
+        // Scan from the given term inclusive of the first element
+        Pair<byte[], byte[]> term = directory.getNextPostingsTerm(segmentName, fieldInfo.number, text, FDBDirectory.RangeStart.INCLUSIVE);
 
-        if (currentIterator.hasNext()) {
-            currentTermState = new LuceneOptimizedBlockTermState(currentIterator.next());
+        if (term != null) {
+            currentTermState = new LuceneOptimizedBlockTermState(term.getKey(), term.getValue());
             if (currentTermState.compareTermTo(text) == 0) {
                 return SeekStatus.FOUND;
             } else {
@@ -90,6 +83,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public void seekExact(final long ord) throws IOException {
+        // TODO: Should we implement the slow way?
         throw new UnsupportedOperationException("seekExact(long) Not Supported");
     }
 
@@ -102,20 +96,21 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public BytesRef next() throws IOException {
-        if (currentIterator == null) {
-            if (currentTermState != null && currentTermState.getTerm() != null) {
-                currentIterator = directory.scanPostingsTerm(segmentName, fieldInfo.number, byteRefToTuple(currentTermState.getTerm()));
-            } else {
-                // Start at the beginning
-                currentIterator = directory.scanAllPostingsTermsAsync(segmentName, fieldInfo.number);
-            }
+        Pair<byte[], byte[]> nextTermData;
+        if ((currentTermState != null) && (currentTermState.getTerm() != null)) {
+            // scan for the next term following the current
+            nextTermData = directory.getNextPostingsTerm(segmentName, fieldInfo.number, currentTermState.getTerm(), FDBDirectory.RangeStart.EXCLUSIVE);
+        } else {
+            nextTermData = directory.getFirstPostingsTerm(segmentName, fieldInfo.number);
         }
-        if (!currentIterator.hasNext()) {
+        if (nextTermData == null) {
+            // TODO: Is this right? Should we return to the beginning?
             currentTermState = null;
             return null;
+        } else {
+            currentTermState = new LuceneOptimizedBlockTermState(nextTermData.getKey(), nextTermData.getValue());
+            return currentTermState.getTerm();
         }
-        currentTermState = new LuceneOptimizedBlockTermState(currentIterator.next());
-        return currentTermState.getTerm();
     }
 
     @Override
@@ -169,10 +164,5 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
             atts = new AttributeSource();
         }
         return atts;
-    }
-
-    @Nonnull
-    private Tuple byteRefToTuple(final BytesRef text) throws IOException {
-        return Tuple.fromBytes(term().bytes, text.offset, text.length);
     }
 }

@@ -23,6 +23,10 @@ package com.apple.foundationdb.record.lucene;
 
 option java_outer_classname = "LucenePostingsProto";
 
+/*
+ * Metadata about terms for each field.
+ * Key: POSTINGS_FIELD_METADATA_SUBSPACE / SegmentName / FieldNumber
+ */
 message TermMeta {
   required int64 numTerms = 1;
   optional int64 sumTotalFreq = 2;
@@ -31,18 +35,29 @@ message TermMeta {
   optional bytes minTerm = 5;
   optional bytes maxTerm = 6;
 }
-
+/*
+ * Info about each term within a field.
+ * Key: POSTINGS_TERMS_SUBSPACE / SegmentName / FieldNumber / TermBytes
+ */
 message TermInfo {
   required int64 ord = 1;
   optional int32 docFreq = 2;
   optional int64 totalTermFreq = 3;
 }
 
+/*
+ * Info about the documents for each term.
+ * Key: POSTINGS_DOCUMENTS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal
+ */
 message Documents {
   repeated int32 docId = 1;
   repeated int32 freq = 2;
 }
 
+/*
+ * Info about the positions for each term.
+ * Key: POSTINGS_POSITIONS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
+ */
 message Positions {
   repeated int32 position = 1;
 }

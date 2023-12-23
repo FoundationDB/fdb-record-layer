@@ -38,7 +38,6 @@ import java.util.Collection;
 
 public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
-
     private String segmentName;
     private FDBDirectory directory;
 
@@ -54,7 +53,7 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     @Override
     public BlockTermState newTermState() throws IOException {
         // TODO: When is this empty constructor called?
-        return new LuceneOptimizedBlockTermState(null);
+        return new LuceneOptimizedBlockTermState(null, null);
     }
 
     @Override

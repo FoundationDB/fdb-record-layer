@@ -158,8 +158,11 @@ public class LuceneEvents {
         WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos"),
         /** Read a file lock. */
         WAIT_LUCENE_FILE_LOCK("lucene read file lock"),
-        WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA("lucene read postings field metadata");
-        ;
+        WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA("lucene read postings field metadata"),
+        WAIT_LUCENE_READ_POSTINGS_TERMS("lucene read all postings terms"),
+        WAIT_LUCENE_READ_POSTINGS_DOCUMENTS("lucene read postings documents"),
+        WAIT_LUCENE_READ_POSTINGS_POSITIONS("lucene read postings positions");
+
         private final String title;
         private final String logKey;
 

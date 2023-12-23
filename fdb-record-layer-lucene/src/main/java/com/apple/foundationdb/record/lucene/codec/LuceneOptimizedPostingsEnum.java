@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Impact;
 import org.apache.lucene.index.Impacts;
@@ -28,6 +30,7 @@ import org.apache.lucene.index.ImpactsEnum;
 import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -75,6 +78,8 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         }
         if (positions == null) {
             // TODO: Maybe turn into AtomicReference?
+            // TODO: Maybe read positions for all documents at once?
+            // TODO: Shold this be indexed by the docID or the currentDoc(ordingal)?
             positions = readTermDocPositions(docID());
         }
         return positions.getPosition(++currentPosition);
@@ -191,7 +196,6 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         };
     }
 
-
     private DocumentPositions readTermDocPositions(int docId) throws IOException {
         byte[] posBytes = this.directory.getTermDocumentPositions(segmentName, fieldInfo.number, state.getOrd(), docId);
         final DocumentPositions positions = new DocumentPositions(posBytes);
@@ -203,32 +207,46 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
     }
 
     private class TermDocuments {
+        private final LucenePostingsProto.Documents documents;
+
         public TermDocuments(final byte[] docBytes) {
+            try {
+                this.documents = LucenePostingsProto.Documents.parseFrom(docBytes);
+            } catch (InvalidProtocolBufferException e) {
+                throw new UncheckedIOException(e);
+            }
         }
 
-        public int getFreq(final int currentDoc) {
-            return 0;
+        public int getFreq(final int doc) {
+            return documents.getFreq(doc);
         }
 
         public int getDocIdCount() {
-            return 0;
+            return documents.getDocIdCount();
         }
 
-        public int getDocId(final int currentDoc) {
-            return 0;
+        public int getDocId(final int doc) {
+            return documents.getDocId(doc);
         }
     }
 
     private class DocumentPositions {
+        private final LucenePostingsProto.Positions positions;
+
         public DocumentPositions(final byte[] posBytes) {
+            try {
+                this.positions = LucenePostingsProto.Positions.parseFrom(posBytes);
+            } catch (InvalidProtocolBufferException e) {
+                throw new UncheckedIOException(e);
+            }
         }
 
-        public int getPosition(final int i) {
-            return 0;
+        public int getPosition(final int position) {
+            return positions.getPosition(position);
         }
 
         public int getPositionCount() {
-            return 0;
+            return positions.getPositionCount();
         }
     }
 }
