@@ -28,14 +28,11 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.Terms;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -56,9 +53,9 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
     private final LazyOpener<LinkedHashMap<Long, PostingsFieldMetadata>> fieldMetadataSupplier;
     private final LazyOpener<List<String>> fieldNameSupplier;
 
-    public LuceneOptimizedPostingsFieldsProducer(final PostingsReaderBase postingsReader, SegmentReadState state, @Nonnull Directory directory) {
+    public LuceneOptimizedPostingsFieldsProducer(SegmentReadState state, final PostingsReaderBase postingsReader) {
         this.postingsReader = postingsReader;
-        this.directory = FDBDirectoryUtils.getFDBDirectory(directory);
+        this.directory = FDBDirectoryUtils.getFDBDirectory(state.directory);
         this.segmentName = state.segmentInfo.name;
         this.fieldInfos = state.fieldInfos;
 

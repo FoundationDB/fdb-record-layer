@@ -79,6 +79,10 @@ public class LuceneIndexOptions {
      * Whether to use the StoredFields format that stores data in K/V (TRUE) pairs or in the standard Lucene file (FALSE).
      */
     public static final String OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED = "optimizedStoredFieldsFormatEnabled";
+    /**
+     * Whether to use the Postings format that stores data in K/V (TRUE) pairs or in the standard Lucene file (FALSE).
+     */
+    public static final String OPTIMIZED_POSTINGS_FORMAT_ENABLED = "optimizedPostingsFormarEnabled";
 
     /**
      * Option to designate a record field as the timestamp by which the corresponding document would be partitioned in

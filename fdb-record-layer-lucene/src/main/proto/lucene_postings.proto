@@ -48,6 +48,7 @@ message TermInfo {
 /*
  * Info about the documents for each term.
  * Key: POSTINGS_DOCUMENTS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal
+ * TODO: Can this be combined into the TermInfo? Cardinality is the same
  */
 message Documents {
   repeated int32 docId = 1;
@@ -55,15 +56,20 @@ message Documents {
 }
 
 /*
- * Info about the positions for each term.
+ * Info about the positions for each document in a term.
  * Key: POSTINGS_POSITIONS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
  */
 message Positions {
   repeated int32 position = 1;
 }
 
+/*
+ * Info about the payloads for each document in a term.
+ * Key: POSTINGS_PAYLOADS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
+ */
 message Payloads {
   repeated bytes payload = 1;
+  // TODO: Separate from payloads?
   repeated int32 startOffset = 2;
   repeated int32 endOffset = 3;
 }

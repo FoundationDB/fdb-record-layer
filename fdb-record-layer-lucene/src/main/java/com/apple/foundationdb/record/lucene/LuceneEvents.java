@@ -233,7 +233,10 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
-        ;
+        LUCENE_WRITE_POSTINGS_METADATA("lucene write postings metadata", false),
+        LUCENE_WRITE_POSTINGS_TERM("lucene write postings term", false),
+        LUCENE_WRITE_POSTINGS_DOCUMENTS("lucene write postings documents", false),
+        LUCENE_WRITE_POSTINGS_POSITIONS("lucene write postings positions", false);
 
         private final String title;
         private final boolean isSize;

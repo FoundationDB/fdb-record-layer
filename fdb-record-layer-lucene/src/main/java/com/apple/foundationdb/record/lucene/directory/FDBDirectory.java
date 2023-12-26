@@ -396,6 +396,60 @@ public class FDBDirectory extends Directory  {
                 agilityContext.apply(context -> context.ensureActive().get(key)));
     }
 
+    public void writePostingsTermMetadata(final String segmentName, final int fieldNumber, final byte[] metadata) {
+        byte[] key = postingsMetadataSubspace.pack(Tuple.from(segmentName, fieldNumber));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + metadata.length);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_METADATA);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene postings metadata",
+                    LuceneLogMessageKeys.DATA_SIZE, metadata.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, metadata.length));
+        }
+        agilityContext.set(key, metadata);
+
+    }
+
+    public void writePostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, final byte[] termData) {
+        byte[] termBytes = copyFrom(term);
+        byte[] key = postingsTermsSubspace.pack(Tuple.from(segmentName, fieldNumber, termBytes));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + termData.length);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_TERM);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene postings term",
+                    LuceneLogMessageKeys.DATA_SIZE, termData.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, termData.length));
+        }
+        agilityContext.set(key, termData);
+    }
+
+    public void writePostingsDocuments(final String segmentName, final int fieldNumber, final long termOrd, final byte[] documents) {
+        byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + documents.length);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_DOCUMENTS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene postings documents",
+                    LuceneLogMessageKeys.DATA_SIZE, documents.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, documents.length));
+        }
+        agilityContext.set(key, documents);
+    }
+
+    public void writePostingsPositions(final String segmentName, final int fieldNumber, final long termOrd, final int docId, final byte[] positions) {
+        byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd, docId));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + positions.length);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_POSITIONS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene postings positions",
+                    LuceneLogMessageKeys.DATA_SIZE, positions.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, positions.length));
+        }
+        agilityContext.set(key, positions);
+    }
+
+    public void writePostingsPayloads(final String segmentName, final int fieldNumber, final long termOrd, final int docId, final byte[] payloads) {
+        // TODO
+    }
+
     public enum RangeStart {INCLUSIVE, EXCLUSIVE};
 
     /**

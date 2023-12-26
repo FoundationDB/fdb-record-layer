@@ -35,7 +35,13 @@ import java.io.UncheckedIOException;
 //TODO: Do we need to extend BlockTermState?
 public class LuceneOptimizedBlockTermState extends BlockTermState {
     private BytesRef term;
+    // TODO: This can be auto-generated from the rest of the data.
     private LucenePostingsProto.TermInfo termInfo;
+
+    public LuceneOptimizedBlockTermState() {
+        // Empty constructor, to be used by newTermState(). This instance will be populated by data
+        // later, via calls to copyFrom()
+    }
 
     public LuceneOptimizedBlockTermState(@Nonnull final byte[] term, @Nonnull final byte[] termInfo) {
         try {
@@ -54,6 +60,14 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
     // TODO: @Nonull params?
     public void copyFrom(final BytesRef term, byte[] termBytes) throws IOException {
         final LucenePostingsProto.TermInfo termInfo = LucenePostingsProto.TermInfo.parseFrom(termBytes);
+        this.term = term;
+        this.termInfo = termInfo;
+        this.docFreq = termInfo.getDocFreq();
+        this.totalTermFreq = termInfo.getTotalTermFreq();
+        this.ord = termInfo.getOrd();
+    }
+
+    public void copyFrom(final BytesRef term, LucenePostingsProto.TermInfo termInfo) throws IOException {
         this.term = term;
         this.termInfo = termInfo;
         this.docFreq = termInfo.getDocFreq();

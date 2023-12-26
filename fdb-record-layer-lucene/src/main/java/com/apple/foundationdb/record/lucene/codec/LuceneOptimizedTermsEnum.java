@@ -76,7 +76,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
             }
         } else {
             // or set the state to null?
-            currentTermState.copyFrom(null, null);
+            currentTermState = new LuceneOptimizedBlockTermState();
             return SeekStatus.END;
         }
     }

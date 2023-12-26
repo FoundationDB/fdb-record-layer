@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.FieldInfo;
@@ -41,9 +41,9 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     private String segmentName;
     private FDBDirectory directory;
 
-    public LuceneOptimizedPostingsReader(final String segmentName, final FDBDirectory directory) {
-        this.segmentName = segmentName;
-        this.directory = directory;
+    public LuceneOptimizedPostingsReader(final SegmentReadState state) {
+        this.directory = FDBDirectoryUtils.getFDBDirectory(state.directory);
+        this.segmentName = state.segmentInfo.name;
     }
 
     @Override
