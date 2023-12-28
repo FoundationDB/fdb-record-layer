@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PDerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -113,29 +114,29 @@ public class DerivedValue extends AbstractValue implements Value.CompileTimeValu
 
     @Nonnull
     @Override
-    public PDerivedValue toProto(@Nonnull final PlanHashMode mode) {
+    public PDerivedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PDerivedValue.newBuilder();
         for (final Value child : children) {
-            builder.addChildren(child.toValueProto(mode));
+            builder.addChildren(child.toValueProto(serializationContext));
         }
-        builder.setResultType(resultType.toTypeProto(mode));
+        builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setDerivedValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setDerivedValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static DerivedValue fromProto(@Nonnull final PlanHashMode mode,
+    public static DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PDerivedValue derivedValueProto) {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
         for (int i = 0; i < derivedValueProto.getChildrenCount(); i ++) {
-            childrenBuilder.add(Value.fromValueProto(mode, derivedValueProto.getChildren(i)));
+            childrenBuilder.add(Value.fromValueProto(serializationContext, derivedValueProto.getChildren(i)));
         }
         return new DerivedValue(childrenBuilder.build(),
-                Type.fromTypeProto(mode, Objects.requireNonNull(derivedValueProto.getResultType())));
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(derivedValueProto.getResultType())));
     }
 }

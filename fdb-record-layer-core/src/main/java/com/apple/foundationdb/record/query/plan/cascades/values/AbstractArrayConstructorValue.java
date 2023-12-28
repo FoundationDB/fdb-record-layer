@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractArrayConstructorValue;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PLightArrayConstructorValue;
@@ -67,13 +68,13 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     @Nonnull
     private final Type elementType;
 
-    protected AbstractArrayConstructorValue(@Nonnull final PlanHashMode mode,
+    protected AbstractArrayConstructorValue(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final PAbstractArrayConstructorValue abstractArrayConstructorValueProto) {
         this(abstractArrayConstructorValueProto.getChildrenList()
                         .stream()
-                        .map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
                         .collect(ImmutableList.toImmutableList()),
-                Type.fromTypeProto(mode, Objects.requireNonNull(abstractArrayConstructorValueProto.getElementType())));
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(abstractArrayConstructorValueProto.getElementType())));
     }
 
     protected AbstractArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
@@ -132,12 +133,12 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     }
 
     @Nonnull
-    PAbstractArrayConstructorValue toAbstractArrayConstructorProto(@Nonnull final PlanHashMode mode) {
+    PAbstractArrayConstructorValue toAbstractArrayConstructorProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PAbstractArrayConstructorValue.Builder builder = PAbstractArrayConstructorValue.newBuilder();
         for (final Value child : children) {
-            builder.addChildren(child.toValueProto(mode));
+            builder.addChildren(child.toValueProto(serializationContext));
         }
-        builder.setElementType(elementType.toTypeProto(mode));
+        builder.setElementType(elementType.toTypeProto(serializationContext));
         return builder.build();
     }
 
@@ -191,9 +192,9 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             this(ImmutableList.of(), elementType);
         }
 
-        private LightArrayConstructorValue(@Nonnull final PlanHashMode mode,
+        private LightArrayConstructorValue(@Nonnull final PlanSerializationContext serializationContext,
                                            @Nonnull final PAbstractArrayConstructorValue abstractArrayConstructorValueProto) {
-            super(mode, abstractArrayConstructorValueProto);
+            super(serializationContext, abstractArrayConstructorValueProto);
         }
 
         private LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
@@ -236,20 +237,21 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
         @Nonnull
         @Override
-        public PLightArrayConstructorValue toProto(@Nonnull final PlanHashMode mode) {
-            return PLightArrayConstructorValue.newBuilder().setSuper(toAbstractArrayConstructorProto(mode)).build();
+        public PLightArrayConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PLightArrayConstructorValue.newBuilder().setSuper(toAbstractArrayConstructorProto(serializationContext)).build();
         }
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-            return RecordQueryPlanProto.PValue.newBuilder().setLightArrayConstructorValue(toProto(mode)).build();
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setLightArrayConstructorValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static LightArrayConstructorValue fromProto(@Nonnull final PlanHashMode mode,
+        public static LightArrayConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                            @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
-            return new LightArrayConstructorValue(mode, Objects.requireNonNull(lightArrayConstructorValueProto.getSuper()));
+            return new LightArrayConstructorValue(serializationContext,
+                    Objects.requireNonNull(lightArrayConstructorValueProto.getSuper()));
         }
 
         @Nonnull

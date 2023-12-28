@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PEmptyValue;
 import com.apple.foundationdb.record.metadata.Key;
@@ -99,19 +100,20 @@ public class EmptyValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public PEmptyValue toProto(@Nonnull final PlanHashMode mode) {
+    public PEmptyValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PEmptyValue.newBuilder().build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setEmptyValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setEmptyValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    public static EmptyValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PEmptyValue emptyValueProto) {
+    public static EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PEmptyValue emptyValueProto) {
         return new EmptyValue();
     }
 }

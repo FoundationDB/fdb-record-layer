@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue.PColumn;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -94,17 +95,18 @@ public class Column<V extends Value> implements PlanHashable, PlanSerializable {
 
     @Nonnull
     @Override
-    public PColumn toProto(@Nonnull final PlanHashMode mode) {
+    public PColumn toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PColumn.Builder builder = PColumn.newBuilder();
-        builder.setField(field.toProto(mode));
-        builder.setValue(value.toValueProto(mode));
+        builder.setField(field.toProto(serializationContext));
+        builder.setValue(value.toValueProto(serializationContext));
         return builder.build();
     }
 
     @Nonnull
-    public static Column<? extends Value> fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PColumn columnProto) {
-        return new Column<>(Field.fromProto(mode, Objects.requireNonNull(columnProto.getField())),
-                Value.fromValueProto(mode, Objects.requireNonNull(columnProto.getValue())));
+    public static Column<? extends Value> fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PColumn columnProto) {
+        return new Column<>(Field.fromProto(serializationContext, Objects.requireNonNull(columnProto.getField())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(columnProto.getValue())));
     }
 
 }

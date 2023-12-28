@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -121,21 +122,23 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
 
     @Nonnull
     @Override
-    public PExistsValue toProto(@Nonnull final PlanHashMode mode) {
+    public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PExistsValue.newBuilder()
-                .setChild(child.toProto(mode))
+                .setChild(child.toProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setExistsValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setExistsValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ExistsValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PExistsValue existsValueProto) {
-        return new ExistsValue(QuantifiedObjectValue.fromProto(mode, Objects.requireNonNull(existsValueProto.getChild())));
+    public static ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PExistsValue existsValueProto) {
+        return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
+                Objects.requireNonNull(existsValueProto.getChild())));
     }
 
     /**

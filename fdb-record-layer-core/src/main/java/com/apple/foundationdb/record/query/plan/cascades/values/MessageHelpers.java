@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionTrieNode;
@@ -577,28 +578,30 @@ public class MessageHelpers {
 
         @Nonnull
         @Override
-        public PCoercionTrieNode toProto(@Nonnull final PlanHashMode mode) {
+        public PCoercionTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PCoercionTrieNode.Builder builder = PCoercionTrieNode.newBuilder();
 
             if (getValue() != null) {
-                builder.setCoercionBiFunction(getValue().toCoercionBiFunctionProto(mode));
+                builder.setCoercionBiFunction(getValue().toCoercionBiFunctionProto(serializationContext));
             }
             builder.setChildrenMapIsNull(getChildrenMap() == null);
             if (getChildrenMap() != null) {
                 for (final Map.Entry<Integer, CoercionTrieNode> entry : getChildrenMap().entrySet()) {
                     builder.addChildPair(PCoercionTrieNode.IntChildPair.newBuilder()
                             .setIndex(entry.getKey())
-                            .setChildCoercionTrieNode(entry.getValue().toProto(mode)));
+                            .setChildCoercionTrieNode(entry.getValue().toProto(serializationContext)));
                 }
             }
             return builder.build();
         }
 
         @Nonnull
-        public static CoercionTrieNode fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
+        public static CoercionTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
             final CoercionBiFunction value;
             if (coercionTrieNodeProto.hasCoercionBiFunction()) {
-                value = CoercionBiFunction.fromCoercionBiFunctionProto(mode, coercionTrieNodeProto.getCoercionBiFunction());
+                value =
+                        CoercionBiFunction.fromCoercionBiFunctionProto(serializationContext,
+                                coercionTrieNodeProto.getCoercionBiFunction());
             } else {
                 value = null;
             }
@@ -613,7 +616,8 @@ public class MessageHelpers {
                     final PCoercionTrieNode.IntChildPair childPair = coercionTrieNodeProto.getChildPair(i);
                     Verify.verify(childPair.hasIndex());
                     Verify.verify(childPair.hasChildCoercionTrieNode());
-                    childrenMapBuilder.put(childPair.getIndex(), CoercionTrieNode.fromProto(mode, childPair.getChildCoercionTrieNode()));
+                    childrenMapBuilder.put(childPair.getIndex(),
+                            CoercionTrieNode.fromProto(serializationContext, childPair.getChildCoercionTrieNode()));
                 }
                 childrenMap = childrenMapBuilder.build();
             } else {
@@ -628,14 +632,15 @@ public class MessageHelpers {
      */
     public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
         @Nonnull
-        default PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanHashMode mode) {
+        @SuppressWarnings("unused")
+        default PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unable to generify coercion bi-function of class " + getClass().getSimpleName());
         }
 
         @Nonnull
-        static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanHashMode mode,
+        static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
                                                               @Nonnull final PCoercionBiFunction coercionBiFunctionProto) {
-            return (CoercionBiFunction)PlanSerialization.dispatchFromProtoContainer(mode, coercionBiFunctionProto);
+            return (CoercionBiFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, coercionBiFunctionProto);
         }
     }
 }

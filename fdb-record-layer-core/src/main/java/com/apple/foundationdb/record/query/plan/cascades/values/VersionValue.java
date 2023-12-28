@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVersionValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -148,18 +149,20 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public PVersionValue toProto(@Nonnull final PlanHashMode mode) {
+    public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PVersionValue.newBuilder().setBaseAlias(baseAlias.getId()).build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setVersionValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setVersionValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static VersionValue fromProto(@Nonnull final PVersionValue versionValueProto) {
+    @SuppressWarnings("unused")
+    public static VersionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PVersionValue versionValueProto) {
         return new VersionValue(CorrelationIdentifier.of(Objects.requireNonNull(versionValueProto.getBaseAlias())));
     }
 }

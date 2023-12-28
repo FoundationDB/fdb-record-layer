@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue;
@@ -96,10 +97,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
-    protected RelOpValue(@Nonnull final PlanHashMode mode, @Nonnull final PRelOpValue relOpValueProto) {
+    protected RelOpValue(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRelOpValue relOpValueProto) {
         this(Objects.requireNonNull(relOpValueProto.getFunctionName()),
-                Comparisons.Type.fromProto(mode, Objects.requireNonNull(relOpValueProto.getComparisonType())),
-                relOpValueProto.getChildrenList().stream().map(valueProto -> Value.fromValueProto(mode, valueProto))
+                Comparisons.Type.fromProto(serializationContext, Objects.requireNonNull(relOpValueProto.getComparisonType())),
+                relOpValueProto.getChildrenList().stream().map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -239,12 +240,12 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    public PRelOpValue toRelOpValueProto(@Nonnull final PlanHashMode mode) {
+    public PRelOpValue toRelOpValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PRelOpValue.Builder builder = PRelOpValue.newBuilder();
         builder.setFunctionName(functionName);
-        builder.setComparisonType(comparisonType.toProto(mode));
+        builder.setComparisonType(comparisonType.toProto(serializationContext));
         for (final Value child : children) {
-            builder.addChildren(child.toValueProto(mode));
+            builder.addChildren(child.toValueProto(serializationContext));
         }
         return builder.build();
     }
@@ -750,7 +751,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PBinaryPhysicalOperator toProto(@Nonnull PlanHashMode planHashMode) {
+        public PBinaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             //<editor-fold default-state="collapsed" description="big switch statement">
             switch (this) {
                 case EQ_BU:
@@ -1153,7 +1154,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings({"unused", "DuplicateBranchesInSwitch"})
-        public static BinaryPhysicalOperator fromProto(@Nonnull PlanHashMode planHashMode, PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
+        public static BinaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
             //<editor-fold default-state="collapsed" description="big switch statement">
             switch (binaryPhysicalOperatorProto) {
                 case EQ_BU:
@@ -1676,7 +1678,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PUnaryPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        public PUnaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case IS_NULL_UI:
                     return PUnaryPhysicalOperator.IS_NULL_UI;
@@ -1713,7 +1715,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static UnaryPhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PUnaryPhysicalOperator unaryPhysicalOperatorProto) {
+        public static UnaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PUnaryPhysicalOperator unaryPhysicalOperatorProto) {
             switch (unaryPhysicalOperatorProto) {
                 case IS_NULL_UI:
                     return IS_NULL_UI;
@@ -1758,10 +1761,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Nonnull
         private final BinaryPhysicalOperator operator;
 
-        private BinaryRelOpValue(@Nonnull final PlanHashMode mode,
+        private BinaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
                                  @Nonnull final PRelOpValue relOpValueProto,
                                  @Nonnull final BinaryPhysicalOperator operator) {
-            super(mode, relOpValueProto);
+            super(serializationContext, relOpValueProto);
             this.operator = operator;
         }
 
@@ -1822,25 +1825,26 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @Override
-        public PBinaryRelOpValue toProto(@Nonnull final PlanHashMode mode) {
+        public PBinaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PBinaryRelOpValue.newBuilder()
-                    .setSuper(toRelOpValueProto(mode))
-                    .setOperator(operator.toProto(mode))
+                    .setSuper(toRelOpValueProto(serializationContext))
+                    .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-            return RecordQueryPlanProto.PValue.newBuilder().setBinaryRelOpValue(toProto(mode)).build();
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setBinaryRelOpValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static BinaryRelOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
-            return new BinaryRelOpValue(mode,
+        public static BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            return new BinaryRelOpValue(serializationContext,
                     Objects.requireNonNull(binaryRelOpValueProto.getSuper()),
-                    BinaryPhysicalOperator.fromProto(mode, Objects.requireNonNull(binaryRelOpValueProto.getOperator())));
+                    BinaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getOperator())));
         }
     }
 
@@ -1853,10 +1857,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Nonnull
         private final UnaryPhysicalOperator operator;
 
-        private UnaryRelOpValue(@Nonnull final PlanHashMode mode,
+        private UnaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
                                 @Nonnull final PRelOpValue relOpValueProto,
                                 @Nonnull final UnaryPhysicalOperator operator) {
-            super(mode, relOpValueProto);
+            super(serializationContext, relOpValueProto);
             this.operator = operator;
         }
 
@@ -1917,25 +1921,25 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @Override
-        public PUnaryRelOpValue toProto(@Nonnull final PlanHashMode mode) {
+        public PUnaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PUnaryRelOpValue.newBuilder()
-                    .setSuper(toRelOpValueProto(mode))
-                    .setOperator(operator.toProto(mode))
+                    .setSuper(toRelOpValueProto(serializationContext))
+                    .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-            return RecordQueryPlanProto.PValue.newBuilder().setUnaryRelOpValue(toProto(mode)).build();
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setUnaryRelOpValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static UnaryRelOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
-            return new UnaryRelOpValue(mode,
+        public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            return new UnaryRelOpValue(serializationContext,
                     Objects.requireNonNull(unaryRelOpValueProto.getSuper()),
-                    UnaryPhysicalOperator.fromProto(mode, Objects.requireNonNull(unaryRelOpValueProto.getOperator())));
+                    UnaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getOperator())));
         }
     }
 }

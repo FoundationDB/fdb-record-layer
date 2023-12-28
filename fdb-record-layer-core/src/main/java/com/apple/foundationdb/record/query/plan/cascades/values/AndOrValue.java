@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PAndOrValue;
@@ -90,7 +91,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        private POperator toProto(@Nonnull final PlanHashMode mode) {
+        private POperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case AND:
                     return POperator.AND;
@@ -103,7 +104,8 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        private static Operator fromProto(@Nonnull final PlanHashMode mode, @Nonnull POperator operatorProto) {
+        private static Operator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final POperator operatorProto) {
             switch (operatorProto) {
                 case AND:
                     return AND;
@@ -255,27 +257,28 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public PAndOrValue toProto(@Nonnull final PlanHashMode mode) {
+    public PAndOrValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PAndOrValue.newBuilder()
                 .setFunctionName(functionName)
-                .setLeftChild(leftChild.toValueProto(mode))
-                .setRightChild(rightChild.toValueProto(mode))
-                .setOperator(operator.toProto(mode))
+                .setLeftChild(leftChild.toValueProto(serializationContext))
+                .setRightChild(rightChild.toValueProto(serializationContext))
+                .setOperator(operator.toProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setAndOrValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setAndOrValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static AndOrValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PAndOrValue andOrValueProto) {
+    public static AndOrValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PAndOrValue andOrValueProto) {
         return new AndOrValue(Objects.requireNonNull(andOrValueProto.getFunctionName()),
-                Value.fromValueProto(mode, Objects.requireNonNull(andOrValueProto.getLeftChild())),
-                Value.fromValueProto(mode, Objects.requireNonNull(andOrValueProto.getRightChild())),
-                Operator.fromProto(mode, Objects.requireNonNull(andOrValueProto.getOperator())));
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(andOrValueProto.getLeftChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(andOrValueProto.getRightChild())),
+                Operator.fromProto(serializationContext, Objects.requireNonNull(andOrValueProto.getOperator())));
     }
 
     /**

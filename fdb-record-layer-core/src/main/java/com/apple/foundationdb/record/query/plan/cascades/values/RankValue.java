@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRankValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -43,9 +44,9 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     private static final String NAME = "RANK";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
-    public RankValue(@Nonnull final PlanHashMode mode,
+    public RankValue(@Nonnull final PlanSerializationContext serializationContext,
                      @Nonnull final RecordQueryPlanProto.PWindowedValue windowedValueProto) {
-        super(mode, windowedValueProto);
+        super(serializationContext, windowedValueProto);
     }
 
     public RankValue(@Nonnull Iterable<? extends Value> partitioningValues,
@@ -79,19 +80,19 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
 
     @Nonnull
     @Override
-    public PRankValue toProto(@Nonnull final PlanHashMode mode) {
-        return PRankValue.newBuilder().setSuper(toWindowedValueProto(mode)).build();
+    public PRankValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRankValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setRankValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setRankValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static RankValue fromProto(@Nonnull final PlanHashMode mode,
+    public static RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PRankValue rankValueProto) {
-        return new RankValue(mode, Objects.requireNonNull(rankValueProto.getSuper()));
+        return new RankValue(serializationContext, Objects.requireNonNull(rankValueProto.getSuper()));
     }
 }

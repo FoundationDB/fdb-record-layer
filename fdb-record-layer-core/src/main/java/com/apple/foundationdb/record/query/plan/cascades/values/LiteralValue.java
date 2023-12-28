@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -128,17 +129,17 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Nonnull
     @Override
-    public PLiteralValue toProto(@Nonnull final PlanHashMode mode) {
+    public PLiteralValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PLiteralValue.newBuilder();
         builder.setValue(PlanSerialization.valueObjectToProto(value));
-        builder.setResultType(resultType.toTypeProto(mode));
+        builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        final var specificValueProto = toProto(mode);
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
         return RecordQueryPlanProto.PValue.newBuilder()
                 .setLiteralValue(specificValueProto)
                 .build();
@@ -146,8 +147,9 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    public static <T> LiteralValue<T> fromProto(@Nonnull final PlanHashMode mode, PLiteralValue literalValueProto) {
-        return new LiteralValue<>(Type.fromTypeProto(mode, literalValueProto.getResultType()),
+    public static <T> LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PLiteralValue literalValueProto) {
+        return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()),
                 (T)PlanSerialization.protoObjectToValue(literalValueProto.getValue()));
     }
 

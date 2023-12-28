@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PLikeOperatorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -152,23 +153,24 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public PLikeOperatorValue toProto(@Nonnull final PlanHashMode mode) {
+    public PLikeOperatorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PLikeOperatorValue.newBuilder()
-                .setSrcChild(srcChild.toValueProto(mode))
-                .setPatternChild(patternChild.toValueProto(mode))
+                .setSrcChild(srcChild.toValueProto(serializationContext))
+                .setPatternChild(patternChild.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setLikeOperatorValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setLikeOperatorValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static LikeOperatorValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
-        return new LikeOperatorValue(Value.fromValueProto(mode, Objects.requireNonNull(likeOperatorValueProto.getSrcChild())),
-                Value.fromValueProto(mode, Objects.requireNonNull(likeOperatorValueProto.getPatternChild())));
+    public static LikeOperatorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+        return new LikeOperatorValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getSrcChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getPatternChild())));
     }
 
     @Nonnull

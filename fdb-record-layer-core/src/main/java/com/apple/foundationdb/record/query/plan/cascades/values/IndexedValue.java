@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -101,19 +102,20 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.Comp
 
     @Nonnull
     @Override
-    public PIndexedValue toProto(@Nonnull final PlanHashMode mode) {
-        return PIndexedValue.newBuilder().setResultType(resultType.toTypeProto(mode)).build();
+    public PIndexedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexedValue.newBuilder().setResultType(resultType.toTypeProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setIndexedValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setIndexedValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static IndexedValue fromProto(@Nonnull final PlanHashMode mode,
+    public static IndexedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PIndexedValue indexedValueProto) {
-        return new IndexedValue(Type.fromTypeProto(mode, Objects.requireNonNull(indexedValueProto.getResultType())));
+        return new IndexedValue(Type.fromTypeProto(serializationContext,
+                Objects.requireNonNull(indexedValueProto.getResultType())));
     }
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PArrayCoercionBiFunction;
@@ -112,7 +113,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case INT_TO_LONG:
                     return PPhysicalOperator.INT_TO_LONG;
@@ -149,7 +150,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PPhysicalOperator operatorProto) {
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator operatorProto) {
             switch (operatorProto) {
                 case INT_TO_LONG:
                     return INT_TO_LONG;
@@ -308,41 +310,42 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nonnull
     @Override
-    public PPromoteValue toProto(@Nonnull final PlanHashMode mode) {
+    public PPromoteValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PPromoteValue.Builder builder =
                 PPromoteValue.newBuilder()
-                        .setInValue(inValue.toValueProto(mode))
-                        .setPromoteToType(promoteToType.toTypeProto(mode));
+                        .setInValue(inValue.toValueProto(serializationContext))
+                        .setPromoteToType(promoteToType.toTypeProto(serializationContext));
         if (promotionTrie != null) {
-            builder.setPromotionTrie(promotionTrie.toProto(mode));
+            builder.setPromotionTrie(promotionTrie.toProto(serializationContext));
         }
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setPromoteValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static PromoteValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PPromoteValue promoteValueProto) {
+    public static PromoteValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PPromoteValue promoteValueProto) {
         final CoercionTrieNode promotionTrie;
         if (promoteValueProto.hasPromotionTrie()) {
-            promotionTrie = CoercionTrieNode.fromProto(mode, Objects.requireNonNull(promoteValueProto.getPromotionTrie()));
+            promotionTrie = CoercionTrieNode.fromProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromotionTrie()));
         } else {
             promotionTrie = null;
         }
 
-        return new PromoteValue(Value.fromValueProto(mode, Objects.requireNonNull(promoteValueProto.getInValue())),
-                Type.fromTypeProto(mode, Objects.requireNonNull(promoteValueProto.getPromoteToType())),
+        return new PromoteValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(promoteValueProto.getInValue())),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromoteToType())),
                 promotionTrie);
     }
 
     @Nullable
     public static CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
-                                                                        @Nonnull Type currentType,
-                                                                        @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
+                                                         @Nonnull Type currentType,
+                                                         @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
         if (transformationsTrie != null && transformationsTrie.getValue() != null) {
             currentType = transformationsTrie.getValue().getResultType();
         }
@@ -463,22 +466,22 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
         @Nonnull
         @Override
-        public PPrimitiveCoercionBiFunction toProto(@Nonnull final PlanHashMode mode) {
+        public PPrimitiveCoercionBiFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PPrimitiveCoercionBiFunction.newBuilder()
-                    .setOperator(operator.toProto(mode))
+                    .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
         @Nonnull
         @Override
-        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanHashMode mode) {
-            return PCoercionBiFunction.newBuilder().setPrimitiveCoercionBiFunction(toProto(mode)).build();
+        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCoercionBiFunction.newBuilder().setPrimitiveCoercionBiFunction(toProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static PrimitiveCoercionBiFunction fromProto(@Nonnull final PlanHashMode mode,
+        public static PrimitiveCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                             @Nonnull final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
-            return new PrimitiveCoercionBiFunction(PhysicalOperator.fromProto(mode,
+            return new PrimitiveCoercionBiFunction(PhysicalOperator.fromProto(serializationContext,
                     Objects.requireNonNull(primitiveCoercionBiFunctionProto.getOperator())));
         }
     }
@@ -516,34 +519,34 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
         @Nonnull
         @Override
-        public PArrayCoercionBiFunction toProto(@Nonnull final PlanHashMode mode) {
+        public PArrayCoercionBiFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PArrayCoercionBiFunction.Builder builder = PArrayCoercionBiFunction.newBuilder()
-                    .setFromArrayType(fromArrayType.toTypeProto(mode))
-                    .setToArrayType(toArrayType.toTypeProto(mode));
+                    .setFromArrayType(fromArrayType.toTypeProto(serializationContext))
+                    .setToArrayType(toArrayType.toTypeProto(serializationContext));
 
             if (elementsTrie != null) {
-                builder.setElementsTrie(elementsTrie.toProto(mode));
+                builder.setElementsTrie(elementsTrie.toProto(serializationContext));
             }
             return builder.build();
         }
 
         @Nonnull
         @Override
-        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanHashMode mode) {
-            return PCoercionBiFunction.newBuilder().setArrayCoercionBiFunction(toProto(mode)).build();
+        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCoercionBiFunction.newBuilder().setArrayCoercionBiFunction(toProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static ArrayCoercionBiFunction fromProto(@Nonnull final PlanHashMode mode,
+        public static ArrayCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                         @Nonnull final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
             final CoercionTrieNode elementsTrie;
             if (arrayCoercionBiFunctionProto.hasElementsTrie()) {
-                elementsTrie = CoercionTrieNode.fromProto(mode, arrayCoercionBiFunctionProto.getElementsTrie());
+                elementsTrie = CoercionTrieNode.fromProto(serializationContext, arrayCoercionBiFunctionProto.getElementsTrie());
             } else {
                 elementsTrie = null;
             }
-            return new ArrayCoercionBiFunction((Type.Array)Type.fromTypeProto(mode, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
-                    (Type.Array)Type.fromTypeProto(mode, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
+            return new ArrayCoercionBiFunction((Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
+                    (Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
                     elementsTrie);
         }
     }

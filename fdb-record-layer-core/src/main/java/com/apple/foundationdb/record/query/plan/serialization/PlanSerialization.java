@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
-import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -168,7 +168,7 @@ public class PlanSerialization {
                             throw new RecordCoreException("unsupported serialization class");
                         }
                         return Stream.of(Pair.of((Class<? extends Message>)annotation.value(),
-                                clazz.getMethod("fromProto", PlanHashMode.class, annotation.value())));
+                                clazz.getMethod("fromProto", PlanSerializationContext.class, annotation.value())));
                     } catch (final NoSuchMethodException e) {
                         logger.warn("unable to find static method {}.fromProto(...)", clazz.getSimpleName());
                     }
@@ -188,21 +188,21 @@ public class PlanSerialization {
     }
 
     @Nonnull
-    public static Object dispatchFromProtoContainer(@Nonnull PlanHashMode mode, @Nonnull final Message message) {
+    public static Object dispatchFromProtoContainer(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
         final Map<Descriptors.FieldDescriptor, Object> allFields = message.getAllFields();
         Verify.verify(allFields.size() == 1);
         final Message field = (Message)Iterables.getOnlyElement(allFields.values());
-        return PlanSerialization.dispatchFromProto(mode, field);
+        return PlanSerialization.dispatchFromProto(serializationContext, field);
     }
 
     @Nonnull
-    public static Object dispatchFromProto(@Nonnull PlanHashMode mode, @Nonnull final Message message) {
+    public static Object dispatchFromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
         final Method fromProtoMethod = fromProtoMapMethodMap.get(message.getClass());
         if (fromProtoMethod == null) {
             throw new RecordCoreException("unable to dispatch for message of class {}", message.getClass());
         }
         try {
-            return Objects.requireNonNull(fromProtoMethod.invoke(null, mode, message));
+            return Objects.requireNonNull(fromProtoMethod.invoke(null, serializationContext, message));
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RecordCoreException("unable to invoke fromProto method", e);
         }

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
-import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -43,10 +43,10 @@ public class PlanSerializationTest {
                 QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true,
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("aField"))))),
                 ImmutableList.of("aField"));
-        final RecordQueryPlanProto.PValue valueProto = fieldValue.toValueProto(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final RecordQueryPlanProto.PValue valueProto = fieldValue.toValueProto(PlanSerializationContext.newForCurrentMode());
         final byte[] valueBytes = valueProto.toByteArray();
         final RecordQueryPlanProto.PValue parsedValueProto = RecordQueryPlanProto.PValue.parseFrom(valueBytes);
-        final Value parsedValue = Value.fromValueProto(PlanHashable.CURRENT_FOR_CONTINUATION, parsedValueProto);
+        final Value parsedValue = Value.fromValueProto(PlanSerializationContext.newForCurrentMode(), parsedValueProto);
         Verify.verify(parsedValue instanceof FieldValue);
         System.out.println(parsedValue);
     }

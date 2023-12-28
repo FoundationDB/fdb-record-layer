@@ -1,9 +1,9 @@
 /*
- * PlanHashable.java
+ * PlanSerializationContext.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,20 +20,28 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.annotation.API;
-import com.google.protobuf.Message;
+import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 
 import javax.annotation.Nonnull;
 
 /**
- * Plan serialization.
+ * TBD.
  */
-@API(API.Status.UNSTABLE)
-public interface PlanSerializable {
-    //    @Nonnull
-    //    default Message toProto(@Nonnull final PlanHashable.PlanHashKind kind) {
-    //        throw new RecordCoreException("method not implemented for this object");
-    //    }
+public class PlanSerializationContext {
     @Nonnull
-    Message toProto(@Nonnull final PlanSerializationContext serializationContext);
+    private final PlanHashMode mode;
+
+    public PlanSerializationContext(@Nonnull final PlanHashMode mode) {
+        this.mode = mode;
+    }
+
+    @Nonnull
+    public PlanHashMode getMode() {
+        return mode;
+    }
+
+    @Nonnull
+    public static PlanSerializationContext newForCurrentMode() {
+        return new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+    }
 }

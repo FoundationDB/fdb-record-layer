@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
@@ -150,12 +151,12 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public PVariadicFunctionValue toProto(@Nonnull final PlanHashMode mode) {
+    public PVariadicFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PVariadicFunctionValue.Builder builder = PVariadicFunctionValue.newBuilder();
 
-        builder.setOperator(operator.toProto(mode));
+        builder.setOperator(operator.toProto(serializationContext));
         for (final Value child : children) {
-            builder.addChildren(child.toValueProto(mode));
+            builder.addChildren(child.toValueProto(serializationContext));
         }
 
         return builder.build();
@@ -163,18 +164,19 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setVariadicFunctionValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setVariadicFunctionValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static VariadicFunctionValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+    public static VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
         for (int i = 0; i < variadicFunctionValueProto.getChildrenCount(); i ++) {
-            final Value child = Value.fromValueProto(mode, variadicFunctionValueProto.getChildren(i));
+            final Value child = Value.fromValueProto(serializationContext, variadicFunctionValueProto.getChildren(i));
             childrenBuilder.add(child);
         }
-        return new VariadicFunctionValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(variadicFunctionValueProto.getOperator())),
+        return new VariadicFunctionValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(variadicFunctionValueProto.getOperator())),
                 childrenBuilder.build());
     }
 
@@ -414,7 +416,8 @@ public class VariadicFunctionValue extends AbstractValue {
         }
 
         @Nonnull
-        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case GREATEST_INT:
                     return PPhysicalOperator.GREATEST_INT;
@@ -462,7 +465,8 @@ public class VariadicFunctionValue extends AbstractValue {
         }
 
         @Nonnull
-        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PPhysicalOperator physicalOperatorProto) {
             switch (physicalOperatorProto) {
                 case GREATEST_INT:
                     return GREATEST_INT;

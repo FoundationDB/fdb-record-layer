@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCountValue;
@@ -188,30 +189,31 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public PCountValue toProto(@Nonnull final PlanHashMode mode) {
+    public PCountValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder =  PCountValue.newBuilder()
-                .setOperator(operator.toProto(mode));
+                .setOperator(operator.toProto(serializationContext));
         if (child != null) {
-            builder.setChild(child.toValueProto(mode));
+            builder.setChild(child.toValueProto(serializationContext));
         }
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setCountValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setCountValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public CountValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PCountValue countValueProto) {
+    public CountValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCountValue countValueProto) {
         final Value child;
         if (countValueProto.hasChild()) {
-            child = Value.fromValueProto(mode, countValueProto.getChild());
+            child = Value.fromValueProto(serializationContext, countValueProto.getChild());
         } else {
             child = null;
         }
-        return new CountValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(countValueProto.getOperator())), child);
+        return new CountValue(PhysicalOperator.fromProto(serializationContext,
+                Objects.requireNonNull(countValueProto.getOperator())), child);
     }
 
     /**
@@ -302,7 +304,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case COUNT:
                     return PPhysicalOperator.COUNT;
@@ -315,7 +317,8 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
             switch (physicalOperatorProto) {
                 case COUNT:
                     return COUNT;

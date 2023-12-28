@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNotValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -157,19 +158,20 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public PNotValue toProto(@Nonnull final PlanHashMode mode) {
-        return PNotValue.newBuilder().setChild(child.toValueProto(mode)).build();
+    public PNotValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PNotValue.newBuilder().setChild(child.toValueProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setNotValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setNotValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static NotValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PNotValue notValueProto) {
-        return new NotValue(Value.fromValueProto(mode, Objects.requireNonNull(notValueProto.getChild())));
+    public static NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PNotValue notValueProto) {
+        return new NotValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(notValueProto.getChild())));
     }
 
     /**

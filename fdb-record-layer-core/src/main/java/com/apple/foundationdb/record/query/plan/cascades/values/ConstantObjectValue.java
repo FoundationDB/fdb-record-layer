@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -170,27 +171,27 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nonnull
     @Override
-    public PConstantObjectValue toProto(@Nonnull final PlanHashMode mode) {
+    public PConstantObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PConstantObjectValue.newBuilder()
                 .setAlias(alias.getId())
                 .setOrdinal(ordinal)
-                .setResultType(resultType.toTypeProto(mode))
+                .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setConstantObjectValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantObjectValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ConstantObjectValue fromProto(@Nonnull final PlanHashMode mode,
+    public static ConstantObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PConstantObjectValue constantObjectValueProto) {
         Verify.verify(constantObjectValueProto.hasOrdinal());
         return new ConstantObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(constantObjectValueProto.getAlias())),
                 constantObjectValueProto.getOrdinal(),
-                Type.fromTypeProto(mode, Objects.requireNonNull(constantObjectValueProto.getResultType())));
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(constantObjectValueProto.getResultType())));
     }
 
     /**

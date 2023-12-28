@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -364,13 +365,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+    default RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("unable to generify value of class " + getClass().getSimpleName());
     }
 
     @Nonnull
-    static Value fromValueProto(@Nonnull final PlanHashMode mode, @Nonnull final RecordQueryPlanProto.PValue valueProto) {
-        return (Value)PlanSerialization.dispatchFromProtoContainer(mode, valueProto);
+    static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final RecordQueryPlanProto.PValue valueProto) {
+        return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
     }
 
     static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {

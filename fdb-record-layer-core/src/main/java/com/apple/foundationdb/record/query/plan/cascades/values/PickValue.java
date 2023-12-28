@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPickValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -155,32 +156,32 @@ public class PickValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public PPickValue toProto(@Nonnull final PlanHashMode mode) {
+    public PPickValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PPickValue.newBuilder();
-        builder.setSelectorValue(selectorValue.toValueProto(mode));
+        builder.setSelectorValue(selectorValue.toValueProto(serializationContext));
         for (final Value alternativeValue : alternativeValues) {
-            builder.addAlternativeValues(alternativeValue.toValueProto(mode));
+            builder.addAlternativeValues(alternativeValue.toValueProto(serializationContext));
         }
-        builder.setResultType(resultType.toTypeProto(mode));
+        builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setPickValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setPickValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static PickValue fromProto(@Nonnull final PlanHashMode mode,
+    public static PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PPickValue pickValueProto) {
         final ImmutableList.Builder<Value> alternativeValuesBuilder = ImmutableList.builder();
         for (int i = 0; i < pickValueProto.getAlternativeValuesCount(); i ++) {
-            alternativeValuesBuilder.add(Value.fromValueProto(mode, pickValueProto.getAlternativeValues(i)));
+            alternativeValuesBuilder.add(Value.fromValueProto(serializationContext, pickValueProto.getAlternativeValues(i)));
         }
-        return new PickValue(Value.fromValueProto(mode, Objects.requireNonNull(pickValueProto.getSelectorValue())),
+        return new PickValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(pickValueProto.getSelectorValue())),
                 alternativeValuesBuilder.build(),
-                Type.fromTypeProto(mode, Objects.requireNonNull(pickValueProto.getResultType())));
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(pickValueProto.getResultType())));
     }
 
     @Nonnull

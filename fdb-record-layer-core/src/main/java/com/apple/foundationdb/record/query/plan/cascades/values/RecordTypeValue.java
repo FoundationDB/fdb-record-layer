@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -142,19 +143,19 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public PRecordTypeValue toProto(@Nonnull final PlanHashMode mode) {
+    public PRecordTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PRecordTypeValue.newBuilder().setAlias(alias.getId()).build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setRecordTypeValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     @SuppressWarnings("unused")
-    public static RecordTypeValue fromProto(@Nonnull final PlanHashMode mode,
+    public static RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final RecordQueryPlanProto.PQuantifiedObjectValue quantifiedObjectValue) {
         return new RecordTypeValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())));
     }

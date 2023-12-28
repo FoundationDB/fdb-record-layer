@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PQueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -108,21 +109,21 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
 
     @Nonnull
     @Override
-    public PQueriedValue toProto(@Nonnull final PlanHashMode mode) {
+    public PQueriedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PQueriedValue.newBuilder()
-                .setResultType(resultType.toTypeProto(mode))
+                .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setQueriedValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setQueriedValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static QueriedValue fromProto(@Nonnull final PlanHashMode mode,
+    public static QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PQueriedValue queriedValueProto) {
-        return new QueriedValue(Type.fromTypeProto(mode, Objects.requireNonNull(queriedValueProto.getResultType())));
+        return new QueriedValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(queriedValueProto.getResultType())));
     }
 }

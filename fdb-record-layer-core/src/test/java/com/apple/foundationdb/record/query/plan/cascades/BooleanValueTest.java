@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
@@ -136,7 +137,7 @@ class BooleanValueTest {
 
         @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanHashMode mode) {
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RuntimeException("Should not be called!");
         }
     }

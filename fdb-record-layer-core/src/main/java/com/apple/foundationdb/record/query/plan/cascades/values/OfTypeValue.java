@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.POfTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -126,23 +127,24 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
 
     @Nonnull
     @Override
-    public POfTypeValue toProto(@Nonnull final PlanHashMode mode) {
+    public POfTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return POfTypeValue.newBuilder()
-                .setChild(child.toValueProto(mode))
-                .setExpectedType(expectedType.toTypeProto(mode))
+                .setChild(child.toValueProto(serializationContext))
+                .setExpectedType(expectedType.toTypeProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setOfTypeValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setOfTypeValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static OfTypeValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final POfTypeValue ofTypeValueProto) {
-        return new OfTypeValue(Value.fromValueProto(mode, Objects.requireNonNull(ofTypeValueProto.getChild())),
-                Type.fromTypeProto(mode, Objects.requireNonNull(ofTypeValueProto.getExpectedType())));
+    public static OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final POfTypeValue ofTypeValueProto) {
+        return new OfTypeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getChild())),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getExpectedType())));
     }
 
     @Nonnull

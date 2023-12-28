@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -364,34 +365,34 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public PRecordConstructorValue toProto(@Nonnull final PlanHashMode mode) {
+    public PRecordConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PRecordConstructorValue.Builder builder = PRecordConstructorValue.newBuilder();
-        builder.setResultType(resultType.toTypeProto(mode));
+        builder.setResultType(resultType.toTypeProto(serializationContext));
         for (final Column<? extends Value> column : columns) {
-            builder.addColumns(column.toProto(mode));
+            builder.addColumns(column.toProto(serializationContext));
         }
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanHashMode mode) {
-        final var specificValueProto = toProto(mode);
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
         return RecordQueryPlanProto.PValue.newBuilder().setRecordConstructorValue(specificValueProto).build();
     }
 
     @Nonnull
-    public static RecordConstructorValue fromProto(@Nonnull final PlanHashMode mode,
+    public static RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
         final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
         for (int i = 0; i < recordConstructorValueProto.getColumnsCount(); i ++) {
             final PRecordConstructorValue.PColumn columnProto = recordConstructorValueProto.getColumns(i);
-            columnsBuilder.add(Column.fromProto(mode, columnProto));
+            columnsBuilder.add(Column.fromProto(serializationContext, columnProto));
         }
         final ImmutableList<Column<? extends Value>> columns = columnsBuilder.build();
         Verify.verify(!columns.isEmpty());
         return new RecordConstructorValue(columnsBuilder.build(),
-                (Type.Record)Type.fromTypeProto(mode, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
+                (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
     }
 
     @Nonnull

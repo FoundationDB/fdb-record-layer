@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PObjectValue;
@@ -140,23 +141,24 @@ public class ObjectValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public PObjectValue toProto(@Nonnull final PlanHashMode mode) {
+    public PObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PObjectValue.newBuilder()
                 .setAlias(getAlias().getId())
-                .setResultType(resultType.toTypeProto(mode))
+                .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setObjectValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setObjectValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ObjectValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PObjectValue objectValueProto) {
+    public static ObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PObjectValue objectValueProto) {
         return new ObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(objectValueProto.getAlias())),
-                Type.fromTypeProto(mode, Objects.requireNonNull(objectValueProto.getResultType())));
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(objectValueProto.getResultType())));
     }
 
     @Nonnull

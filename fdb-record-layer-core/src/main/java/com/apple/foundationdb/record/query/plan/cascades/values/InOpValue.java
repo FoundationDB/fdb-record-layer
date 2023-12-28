@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInOpValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -185,23 +186,24 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public PInOpValue toProto(@Nonnull final PlanHashMode mode) {
+    public PInOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PInOpValue.newBuilder()
-                .setProbeValue(probeValue.toValueProto(mode))
-                .setInArrayValue(inArrayValue.toValueProto(mode))
+                .setProbeValue(probeValue.toValueProto(serializationContext))
+                .setInArrayValue(inArrayValue.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setInOpValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setInOpValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static InOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PInOpValue inOpValueProto) {
-        return new InOpValue(Value.fromValueProto(mode, Objects.requireNonNull(inOpValueProto.getProbeValue())),
-                Value.fromValueProto(mode, Objects.requireNonNull(inOpValueProto.getInArrayValue())));
+    public static InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PInOpValue inOpValueProto) {
+        return new InOpValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getProbeValue())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getInArrayValue())));
     }
 
     /**

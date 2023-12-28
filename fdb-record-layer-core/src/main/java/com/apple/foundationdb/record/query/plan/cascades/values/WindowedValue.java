@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -51,15 +52,15 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     private final List<Value> argumentValues;
 
-    protected WindowedValue(@Nonnull final PlanHashMode mode,
+    protected WindowedValue(@Nonnull final PlanSerializationContext serializationContext,
                             @Nonnull final PWindowedValue windowedValueProto) {
         this(windowedValueProto.getPartitioningValuesList()
                         .stream()
-                        .map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
                         .collect(ImmutableList.toImmutableList()),
                 windowedValueProto.getArgumentValuesList()
                         .stream()
-                        .map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -166,13 +167,13 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    PWindowedValue toWindowedValueProto(@Nonnull final PlanHashMode mode) {
+    PWindowedValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PWindowedValue.Builder builder = PWindowedValue.newBuilder();
         for (final Value partitioningValue : partitioningValues) {
-            builder.addPartitioningValues(partitioningValue.toValueProto(mode));
+            builder.addPartitioningValues(partitioningValue.toValueProto(serializationContext));
         }
         for (final Value argumentValue : argumentValues) {
-            builder.addArgumentValues(argumentValue.toValueProto(mode));
+            builder.addArgumentValues(argumentValue.toValueProto(serializationContext));
         }
         return builder.build();
     }

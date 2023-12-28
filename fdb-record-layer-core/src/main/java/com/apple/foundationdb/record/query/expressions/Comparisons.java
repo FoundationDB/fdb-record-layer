@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -607,7 +608,7 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public RecordQueryPlanProto.PRelOpValue.PComparisonType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public RecordQueryPlanProto.PRelOpValue.PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case EQUALS:
                     return RecordQueryPlanProto.PRelOpValue.PComparisonType.EQUALS;
@@ -634,7 +635,8 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static Type fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final RecordQueryPlanProto.PRelOpValue.PComparisonType comparisonTypeProto) {
+        public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final RecordQueryPlanProto.PRelOpValue.PComparisonType comparisonTypeProto) {
             switch (comparisonTypeProto) {
                 case EQUALS:
                     return EQUALS;

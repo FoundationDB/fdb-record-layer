@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -143,20 +144,21 @@ public class ConstantValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public PConstantValue toProto(@Nonnull final PlanHashMode mode) {
+    public PConstantValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PConstantValue.newBuilder()
-                .setValue(value.toValueProto(mode))
+                .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setConstantValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ConstantValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PConstantValue constantValueProto) {
-        return new ConstantValue(Value.fromValueProto(mode, Objects.requireNonNull(constantValueProto.getValue())));
+    public static ConstantValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PConstantValue constantValueProto) {
+        return new ConstantValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(constantValueProto.getValue())));
     }
 }

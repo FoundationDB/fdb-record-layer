@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNullValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -140,20 +141,20 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public PNullValue toProto(@Nonnull final PlanHashMode mode) {
+    public PNullValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PNullValue.newBuilder()
-                .setResultType(resultType.toTypeProto(mode))
+                .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setNullValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setNullValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static NullValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PNullValue nullValueProto) {
-        return new NullValue(Type.fromTypeProto(mode, Objects.requireNonNull(nullValueProto.getResultType())));
+    public static NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNullValue nullValueProto) {
+        return new NullValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(nullValueProto.getResultType())));
     }
 }

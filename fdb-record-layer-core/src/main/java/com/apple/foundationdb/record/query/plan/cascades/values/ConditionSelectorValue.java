@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConditionSelectorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -108,26 +109,26 @@ public class ConditionSelectorValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public PConditionSelectorValue toProto(@Nonnull final PlanHashMode mode) {
+    public PConditionSelectorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PConditionSelectorValue.newBuilder();
         for (final Value implication : implications) {
-            builder.addImplications(implication.toValueProto(mode));
+            builder.addImplications(implication.toValueProto(serializationContext));
         }
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setConditionSelectorValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConditionSelectorValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ConditionSelectorValue fromProto(@Nonnull final PlanHashMode mode,
+    public static ConditionSelectorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PConditionSelectorValue conditionSelectorValueProto) {
         final ImmutableList.Builder<Value> implicationsBuilder = ImmutableList.builder();
         for (int i = 0; i < conditionSelectorValueProto.getImplicationsCount(); i ++) {
-            implicationsBuilder.add(Value.fromValueProto(mode, conditionSelectorValueProto.getImplications(i)));
+            implicationsBuilder.add(Value.fromValueProto(serializationContext, conditionSelectorValueProto.getImplications(i)));
         }
         return new ConditionSelectorValue(implicationsBuilder.build());
     }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
@@ -163,25 +164,26 @@ public class ArithmeticValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public PArithmeticValue toProto(@Nonnull final PlanHashMode mode) {
+    public PArithmeticValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PArithmeticValue.newBuilder()
-                .setOperator(operator.toProto(mode))
-                .setLeftChild(leftChild.toValueProto(mode))
-                .setRightChild(rightChild.toValueProto(mode))
+                .setOperator(operator.toProto(serializationContext))
+                .setLeftChild(leftChild.toValueProto(serializationContext))
+                .setRightChild(rightChild.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
-        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(mode)).build();
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ArithmeticValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PArithmeticValue arithmeticValueProto) {
-        return new ArithmeticValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(arithmeticValueProto.getOperator())),
-                Value.fromValueProto(mode, Objects.requireNonNull(arithmeticValueProto.getLeftChild())),
-                Value.fromValueProto(mode, Objects.requireNonNull(arithmeticValueProto.getRightChild())));
+    public static ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PArithmeticValue arithmeticValueProto) {
+        return new ArithmeticValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getOperator())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getLeftChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getRightChild())));
     }
 
     @Nonnull
@@ -459,7 +461,7 @@ public class ArithmeticValue extends AbstractValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case ADD_II:
                     return PPhysicalOperator.ADD_II;
@@ -646,7 +648,8 @@ public class ArithmeticValue extends AbstractValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull PPhysicalOperator physicalOperatorProto) {
             switch (physicalOperatorProto) {
                 case ADD_II:
                     return ADD_II;

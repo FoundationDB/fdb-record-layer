@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
@@ -83,10 +84,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @Nonnull
     private final Value child;
 
-    protected NumericAggregationValue(@Nonnull final PlanHashMode mode,
+    protected NumericAggregationValue(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-        this.operator = PhysicalOperator.fromProto(mode, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
-        this.child = Value.fromValueProto(mode, Objects.requireNonNull(numericAggregationValueProto.getChild()));
+        this.operator = PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
+        this.child = Value.fromValueProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getChild()));
     }
 
     protected NumericAggregationValue(@Nonnull final PhysicalOperator operator,
@@ -257,10 +258,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     }
 
     @Nonnull
-    public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanHashMode mode) {
+    public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         RecordQueryPlanProto.PNumericAggregationValue.Builder builder = RecordQueryPlanProto.PNumericAggregationValue.newBuilder();
-        builder.setOperator(operator.toProto(mode));
-        builder.setChild(child.toValueProto(mode));
+        builder.setOperator(operator.toProto(serializationContext));
+        builder.setChild(child.toValueProto(serializationContext));
         return builder.build();
     }
 
@@ -309,9 +310,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             super(operator, child);
         }
 
-        protected Sum(@Nonnull final PlanHashMode mode,
+        protected Sum(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(mode, numericAggregationValueProto);
+            super(serializationContext, numericAggregationValueProto);
         }
 
         @Nonnull
@@ -335,13 +336,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public PSum toProto(@Nonnull final PlanHashMode mode) {
-            return PSum.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        public PSum toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PSum.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static Sum fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PSum sumProto) {
-            return new Sum(mode, Objects.requireNonNull(sumProto.getSuper()));
+        public static Sum fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PSum sumProto) {
+            return new Sum(serializationContext, Objects.requireNonNull(sumProto.getSuper()));
         }
     }
 
@@ -356,9 +357,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             super(operator, child);
         }
 
-        protected Avg(@Nonnull final PlanHashMode mode,
+        protected Avg(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(mode, numericAggregationValueProto);
+            super(serializationContext, numericAggregationValueProto);
         }
 
         @Nonnull
@@ -376,13 +377,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public PAvg toProto(@Nonnull final PlanHashMode mode) {
-            return PAvg.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        public PAvg toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PAvg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static Avg fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PAvg avgProto) {
-            return new Avg(mode, Objects.requireNonNull(avgProto.getSuper()));
+        public static Avg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PAvg avgProto) {
+            return new Avg(serializationContext, Objects.requireNonNull(avgProto.getSuper()));
         }
     }
 
@@ -397,9 +398,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             super(operator, child);
         }
 
-        protected Min(@Nonnull final PlanHashMode mode,
+        protected Min(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(mode, numericAggregationValueProto);
+            super(serializationContext, numericAggregationValueProto);
         }
 
         @Nonnull
@@ -417,13 +418,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public PMin toProto(@Nonnull final PlanHashMode mode) {
-            return PMin.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        public PMin toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMin.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static Min fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PMin minProto) {
-            return new Min(mode, Objects.requireNonNull(minProto.getSuper()));
+        public static Min fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMin minProto) {
+            return new Min(serializationContext, Objects.requireNonNull(minProto.getSuper()));
         }
     }
 
@@ -438,9 +439,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             super(operator, child);
         }
 
-        protected Max(@Nonnull final PlanHashMode mode,
+        protected Max(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(mode, numericAggregationValueProto);
+            super(serializationContext, numericAggregationValueProto);
         }
 
         @Nonnull
@@ -458,13 +459,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public PMax toProto(@Nonnull final PlanHashMode mode) {
-            return PMax.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        public PMax toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMax.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
-        public static Max fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PMax maxProto) {
-            return new Max(mode, Objects.requireNonNull(maxProto.getSuper()));
+        public static Max fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMax maxProto) {
+            return new Max(serializationContext, Objects.requireNonNull(maxProto.getSuper()));
         }
     }
 
@@ -679,7 +680,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case SUM_I:
                     return PPhysicalOperator.SUM_I;
@@ -720,7 +721,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
             switch (physicalOperatorProto) {
                 case SUM_I:
                     return SUM_I;

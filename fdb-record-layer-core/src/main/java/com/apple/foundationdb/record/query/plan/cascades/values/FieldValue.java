@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath;
@@ -243,24 +244,24 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public PFieldValue toProto(@Nonnull final PlanHashMode mode) {
+    public PFieldValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PFieldValue.Builder builder = PFieldValue.newBuilder();
-        builder.setChildValue(childValue.toValueProto(mode));
-        builder.setFieldPath(fieldPath.toProto(mode));
+        builder.setChildValue(childValue.toValueProto(serializationContext));
+        builder.setFieldPath(fieldPath.toProto(serializationContext));
         return builder.build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanHashMode mode) {
-        final var specificValueProto = toProto(mode);
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
         return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(specificValueProto).build();
     }
 
     @Nonnull
-    public static FieldValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PFieldValue fieldValueProto) {
-        return new FieldValue(Value.fromValueProto(mode, Objects.requireNonNull(fieldValueProto.getChildValue())),
-                FieldPath.fromProto(mode, Objects.requireNonNull(fieldValueProto.getFieldPath())));
+    public static FieldValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PFieldValue fieldValueProto) {
+        return new FieldValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(fieldValueProto.getChildValue())),
+                FieldPath.fromProto(serializationContext, Objects.requireNonNull(fieldValueProto.getFieldPath())));
     }
 
     @Nonnull
@@ -555,20 +556,21 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         @Override
-        public PFieldPath toProto(@Nonnull final PlanHashMode mode) {
+        public PFieldPath toProto(@Nonnull final PlanSerializationContext serializationContext) {
             PFieldPath.Builder builder = PFieldPath.newBuilder();
             for (final ResolvedAccessor fieldAccessor : fieldAccessors) {
-                builder.addFieldAccessors(fieldAccessor.toProto(mode));
+                builder.addFieldAccessors(fieldAccessor.toProto(serializationContext));
             }
             return builder.build();
         }
 
         @Nonnull
-        public static FieldPath fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PFieldPath fieldPathProto) {
+        public static FieldPath fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PFieldPath fieldPathProto) {
             final ImmutableList.Builder<ResolvedAccessor> resolvedAccessorsBuilder = ImmutableList.builder();
             for (int i = 0; i < fieldPathProto.getFieldAccessorsCount(); i ++) {
                 final PResolvedAccessor resolvedAccessorProto = fieldPathProto.getFieldAccessors(i);
-                resolvedAccessorsBuilder.add(ResolvedAccessor.fromProto(mode, resolvedAccessorProto));
+                resolvedAccessorsBuilder.add(ResolvedAccessor.fromProto(serializationContext, resolvedAccessorProto));
             }
             final var resolvedAccessors = resolvedAccessorsBuilder.build();
             Verify.verify(!resolvedAccessors.isEmpty());
@@ -670,18 +672,19 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         @Override
-        public PResolvedAccessor toProto(@Nonnull final PlanHashMode mode) {
+        public PResolvedAccessor toProto(@Nonnull final PlanSerializationContext serializationContext) {
             PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
             builder.setName(name);
             builder.setOrdinal(ordinal);
-            builder.setType(type.toTypeProto(mode));
+            builder.setType(type.toTypeProto(serializationContext));
             return builder.build();
         }
 
         @Nonnull
-        public static ResolvedAccessor fromProto(@Nonnull PlanHashMode mode, @Nonnull final PResolvedAccessor resolvedAccessorProto) {
+        public static ResolvedAccessor fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                                 @Nonnull final PResolvedAccessor resolvedAccessorProto) {
             return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(),
-                    Type.fromTypeProto(mode, resolvedAccessorProto.getType()));
+                    Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType()));
         }
 
         @Nonnull
