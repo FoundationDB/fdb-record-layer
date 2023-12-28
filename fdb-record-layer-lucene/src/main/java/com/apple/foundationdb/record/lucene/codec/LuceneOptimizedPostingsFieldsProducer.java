@@ -97,8 +97,11 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
         }
         assert field != null;
         FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
-        // Since we need to iterate over all the fields it is OK to get all the metadata here since we already brought it anyway
-        PostingsFieldMetadata metadata = fieldMetadataSupplier.get().get(fieldInfo.number);
+        // This will fetch metadata for all fields and cache it.
+        PostingsFieldMetadata metadata = fieldMetadataSupplier.get().get((long)fieldInfo.number);
+        if (metadata == null) {
+            return null;
+        }
         return new LuceneOptimizedTerms(segmentName, fieldInfo, metadata, directory, postingsReader);
     }
 

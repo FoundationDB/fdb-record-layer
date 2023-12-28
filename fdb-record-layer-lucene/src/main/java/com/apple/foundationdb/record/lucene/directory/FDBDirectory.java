@@ -29,9 +29,11 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -41,12 +43,12 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
@@ -375,7 +377,7 @@ public class FDBDirectory extends Directory  {
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
                 agilityContext.apply(context -> {
                     // Scan for the term matching the termBytes or the one immediately following
-                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range()).iterator();
+                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range(), 1).iterator();
                     return iterator.onHasNext().thenApply(hasNext -> {
                         if (Boolean.TRUE.equals(hasNext)) {
                             final KeyValue next = iterator.next();
@@ -450,34 +452,35 @@ public class FDBDirectory extends Directory  {
         // TODO
     }
 
-    public enum RangeStart {INCLUSIVE, EXCLUSIVE};
+    public enum RangeType {INCLUSIVE, EXCLUSIVE};
 
     /**
      * Scan for the next term element: Either the one matching the given parameters or the one immediately following.
      * @param segmentName
      * @param fieldNumber
      * @param term
-     * @param rangeStart
+     * @param rangeStartType
      * @return
      */
     @Nullable
-    public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeStart rangeStart) {
-        byte[] termBytes;
-        if (rangeStart == RangeStart.INCLUSIVE) {
-            termBytes = copyFrom(term);
-        } else {
-            termBytes = ByteArrayUtil.keyAfter(copyFrom(term));
-        }
-        final Subspace termsSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber, termBytes));
+    public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeType rangeStartType) {
+        byte[] termBytes = copyFrom(term);
+        EndpointType startEndpoint = (rangeStartType == RangeType.INCLUSIVE) ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE;
+        // subspace for all terms for the field
+        final Subspace fieldSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
+        final byte[] rangeBegin = fieldSub.pack(termBytes);
+        final byte[] rangeEnd = fieldSub.pack();
+        // range from termBytes to the end of the subspace
+        final Range range = TupleRange.toRange(rangeBegin, rangeEnd, startEndpoint, EndpointType.RANGE_INCLUSIVE);
         return asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
                 agilityContext.apply(context -> {
                     // Scan for the term matching the termBytes or the one immediately following
-                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range()).iterator();
+                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(range, 1).iterator();
                     return iterator.onHasNext().thenApply(hasNext -> {
                         if (Boolean.TRUE.equals(hasNext)) {
                             final KeyValue next = iterator.next();
-                            return Pair.of(termsSub.unpack(next.getKey()).getBytes(0), next.getValue());
+                            return Pair.of(fieldSub.unpack(next.getKey()).getBytes(0), next.getValue());
                         } else {
                             return null;
                         }
@@ -525,6 +528,12 @@ public class FDBDirectory extends Directory  {
 
     public static boolean isStoredFieldsFile(String name) {
         return name.endsWith(LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)
+               && !name.startsWith(IndexFileNames.SEGMENTS)
+               && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
+    }
+
+    public static boolean isPostingsFile(String name) {
+        return name.endsWith(LuceneOptimizedPostingsFormat.POSTINGS_EXTENSION)
                && !name.startsWith(IndexFileNames.SEGMENTS)
                && !name.startsWith(IndexFileNames.PENDING_SEGMENTS);
     }
@@ -607,7 +616,22 @@ public class FDBDirectory extends Directory  {
         agilityContext.clear(Range.startsWith(key));
     }
 
-    /**
+    public void deletePostings(@Nonnull final String segmentName) {
+        byte[] metadataKey = postingsMetadataSubspace.pack(Tuple.from(segmentName));
+        byte[] termssKey = postingsTermsSubspace.pack(Tuple.from(segmentName));
+        byte[] documentsKey = postingsDocumentsSubspace.pack(Tuple.from(segmentName));
+        byte[] positionsKey = postingsPositionsSubspace.pack(Tuple.from(segmentName));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_POSTINGS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Delete Postings Data",
+                    LuceneLogMessageKeys.RESOURCE, segmentName));
+        }
+        agilityContext.clear(Range.startsWith(metadataKey));
+        agilityContext.clear(Range.startsWith(termssKey));
+        agilityContext.clear(Range.startsWith(documentsKey));
+        agilityContext.clear(Range.startsWith(positionsKey));
+    }
+
     /**
      * Reads known data from the directory.
      * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
@@ -861,11 +885,18 @@ public class FDBDirectory extends Directory  {
                 if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
                     deleteStoredFields(segmentName);
                 }
+                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
+                    deletePostings(segmentName);
+                }
             }
         } else {
             if (isStoredFieldsFile(name)) {
                 // Delete stored fields subspace
                 deleteStoredFields(segmentName);
+            }
+            if (isPostingsFile(name)) {
+                // Delete postings subspace
+                deletePostings(segmentName);
             }
         }
         return true;

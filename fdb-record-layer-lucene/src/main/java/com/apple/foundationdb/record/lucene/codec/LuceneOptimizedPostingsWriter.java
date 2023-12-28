@@ -196,9 +196,10 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
     private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state) {
         return LucenePostingsProto.TermInfo.newBuilder()
-                .setDocFreq(state.getDocFreq())
-                .setTotalTermFreq(state.getTotalTermFreq())
-                .setOrd(state.getOrd())
+                // Use the public variables since the state does not have the protobufs yet
+                .setDocFreq(state.docFreq)
+                .setTotalTermFreq(state.totalTermFreq)
+                .setOrd(state.ord)
                 .build();
     }
 
@@ -239,6 +240,11 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         public byte[] asBytes() {
             return builder.build().toByteArray();
         }
+
+        @Override
+        public String toString() {
+            return builder.toString();
+        }
     }
 
     private class WriterPayloads {
@@ -264,6 +270,11 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
         public byte[] asBytes() {
             return builder.build().toByteArray();
+        }
+
+        @Override
+        public String toString() {
+            return builder.toString();
         }
     }
 }

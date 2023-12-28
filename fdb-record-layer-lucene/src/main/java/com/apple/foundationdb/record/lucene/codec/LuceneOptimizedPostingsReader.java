@@ -53,7 +53,7 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     @Override
     public BlockTermState newTermState() throws IOException {
         // TODO: When is this empty constructor called?
-        return new LuceneOptimizedBlockTermState(null, null);
+        return new LuceneOptimizedBlockTermState();
     }
 
     @Override
@@ -62,9 +62,10 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public PostingsEnum postings(final FieldInfo fieldInfo, final BlockTermState state, final PostingsEnum reuse, final int flags) throws IOException {
-        boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
-        final boolean hasPositions = indexHasPositions == false || PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS) == false;
+        final boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
+        final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
         return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
+
 //        if (hasPositions) {
 //            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
 //                    key.add(fieldInfo.number).add(state.ord))), directory, false, false, false);

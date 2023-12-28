@@ -44,8 +44,12 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
     }
 
     public LuceneOptimizedBlockTermState(@Nonnull final byte[] term, @Nonnull final byte[] termInfo) {
+        this(new BytesRef(term), termInfo);
+    }
+
+    public LuceneOptimizedBlockTermState(@Nonnull final BytesRef term, @Nonnull final byte[] termInfo) {
         try {
-            this.term = new BytesRef(term);
+            this.term = term;
             this.termInfo = LucenePostingsProto.TermInfo.parseFrom(termInfo);
             assert term != null: "Term Cannot Be Null";
             assert termInfo != null: "TermInfo Cannot Be Null";

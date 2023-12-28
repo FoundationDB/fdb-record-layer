@@ -69,7 +69,8 @@ public class LuceneIndexTestUtils {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                     // Common index in Lucene tests, set the option to TRUE to be used in tests
-                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
+                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true",
+                    LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, "true"));
 
     public static final Index TEXT_AND_STORED = new Index(
             "Simple$test_stored",

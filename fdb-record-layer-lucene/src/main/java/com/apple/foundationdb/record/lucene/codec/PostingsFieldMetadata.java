@@ -20,34 +20,55 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LucenePostingsProto;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.util.BytesRef;
 
+import java.io.UncheckedIOException;
+
 public class PostingsFieldMetadata {
+    private final BytesRef minTerm;
+    private final BytesRef maxTerm;
+    private final long numTerms;
+    private final long sumTotalTermFreq;
+    private final long sumDocFreq;
+    private final int cardinality;
+
     public PostingsFieldMetadata(final byte[] bytes) {
+        try {
+            LucenePostingsProto.TermMeta metadata = LucenePostingsProto.TermMeta.parseFrom(bytes);
+            minTerm = new BytesRef(metadata.getMinTerm().toByteArray());
+            maxTerm = new BytesRef(metadata.getMaxTerm().toByteArray());
+            numTerms = metadata.getNumTerms();
+            sumTotalTermFreq = metadata.getSumTotalFreq();
+            sumDocFreq = metadata.getSumDocFreq();
+            cardinality = metadata.getCardinality();
+        } catch (InvalidProtocolBufferException ex) {
+            throw new UncheckedIOException("Failed to parse field metadata", ex);
+        }
     }
 
     public BytesRef getMinTerm() {
-        return null;
+        return minTerm;
     }
 
     public BytesRef getMaxTerm() {
-        return null;
+        return maxTerm;
     }
 
     public long getNumTerms() {
-        return 0;
+        return numTerms;
     }
 
     public long getSumTotalTermFreq() {
-        return 0;
+        return sumTotalTermFreq;
     }
 
     public long getSumDocFreq() {
-        return 0;
+        return sumDocFreq;
     }
 
-    public int maxDocdoc() {
-        return 0;
+    public int getCardinality() {
+        return cardinality;
     }
-
 }

@@ -69,7 +69,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
                     .close();
         }
         final Set<String> filesForAfter = Set.copyOf(si.files());
-        // We filter out the FieldInfos and the StoredFields files before passing to underlying compoundFormat.write, because that expects
+        // We filter out the FieldInfos, StoredFields and Postings files before passing to underlying compoundFormat.write, because that expects
         // everything to be a "proper" index format (e.g. have a header), but these meta files are empty.
         Set<String> filteredFiles = filterMarkerFiles(si.files());
         si.setFiles(filteredFiles);
@@ -86,12 +86,15 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     private Set<String> filterMarkerFiles(Set<String> files) {
         int fieldInfos = 0;
         int storedFields = 0;
+        int postings = 0;
         Set<String> filteredFiles = new HashSet<>(files.size());
         for (String file: files) {
             if (FDBDirectory.isFieldInfoFile(file)) {
                 fieldInfos++;
             } else if (FDBDirectory.isStoredFieldsFile(file)) {
                 storedFields++;
+            } else if (FDBDirectory.isPostingsFile(file)) {
+                postings++;
             } else {
                 filteredFiles.add(file);
             }
@@ -105,6 +108,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         if (storedFields > 1) {
             throw new RecordCoreException("Segment has wrong number of StoredFields")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
+        }
+        if (postings != 1) {
+//            throw new RecordCoreException("Segment has wrong number of Postings")
+//                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
         }
 
         return filteredFiles;

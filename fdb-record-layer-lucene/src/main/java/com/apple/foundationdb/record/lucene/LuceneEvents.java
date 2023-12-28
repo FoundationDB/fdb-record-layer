@@ -236,7 +236,8 @@ public class LuceneEvents {
         LUCENE_WRITE_POSTINGS_METADATA("lucene write postings metadata", false),
         LUCENE_WRITE_POSTINGS_TERM("lucene write postings term", false),
         LUCENE_WRITE_POSTINGS_DOCUMENTS("lucene write postings documents", false),
-        LUCENE_WRITE_POSTINGS_POSITIONS("lucene write postings positions", false);
+        LUCENE_WRITE_POSTINGS_POSITIONS("lucene write postings positions", false),
+        LUCENE_DELETE_POSTINGS("lucene delete postings data", false);
 
         private final String title;
         private final boolean isSize;

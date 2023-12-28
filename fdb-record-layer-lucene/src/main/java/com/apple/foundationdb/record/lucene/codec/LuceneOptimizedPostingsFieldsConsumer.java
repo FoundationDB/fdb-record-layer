@@ -54,9 +54,6 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
     }
 
     public void write(Fields fields, NormsProducer norms) throws IOException {
-
-        // TODO: Create output
-
         String lastField = null;
         for (String field : fields) {
             assert lastField == null || lastField.compareTo(field) < 0;

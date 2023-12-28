@@ -112,7 +112,7 @@ public class LuceneOptimizedTerms extends Terms implements Accountable {
     public int getDocCount() {
         // TODO: Should this be calculated as well?
         //        return segmentInfo.maxDocdoc();
-        return metadata.maxDocdoc();
+        return metadata.getCardinality();
     }
 
     @Override

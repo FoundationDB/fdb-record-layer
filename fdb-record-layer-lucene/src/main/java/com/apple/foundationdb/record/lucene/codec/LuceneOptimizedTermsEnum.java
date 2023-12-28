@@ -56,8 +56,8 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
         if (termData != null) {
             // TODO: This leaves the same instance in place - why is this necessary?
             // TODO: If null, should we reset the current state?
-            // currentTermState = new CurrentTermState(text, termData);
-            currentTermState.copyFrom(text, termData);
+            // currentTermState.copyFrom(text, termData);
+            currentTermState = new LuceneOptimizedBlockTermState(text, termData);
         }
         return termData != null;
     }
@@ -65,7 +65,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
     @Override
     public SeekStatus seekCeil(final BytesRef text) throws IOException {
         // Scan from the given term inclusive of the first element
-        Pair<byte[], byte[]> term = directory.getNextPostingsTerm(segmentName, fieldInfo.number, text, FDBDirectory.RangeStart.INCLUSIVE);
+        Pair<byte[], byte[]> term = directory.getNextPostingsTerm(segmentName, fieldInfo.number, text, FDBDirectory.RangeType.INCLUSIVE);
 
         if (term != null) {
             currentTermState = new LuceneOptimizedBlockTermState(term.getKey(), term.getValue());
@@ -89,9 +89,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public void seekExact(final BytesRef term, final TermState state) throws IOException {
-        //TODO: Add support for advanced feature?
-        throw new UnsupportedOperationException("seekExact(term, state) Not Supported");
-        // currentTermState = ((LuceneOptimizedBlockTermState) state);
+         currentTermState = ((LuceneOptimizedBlockTermState) state);
     }
 
     @Override
@@ -99,7 +97,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
         Pair<byte[], byte[]> nextTermData;
         if ((currentTermState != null) && (currentTermState.getTerm() != null)) {
             // scan for the next term following the current
-            nextTermData = directory.getNextPostingsTerm(segmentName, fieldInfo.number, currentTermState.getTerm(), FDBDirectory.RangeStart.EXCLUSIVE);
+            nextTermData = directory.getNextPostingsTerm(segmentName, fieldInfo.number, currentTermState.getTerm(), FDBDirectory.RangeType.EXCLUSIVE);
         } else {
             nextTermData = directory.getFirstPostingsTerm(segmentName, fieldInfo.number);
         }
