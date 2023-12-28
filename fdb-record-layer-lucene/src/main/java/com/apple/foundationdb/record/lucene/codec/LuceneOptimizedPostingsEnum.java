@@ -39,6 +39,8 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
     private final String segmentName;
     private final FieldInfo fieldInfo;
     private final LuceneOptimizedBlockTermState state;
+    // for debugging purposes
+    private final long termOrd;
     private FDBDirectory directory;
 
     // current doc ordinal within the term
@@ -57,6 +59,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         this.state = state;
         this.directory = directory;
         this.hasPositions = hasPositions;
+        this.termOrd = state.getOrd();
         termDocumentsSupplier = LazyOpener.supply(() -> {
             byte[] docBytes = this.directory.getTermDocuments(this.segmentName, this.fieldInfo.number, this.state.getOrd());
             if (docBytes == null) {
@@ -64,43 +67,6 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
             }
             return new TermDocuments(docBytes);
         });
-    }
-
-    @Override
-    public int freq() throws IOException {
-        return termDocumentsSupplier.get().getFreq(currentDoc);
-    }
-
-    @Override
-    public int nextPosition() throws IOException {
-        if (!hasPositions) {
-            return -1;
-        }
-        if (positions == null) {
-            // TODO: Maybe turn into AtomicReference?
-            // TODO: Maybe read positions for all documents at once?
-            // TODO: Shold this be indexed by the docID or the currentDoc(ordingal)?
-            positions = readTermDocPositions(docID());
-        }
-        return positions.getPosition(++currentPosition);
-    }
-
-    @Override
-    public int startOffset() throws IOException {
-        // TODO
-        return 0;
-    }
-
-    @Override
-    public int endOffset() throws IOException {
-        //TODO
-        return 0;
-    }
-
-    @Override
-    public BytesRef getPayload() throws IOException {
-        // TODO
-        return null;
     }
 
     @Override
@@ -139,16 +105,48 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public int advance(final int target) throws IOException {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("advance {}", target);
-//        }
-        // TODO: Can this be done more efficiently?
-        while(docID() < target) {
-            if (nextDoc() == NO_MORE_DOCS) {
-                return NO_MORE_DOCS;
-            }
+        if (target == NO_MORE_DOCS) {
+            currentDoc = NO_MORE_DOCS;
+            return NO_MORE_DOCS;
         }
-        return docID();
+        return slowAdvance(target);
+    }
+
+    @Override
+    public int freq() throws IOException {
+        return termDocumentsSupplier.get().getFreq(currentDoc);
+    }
+
+    @Override
+    public int nextPosition() throws IOException {
+        if (!hasPositions) {
+            return -1;
+        }
+        if (positions == null) {
+            // TODO: Maybe turn into AtomicReference?
+            // TODO: Maybe read positions for all documents at once?
+            // TODO: Shold this be indexed by the docID or the currentDoc(ordingal)?
+            positions = readTermDocPositions(docID());
+        }
+        return positions.getPosition(++currentPosition);
+    }
+
+    @Override
+    public int startOffset() throws IOException {
+        // TODO
+        return 0;
+    }
+
+    @Override
+    public int endOffset() throws IOException {
+        //TODO
+        return 0;
+    }
+
+    @Override
+    public BytesRef getPayload() throws IOException {
+        // TODO
+        return null;
     }
 
     // Added methods from ImpactsEnum. There is no easy way to extend the LuceneOptimizedPostingsEnum class so this

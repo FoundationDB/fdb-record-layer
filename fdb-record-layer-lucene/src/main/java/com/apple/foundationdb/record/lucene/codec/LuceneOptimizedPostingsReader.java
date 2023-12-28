@@ -82,14 +82,8 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public ImpactsEnum impacts(final FieldInfo fieldInfo, final BlockTermState state, final int flags) throws IOException {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("impacts [segment={}, field={}, totalTermFreq={}, term={}]", segmentReadState.segmentInfo.name, fieldInfo.number, state.totalTermFreq, state.ord);
-//        }
         final boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
-//        final boolean indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
-//        final boolean indexHasPayloads = fieldInfo.hasPayloads();
-
-        final boolean hasPositions = indexHasPositions == false || PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS) == false;
+        final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
         return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
 //        if (hasPositions) {
 //            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(

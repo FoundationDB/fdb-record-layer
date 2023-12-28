@@ -51,6 +51,8 @@ message TermInfo {
  * TODO: Can this be combined into the TermInfo? Cardinality is the same
  */
 message Documents {
+  // TODO: Make one repeated message
+  // TODO: How large can this get?
   repeated int32 docId = 1;
   repeated int32 freq = 2;
 }
@@ -70,6 +72,7 @@ message Positions {
 message Payloads {
   repeated bytes payload = 1;
   // TODO: Separate from payloads?
+  // TODO: Make into one repeated message
   repeated int32 startOffset = 2;
   repeated int32 endOffset = 3;
 }
