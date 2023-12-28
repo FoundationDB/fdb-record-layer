@@ -23,7 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionTrieNode;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -31,9 +34,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -551,8 +556,8 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> implements PlanHashable {
-        public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
+    public static class CoercionTrieNode extends TrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
+        public CoercionTrieNode(@Nullable final CoercionBiFunction value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
 
@@ -568,6 +573,69 @@ public class MessageHelpers {
                 return 0;
             }
             return PlanHashable.objectPlanHash(mode, getChildrenMap());
+        }
+
+        @Nonnull
+        @Override
+        public PCoercionTrieNode toProto(@Nonnull final PlanHashMode mode) {
+            final PCoercionTrieNode.Builder builder = PCoercionTrieNode.newBuilder();
+
+            if (getValue() != null) {
+                builder.setCoercionBiFunction(getValue().toCoercionBiFunctionProto(mode));
+            }
+            builder.setChildrenMapIsNull(getChildrenMap() == null);
+            if (getChildrenMap() != null) {
+                for (final Map.Entry<Integer, CoercionTrieNode> entry : getChildrenMap().entrySet()) {
+                    builder.addChildPair(PCoercionTrieNode.IntChildPair.newBuilder()
+                            .setIndex(entry.getKey())
+                            .setChildCoercionTrieNode(entry.getValue().toProto(mode)));
+                }
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static CoercionTrieNode fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
+            final CoercionBiFunction value;
+            if (coercionTrieNodeProto.hasCoercionBiFunction()) {
+                value = CoercionBiFunction.fromCoercionBiFunctionProto(mode, coercionTrieNodeProto.getCoercionBiFunction());
+            } else {
+                value = null;
+            }
+
+            Verify.verify(coercionTrieNodeProto.hasChildrenMapIsNull());
+
+            final Map<Integer, CoercionTrieNode> childrenMap;
+            if (!coercionTrieNodeProto.getChildrenMapIsNull()) {
+                final ImmutableMap.Builder<Integer, CoercionTrieNode> childrenMapBuilder = ImmutableMap.builder();
+
+                for (int i = 0; i < coercionTrieNodeProto.getChildPairCount(); i ++) {
+                    final PCoercionTrieNode.IntChildPair childPair = coercionTrieNodeProto.getChildPair(i);
+                    Verify.verify(childPair.hasIndex());
+                    Verify.verify(childPair.hasChildCoercionTrieNode());
+                    childrenMapBuilder.put(childPair.getIndex(), CoercionTrieNode.fromProto(mode, childPair.getChildCoercionTrieNode()));
+                }
+                childrenMap = childrenMapBuilder.build();
+            } else {
+                childrenMap = null;
+            }
+            return new CoercionTrieNode(value, childrenMap);
+        }
+    }
+
+    /**
+     * Coercion (bi)-function which also is plan hashable.
+     */
+    public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
+        @Nonnull
+        default PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanHashMode mode) {
+            throw new RecordCoreException("unable to generify coercion bi-function of class " + getClass().getSimpleName());
+        }
+
+        @Nonnull
+        static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanHashMode mode,
+                                                              @Nonnull final PCoercionBiFunction coercionBiFunctionProto) {
+            return (CoercionBiFunction)PlanSerialization.dispatchFromProtoContainer(mode, coercionBiFunctionProto);
         }
     }
 }

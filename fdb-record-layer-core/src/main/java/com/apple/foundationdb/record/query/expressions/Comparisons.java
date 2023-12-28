@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
@@ -602,6 +603,60 @@ public class Comparisons {
 
         public boolean isUnary() {
             return isUnary;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public RecordQueryPlanProto.PRelOpValue.PComparisonType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            switch (this) {
+                case EQUALS:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.EQUALS;
+                case NOT_EQUALS:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.NOT_EQUALS;
+                case LESS_THAN:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.LESS_THAN;
+                case LESS_THAN_OR_EQUALS:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.LESS_THAN_OR_EQUALS;
+                case GREATER_THAN:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.GREATER_THAN;
+                case GREATER_THAN_OR_EQUALS:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.GREATER_THAN_OR_EQUALS;
+                case STARTS_WITH:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.STARTS_WITH;
+                case NOT_NULL:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.NOT_NULL;
+                case IS_NULL:
+                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.IS_NULL;
+                default:
+                    throw new RecordCoreException("unknown comparison type mapping. did you forget to add it here?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static Type fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final RecordQueryPlanProto.PRelOpValue.PComparisonType comparisonTypeProto) {
+            switch (comparisonTypeProto) {
+                case EQUALS:
+                    return EQUALS;
+                case NOT_EQUALS:
+                    return NOT_EQUALS;
+                case LESS_THAN:
+                    return LESS_THAN;
+                case LESS_THAN_OR_EQUALS:
+                    return LESS_THAN_OR_EQUALS;
+                case GREATER_THAN:
+                    return GREATER_THAN;
+                case GREATER_THAN_OR_EQUALS:
+                    return GREATER_THAN_OR_EQUALS;
+                case STARTS_WITH:
+                    return STARTS_WITH;
+                case NOT_NULL:
+                    return NOT_NULL;
+                case IS_NULL:
+                    return IS_NULL;
+                default:
+                    throw new RecordCoreException("unknown proto comparison type. did you forget to add it here?");
+            }
         }
     }
 

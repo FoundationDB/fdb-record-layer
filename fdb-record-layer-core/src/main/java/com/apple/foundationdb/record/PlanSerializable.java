@@ -1,9 +1,9 @@
 /*
- * IndexableAggregationValue.java
+ * PlanHashable.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,22 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values;
+package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
 /**
- * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
+ * Plan serialization.
  */
-@API(API.Status.EXPERIMENTAL)
-public interface IndexableAggregateValue extends Value {
+@API(API.Status.UNSTABLE)
+public interface PlanSerializable {
+    //    @Nonnull
+    //    default Message toProto(@Nonnull final PlanHashable.PlanHashKind kind) {
+    //        throw new RecordCoreException("method not implemented for this object");
+    //    }
     @Nonnull
-    String getIndexTypeName();
+    Message toProto(@Nonnull final PlanHashable.PlanHashMode mode);
 }

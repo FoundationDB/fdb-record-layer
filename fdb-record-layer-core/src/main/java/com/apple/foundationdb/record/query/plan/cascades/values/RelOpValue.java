@@ -25,6 +25,14 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue.PBinaryPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue.PUnaryPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -40,11 +48,14 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -58,7 +69,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -68,7 +78,7 @@ import java.util.stream.StreamSupport;
  * A {@link Value} that returns the comparison result between its children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue extends AbstractValue implements BooleanValue {
+public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull
@@ -77,8 +87,6 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     private final Comparisons.Type comparisonType;
     @Nonnull
     private final Iterable<? extends Value> children;
-    @Nonnull
-    private final Function<Iterable<Object>, Object> physicalEvalFn;
 
     @Nonnull
     private static final Supplier<Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
@@ -88,21 +96,26 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
+    protected RelOpValue(@Nonnull final PlanHashMode mode, @Nonnull final PRelOpValue relOpValueProto) {
+        this(Objects.requireNonNull(relOpValueProto.getFunctionName()),
+                Comparisons.Type.fromProto(mode, Objects.requireNonNull(relOpValueProto.getComparisonType())),
+                relOpValueProto.getChildrenList().stream().map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .collect(ImmutableList.toImmutableList()));
+    }
+
     /**
      * Creates a new instance of {@link RelOpValue}.
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
-     * @param physicalEvalFn The physical comparison function.
      */
-    private RelOpValue(@Nonnull final String functionName,
-                       @Nonnull final Comparisons.Type comparisonType,
-                       @Nonnull final Iterable<? extends Value> children,
-                       @Nonnull final Function<Iterable<Object>, Object> physicalEvalFn) {
+    protected RelOpValue(@Nonnull final String functionName,
+                         @Nonnull final Comparisons.Type comparisonType,
+                         @Nonnull final Iterable<? extends Value> children) {
+        Verify.verify(!Iterables.isEmpty(children));
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.children = children;
-        this.physicalEvalFn = physicalEvalFn;
     }
 
     @Nonnull
@@ -112,22 +125,13 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    @Override
-    public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == Iterables.size(children));
-        return new RelOpValue(this.functionName,
-                this.comparisonType,
-                newChildren,
-                physicalEvalFn);
+    public String getFunctionName() {
+        return functionName;
     }
 
-    @Nullable
-    @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return physicalEvalFn.apply(StreamSupport.stream(children.spliterator(), false)
-                .map(v -> v.eval(store, context))
-                .collect(Collectors.toList())
-        );
+    @Nonnull
+    public Comparisons.Type getComparisonType() {
+        return comparisonType;
     }
 
     @SuppressWarnings("java:S3776")
@@ -223,28 +227,6 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, comparisonType);
-    }
-    
-    @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisonType,
-                StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
-    }
-
-    @Nonnull
-    @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Override
-    public String toString() {
-        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(Value::toString).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Override
     public int hashCode() {
         return semanticHashCode();
     }
@@ -254,6 +236,17 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    public PRelOpValue toRelOpValueProto(@Nonnull final PlanHashMode mode) {
+        final PRelOpValue.Builder builder = PRelOpValue.newBuilder();
+        builder.setFunctionName(functionName);
+        builder.setComparisonType(comparisonType.toProto(mode));
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(mode));
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -289,13 +282,10 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
-            return new RelOpValue(functionName,
+            return new UnaryRelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    objects -> {
-                        Verify.verify(Iterables.size(objects) == 1);
-                        return physicalOperator.eval(objects.iterator().next());
-                    });
+                    physicalOperator);
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
@@ -306,14 +296,10 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
-            return new RelOpValue(functionName,
+            return new BinaryRelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    objects -> {
-                        Verify.verify(Iterables.size(objects) == 2);
-                        Iterator<Object> it = objects.iterator();
-                        return physicalOperator.eval(it.next(), it.next());
-                    });
+                    physicalOperator);
         }
     }
 
@@ -497,7 +483,7 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         // EQ_SF(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
         // EQ_SD(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         EQ_SU(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> l.equals(r)), // TODO: locale-aware comparison
+        EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, Object::equals), // TODO: locale-aware comparison
         EQ_UU(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_UB(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         EQ_UI(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -763,8 +749,881 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Nonnull
-        public BinaryOperator<Object> getEvaluateFunction() {
-            return evaluateFunction;
+        @SuppressWarnings("unused")
+        public PBinaryPhysicalOperator toProto(@Nonnull PlanHashMode planHashMode) {
+            //<editor-fold default-state="collapsed" description="big switch statement">
+            switch (this) {
+                case EQ_BU:
+                    return PBinaryPhysicalOperator.EQ_BU;
+                case EQ_BB:
+                    return PBinaryPhysicalOperator.EQ_BB;
+                case EQ_IU:
+                    return PBinaryPhysicalOperator.EQ_IU;
+                case EQ_II:
+                    return PBinaryPhysicalOperator.EQ_II;
+                case EQ_IL:
+                    return PBinaryPhysicalOperator.EQ_IL;
+                case EQ_IF:
+                    return PBinaryPhysicalOperator.EQ_IF;
+                case EQ_ID:
+                    return PBinaryPhysicalOperator.EQ_ID;
+                case EQ_LU:
+                    return PBinaryPhysicalOperator.EQ_LU;
+                case EQ_LI:
+                    return PBinaryPhysicalOperator.EQ_LI;
+                case EQ_LL:
+                    return PBinaryPhysicalOperator.EQ_LL;
+                case EQ_LF:
+                    return PBinaryPhysicalOperator.EQ_LF;
+                case EQ_LD:
+                    return PBinaryPhysicalOperator.EQ_LD;
+                case EQ_FU:
+                    return PBinaryPhysicalOperator.EQ_FU;
+                case EQ_FI:
+                    return PBinaryPhysicalOperator.EQ_FI;
+                case EQ_FL:
+                    return PBinaryPhysicalOperator.EQ_FL;
+                case EQ_FF:
+                    return PBinaryPhysicalOperator.EQ_FF;
+                case EQ_FD:
+                    return PBinaryPhysicalOperator.EQ_FD;
+                case EQ_DU:
+                    return PBinaryPhysicalOperator.EQ_DU;
+                case EQ_DI:
+                    return PBinaryPhysicalOperator.EQ_DI;
+                case EQ_DL:
+                    return PBinaryPhysicalOperator.EQ_DL;
+                case EQ_DF:
+                    return PBinaryPhysicalOperator.EQ_DF;
+                case EQ_DD:
+                    return PBinaryPhysicalOperator.EQ_DD;
+                case EQ_SU:
+                    return PBinaryPhysicalOperator.EQ_SU;
+                case EQ_SS:
+                    return PBinaryPhysicalOperator.EQ_SS;
+                case EQ_UU:
+                    return PBinaryPhysicalOperator.EQ_UU;
+                case EQ_UB:
+                    return PBinaryPhysicalOperator.EQ_UB;
+                case EQ_UI:
+                    return PBinaryPhysicalOperator.EQ_UI;
+                case EQ_UL:
+                    return PBinaryPhysicalOperator.EQ_UL;
+                case EQ_UF:
+                    return PBinaryPhysicalOperator.EQ_UF;
+                case EQ_UD:
+                    return PBinaryPhysicalOperator.EQ_UD;
+                case EQ_US:
+                    return PBinaryPhysicalOperator.EQ_US;
+                case EQ_UV:
+                    return PBinaryPhysicalOperator.EQ_UV;
+                case EQ_VU:
+                    return PBinaryPhysicalOperator.EQ_VU;
+                case EQ_VV:
+                    return PBinaryPhysicalOperator.EQ_VV;
+                case NEQ_BU:
+                    return PBinaryPhysicalOperator.NEQ_BU;
+                case NEQ_BB:
+                    return PBinaryPhysicalOperator.NEQ_BB;
+                case NEQ_IU:
+                    return PBinaryPhysicalOperator.NEQ_IU;
+                case NEQ_II:
+                    return PBinaryPhysicalOperator.NEQ_II;
+                case NEQ_IL:
+                    return PBinaryPhysicalOperator.NEQ_IL;
+                case NEQ_IF:
+                    return PBinaryPhysicalOperator.NEQ_IF;
+                case NEQ_ID:
+                    return PBinaryPhysicalOperator.NEQ_ID;
+                case NEQ_LU:
+                    return PBinaryPhysicalOperator.NEQ_LU;
+                case NEQ_LI:
+                    return PBinaryPhysicalOperator.NEQ_LI;
+                case NEQ_LL:
+                    return PBinaryPhysicalOperator.NEQ_LL;
+                case NEQ_LF:
+                    return PBinaryPhysicalOperator.NEQ_LF;
+                case NEQ_LD:
+                    return PBinaryPhysicalOperator.NEQ_LD;
+                case NEQ_FU:
+                    return PBinaryPhysicalOperator.NEQ_FU;
+                case NEQ_FI:
+                    return PBinaryPhysicalOperator.NEQ_FI;
+                case NEQ_FL:
+                    return PBinaryPhysicalOperator.NEQ_FL;
+                case NEQ_FF:
+                    return PBinaryPhysicalOperator.NEQ_FF;
+                case NEQ_FD:
+                    return PBinaryPhysicalOperator.NEQ_FD;
+                case NEQ_DU:
+                    return PBinaryPhysicalOperator.NEQ_DU;
+                case NEQ_DI:
+                    return PBinaryPhysicalOperator.NEQ_DI;
+                case NEQ_DL:
+                    return PBinaryPhysicalOperator.NEQ_DL;
+                case NEQ_DF:
+                    return PBinaryPhysicalOperator.NEQ_DF;
+                case NEQ_DD:
+                    return PBinaryPhysicalOperator.NEQ_DD;
+                case NEQ_SU:
+                    return PBinaryPhysicalOperator.NEQ_SU;
+                case NEQ_SS:
+                    return PBinaryPhysicalOperator.NEQ_SS;
+                case NEQ_UU:
+                    return PBinaryPhysicalOperator.NEQ_UU;
+                case NEQ_UB:
+                    return PBinaryPhysicalOperator.NEQ_UB;
+                case NEQ_UI:
+                    return PBinaryPhysicalOperator.NEQ_UI;
+                case NEQ_UL:
+                    return PBinaryPhysicalOperator.NEQ_UL;
+                case NEQ_UF:
+                    return PBinaryPhysicalOperator.NEQ_UF;
+                case NEQ_UD:
+                    return PBinaryPhysicalOperator.NEQ_UD;
+                case NEQ_US:
+                    return PBinaryPhysicalOperator.NEQ_US;
+                case NEQ_UV:
+                    return PBinaryPhysicalOperator.NEQ_UV;
+                case NEQ_VU:
+                    return PBinaryPhysicalOperator.NEQ_VU;
+                case NEQ_VV:
+                    return PBinaryPhysicalOperator.NEQ_VV;
+                case LT_IU:
+                    return PBinaryPhysicalOperator.LT_IU;
+                case LT_II:
+                    return PBinaryPhysicalOperator.LT_II;
+                case LT_IL:
+                    return PBinaryPhysicalOperator.LT_IL;
+                case LT_IF:
+                    return PBinaryPhysicalOperator.LT_IF;
+                case LT_ID:
+                    return PBinaryPhysicalOperator.LT_ID;
+                case LT_LU:
+                    return PBinaryPhysicalOperator.LT_LU;
+                case LT_LI:
+                    return PBinaryPhysicalOperator.LT_LI;
+                case LT_LL:
+                    return PBinaryPhysicalOperator.LT_LL;
+                case LT_LF:
+                    return PBinaryPhysicalOperator.LT_LF;
+                case LT_LD:
+                    return PBinaryPhysicalOperator.LT_LD;
+                case LT_FU:
+                    return PBinaryPhysicalOperator.LT_FU;
+                case LT_FI:
+                    return PBinaryPhysicalOperator.LT_FI;
+                case LT_FL:
+                    return PBinaryPhysicalOperator.LT_FL;
+                case LT_FF:
+                    return PBinaryPhysicalOperator.LT_FF;
+                case LT_FD:
+                    return PBinaryPhysicalOperator.LT_FD;
+                case LT_DU:
+                    return PBinaryPhysicalOperator.LT_DU;
+                case LT_DI:
+                    return PBinaryPhysicalOperator.LT_DI;
+                case LT_DL:
+                    return PBinaryPhysicalOperator.LT_DL;
+                case LT_DF:
+                    return PBinaryPhysicalOperator.LT_DF;
+                case LT_DD:
+                    return PBinaryPhysicalOperator.LT_DD;
+                case LT_SU:
+                    return PBinaryPhysicalOperator.LT_SU;
+                case LT_SS:
+                    return PBinaryPhysicalOperator.LT_SS;
+                case LT_UU:
+                    return PBinaryPhysicalOperator.LT_UU;
+                case LT_UB:
+                    return PBinaryPhysicalOperator.LT_UB;
+                case LT_UI:
+                    return PBinaryPhysicalOperator.LT_UI;
+                case LT_UL:
+                    return PBinaryPhysicalOperator.LT_UL;
+                case LT_UF:
+                    return PBinaryPhysicalOperator.LT_UF;
+                case LT_UD:
+                    return PBinaryPhysicalOperator.LT_UD;
+                case LT_US:
+                    return PBinaryPhysicalOperator.LT_US;
+                case LT_UV:
+                    return PBinaryPhysicalOperator.LT_UV;
+                case LT_VU:
+                    return PBinaryPhysicalOperator.LT_VU;
+                case LT_VV:
+                    return PBinaryPhysicalOperator.LT_VV;
+                case LTE_IU:
+                    return PBinaryPhysicalOperator.LTE_IU;
+                case LTE_II:
+                    return PBinaryPhysicalOperator.LTE_II;
+                case LTE_IL:
+                    return PBinaryPhysicalOperator.LTE_IL;
+                case LTE_IF:
+                    return PBinaryPhysicalOperator.LTE_IF;
+                case LTE_ID:
+                    return PBinaryPhysicalOperator.LTE_ID;
+                case LTE_LU:
+                    return PBinaryPhysicalOperator.LTE_LU;
+                case LTE_LI:
+                    return PBinaryPhysicalOperator.LTE_LI;
+                case LTE_LL:
+                    return PBinaryPhysicalOperator.LTE_LL;
+                case LTE_LF:
+                    return PBinaryPhysicalOperator.LTE_LF;
+                case LTE_LD:
+                    return PBinaryPhysicalOperator.LTE_LD;
+                case LTE_FU:
+                    return PBinaryPhysicalOperator.LTE_FU;
+                case LTE_FI:
+                    return PBinaryPhysicalOperator.LTE_FI;
+                case LTE_FL:
+                    return PBinaryPhysicalOperator.LTE_FL;
+                case LTE_FF:
+                    return PBinaryPhysicalOperator.LTE_FF;
+                case LTE_FD:
+                    return PBinaryPhysicalOperator.LTE_FD;
+                case LTE_DU:
+                    return PBinaryPhysicalOperator.LTE_DU;
+                case LTE_DI:
+                    return PBinaryPhysicalOperator.LTE_DI;
+                case LTE_DL:
+                    return PBinaryPhysicalOperator.LTE_DL;
+                case LTE_DF:
+                    return PBinaryPhysicalOperator.LTE_DF;
+                case LTE_DD:
+                    return PBinaryPhysicalOperator.LTE_DD;
+                case LTE_SU:
+                    return PBinaryPhysicalOperator.LTE_SU;
+                case LTE_SS:
+                    return PBinaryPhysicalOperator.LTE_SS;
+                case LTE_UU:
+                    return PBinaryPhysicalOperator.LTE_UU;
+                case LTE_UB:
+                    return PBinaryPhysicalOperator.LTE_UB;
+                case LTE_UI:
+                    return PBinaryPhysicalOperator.LTE_UI;
+                case LTE_UL:
+                    return PBinaryPhysicalOperator.LTE_UL;
+                case LTE_UF:
+                    return PBinaryPhysicalOperator.LTE_UF;
+                case LTE_UD:
+                    return PBinaryPhysicalOperator.LTE_UD;
+                case LTE_US:
+                    return PBinaryPhysicalOperator.LTE_US;
+                case LTE_UV:
+                    return PBinaryPhysicalOperator.LTE_UV;
+                case LTE_VU:
+                    return PBinaryPhysicalOperator.LTE_VU;
+                case LTE_VV:
+                    return PBinaryPhysicalOperator.LTE_VV;
+                case GT_IU:
+                    return PBinaryPhysicalOperator.GT_IU;
+                case GT_II:
+                    return PBinaryPhysicalOperator.GT_II;
+                case GT_IL:
+                    return PBinaryPhysicalOperator.GT_IL;
+                case GT_IF:
+                    return PBinaryPhysicalOperator.GT_IF;
+                case GT_ID:
+                    return PBinaryPhysicalOperator.GT_ID;
+                case GT_LU:
+                    return PBinaryPhysicalOperator.GT_LU;
+                case GT_LI:
+                    return PBinaryPhysicalOperator.GT_LI;
+                case GT_LL:
+                    return PBinaryPhysicalOperator.GT_LL;
+                case GT_LF:
+                    return PBinaryPhysicalOperator.GT_LF;
+                case GT_LD:
+                    return PBinaryPhysicalOperator.GT_LD;
+                case GT_FU:
+                    return PBinaryPhysicalOperator.GT_FU;
+                case GT_FI:
+                    return PBinaryPhysicalOperator.GT_FI;
+                case GT_FL:
+                    return PBinaryPhysicalOperator.GT_FL;
+                case GT_FF:
+                    return PBinaryPhysicalOperator.GT_FF;
+                case GT_FD:
+                    return PBinaryPhysicalOperator.GT_FD;
+                case GT_DU:
+                    return PBinaryPhysicalOperator.GT_DU;
+                case GT_DI:
+                    return PBinaryPhysicalOperator.GT_DI;
+                case GT_DL:
+                    return PBinaryPhysicalOperator.GT_DL;
+                case GT_DF:
+                    return PBinaryPhysicalOperator.GT_DF;
+                case GT_DD:
+                    return PBinaryPhysicalOperator.GT_DD;
+                case GT_SU:
+                    return PBinaryPhysicalOperator.GT_SU;
+                case GT_SS:
+                    return PBinaryPhysicalOperator.GT_SS;
+                case GT_UU:
+                    return PBinaryPhysicalOperator.GT_UU;
+                case GT_UB:
+                    return PBinaryPhysicalOperator.GT_UB;
+                case GT_UI:
+                    return PBinaryPhysicalOperator.GT_UI;
+                case GT_UL:
+                    return PBinaryPhysicalOperator.GT_UL;
+                case GT_UF:
+                    return PBinaryPhysicalOperator.GT_UF;
+                case GT_UD:
+                    return PBinaryPhysicalOperator.GT_UD;
+                case GT_US:
+                    return PBinaryPhysicalOperator.GT_US;
+                case GT_UV:
+                    return PBinaryPhysicalOperator.GT_UV;
+                case GT_VU:
+                    return PBinaryPhysicalOperator.GT_VU;
+                case GT_VV:
+                    return PBinaryPhysicalOperator.GT_VV;
+                case GTE_IU:
+                    return PBinaryPhysicalOperator.GTE_IU;
+                case GTE_II:
+                    return PBinaryPhysicalOperator.GTE_II;
+                case GTE_IL:
+                    return PBinaryPhysicalOperator.GTE_IL;
+                case GTE_IF:
+                    return PBinaryPhysicalOperator.GTE_IF;
+                case GTE_ID:
+                    return PBinaryPhysicalOperator.GTE_ID;
+                case GTE_LU:
+                    return PBinaryPhysicalOperator.GTE_LU;
+                case GTE_LI:
+                    return PBinaryPhysicalOperator.GTE_LI;
+                case GTE_LL:
+                    return PBinaryPhysicalOperator.GTE_LL;
+                case GTE_LF:
+                    return PBinaryPhysicalOperator.GTE_LF;
+                case GTE_LD:
+                    return PBinaryPhysicalOperator.GTE_LD;
+                case GTE_FU:
+                    return PBinaryPhysicalOperator.GTE_FU;
+                case GTE_FI:
+                    return PBinaryPhysicalOperator.GTE_FI;
+                case GTE_FL:
+                    return PBinaryPhysicalOperator.GTE_FL;
+                case GTE_FF:
+                    return PBinaryPhysicalOperator.GTE_FF;
+                case GTE_FD:
+                    return PBinaryPhysicalOperator.GTE_FD;
+                case GTE_DU:
+                    return PBinaryPhysicalOperator.GTE_DU;
+                case GTE_DI:
+                    return PBinaryPhysicalOperator.GTE_DI;
+                case GTE_DL:
+                    return PBinaryPhysicalOperator.GTE_DL;
+                case GTE_DF:
+                    return PBinaryPhysicalOperator.GTE_DF;
+                case GTE_DD:
+                    return PBinaryPhysicalOperator.GTE_DD;
+                case GTE_SU:
+                    return PBinaryPhysicalOperator.GTE_SU;
+                case GTE_SS:
+                    return PBinaryPhysicalOperator.GTE_SS;
+                case GTE_UU:
+                    return PBinaryPhysicalOperator.GTE_UU;
+                case GTE_UB:
+                    return PBinaryPhysicalOperator.GTE_UB;
+                case GTE_UI:
+                    return PBinaryPhysicalOperator.GTE_UI;
+                case GTE_UL:
+                    return PBinaryPhysicalOperator.GTE_UL;
+                case GTE_UF:
+                    return PBinaryPhysicalOperator.GTE_UF;
+                case GTE_UD:
+                    return PBinaryPhysicalOperator.GTE_UD;
+                case GTE_US:
+                    return PBinaryPhysicalOperator.GTE_US;
+                case GTE_UV:
+                    return PBinaryPhysicalOperator.GTE_UV;
+                case GTE_VU:
+                    return PBinaryPhysicalOperator.GTE_VU;
+                case GTE_VV:
+                    return PBinaryPhysicalOperator.GTE_VV;
+                default:
+                    throw new RecordCoreException("unknown binary physical operator. did you forget to add it here?");
+            }
+            //</editor-fold>
+        }
+
+        @Nonnull
+        @SuppressWarnings({"unused", "DuplicateBranchesInSwitch"})
+        public static BinaryPhysicalOperator fromProto(@Nonnull PlanHashMode planHashMode, PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
+            //<editor-fold default-state="collapsed" description="big switch statement">
+            switch (binaryPhysicalOperatorProto) {
+                case EQ_BU:
+                    return EQ_BU;
+                case EQ_BB:
+                    return EQ_BB;
+                case EQ_IU:
+                    return EQ_IU;
+                case EQ_II:
+                    return EQ_II;
+                case EQ_IL:
+                    return EQ_IL;
+                case EQ_IF:
+                    return EQ_IF;
+                case EQ_ID:
+                    return EQ_ID;
+                case EQ_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case EQ_LU:
+                    return EQ_LU;
+                case EQ_LI:
+                    return EQ_LI;
+                case EQ_LL:
+                    return EQ_LL;
+                case EQ_LF:
+                    return EQ_LF;
+                case EQ_LD:
+                    return EQ_LD;
+                case EQ_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case EQ_FU:
+                    return EQ_FU;
+                case EQ_FI:
+                    return EQ_FI;
+                case EQ_FL:
+                    return EQ_FL;
+                case EQ_FF:
+                    return EQ_FF;
+                case EQ_FD:
+                    return EQ_FD;
+                case EQ_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case EQ_DU:
+                    return EQ_DU;
+                case EQ_DI:
+                    return EQ_DI;
+                case EQ_DL:
+                    return EQ_DL;
+                case EQ_DF:
+                    return EQ_DF;
+                case EQ_DD:
+                    return EQ_DD;
+                case EQ_DS:
+                case EQ_SI:
+                case EQ_SL:
+                case EQ_SF:
+                case EQ_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case EQ_SU:
+                    return EQ_SU;
+                case EQ_SS:
+                    return EQ_SS;
+                case EQ_UU:
+                    return EQ_UU;
+                case EQ_UB:
+                    return EQ_UB;
+                case EQ_UI:
+                    return EQ_UI;
+                case EQ_UL:
+                    return EQ_UL;
+                case EQ_UF:
+                    return EQ_UF;
+                case EQ_UD:
+                    return EQ_UD;
+                case EQ_US:
+                    return EQ_US;
+                case EQ_UV:
+                    return EQ_UV;
+                case EQ_VU:
+                    return EQ_VU;
+                case EQ_VV:
+                    return EQ_VV;
+                case NEQ_BU:
+                    return NEQ_BU;
+                case NEQ_BB:
+                    return NEQ_BB;
+                case NEQ_IU:
+                    return NEQ_IU;
+                case NEQ_II:
+                    return NEQ_II;
+                case NEQ_IL:
+                    return NEQ_IL;
+                case NEQ_IF:
+                    return NEQ_IF;
+                case NEQ_ID:
+                    return NEQ_ID;
+                case NEQ_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case NEQ_LU:
+                    return NEQ_LU;
+                case NEQ_LI:
+                    return NEQ_LI;
+                case NEQ_LL:
+                    return NEQ_LL;
+                case NEQ_LF:
+                    return NEQ_LF;
+                case NEQ_LD:
+                    return NEQ_LD;
+                case NEQ_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case NEQ_FU:
+                    return NEQ_FU;
+                case NEQ_FI:
+                    return NEQ_FI;
+                case NEQ_FL:
+                    return NEQ_FL;
+                case NEQ_FF:
+                    return NEQ_FF;
+                case NEQ_FD:
+                    return NEQ_FD;
+                case NEQ_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case NEQ_DU:
+                    return NEQ_DU;
+                case NEQ_DI:
+                    return NEQ_DI;
+                case NEQ_DL:
+                    return NEQ_DL;
+                case NEQ_DF:
+                    return NEQ_DF;
+                case NEQ_DD:
+                    return NEQ_DD;
+                case NEQ_DS:
+                case NEQ_SI:
+                case NEQ_SL:
+                case NEQ_SF:
+                case NEQ_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case NEQ_SU:
+                    return NEQ_SU;
+                case NEQ_SS:
+                    return NEQ_SS;
+                case NEQ_UU:
+                    return NEQ_UU;
+                case NEQ_UB:
+                    return NEQ_UB;
+                case NEQ_UI:
+                    return NEQ_UI;
+                case NEQ_UL:
+                    return NEQ_UL;
+                case NEQ_UF:
+                    return NEQ_UF;
+                case NEQ_UD:
+                    return NEQ_UD;
+                case NEQ_US:
+                    return NEQ_US;
+                case NEQ_UV:
+                    return NEQ_UV;
+                case NEQ_VU:
+                    return NEQ_VU;
+                case NEQ_VV:
+                    return NEQ_VV;
+                case LT_IU:
+                    return LT_IU;
+                case LT_II:
+                    return LT_II;
+                case LT_IL:
+                    return LT_IL;
+                case LT_IF:
+                    return LT_IF;
+                case LT_ID:
+                    return LT_ID;
+                case LT_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case LT_LU:
+                    return LT_LU;
+                case LT_LI:
+                    return LT_LI;
+                case LT_LL:
+                    return LT_LL;
+                case LT_LF:
+                    return LT_LF;
+                case LT_LD:
+                    return LT_LD;
+                case LT_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case LT_FU:
+                    return LT_FU;
+                case LT_FI:
+                    return LT_FI;
+                case LT_FL:
+                    return LT_FL;
+                case LT_FF:
+                    return LT_FF;
+                case LT_FD:
+                    return LT_FD;
+                case LT_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case LT_DU:
+                    return LT_DU;
+                case LT_DI:
+                    return LT_DI;
+                case LT_DL:
+                    return LT_DL;
+                case LT_DF:
+                    return LT_DF;
+                case LT_DD:
+                    return LT_DD;
+                case LT_DS:
+                case LT_SI:
+                case LT_SL:
+                case LT_SF:
+                case LT_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case LT_SU:
+                    return LT_SU;
+                case LT_SS:
+                    return LT_SS;
+                case LT_UU:
+                    return LT_UU;
+                case LT_UB:
+                    return LT_UB;
+                case LT_UI:
+                    return LT_UI;
+                case LT_UL:
+                    return LT_UL;
+                case LT_UF:
+                    return LT_UF;
+                case LT_UD:
+                    return LT_UD;
+                case LT_US:
+                    return LT_US;
+                case LT_UV:
+                    return LT_UV;
+                case LT_VU:
+                    return LT_VU;
+                case LT_VV:
+                    return LT_VV;
+                case LTE_IU:
+                    return LTE_IU;
+                case LTE_II:
+                    return LTE_II;
+                case LTE_IL:
+                    return LTE_IL;
+                case LTE_IF:
+                    return LTE_IF;
+                case LTE_ID:
+                    return LTE_ID;
+                case LTE_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case LTE_LU:
+                    return LTE_LU;
+                case LTE_LI:
+                    return LTE_LI;
+                case LTE_LL:
+                    return LTE_LL;
+                case LTE_LF:
+                    return LTE_LF;
+                case LTE_LD:
+                    return LTE_LD;
+                case LTE_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case LTE_FU:
+                    return LTE_FU;
+                case LTE_FI:
+                    return LTE_FI;
+                case LTE_FL:
+                    return LTE_FL;
+                case LTE_FF:
+                    return LTE_FF;
+                case LTE_FD:
+                    return LTE_FD;
+                case LTE_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case LTE_DU:
+                    return LTE_DU;
+                case LTE_DI:
+                    return LTE_DI;
+                case LTE_DL:
+                    return LTE_DL;
+                case LTE_DF:
+                    return LTE_DF;
+                case LTE_DD:
+                    return LTE_DD;
+                case LTE_DS:
+                case LTE_SI:
+                case LTE_SL:
+                case LTE_SF:
+                case LTE_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case LTE_SU:
+                    return LTE_SU;
+                case LTE_SS:
+                    return LTE_SS;
+                case LTE_UU:
+                    return LTE_UU;
+                case LTE_UB:
+                    return LTE_UB;
+                case LTE_UI:
+                    return LTE_UI;
+                case LTE_UL:
+                    return LTE_UL;
+                case LTE_UF:
+                    return LTE_UF;
+                case LTE_UD:
+                    return LTE_UD;
+                case LTE_US:
+                    return LTE_US;
+                case LTE_UV:
+                    return LTE_UV;
+                case LTE_VU:
+                    return LTE_VU;
+                case LTE_VV:
+                    return LTE_VV;
+                case GT_IU:
+                    return GT_IU;
+                case GT_II:
+                    return GT_II;
+                case GT_IL:
+                    return GT_IL;
+                case GT_IF:
+                    return GT_IF;
+                case GT_ID:
+                    return GT_ID;
+                case GT_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case GT_LU:
+                    return GT_LU;
+                case GT_LI:
+                    return GT_LI;
+                case GT_LL:
+                    return GT_LL;
+                case GT_LF:
+                    return GT_LF;
+                case GT_LD:
+                    return GT_LD;
+                case GT_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case GT_FU:
+                    return GT_FU;
+                case GT_FI:
+                    return GT_FI;
+                case GT_FL:
+                    return GT_FL;
+                case GT_FF:
+                    return GT_FF;
+                case GT_FD:
+                    return GT_FD;
+                case GT_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case GT_DU:
+                    return GT_DU;
+                case GT_DI:
+                    return GT_DI;
+                case GT_DL:
+                    return GT_DL;
+                case GT_DF:
+                    return GT_DF;
+                case GT_DD:
+                    return GT_DD;
+                case GT_DS:
+                case GT_SI:
+                case GT_SL:
+                case GT_SF:
+                case GT_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case GT_SU:
+                    return GT_SU;
+                case GT_SS:
+                    return GT_SS;
+                case GT_UU:
+                    return GT_UU;
+                case GT_UB:
+                    return GT_UB;
+                case GT_UI:
+                    return GT_UI;
+                case GT_UL:
+                    return GT_UL;
+                case GT_UF:
+                    return GT_UF;
+                case GT_UD:
+                    return GT_UD;
+                case GT_US:
+                    return GT_US;
+                case GT_UV:
+                    return GT_UV;
+                case GT_VU:
+                    return GT_VU;
+                case GT_VV:
+                    return GT_VV;
+                case GTE_IU:
+                    return GTE_IU;
+                case GTE_II:
+                    return GTE_II;
+                case GTE_IL:
+                    return GTE_IL;
+                case GTE_IF:
+                    return GTE_IF;
+                case GTE_ID:
+                    return GTE_ID;
+                case GTE_IS:
+                    throw new RecordCoreException("unsupported operator");
+                case GTE_LU:
+                    return GTE_LU;
+                case GTE_LI:
+                    return GTE_LI;
+                case GTE_LL:
+                    return GTE_LL;
+                case GTE_LF:
+                    return GTE_LF;
+                case GTE_LD:
+                    return GTE_LD;
+                case GTE_LS:
+                    throw new RecordCoreException("unsupported operator");
+                case GTE_FU:
+                    return GTE_FU;
+                case GTE_FI:
+                    return GTE_FI;
+                case GTE_FL:
+                    return GTE_FL;
+                case GTE_FF:
+                    return GTE_FF;
+                case GTE_FD:
+                    return GTE_FD;
+                case GTE_FS:
+                    throw new RecordCoreException("unsupported operator");
+                case GTE_DU:
+                    return GTE_DU;
+                case GTE_DI:
+                    return GTE_DI;
+                case GTE_DL:
+                    return GTE_DL;
+                case GTE_DF:
+                    return GTE_DF;
+                case GTE_DD:
+                    return GTE_DD;
+                case GTE_DS:
+                case GTE_SI:
+                case GTE_SL:
+                case GTE_SF:
+                case GTE_SD:
+                    throw new RecordCoreException("unsupported operator");
+                case GTE_SU:
+                    return GTE_SU;
+                case GTE_SS:
+                    return GTE_SS;
+                case GTE_UU:
+                    return GTE_UU;
+                case GTE_UB:
+                    return GTE_UB;
+                case GTE_UI:
+                    return GTE_UI;
+                case GTE_UL:
+                    return GTE_UL;
+                case GTE_UF:
+                    return GTE_UF;
+                case GTE_UD:
+                    return GTE_UD;
+                case GTE_US:
+                    return GTE_US;
+                case GTE_UV:
+                    return GTE_UV;
+                case GTE_VU:
+                    return GTE_VU;
+                case GTE_VV:
+                    return GTE_VV;
+                default:
+                    throw new RecordCoreException("unknown binary physical operator. did you forget to add it here?");
+            }
+            //</editor-fold>
         }
     }
 
@@ -816,8 +1675,267 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Nonnull
-        public UnaryOperator<Object> getEvaluateFunction() {
-            return evaluateFunction;
+        @SuppressWarnings("unused")
+        public PUnaryPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case IS_NULL_UI:
+                    return PUnaryPhysicalOperator.IS_NULL_UI;
+                case IS_NULL_II:
+                    return PUnaryPhysicalOperator.IS_NULL_II;
+                case IS_NULL_LI:
+                    return PUnaryPhysicalOperator.IS_NULL_LI;
+                case IS_NULL_FI:
+                    return PUnaryPhysicalOperator.IS_NULL_FI;
+                case IS_NULL_DI:
+                    return PUnaryPhysicalOperator.IS_NULL_DI;
+                case IS_NULL_SS:
+                    return PUnaryPhysicalOperator.IS_NULL_SS;
+                case IS_NULL_BI:
+                    return PUnaryPhysicalOperator.IS_NULL_BI;
+                case IS_NOT_NULL_UI:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_UI;
+                case IS_NOT_NULL_II:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_II;
+                case IS_NOT_NULL_LI:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_LI;
+                case IS_NOT_NULL_FI:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_FI;
+                case IS_NOT_NULL_DI:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_DI;
+                case IS_NOT_NULL_SS:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_SS;
+                case IS_NOT_NULL_BI:
+                    return PUnaryPhysicalOperator.IS_NOT_NULL_BI;
+                default:
+                    throw new RecordCoreException("unknown binary physical operator. did you forget to add it here?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static UnaryPhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PUnaryPhysicalOperator unaryPhysicalOperatorProto) {
+            switch (unaryPhysicalOperatorProto) {
+                case IS_NULL_UI:
+                    return IS_NULL_UI;
+                case IS_NULL_II:
+                    return IS_NULL_II;
+                case IS_NULL_LI:
+                    return IS_NULL_LI;
+                case IS_NULL_FI:
+                    return IS_NULL_FI;
+                case IS_NULL_DI:
+                    return IS_NULL_DI;
+                case IS_NULL_SS:
+                    return IS_NULL_SS;
+                case IS_NULL_BI:
+                    return IS_NULL_BI;
+                case IS_NOT_NULL_UI:
+                    return IS_NOT_NULL_UI;
+                case IS_NOT_NULL_II:
+                    return IS_NOT_NULL_II;
+                case IS_NOT_NULL_LI:
+                    return IS_NOT_NULL_LI;
+                case IS_NOT_NULL_FI:
+                    return IS_NOT_NULL_FI;
+                case IS_NOT_NULL_DI:
+                    return IS_NOT_NULL_DI;
+                case IS_NOT_NULL_SS:
+                    return IS_NOT_NULL_SS;
+                case IS_NOT_NULL_BI:
+                    return IS_NOT_NULL_BI;
+                default:
+                    throw new RecordCoreException("unknown binary physical operator. did you forget to add it here?");
+            }
+        }
+    }
+
+    /**
+     * Binary rel ops.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PBinaryRelOpValue.class)
+    public static class BinaryRelOpValue extends RelOpValue {
+        @Nonnull
+        private final BinaryPhysicalOperator operator;
+
+        private BinaryRelOpValue(@Nonnull final PlanHashMode mode,
+                                 @Nonnull final PRelOpValue relOpValueProto,
+                                 @Nonnull final BinaryPhysicalOperator operator) {
+            super(mode, relOpValueProto);
+            this.operator = operator;
+        }
+
+        private BinaryRelOpValue(@Nonnull final String functionName,
+                                 @Nonnull final Comparisons.Type comparisonType,
+                                 @Nonnull final Iterable<? extends Value> children,
+                                 @Nonnull final BinaryPhysicalOperator operator) {
+            super(functionName, comparisonType, children);
+            this.operator = operator;
+        }
+
+        @Nonnull
+        @Override
+        public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.size(newChildren) == 2);
+            return new BinaryRelOpValue(getFunctionName(),
+                    getComparisonType(),
+                    newChildren,
+                    operator);
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getComparisonType(), operator);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            // TODO incorporate the physical operator into a new plan hash mode
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
+                    StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+            final var evaluatedChildrenIterator =
+                    Streams.stream(getChildren())
+                            .map(child -> child.eval(store, context))
+                            .iterator();
+
+            return operator.eval(evaluatedChildrenIterator.next(), evaluatedChildrenIterator.next());
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            final var childrenIterator = getChildren().iterator();
+            return "(" + childrenIterator.next().explain(formatter) + " " + getFunctionName() + " " + childrenIterator.next().explain(formatter) + ")";
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            final var childrenIterator = getChildren().iterator();
+            return "(" + childrenIterator.next() + " " + getFunctionName() + " " + childrenIterator.next() + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PBinaryRelOpValue toProto(@Nonnull final PlanHashMode mode) {
+            return PBinaryRelOpValue.newBuilder()
+                    .setSuper(toRelOpValueProto(mode))
+                    .setOperator(operator.toProto(mode))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+            return RecordQueryPlanProto.PValue.newBuilder().setBinaryRelOpValue(toProto(mode)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static BinaryRelOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            return new BinaryRelOpValue(mode,
+                    Objects.requireNonNull(binaryRelOpValueProto.getSuper()),
+                    BinaryPhysicalOperator.fromProto(mode, Objects.requireNonNull(binaryRelOpValueProto.getOperator())));
+        }
+    }
+
+    /**
+     * Unary rel ops.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PUnaryRelOpValue.class)
+    public static class UnaryRelOpValue extends RelOpValue {
+        @Nonnull
+        private final UnaryPhysicalOperator operator;
+
+        private UnaryRelOpValue(@Nonnull final PlanHashMode mode,
+                                @Nonnull final PRelOpValue relOpValueProto,
+                                @Nonnull final UnaryPhysicalOperator operator) {
+            super(mode, relOpValueProto);
+            this.operator = operator;
+        }
+
+        private UnaryRelOpValue(@Nonnull final String functionName,
+                                @Nonnull final Comparisons.Type comparisonType,
+                                @Nonnull final Iterable<? extends Value> children,
+                                @Nonnull final UnaryPhysicalOperator operator) {
+            super(functionName, comparisonType, children);
+            this.operator = operator;
+        }
+
+        @Nonnull
+        @Override
+        public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.size(newChildren) == 1);
+            return new UnaryRelOpValue(getFunctionName(),
+                    getComparisonType(),
+                    newChildren,
+                    operator);
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getComparisonType(), operator);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            // TODO incorporate the physical operator into a new plan hash mode
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
+                    StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+            final var evaluatedChildrenIterator =
+                    Streams.stream(getChildren())
+                            .map(child -> child.eval(store, context))
+                            .iterator();
+
+            return operator.eval(evaluatedChildrenIterator.next());
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            final var onlyChild = Iterables.getOnlyElement(getChildren());
+            return "(" + getFunctionName() + onlyChild.explain(formatter) + ")";
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            final var onlyChild = Iterables.getOnlyElement(getChildren());
+            return "(" + getFunctionName() + onlyChild + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PUnaryRelOpValue toProto(@Nonnull final PlanHashMode mode) {
+            return PUnaryRelOpValue.newBuilder()
+                    .setSuper(toRelOpValueProto(mode))
+                    .setOperator(operator.toProto(mode))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+            return RecordQueryPlanProto.PValue.newBuilder().setUnaryRelOpValue(toProto(mode)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static UnaryRelOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            return new UnaryRelOpValue(mode,
+                    Objects.requireNonNull(unaryRelOpValueProto.getSuper()),
+                    UnaryPhysicalOperator.fromProto(mode, Objects.requireNonNull(unaryRelOpValueProto.getOperator())));
         }
     }
 }

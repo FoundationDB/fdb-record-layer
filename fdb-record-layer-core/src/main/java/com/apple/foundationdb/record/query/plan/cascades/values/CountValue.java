@@ -25,6 +25,11 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCountValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -34,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
@@ -51,6 +58,8 @@ import java.util.function.UnaryOperator;
  * A counting aggregate value.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PCountValue.class)
 public class CountValue extends AbstractValue implements AggregateValue, StreamableAggregateValue, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
@@ -60,7 +69,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     private final Value child;
 
     @Nonnull
-    private final String indexName;
+    private final String indexTypeName;
 
     public CountValue(@Nonnull final Value child) {
         this(isCountStar(child), child);
@@ -76,10 +85,10 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     public CountValue(@Nonnull PhysicalOperator operator,
                       @Nullable Value child,
-                      @Nonnull String indexName) {
+                      @Nonnull String indexTypeName) {
         this.operator = operator;
         this.child = child;
-        this.indexName = indexName;
+        this.indexTypeName = indexTypeName;
     }
 
     private static boolean isCountStar(@Nonnull Typed valueType) {
@@ -173,8 +182,36 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public String getIndexName() {
-        return indexName;
+    public String getIndexTypeName() {
+        return indexTypeName;
+    }
+
+    @Nonnull
+    @Override
+    public PCountValue toProto(@Nonnull final PlanHashMode mode) {
+        final var builder =  PCountValue.newBuilder()
+                .setOperator(operator.toProto(mode));
+        if (child != null) {
+            builder.setChild(child.toValueProto(mode));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setCountValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public CountValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PCountValue countValueProto) {
+        final Value child;
+        if (countValueProto.hasChild()) {
+            child = Value.fromValueProto(mode, countValueProto.getChild());
+        } else {
+            child = null;
+        }
+        return new CountValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(countValueProto.getOperator())), child);
     }
 
     /**
@@ -261,6 +298,32 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
                 return 0L;
             }
             return partialToFinalFunction.apply(object);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case COUNT:
+                    return PPhysicalOperator.COUNT;
+                case COUNT_STAR:
+                    return PPhysicalOperator.COUNT_STAR;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case COUNT:
+                    return COUNT;
+                case COUNT_STAR:
+                    return COUNT_STAR;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
         }
     }
 

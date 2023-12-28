@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue.PColumn;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
@@ -32,7 +34,7 @@ import java.util.Objects;
  * the result for.
  * @param <V> type parameter for the {@link Value}
  */
-public class Column<V extends Value> implements PlanHashable {
+public class Column<V extends Value> implements PlanHashable, PlanSerializable {
     @Nonnull
     private final Field field;
     @Nonnull
@@ -89,4 +91,20 @@ public class Column<V extends Value> implements PlanHashable {
             return PlanHashable.objectsPlanHash(hashMode, getField().getFieldIndexOptional(), getValue());
         }
     }
+
+    @Nonnull
+    @Override
+    public PColumn toProto(@Nonnull final PlanHashMode mode) {
+        PColumn.Builder builder = PColumn.newBuilder();
+        builder.setField(field.toProto(mode));
+        builder.setValue(value.toValueProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
+    public static Column<? extends Value> fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PColumn columnProto) {
+        return new Column<>(Field.fromProto(mode, Objects.requireNonNull(columnProto.getField())),
+                Value.fromValueProto(mode, Objects.requireNonNull(columnProto.getValue())));
+    }
+
 }

@@ -1,9 +1,9 @@
 /*
- * IndexableAggregationValue.java
+ * ProtoMessage.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,22 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values;
+package com.apple.foundationdb.record.query.plan.serialization;
 
-import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
+ * Annotation for classes that serialize as part of a query plan.
  */
-@API(API.Status.EXPERIMENTAL)
-public interface IndexableAggregateValue extends Value {
-    @Nonnull
-    String getIndexTypeName();
+@AutoService(PlanSerializable.class)
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface ProtoMessage {
+    Class<?> value();
 }

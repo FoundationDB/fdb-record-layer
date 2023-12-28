@@ -25,6 +25,11 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue.PPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -34,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -49,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -57,11 +64,13 @@ import java.util.stream.Collectors;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PVariadicFunctionValue.class)
 public class VariadicFunctionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Variadic-Function-Value");
 
     @Nonnull
-    private final PhysicalOperator operation;
+    private final PhysicalOperator operator;
     @Nonnull
     private final List<Value> children;
 
@@ -71,12 +80,12 @@ public class VariadicFunctionValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link VariadicFunctionValue}.
-     * @param operation The arithmetic operation.
+     * @param operator The arithmetic operation.
      * @param children The children.
      */
-    public VariadicFunctionValue(@Nonnull PhysicalOperator operation,
+    public VariadicFunctionValue(@Nonnull PhysicalOperator operator,
                                  @Nonnull List<Value> children) {
-        this.operation = operation;
+        this.operator = operator;
         this.children = children;
     }
 
@@ -84,13 +93,13 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operation.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
+        return operator.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
     }
 
     @Nonnull
@@ -109,22 +118,22 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) >= 2);
-        return new VariadicFunctionValue(this.operation, ImmutableList.copyOf(newChildren));
+        return new VariadicFunctionValue(this.operator, ImmutableList.copyOf(newChildren));
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operation);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operation, children);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, children);
     }
 
     @Override
     public String toString() {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
     }
 
     @Override
@@ -137,6 +146,36 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PVariadicFunctionValue toProto(@Nonnull final PlanHashMode mode) {
+        final PVariadicFunctionValue.Builder builder = PVariadicFunctionValue.newBuilder();
+
+        builder.setOperator(operator.toProto(mode));
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(mode));
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setVariadicFunctionValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static VariadicFunctionValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+        final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
+        for (int i = 0; i < variadicFunctionValueProto.getChildrenCount(); i ++) {
+            final Value child = Value.fromValueProto(mode, variadicFunctionValueProto.getChildren(i));
+            childrenBuilder.add(child);
+        }
+        return new VariadicFunctionValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(variadicFunctionValueProto.getOperator())),
+                childrenBuilder.build());
     }
 
     @Nonnull
@@ -372,6 +411,102 @@ public class VariadicFunctionValue extends AbstractValue {
         @Nullable
         public Object eval(List<Object> args) {
             return evaluateFunction.apply(args);
+        }
+
+        @Nonnull
+        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case GREATEST_INT:
+                    return PPhysicalOperator.GREATEST_INT;
+                case GREATEST_LONG:
+                    return PPhysicalOperator.GREATEST_LONG;
+                case GREATEST_BOOLEAN:
+                    return PPhysicalOperator.GREATEST_BOOLEAN;
+                case GREATEST_STRING:
+                    return PPhysicalOperator.GREATEST_STRING;
+                case GREATEST_FLOAT:
+                    return PPhysicalOperator.GREATEST_FLOAT;
+                case GREATEST_DOUBLE:
+                    return PPhysicalOperator.GREATEST_DOUBLE;
+                case LEAST_INT:
+                    return PPhysicalOperator.LEAST_INT;
+                case LEAST_LONG:
+                    return PPhysicalOperator.LEAST_LONG;
+                case LEAST_BOOLEAN:
+                    return PPhysicalOperator.LEAST_BOOLEAN;
+                case LEAST_STRING:
+                    return PPhysicalOperator.LEAST_STRING;
+                case LEAST_FLOAT:
+                    return PPhysicalOperator.LEAST_FLOAT;
+                case LEAST_DOUBLE:
+                    return PPhysicalOperator.LEAST_DOUBLE;
+                case COALESCE_INT:
+                    return PPhysicalOperator.COALESCE_INT;
+                case COALESCE_LONG:
+                    return PPhysicalOperator.COALESCE_LONG;
+                case COALESCE_BOOLEAN:
+                    return PPhysicalOperator.COALESCE_BOOLEAN;
+                case COALESCE_STRING:
+                    return PPhysicalOperator.COALESCE_STRING;
+                case COALESCE_FLOAT:
+                    return PPhysicalOperator.COALESCE_FLOAT;
+                case COALESCE_DOUBLE:
+                    return PPhysicalOperator.COALESCE_DOUBLE;
+                case COALESCE_RECORD:
+                    return PPhysicalOperator.COALESCE_RECORD;
+                case COALESCE_ARRAY:
+                    return PPhysicalOperator.COALESCE_ARRAY;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
+        }
+
+        @Nonnull
+        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case GREATEST_INT:
+                    return GREATEST_INT;
+                case GREATEST_LONG:
+                    return GREATEST_LONG;
+                case GREATEST_BOOLEAN:
+                    return GREATEST_BOOLEAN;
+                case GREATEST_STRING:
+                    return GREATEST_STRING;
+                case GREATEST_FLOAT:
+                    return GREATEST_FLOAT;
+                case GREATEST_DOUBLE:
+                    return GREATEST_DOUBLE;
+                case LEAST_INT:
+                    return LEAST_INT;
+                case LEAST_LONG:
+                    return LEAST_LONG;
+                case LEAST_BOOLEAN:
+                    return LEAST_BOOLEAN;
+                case LEAST_STRING:
+                    return LEAST_STRING;
+                case LEAST_FLOAT:
+                    return LEAST_FLOAT;
+                case LEAST_DOUBLE:
+                    return LEAST_DOUBLE;
+                case COALESCE_INT:
+                    return COALESCE_INT;
+                case COALESCE_LONG:
+                    return COALESCE_LONG;
+                case COALESCE_BOOLEAN:
+                    return COALESCE_BOOLEAN;
+                case COALESCE_STRING:
+                    return COALESCE_STRING;
+                case COALESCE_FLOAT:
+                    return COALESCE_FLOAT;
+                case COALESCE_DOUBLE:
+                    return COALESCE_DOUBLE;
+                case COALESCE_RECORD:
+                    return COALESCE_RECORD;
+                case COALESCE_ARRAY:
+                    return COALESCE_ARRAY;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
         }
 
         private static Object coalesce(final List<Object> args) {

@@ -24,19 +24,27 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PDerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PDerivedValue.class)
 public class DerivedValue extends AbstractValue implements Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Derived-Value");
 
@@ -101,5 +109,33 @@ public class DerivedValue extends AbstractValue implements Value.CompileTimeValu
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PDerivedValue toProto(@Nonnull final PlanHashMode mode) {
+        final var builder = PDerivedValue.newBuilder();
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(mode));
+        }
+        builder.setResultType(resultType.toTypeProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setDerivedValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static DerivedValue fromProto(@Nonnull final PlanHashMode mode,
+                                         @Nonnull final PDerivedValue derivedValueProto) {
+        final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
+        for (int i = 0; i < derivedValueProto.getChildrenCount(); i ++) {
+            childrenBuilder.add(Value.fromValueProto(mode, derivedValueProto.getChildren(i)));
+        }
+        return new DerivedValue(childrenBuilder.build(),
+                Type.fromTypeProto(mode, Objects.requireNonNull(derivedValueProto.getResultType())));
     }
 }

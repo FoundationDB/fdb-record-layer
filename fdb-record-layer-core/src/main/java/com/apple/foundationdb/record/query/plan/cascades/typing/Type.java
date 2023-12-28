@@ -20,14 +20,29 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PArrayType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PEnumType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PNoneType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PNullType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PPrimitiveType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRecordType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRelationType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PTypeCode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -67,7 +82,7 @@ import java.util.stream.IntStream;
  * are equal.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public interface Type extends Narrowable<Type> {
+public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     Null NULL = new Null();
 
@@ -304,69 +319,7 @@ public interface Type extends Narrowable<Type> {
     @VisibleForTesting
     static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
-        final int memoizedHashCode = Objects.hash(typeCode.name().hashCode(), isNullable);
-
-        return new Type() {
-            @Override
-            public TypeCode getTypeCode() {
-                return typeCode;
-            }
-
-            @Override
-            public boolean isNullable() {
-                return isNullable;
-            }
-
-            @Nonnull
-            @Override
-            public Type withNullability(final boolean newIsNullable) {
-                return newIsNullable == isNullable ? this : primitiveType(typeCode, newIsNullable);
-            }
-
-            @Override
-            public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
-                                      @Nonnull final DescriptorProto.Builder descriptorBuilder,
-                                      final int fieldNumber,
-                                      @Nonnull final String fieldName,
-                                      @Nonnull final Optional<String> ignored,
-                                      @Nonnull final FieldDescriptorProto.Label label) {
-                final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
-                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                        .setNumber(fieldNumber)
-                        .setName(fieldName)
-                        .setType(protoType)
-                        .setLabel(label)
-                        .build());
-            }
-
-            @Override
-            public int hashCode() {
-                return memoizedHashCode;
-            }
-
-            @Override
-            public boolean equals(final Object obj) {
-                if (obj == null) {
-                    return false;
-                }
-
-                if (obj == this) {
-                    return true;
-                }
-
-                if (getClass() != obj.getClass()) {
-                    return false;
-                }
-
-                final var otherType = (Type)obj;
-                return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
-            }
-
-            @Override
-            public String toString() {
-                return getTypeCode().toString();
-            }
-        };
+        return new Primitive(isNullable, typeCode);
     }
 
     /**
@@ -504,10 +457,10 @@ public interface Type extends Narrowable<Type> {
         Verify.verify(!t1.isUnresolved());
         Verify.verify(!t2.isUnresolved());
 
-        if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.resolvePromotionFunction(t1, t2) != null) {
+        if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t1, t2)) {
             return t2.withNullability(true);
         }
-        if (t2.getTypeCode() == TypeCode.NULL && PromoteValue.resolvePromotionFunction(t2, t1) != null) {
+        if (t2.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t2, t1)) {
             return t1.withNullability(true);
         }
 
@@ -521,10 +474,10 @@ public interface Type extends Narrowable<Type> {
             if (t1.getTypeCode() == t2.getTypeCode()) {
                 return t1.withNullability(isResultNullable);
             }
-            if (PromoteValue.resolvePromotionFunction(t1, t2) != null) {
+            if (PromoteValue.isPromotable(t1, t2)) {
                 return t2.withNullability(isResultNullable);
             }
-            if (PromoteValue.resolvePromotionFunction(t2, t1) != null) {
+            if (PromoteValue.isPromotable(t2, t1)) {
                 return t1.withNullability(isResultNullable);
             }
             // Type are primitive but not equal, no promotion possible.
@@ -643,6 +596,16 @@ public interface Type extends Narrowable<Type> {
             }
             return nonNullElementType.get(0);
         }
+    }
+
+    @Nonnull
+    default RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+        throw new RecordCoreException("unable to generify value of class " + getClass().getSimpleName());
+    }
+
+    @Nonnull
+    static Type fromTypeProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final RecordQueryPlanProto.PType typeProto) {
+        return (Type)PlanSerialization.dispatchFromProtoContainer(mode, typeProto);
     }
 
     /**
@@ -801,6 +764,187 @@ public interface Type extends Narrowable<Type> {
                     throw new IllegalArgumentException("unknown protobuf type " + protobufType);
             }
         }
+
+        @Nonnull
+        public PTypeCode toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            switch (this) {
+                case UNKNOWN:
+                    return PTypeCode.UNKNOWN;
+                case ANY:
+                    return PTypeCode.ANY;
+                case NULL:
+                    return PTypeCode.NULL;
+                case BOOLEAN:
+                    return PTypeCode.BOOLEAN;
+                case BYTES:
+                    return PTypeCode.BYTES;
+                case DOUBLE:
+                    return PTypeCode.DOUBLE;
+                case FLOAT:
+                    return PTypeCode.FLOAT;
+                case INT:
+                    return PTypeCode.INT;
+                case LONG:
+                    return PTypeCode.LONG;
+                case STRING:
+                    return PTypeCode.STRING;
+                case VERSION:
+                    return PTypeCode.VERSION;
+                case ENUM:
+                    return PTypeCode.ENUM;
+                case RECORD:
+                    return PTypeCode.RECORD;
+                case ARRAY:
+                    return PTypeCode.ARRAY;
+                case RELATION:
+                    return PTypeCode.RELATION;
+                default:
+                    throw new RecordCoreException("unable to find type code mapping. did you forgot to add it here?");
+            }
+        }
+
+        @Nonnull
+        public static TypeCode fromProto(@Nonnull final PlanHashable.PlanHashMode mode, PTypeCode typeCodeProto) {
+            switch (typeCodeProto) {
+                case UNKNOWN:
+                    return UNKNOWN;
+                case ANY:
+                    return ANY;
+                case NULL:
+                    return NULL;
+                case BOOLEAN:
+                    return BOOLEAN;
+                case BYTES:
+                    return BYTES;
+                case DOUBLE:
+                    return DOUBLE;
+                case FLOAT:
+                    return FLOAT;
+                case INT:
+                    return INT;
+                case LONG:
+                    return LONG;
+                case STRING:
+                    return STRING;
+                case VERSION:
+                    return VERSION;
+                case ENUM:
+                    return ENUM;
+                case RECORD:
+                    return RECORD;
+                case ARRAY:
+                    return ARRAY;
+                case RELATION:
+                    return RELATION;
+                default:
+                    throw new RecordCoreException("unable to find type code proto mapping");
+            }
+        }
+    }
+
+    /**
+     * A primitive type.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PPrimitiveType.class)
+    class Primitive implements Type {
+        private final boolean isNullable;
+        @Nonnull
+        private final TypeCode typeCode;
+
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private Primitive(final boolean isNullable, @Nonnull final TypeCode typeCode) {
+            this.isNullable = isNullable;
+            this.typeCode = typeCode;
+        }
+
+        @Override
+        @Nonnull
+        public TypeCode getTypeCode() {
+            return typeCode;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            return newIsNullable == isNullable ? this : primitiveType(typeCode, newIsNullable);
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> ignored,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                    .setNumber(fieldNumber)
+                    .setName(fieldName)
+                    .setType(protoType)
+                    .setLabel(label)
+                    .build());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(typeCode.name().hashCode(), isNullable);
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (obj == this) {
+                return true;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Type)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return getTypeCode().toString();
+        }
+
+        @Nonnull
+        @Override
+        public PPrimitiveType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return PPrimitiveType.newBuilder()
+                    .setIsNullable(isNullable)
+                    .setTypeCode(typeCode.toProto(mode))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setPrimitiveType(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Primitive fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PPrimitiveType primitiveTypeProto) {
+            Verify.verify(primitiveTypeProto.hasIsNullable());
+            return new Primitive(primitiveTypeProto.getIsNullable(),
+                    TypeCode.fromProto(mode, Objects.requireNonNull(primitiveTypeProto.getTypeCode())));
+        }
     }
 
     /**
@@ -813,6 +957,8 @@ public interface Type extends Narrowable<Type> {
      * subtype of every other type in a sense that the substitution principle holds, e.g. {@code null} can be substituted
      * for any value of type {@code int}, or {@code string}, etc...
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PNullType.class)
     class Null implements Type {
         @Override
         public TypeCode getTypeCode() {
@@ -845,6 +991,24 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return "null";
         }
+
+        @Nonnull
+        @Override
+        public PNullType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return PNullType.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setNullType(toProto(mode)).build();
+        }
+
+        @SuppressWarnings("unused")
+        @Nonnull
+        public static Null fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PNullType nullTypeProto) {
+            return NULL;
+        }
     }
 
     /**
@@ -857,6 +1021,8 @@ public interface Type extends Narrowable<Type> {
      * subtype of every other type in a sense that the substitution principle holds, e.g. {@code none} can be substituted
      * for any value of an array type.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PNoneType.class)
     class None implements Type {
         @Override
         public TypeCode getTypeCode() {
@@ -889,11 +1055,31 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return "none";
         }
+
+        @Nonnull
+        @Override
+        public PNoneType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return PNoneType.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setNoneType(toProto(mode)).build();
+        }
+
+        @SuppressWarnings("unused")
+        @Nonnull
+        public static None fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PNoneType noneTypeProto) {
+            return NONE;
+        }
     }
 
     /**
      * Special {@link Type} that is undefined.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PAnyType.class)
     class Any implements Type {
         /**
          * Memoized hash function.
@@ -971,6 +1157,24 @@ public interface Type extends Narrowable<Type> {
         public String toString() {
             return getTypeCode().toString();
         }
+
+        @Nonnull
+        @Override
+        public PAnyType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return PAnyType.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setAnyType(toProto(mode)).build();
+        }
+
+        @SuppressWarnings("unchecked")
+        @Nonnull
+        public static Any fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PAnyType anyTypeProto) {
+            return any();
+        }
     }
 
     @Nonnull
@@ -981,6 +1185,8 @@ public interface Type extends Narrowable<Type> {
     /**
      * An enumeration type.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PEnumType.class)
     class Enum implements Type {
         final boolean isNullable;
         @Nullable
@@ -1132,6 +1338,36 @@ public interface Type extends Narrowable<Type> {
                     .collect(ImmutableList.toImmutableList());
         }
 
+        @Nonnull
+        @Override
+        public PEnumType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            final PEnumType.Builder enumTypeProtoBuilder = PEnumType.newBuilder();
+            enumTypeProtoBuilder.setIsNullable(isNullable);
+            for (final EnumValue enumValue : Objects.requireNonNull(enumValues)) {
+                enumTypeProtoBuilder.addEnumValues(enumValue.toProto(mode));
+            }
+            enumTypeProtoBuilder.setName(Objects.requireNonNull(name));
+            return enumTypeProtoBuilder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setEnumType(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Enum fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PEnumType enumTypeProto) {
+            Verify.verify(enumTypeProto.hasIsNullable());
+            final ImmutableList.Builder<EnumValue> enumValuesBuilder = ImmutableList.builder();
+            for (int i = 0; i < enumTypeProto.getEnumValuesCount(); i ++) {
+                enumValuesBuilder.add(EnumValue.fromProto(mode, enumTypeProto.getEnumValues(i)));
+            }
+            final ImmutableList<EnumValue> enumValues = enumValuesBuilder.build();
+            Verify.verify(!enumValues.isEmpty());
+            return new Enum(enumTypeProto.getIsNullable(), enumValues, Objects.requireNonNull(enumTypeProto.getName()));
+        }
+
         /**
          * A member value of an enumeration.
          */
@@ -1170,12 +1406,24 @@ public interface Type extends Narrowable<Type> {
             public int hashCode() {
                 return Objects.hash(name, number);
             }
+
+            @Nonnull
+            public PEnumType.PEnumValue toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+                return PEnumType.PEnumValue.newBuilder().setName(name).setNumber(number).build();
+            }
+
+            @Nonnull
+            public static EnumValue fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PEnumType.PEnumValue enumValueProto) {
+                return new EnumValue(enumValueProto.getName(), enumValueProto.getNumber());
+            }
         }
     }
 
     /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PRecordType.class)
     class Record implements Type {
         @Nullable
         private final String name;
@@ -1451,6 +1699,40 @@ public interface Type extends Narrowable<Type> {
                          return fieldNameOptional.map(s -> field.getFieldType() + " as " + s)
                                  .orElseGet(() -> field.getFieldType().toString());
                      }).collect(Collectors.joining(", ")) + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PRecordType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            final PRecordType.Builder recordTypeProtoBuilder = PRecordType.newBuilder();
+            if (name != null) {
+                recordTypeProtoBuilder.setName(name);
+            }
+            recordTypeProtoBuilder.setIsNullable(isNullable);
+
+            for (final Field field : Objects.requireNonNull(fields)) {
+                recordTypeProtoBuilder.addFields(field.toProto(mode));
+            }
+
+            return recordTypeProtoBuilder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setRecordType(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Record fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PRecordType recordTypeProto) {
+            Verify.verify(recordTypeProto.hasIsNullable());
+            final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            for (int i = 0; i < recordTypeProto.getFieldsCount(); i ++) {
+                fieldsBuilder.add(Field.fromProto(mode, recordTypeProto.getFields(i)));
+            }
+            final ImmutableList<Field> fields = fieldsBuilder.build();
+            Verify.verify(!fields.isEmpty());
+            return new Record(recordTypeProto.hasName() ? recordTypeProto.getName() : null, recordTypeProto.getIsNullable(), fields);
         }
 
         /**
@@ -1730,6 +2012,22 @@ public interface Type extends Narrowable<Type> {
                 return Integer.compare(getFieldIndex(), o.getFieldIndex());
             }
 
+            @Nonnull
+            public PRecordType.PField toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+                final PRecordType.PField.Builder fieldProtoBuilder = PRecordType.PField.newBuilder();
+                fieldProtoBuilder.setFieldType(fieldType.toTypeProto(mode));
+                fieldNameOptional.ifPresent(fieldProtoBuilder::setFieldName);
+                fieldIndexOptional.ifPresent(fieldProtoBuilder::setFieldIndex);
+                return fieldProtoBuilder.build();
+            }
+
+            @Nonnull
+            public static Field fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PRecordType.PField fieldProto) {
+                return new Field(Type.fromTypeProto(mode, Objects.requireNonNull(fieldProto.getFieldType())),
+                        fieldProto.hasFieldName() ? Optional.of(fieldProto.getFieldName()) : Optional.empty(),
+                        fieldProto.hasFieldIndex() ? Optional.of(fieldProto.getFieldIndex()) : Optional.empty());
+            }
+
             /**
              * Constructs a new field.
              *
@@ -1772,6 +2070,8 @@ public interface Type extends Narrowable<Type> {
     /**
      * Represents a relational type.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PRelationType.class)
     class Relation implements Type {
         /**
          * The type of the stream values.
@@ -1898,6 +2198,23 @@ public interface Type extends Narrowable<Type> {
                    : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
         }
 
+        @Nonnull
+        @Override
+        public PRelationType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return PRelationType.newBuilder().setInnerType(Objects.requireNonNull(innerType).toTypeProto(mode)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setRelationType(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Relation fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PRelationType relationTypeProto) {
+            return new Relation(Objects.requireNonNull(Type.fromTypeProto(mode, relationTypeProto.getInnerType())));
+        }
+
         public static Type scalarOf(@Nonnull final Type relationType) {
             Verify.verify(relationType.getTypeCode() == TypeCode.RELATION && relationType instanceof Relation);
             return ((Relation)relationType).getInnerType();
@@ -1907,6 +2224,8 @@ public interface Type extends Narrowable<Type> {
     /**
      * A type representing an array of elements sharing the same type.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PArrayType.class)
     class Array implements Type {
         /**
          * Whether the array is nullable or not.
@@ -2073,6 +2392,27 @@ public interface Type extends Narrowable<Type> {
             return isErased()
                    ? getTypeCode().toString()
                    : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")" + "(isNullable:" + isNullable + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PArrayType toProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            final PArrayType.Builder arrayTypeProtoBuilder = PArrayType.newBuilder();
+            arrayTypeProtoBuilder.setIsNullable(isNullable);
+            arrayTypeProtoBuilder.setElementType(Objects.requireNonNull(elementType).toTypeProto(mode));
+            return arrayTypeProtoBuilder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanHashable.PlanHashMode mode) {
+            return RecordQueryPlanProto.PType.newBuilder().setArrayType(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Array fromProto(@Nonnull final PlanHashable.PlanHashMode mode, @Nonnull final PArrayType arrayTypeProto) {
+            Verify.verify(arrayTypeProto.hasIsNullable());
+            return new Array(arrayTypeProto.getIsNullable(), Type.fromTypeProto(mode, arrayTypeProto.getElementType()));
         }
     }
 }

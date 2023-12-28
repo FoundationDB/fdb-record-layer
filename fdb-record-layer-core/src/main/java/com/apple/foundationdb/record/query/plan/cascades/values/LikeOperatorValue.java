@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PLikeOperatorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -38,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +51,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -54,6 +59,8 @@ import java.util.regex.Pattern;
  * A {@link Value} that applies a like operator on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PLikeOperatorValue.class)
 public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
 
@@ -67,7 +74,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * @param srcChild the string
      * @param patternChild the pattern
      */
-    public LikeOperatorValue(@Nonnull Value srcChild, @Nonnull Value patternChild) {
+    public LikeOperatorValue(@Nonnull final Value srcChild, @Nonnull final Value patternChild) {
         this.srcChild = srcChild;
         this.patternChild = patternChild;
     }
@@ -144,7 +151,27 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Override
+    public PLikeOperatorValue toProto(@Nonnull final PlanHashMode mode) {
+        return PLikeOperatorValue.newBuilder()
+                .setSrcChild(srcChild.toValueProto(mode))
+                .setPatternChild(patternChild.toValueProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setLikeOperatorValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static LikeOperatorValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+        return new LikeOperatorValue(Value.fromValueProto(mode, Objects.requireNonNull(likeOperatorValueProto.getSrcChild())),
+                Value.fromValueProto(mode, Objects.requireNonNull(likeOperatorValueProto.getPatternChild())));
+    }
+
+    @Nonnull
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();

@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PVersionValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -32,16 +35,21 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PVersionValue.class)
 public class VersionValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
@@ -136,5 +144,22 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PVersionValue toProto(@Nonnull final PlanHashMode mode) {
+        return PVersionValue.newBuilder().setBaseAlias(baseAlias.getId()).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setVersionValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static VersionValue fromProto(@Nonnull final PVersionValue versionValueProto) {
+        return new VersionValue(CorrelationIdentifier.of(Objects.requireNonNull(versionValueProto.getBaseAlias())));
     }
 }

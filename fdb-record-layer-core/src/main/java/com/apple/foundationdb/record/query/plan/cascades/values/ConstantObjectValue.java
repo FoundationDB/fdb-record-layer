@@ -24,6 +24,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -31,17 +34,22 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PConstantObjectValue.class)
 public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
 
     @Nonnull
@@ -158,6 +166,31 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public String toString() {
         return "@" + ordinal;
+    }
+
+    @Nonnull
+    @Override
+    public PConstantObjectValue toProto(@Nonnull final PlanHashMode mode) {
+        return PConstantObjectValue.newBuilder()
+                .setAlias(alias.getId())
+                .setOrdinal(ordinal)
+                .setResultType(resultType.toTypeProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantObjectValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static ConstantObjectValue fromProto(@Nonnull final PlanHashMode mode,
+                                                @Nonnull final PConstantObjectValue constantObjectValueProto) {
+        Verify.verify(constantObjectValueProto.hasOrdinal());
+        return new ConstantObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(constantObjectValueProto.getAlias())),
+                constantObjectValueProto.getOrdinal(),
+                Type.fromTypeProto(mode, Objects.requireNonNull(constantObjectValueProto.getResultType())));
     }
 
     /**

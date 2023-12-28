@@ -24,6 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -36,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -43,12 +47,15 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PExistsValue.class)
 public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
@@ -110,6 +117,25 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PExistsValue toProto(@Nonnull final PlanHashMode mode) {
+        return PExistsValue.newBuilder()
+                .setChild(child.toProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setExistsValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static ExistsValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PExistsValue existsValueProto) {
+        return new ExistsValue(QuantifiedObjectValue.fromProto(mode, Objects.requireNonNull(existsValueProto.getChild())));
     }
 
     /**

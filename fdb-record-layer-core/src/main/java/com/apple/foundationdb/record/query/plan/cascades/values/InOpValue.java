@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInOpValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -39,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -56,6 +60,8 @@ import java.util.Optional;
  * A {@link Value} that checks if the left child is in the list of values.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PInOpValue.class)
 public class InOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Op-Value");
 
@@ -175,6 +181,27 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PInOpValue toProto(@Nonnull final PlanHashMode mode) {
+        return PInOpValue.newBuilder()
+                .setProbeValue(probeValue.toValueProto(mode))
+                .setInArrayValue(inArrayValue.toValueProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setInOpValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static InOpValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PInOpValue inOpValueProto) {
+        return new InOpValue(Value.fromValueProto(mode, Objects.requireNonNull(inOpValueProto.getProbeValue())),
+                Value.fromValueProto(mode, Objects.requireNonNull(inOpValueProto.getInArrayValue())));
     }
 
     /**

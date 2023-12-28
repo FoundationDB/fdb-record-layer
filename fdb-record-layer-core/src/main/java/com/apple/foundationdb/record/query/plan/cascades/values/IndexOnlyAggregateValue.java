@@ -25,6 +25,13 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue.PPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMaxEverLongValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -33,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Represents a compile-time aggregation value that must be backed by an aggregation index, and can not be evaluated
@@ -50,12 +59,37 @@ import java.util.Locale;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
-
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 
-    enum PhysicalOperator {
+    protected enum PhysicalOperator {
         MAX_EVER_LONG,
-        MIN_EVER_LONG
+        MIN_EVER_LONG;
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case MAX_EVER_LONG:
+                    return PPhysicalOperator.MAX_EVER_LONG;
+                case MIN_EVER_LONG:
+                    return PPhysicalOperator.MIN_EVER_LONG;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case MAX_EVER_LONG:
+                    return MAX_EVER_LONG;
+                case MIN_EVER_LONG:
+                    return MIN_EVER_LONG;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
+        }
     }
 
     @Nonnull
@@ -63,6 +97,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Nonnull
     private final Value child;
+
+    protected IndexOnlyAggregateValue(@Nonnull final PlanHashMode mode,
+                                      @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
+        this(PhysicalOperator.fromProto(mode, Objects.requireNonNull(indexOnlyAggregateValueProto.getOperator())),
+                Value.fromValueProto(mode, Objects.requireNonNull(indexOnlyAggregateValueProto.getChild())));
+    }
 
     /**
      * Creates a new instance of {@link IndexOnlyAggregateValue}.
@@ -129,6 +169,14 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
     }
 
+    @Nonnull
+    PIndexOnlyAggregateValue toIndexOnlyAggregateValueProto(@Nonnull final PlanHashMode mode) {
+        return PIndexOnlyAggregateValue.newBuilder()
+                .setOperator(operator.toProto(mode))
+                .setChild(child.toValueProto(mode))
+                .build();
+    }
+
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
@@ -136,7 +184,17 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    static class MinEverLongValue extends IndexOnlyAggregateValue {
+    /**
+     * Class to represent MIN_EVER(field) which can only be provided by a suitable index.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMinEverLongValue.class)
+    public static class MinEverLongValue extends IndexOnlyAggregateValue {
+
+        MinEverLongValue(@Nonnull final PlanHashMode mode,
+                         @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
+            super(mode, indexOnlyAggregateValueProto);
+        }
 
         /**
          * Creates a new instance of {@link MinEverLongValue}.
@@ -150,7 +208,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public String getIndexName() {
+        public String getIndexTypeName() {
             return IndexTypes.MIN_EVER_LONG;
         }
 
@@ -168,9 +226,38 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MinEverLongValue(operator, rebasedChild);
         }
+
+        @Nonnull
+        @Override
+        public PMinEverLongValue toProto(@Nonnull final PlanHashMode mode) {
+            return PMinEverLongValue.newBuilder()
+                    .setSuper(toIndexOnlyAggregateValueProto(mode))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+            return RecordQueryPlanProto.PValue.newBuilder().setMinEverLongValue(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static MinEverLongValue fromProto(@Nonnull final PlanHashMode mode,
+                                                 @Nonnull final PMinEverLongValue minEverLongValueProto) {
+            return new MinEverLongValue(mode, Objects.requireNonNull(minEverLongValueProto.getSuper()));
+        }
     }
 
-    static class MaxEverLongValue extends IndexOnlyAggregateValue {
+    /**
+     * Class to represent MIN_EVER(field) which can only be provided by a suitable index.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMaxEverLongValue.class)
+    public static class MaxEverLongValue extends IndexOnlyAggregateValue {
+        MaxEverLongValue(@Nonnull final PlanHashMode mode,
+                         @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
+            super(mode, indexOnlyAggregateValueProto);
+        }
 
         /**
          * Creates a new instance of {@link MaxEverLongValue}.
@@ -184,7 +271,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public String getIndexName() {
+        public String getIndexTypeName() {
             return IndexTypes.MAX_EVER_LONG;
         }
 
@@ -201,6 +288,26 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MaxEverLongValue(operator, rebasedChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMaxEverLongValue toProto(@Nonnull final PlanHashMode mode) {
+            return PMaxEverLongValue.newBuilder()
+                    .setSuper(toIndexOnlyAggregateValueProto(mode))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+            return RecordQueryPlanProto.PValue.newBuilder().setMaxEverLongValue(toProto(mode)).build();
+        }
+
+        @Nonnull
+        public static MaxEverLongValue fromProto(@Nonnull final PlanHashMode mode,
+                                                 @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
+            return new MaxEverLongValue(mode, Objects.requireNonNull(maxEverLongValueProto.getSuper()));
         }
     }
 

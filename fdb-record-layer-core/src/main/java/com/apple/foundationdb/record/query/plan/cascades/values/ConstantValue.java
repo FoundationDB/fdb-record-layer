@@ -25,11 +25,16 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -41,6 +46,8 @@ import java.util.Set;
  * A wrapper around a constant.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PConstantValue.class)
 public class ConstantValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Value");
 
@@ -132,5 +139,24 @@ public class ConstantValue extends AbstractValue implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public PConstantValue toProto(@Nonnull final PlanHashMode mode) {
+        return PConstantValue.newBuilder()
+                .setValue(value.toValueProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static ConstantValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PConstantValue constantValueProto) {
+        return new ConstantValue(Value.fromValueProto(mode, Objects.requireNonNull(constantValueProto.getValue())));
     }
 }

@@ -25,11 +25,17 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -44,7 +50,9 @@ import java.util.Objects;
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PLiteralValue.class)
+public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nonnull
@@ -116,6 +124,31 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public PLiteralValue toProto(@Nonnull final PlanHashMode mode) {
+        final var builder = PLiteralValue.newBuilder();
+        builder.setValue(PlanSerialization.valueObjectToProto(value));
+        builder.setResultType(resultType.toTypeProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        final var specificValueProto = toProto(mode);
+        return RecordQueryPlanProto.PValue.newBuilder()
+                .setLiteralValue(specificValueProto)
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    public static <T> LiteralValue<T> fromProto(@Nonnull final PlanHashMode mode, PLiteralValue literalValueProto) {
+        return new LiteralValue<>(Type.fromTypeProto(mode, literalValueProto.getResultType()),
+                (T)PlanSerialization.protoObjectToValue(literalValueProto.getValue()));
     }
 
     @Override

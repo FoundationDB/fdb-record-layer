@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PPatternForLikeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -33,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -44,11 +48,14 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PPatternForLikeValue.class)
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
     private static final String[] SEARCH = {"%", "_", "|", ".", "^", "$", "\\", "*", "+", "?", "[", "]", "{", "}", "(", ")"};
@@ -64,7 +71,7 @@ public class PatternForLikeValue extends AbstractValue {
      * @param patternChild the pattern
      * @param escapeChild the escape character
      */
-    public PatternForLikeValue(@Nonnull Value patternChild, @Nonnull Value escapeChild) {
+    public PatternForLikeValue(@Nonnull final Value patternChild, @Nonnull final Value escapeChild) {
         this.patternChild = patternChild;
         this.escapeChild = escapeChild;
     }
@@ -143,7 +150,27 @@ public class PatternForLikeValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Override
+    public PPatternForLikeValue toProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PPatternForLikeValue.newBuilder()
+                .setPatternChild(patternChild.toValueProto(mode))
+                .setEscapeChild(escapeChild.toValueProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setPatternForLikeValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static PatternForLikeValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final RecordQueryPlanProto.PPatternForLikeValue patternForLikeValueProto) {
+        return new PatternForLikeValue(Value.fromValueProto(mode, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())),
+                Value.fromValueProto(mode, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())));
+    }
+
+    @Nonnull
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();

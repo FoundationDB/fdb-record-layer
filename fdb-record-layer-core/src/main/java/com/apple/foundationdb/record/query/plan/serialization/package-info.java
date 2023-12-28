@@ -1,9 +1,9 @@
 /*
- * IndexableAggregationValue.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.values;
-
-import com.apple.foundationdb.annotation.API;
-
-import javax.annotation.Nonnull;
-
 /**
- * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
+ * Classes related to plan serialization/deserialization.
  */
-@API(API.Status.EXPERIMENTAL)
-public interface IndexableAggregateValue extends Value {
-    @Nonnull
-    String getIndexTypeName();
-}
+package com.apple.foundationdb.record.query.plan.serialization;

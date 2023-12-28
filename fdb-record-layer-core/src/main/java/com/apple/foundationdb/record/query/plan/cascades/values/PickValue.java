@@ -25,10 +25,15 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PPickValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -37,6 +42,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A value representing multiple "alternative" values.
@@ -56,6 +62,8 @@ import java.util.List;
  * of their {@link Value}s
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PPickValue.class)
 public class PickValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Pick-Value");
     @Nonnull
@@ -68,10 +76,15 @@ public class PickValue extends AbstractValue {
     private final Type resultType;
 
     public PickValue(@Nonnull final Value selectorValue, @Nonnull final Iterable<? extends Value> alternativeValues) {
+        this(selectorValue, alternativeValues, resolveTypesFromAlternatives(alternativeValues));
+    }
+
+    private PickValue(@Nonnull final Value selectorValue, @Nonnull final Iterable<? extends Value> alternativeValues,
+                      @Nonnull final Type resultType) {
         this.selectorValue = selectorValue;
         this.alternativeValues = ImmutableList.copyOf(alternativeValues);
         this.children = Iterables.concat(ImmutableList.of(selectorValue), alternativeValues);
-        this.resultType = resolveTypesFromAlternatives(alternativeValues);
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -138,6 +151,36 @@ public class PickValue extends AbstractValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public PPickValue toProto(@Nonnull final PlanHashMode mode) {
+        final var builder = PPickValue.newBuilder();
+        builder.setSelectorValue(selectorValue.toValueProto(mode));
+        for (final Value alternativeValue : alternativeValues) {
+            builder.addAlternativeValues(alternativeValue.toValueProto(mode));
+        }
+        builder.setResultType(resultType.toTypeProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setPickValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static PickValue fromProto(@Nonnull final PlanHashMode mode,
+                                      @Nonnull final PPickValue pickValueProto) {
+        final ImmutableList.Builder<Value> alternativeValuesBuilder = ImmutableList.builder();
+        for (int i = 0; i < pickValueProto.getAlternativeValuesCount(); i ++) {
+            alternativeValuesBuilder.add(Value.fromValueProto(mode, pickValueProto.getAlternativeValues(i)));
+        }
+        return new PickValue(Value.fromValueProto(mode, Objects.requireNonNull(pickValueProto.getSelectorValue())),
+                alternativeValuesBuilder.build(),
+                Type.fromTypeProto(mode, Objects.requireNonNull(pickValueProto.getResultType())));
     }
 
     @Nonnull

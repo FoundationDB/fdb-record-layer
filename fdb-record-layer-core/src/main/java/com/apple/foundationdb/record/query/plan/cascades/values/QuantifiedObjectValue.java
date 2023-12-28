@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PQuantifiedObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -32,17 +35,22 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PQuantifiedObjectValue.class)
 public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
@@ -143,6 +151,29 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public Value with(@Nonnull final Type type) {
         return QuantifiedObjectValue.of(getAlias(), type);
+    }
+
+    @Nonnull
+    @Override
+    public PQuantifiedObjectValue toProto(@Nonnull final PlanHashMode mode) {
+        PQuantifiedObjectValue.Builder builder = PQuantifiedObjectValue.newBuilder();
+        builder.setAlias(alias.getId());
+        builder.setResultType(resultType.toTypeProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        final var specificValueProto = toProto(mode);
+        return RecordQueryPlanProto.PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
+    }
+
+    @Nonnull
+    public static QuantifiedObjectValue fromProto(@Nonnull final PlanHashMode mode,
+                                                  @Nonnull final PQuantifiedObjectValue quantifiedObjectValue) {
+        return new QuantifiedObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())),
+                Type.fromTypeProto(mode, Objects.requireNonNull(quantifiedObjectValue.getResultType())));
     }
 
     @Nonnull

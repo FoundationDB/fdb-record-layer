@@ -25,6 +25,11 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue.PPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -33,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
@@ -49,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
@@ -57,11 +64,13 @@ import java.util.function.Supplier;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PArithmeticValue.class)
 public class ArithmeticValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
     @Nonnull
-    private final PhysicalOperator operation;
+    private final PhysicalOperator operator;
     @Nonnull
     private final Value leftChild;
     @Nonnull
@@ -73,41 +82,41 @@ public class ArithmeticValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link ArithmeticValue}.
-     * @param operation The arithmetic operation.
+     * @param operator The arithmetic operation.
      * @param leftChild The left child.
      * @param rightChild The right child.
      */
-    public ArithmeticValue(@Nonnull PhysicalOperator operation,
+    public ArithmeticValue(@Nonnull PhysicalOperator operator,
                            @Nonnull Value leftChild,
                            @Nonnull Value rightChild) {
-        this.operation = operation;
+        this.operator = operator;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
     }
 
     @Nonnull
     public LogicalOperator getLogicalOperator() {
-        return operation.getLogicalOperator();
+        return operator.getLogicalOperator();
     }
 
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operation.eval(leftChild.eval(store, context),
+        return operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "(" + leftChild.explain(formatter) + " " + operation.getLogicalOperator().getInfixNotation() + " " + rightChild.explain(formatter) + ")";
+        return "(" + leftChild.explain(formatter) + " " + operator.getLogicalOperator().getInfixNotation() + " " + rightChild.explain(formatter) + ")";
     }
 
     @Nonnull
     @Override
     public Type getResultType() {
-        return Type.primitiveType(operation.getResultTypeCode());
+        return Type.primitiveType(operator.getResultTypeCode());
     }
 
     @Nonnull
@@ -120,24 +129,24 @@ public class ArithmeticValue extends AbstractValue {
     @Override
     public ArithmeticValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
-        return new ArithmeticValue(this.operation,
+        return new ArithmeticValue(this.operator,
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1));
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operation);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operation, leftChild, rightChild);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
     }
 
     @Override
     public String toString() {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -153,6 +162,29 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
+    @Override
+    public PArithmeticValue toProto(@Nonnull final PlanHashMode mode) {
+        return PArithmeticValue.newBuilder()
+                .setOperator(operator.toProto(mode))
+                .setLeftChild(leftChild.toValueProto(mode))
+                .setRightChild(rightChild.toValueProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static ArithmeticValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PArithmeticValue arithmeticValueProto) {
+        return new ArithmeticValue(PhysicalOperator.fromProto(mode, Objects.requireNonNull(arithmeticValueProto.getOperator())),
+                Value.fromValueProto(mode, Objects.requireNonNull(arithmeticValueProto.getLeftChild())),
+                Value.fromValueProto(mode, Objects.requireNonNull(arithmeticValueProto.getRightChild())));
+    }
+
+    @Nonnull
     private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
@@ -164,7 +196,6 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
     private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
@@ -260,7 +291,7 @@ public class ArithmeticValue extends AbstractValue {
         MOD("%");
 
         @Nonnull
-        private String infixNotation;
+        private final String infixNotation;
 
         LogicalOperator(@Nonnull final String infixNotation) {
             this.infixNotation = infixNotation;
@@ -424,6 +455,380 @@ public class ArithmeticValue extends AbstractValue {
                 return null;
             }
             return evaluateFunction.apply(arg1, arg2);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case ADD_II:
+                    return PPhysicalOperator.ADD_II;
+                case ADD_IL:
+                    return PPhysicalOperator.ADD_IL;
+                case ADD_IF:
+                    return PPhysicalOperator.ADD_IF;
+                case ADD_ID:
+                    return PPhysicalOperator.ADD_ID;
+                case ADD_IS:
+                    return PPhysicalOperator.ADD_IS;
+                case ADD_LI:
+                    return PPhysicalOperator.ADD_LI;
+                case ADD_LL:
+                    return PPhysicalOperator.ADD_LL;
+                case ADD_LF:
+                    return PPhysicalOperator.ADD_LF;
+                case ADD_LD:
+                    return PPhysicalOperator.ADD_LD;
+                case ADD_LS:
+                    return PPhysicalOperator.ADD_LS;
+                case ADD_FI:
+                    return PPhysicalOperator.ADD_FI;
+                case ADD_FL:
+                    return PPhysicalOperator.ADD_FL;
+                case ADD_FF:
+                    return PPhysicalOperator.ADD_FF;
+                case ADD_FD:
+                    return PPhysicalOperator.ADD_FD;
+                case ADD_FS:
+                    return PPhysicalOperator.ADD_FS;
+                case ADD_DI:
+                    return PPhysicalOperator.ADD_DI;
+                case ADD_DL:
+                    return PPhysicalOperator.ADD_DL;
+                case ADD_DF:
+                    return PPhysicalOperator.ADD_DF;
+                case ADD_DD:
+                    return PPhysicalOperator.ADD_DD;
+                case ADD_DS:
+                    return PPhysicalOperator.ADD_DS;
+                case ADD_SI:
+                    return PPhysicalOperator.ADD_SI;
+                case ADD_SL:
+                    return PPhysicalOperator.ADD_SL;
+                case ADD_SF:
+                    return PPhysicalOperator.ADD_SF;
+                case ADD_SD:
+                    return PPhysicalOperator.ADD_SD;
+                case ADD_SS:
+                    return PPhysicalOperator.ADD_SS;
+                case SUB_II:
+                    return PPhysicalOperator.SUB_II;
+                case SUB_IL:
+                    return PPhysicalOperator.SUB_IL;
+                case SUB_IF:
+                    return PPhysicalOperator.SUB_IF;
+                case SUB_ID:
+                    return PPhysicalOperator.SUB_ID;
+                case SUB_LI:
+                    return PPhysicalOperator.SUB_LI;
+                case SUB_LL:
+                    return PPhysicalOperator.SUB_LL;
+                case SUB_LF:
+                    return PPhysicalOperator.SUB_LF;
+                case SUB_LD:
+                    return PPhysicalOperator.SUB_LD;
+                case SUB_FI:
+                    return PPhysicalOperator.SUB_FI;
+                case SUB_FL:
+                    return PPhysicalOperator.SUB_FL;
+                case SUB_FF:
+                    return PPhysicalOperator.SUB_FF;
+                case SUB_FD:
+                    return PPhysicalOperator.SUB_FD;
+                case SUB_DI:
+                    return PPhysicalOperator.SUB_DI;
+                case SUB_DL:
+                    return PPhysicalOperator.SUB_DL;
+                case SUB_DF:
+                    return PPhysicalOperator.SUB_DF;
+                case SUB_DD:
+                    return PPhysicalOperator.SUB_DD;
+                case MUL_II:
+                    return PPhysicalOperator.MUL_II;
+                case MUL_IL:
+                    return PPhysicalOperator.MUL_IL;
+                case MUL_IF:
+                    return PPhysicalOperator.MUL_IF;
+                case MUL_ID:
+                    return PPhysicalOperator.MUL_ID;
+                case MUL_LI:
+                    return PPhysicalOperator.MUL_LI;
+                case MUL_LL:
+                    return PPhysicalOperator.MUL_LL;
+                case MUL_LF:
+                    return PPhysicalOperator.MUL_LF;
+                case MUL_LD:
+                    return PPhysicalOperator.MUL_LD;
+                case MUL_FI:
+                    return PPhysicalOperator.MUL_FI;
+                case MUL_FL:
+                    return PPhysicalOperator.MUL_FL;
+                case MUL_FF:
+                    return PPhysicalOperator.MUL_FF;
+                case MUL_FD:
+                    return PPhysicalOperator.MUL_FD;
+                case MUL_DI:
+                    return PPhysicalOperator.MUL_DI;
+                case MUL_DL:
+                    return PPhysicalOperator.MUL_DL;
+                case MUL_DF:
+                    return PPhysicalOperator.MUL_DF;
+                case MUL_DD:
+                    return PPhysicalOperator.MUL_DD;
+                case DIV_II:
+                    return PPhysicalOperator.DIV_II;
+                case DIV_IL:
+                    return PPhysicalOperator.DIV_IL;
+                case DIV_IF:
+                    return PPhysicalOperator.DIV_IF;
+                case DIV_ID:
+                    return PPhysicalOperator.DIV_ID;
+                case DIV_LI:
+                    return PPhysicalOperator.DIV_LI;
+                case DIV_LL:
+                    return PPhysicalOperator.DIV_LL;
+                case DIV_LF:
+                    return PPhysicalOperator.DIV_LF;
+                case DIV_LD:
+                    return PPhysicalOperator.DIV_LD;
+                case DIV_FI:
+                    return PPhysicalOperator.DIV_FI;
+                case DIV_FL:
+                    return PPhysicalOperator.DIV_FL;
+                case DIV_FF:
+                    return PPhysicalOperator.DIV_FF;
+                case DIV_FD:
+                    return PPhysicalOperator.DIV_FD;
+                case DIV_DI:
+                    return PPhysicalOperator.DIV_DI;
+                case DIV_DL:
+                    return PPhysicalOperator.DIV_DL;
+                case DIV_DF:
+                    return PPhysicalOperator.DIV_DF;
+                case DIV_DD:
+                    return PPhysicalOperator.DIV_DD;
+                case MOD_II:
+                    return PPhysicalOperator.MOD_II;
+                case MOD_IL:
+                    return PPhysicalOperator.MOD_IL;
+                case MOD_IF:
+                    return PPhysicalOperator.MOD_IF;
+                case MOD_ID:
+                    return PPhysicalOperator.MOD_ID;
+                case MOD_LI:
+                    return PPhysicalOperator.MOD_LI;
+                case MOD_LL:
+                    return PPhysicalOperator.MOD_LL;
+                case MOD_LF:
+                    return PPhysicalOperator.MOD_LF;
+                case MOD_LD:
+                    return PPhysicalOperator.MOD_LD;
+                case MOD_FI:
+                    return PPhysicalOperator.MOD_FI;
+                case MOD_FL:
+                    return PPhysicalOperator.MOD_FL;
+                case MOD_FF:
+                    return PPhysicalOperator.MOD_FF;
+                case MOD_FD:
+                    return PPhysicalOperator.MOD_FD;
+                case MOD_DI:
+                    return PPhysicalOperator.MOD_DI;
+                case MOD_DL:
+                    return PPhysicalOperator.MOD_DL;
+                case MOD_DF:
+                    return PPhysicalOperator.MOD_DF;
+                case MOD_DD:
+                    return PPhysicalOperator.MOD_DD;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case ADD_II:
+                    return ADD_II;
+                case ADD_IL:
+                    return ADD_IL;
+                case ADD_IF:
+                    return ADD_IF;
+                case ADD_ID:
+                    return ADD_ID;
+                case ADD_IS:
+                    return ADD_IS;
+                case ADD_LI:
+                    return ADD_LI;
+                case ADD_LL:
+                    return ADD_LL;
+                case ADD_LF:
+                    return ADD_LF;
+                case ADD_LD:
+                    return ADD_LD;
+                case ADD_LS:
+                    return ADD_LS;
+                case ADD_FI:
+                    return ADD_FI;
+                case ADD_FL:
+                    return ADD_FL;
+                case ADD_FF:
+                    return ADD_FF;
+                case ADD_FD:
+                    return ADD_FD;
+                case ADD_FS:
+                    return ADD_FS;
+                case ADD_DI:
+                    return ADD_DI;
+                case ADD_DL:
+                    return ADD_DL;
+                case ADD_DF:
+                    return ADD_DF;
+                case ADD_DD:
+                    return ADD_DD;
+                case ADD_DS:
+                    return ADD_DS;
+                case ADD_SI:
+                    return ADD_SI;
+                case ADD_SL:
+                    return ADD_SL;
+                case ADD_SF:
+                    return ADD_SF;
+                case ADD_SD:
+                    return ADD_SD;
+                case ADD_SS:
+                    return ADD_SS;
+                case SUB_II:
+                    return SUB_II;
+                case SUB_IL:
+                    return SUB_IL;
+                case SUB_IF:
+                    return SUB_IF;
+                case SUB_ID:
+                    return SUB_ID;
+                case SUB_LI:
+                    return SUB_LI;
+                case SUB_LL:
+                    return SUB_LL;
+                case SUB_LF:
+                    return SUB_LF;
+                case SUB_LD:
+                    return SUB_LD;
+                case SUB_FI:
+                    return SUB_FI;
+                case SUB_FL:
+                    return SUB_FL;
+                case SUB_FF:
+                    return SUB_FF;
+                case SUB_FD:
+                    return SUB_FD;
+                case SUB_DI:
+                    return SUB_DI;
+                case SUB_DL:
+                    return SUB_DL;
+                case SUB_DF:
+                    return SUB_DF;
+                case SUB_DD:
+                    return SUB_DD;
+                case MUL_II:
+                    return MUL_II;
+                case MUL_IL:
+                    return MUL_IL;
+                case MUL_IF:
+                    return MUL_IF;
+                case MUL_ID:
+                    return MUL_ID;
+                case MUL_LI:
+                    return MUL_LI;
+                case MUL_LL:
+                    return MUL_LL;
+                case MUL_LF:
+                    return MUL_LF;
+                case MUL_LD:
+                    return MUL_LD;
+                case MUL_FI:
+                    return MUL_FI;
+                case MUL_FL:
+                    return MUL_FL;
+                case MUL_FF:
+                    return MUL_FF;
+                case MUL_FD:
+                    return MUL_FD;
+                case MUL_DI:
+                    return MUL_DI;
+                case MUL_DL:
+                    return MUL_DL;
+                case MUL_DF:
+                    return MUL_DF;
+                case MUL_DD:
+                    return MUL_DD;
+                case DIV_II:
+                    return DIV_II;
+                case DIV_IL:
+                    return DIV_IL;
+                case DIV_IF:
+                    return DIV_IF;
+                case DIV_ID:
+                    return DIV_ID;
+                case DIV_LI:
+                    return DIV_LI;
+                case DIV_LL:
+                    return DIV_LL;
+                case DIV_LF:
+                    return DIV_LF;
+                case DIV_LD:
+                    return DIV_LD;
+                case DIV_FI:
+                    return DIV_FI;
+                case DIV_FL:
+                    return DIV_FL;
+                case DIV_FF:
+                    return DIV_FF;
+                case DIV_FD:
+                    return DIV_FD;
+                case DIV_DI:
+                    return DIV_DI;
+                case DIV_DL:
+                    return DIV_DL;
+                case DIV_DF:
+                    return DIV_DF;
+                case DIV_DD:
+                    return DIV_DD;
+                case MOD_II:
+                    return MOD_II;
+                case MOD_IL:
+                    return MOD_IL;
+                case MOD_IF:
+                    return MOD_IF;
+                case MOD_ID:
+                    return MOD_ID;
+                case MOD_LI:
+                    return MOD_LI;
+                case MOD_LL:
+                    return MOD_LL;
+                case MOD_LF:
+                    return MOD_LF;
+                case MOD_LD:
+                    return MOD_LD;
+                case MOD_FI:
+                    return MOD_FI;
+                case MOD_FL:
+                    return MOD_FL;
+                case MOD_FF:
+                    return MOD_FF;
+                case MOD_FD:
+                    return MOD_FD;
+                case MOD_DI:
+                    return MOD_DI;
+                case MOD_DL:
+                    return MOD_DL;
+                case MOD_DF:
+                    return MOD_DF;
+                case MOD_DD:
+                    return MOD_DD;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
         }
     }
 }

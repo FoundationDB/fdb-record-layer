@@ -25,6 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNotValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
@@ -35,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -44,12 +48,15 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PNotValue.class)
 public class NotValue extends AbstractValue implements BooleanValue {
     /**
      * The hash value of this expression.
@@ -66,7 +73,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
      * Constructs a new {@link NotValue} instance.
      * @param child The child expression.
      */
-    public NotValue(@Nonnull Value child) {
+    public NotValue(@Nonnull final Value child) {
         this.child = child;
     }
 
@@ -146,6 +153,23 @@ public class NotValue extends AbstractValue implements BooleanValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PNotValue toProto(@Nonnull final PlanHashMode mode) {
+        return PNotValue.newBuilder().setChild(child.toValueProto(mode)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setNotValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static NotValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PNotValue notValueProto) {
+        return new NotValue(Value.fromValueProto(mode, Objects.requireNonNull(notValueProto.getChild())));
     }
 
     /**

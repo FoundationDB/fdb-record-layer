@@ -1,9 +1,9 @@
 /*
- * IndexableAggregationValue.java
+ * record_metadata.proto
  *
- * This source file is part of the FoundationDB open source project
+ * This source file is part of the FoundationDB open source projectsour
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+syntax = "proto2";
 
-package com.apple.foundationdb.record.query.plan.cascades.values;
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+import "record_metadata.proto";
+import "record_query_plan.proto";
 
-import com.apple.foundationdb.annotation.API;
+option java_outer_classname = "LuceneRecordQueryPlanProto";
 
-import javax.annotation.Nonnull;
+message PLuceneIndexQueryPlan {
+  repeated KeyExpression stored_fields = 1;
+}
 
-/**
- * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
- */
-@API(API.Status.EXPERIMENTAL)
-public interface IndexableAggregateValue extends Value {
-    @Nonnull
-    String getIndexTypeName();
+extend PPlanReference {
+  optional PLuceneIndexQueryPlan lucene_index_query_plan = 5001;
 }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.google.common.base.Preconditions;
@@ -49,6 +50,18 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Nonnull
     private final List<Value> argumentValues;
+
+    protected WindowedValue(@Nonnull final PlanHashMode mode,
+                            @Nonnull final PWindowedValue windowedValueProto) {
+        this(windowedValueProto.getPartitioningValuesList()
+                        .stream()
+                        .map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .collect(ImmutableList.toImmutableList()),
+                windowedValueProto.getArgumentValuesList()
+                        .stream()
+                        .map(valueProto -> Value.fromValueProto(mode, valueProto))
+                        .collect(ImmutableList.toImmutableList()));
+    }
 
     protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
                             @Nonnull Iterable<? extends Value> argumentValues) {
@@ -150,5 +163,17 @@ public abstract class WindowedValue extends AbstractValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    PWindowedValue toWindowedValueProto(@Nonnull final PlanHashMode mode) {
+        final PWindowedValue.Builder builder = PWindowedValue.newBuilder();
+        for (final Value partitioningValue : partitioningValues) {
+            builder.addPartitioningValues(partitioningValue.toValueProto(mode));
+        }
+        for (final Value argumentValue : argumentValues) {
+            builder.addArgumentValues(argumentValue.toValueProto(mode));
+        }
+        return builder.build();
     }
 }

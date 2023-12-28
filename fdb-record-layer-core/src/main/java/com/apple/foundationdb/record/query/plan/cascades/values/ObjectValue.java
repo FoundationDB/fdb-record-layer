@@ -25,25 +25,33 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A {@link Value} representing any object.
- *
+ * <br>
  * For example, this is used to represent non-quantifiable data (e.g. within an expression).
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PObjectValue.class)
 public class ObjectValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Object-Value");
 
@@ -128,6 +136,27 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
         return false;
+    }
+
+    @Nonnull
+    @Override
+    public PObjectValue toProto(@Nonnull final PlanHashMode mode) {
+        return PObjectValue.newBuilder()
+                .setAlias(getAlias().getId())
+                .setResultType(resultType.toTypeProto(mode))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanHashMode mode) {
+        return RecordQueryPlanProto.PValue.newBuilder().setObjectValue(toProto(mode)).build();
+    }
+
+    @Nonnull
+    public static ObjectValue fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PObjectValue objectValueProto) {
+        return new ObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(objectValueProto.getAlias())),
+                Type.fromTypeProto(mode, Objects.requireNonNull(objectValueProto.getResultType())));
     }
 
     @Nonnull

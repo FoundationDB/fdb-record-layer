@@ -1,0 +1,1049 @@
+/*
+ * record_query_plan.proto
+ *
+ * This source file is part of the FoundationDB open source projectsour
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+import "record_metadata.proto";
+
+option java_outer_classname = "RecordQueryPlanProto";
+
+//
+// Type system
+//
+// Note that the subtypes are nested messages and we don't define an extension point because PType should be considered
+// a sealed treat that cannot be extended.
+//
+message PType {
+  enum PTypeCode {
+    UNKNOWN = 1;
+    ANY = 2;
+    NULL = 3;
+    BOOLEAN = 4;
+    BYTES = 5;
+    DOUBLE = 6;
+    FLOAT = 7;
+    INT = 8;
+    LONG = 9;
+    STRING = 10;
+    VERSION = 11;
+    ENUM = 12;
+    RECORD = 13;
+    ARRAY = 14;
+    RELATION = 15;
+  }
+
+  message PPrimitiveType {
+    optional PTypeCode type_code = 1;
+    optional bool is_nullable = 2;
+  }
+
+  message PNullType {
+    // nothing
+  }
+
+  message PNoneType {
+    // nothing
+  }
+
+  message PAnyType {
+    // nothing
+  }
+
+  message PEnumType {
+    message PEnumValue {
+      optional string name = 1;
+      optional int32 number = 2;
+    }
+
+    optional bool is_nullable = 1;
+    repeated PEnumValue enum_values = 2;
+    optional string name = 3; // referential name -- not used in the planner
+  }
+
+  message PRecordType {
+    message PField {
+      optional PType field_type = 1;
+      optional string field_name = 2;
+      optional int32 field_index = 3;
+    }
+
+    optional string name = 1;  // referential name -- not used in the planner
+    optional bool is_nullable = 2;
+    repeated PField fields = 3;
+  }
+
+  message PRelationType {
+    optional PType inner_type = 1;
+  }
+
+  message PArrayType {
+    optional bool is_nullable = 2;
+    optional PType element_type = 3;
+  }
+
+  oneof specific_type {
+    PPrimitiveType primitive_type = 1;
+    PNullType null_type = 2;
+    PNoneType none_type = 3;
+    PAnyType any_type = 4;
+    PEnumType enum_type = 5;
+    PRecordType record_type = 6;
+    PRelationType relation_type = 7;
+    PArrayType array_type = 8;
+  }
+}
+
+//
+// Coercion Tries
+//
+message PCoercionTrieNode {
+  message IntChildPair {
+    optional int32 index = 1;
+    optional PCoercionTrieNode child_coercion_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated IntChildPair child_pair = 2;
+  optional PCoercionBiFunction coercion_bi_function = 3;
+}
+
+message PCoercionBiFunction {
+  extensions 5000 to max;
+  oneof specific_function {
+    PPrimitiveCoercionBiFunction primitive_coercion_bi_function = 1;
+    PArrayCoercionBiFunction array_coercion_bi_function = 2;
+  }
+}
+
+message PPrimitiveCoercionBiFunction {
+  enum PPhysicalOperator {
+    INT_TO_LONG = 1;
+    INT_TO_FLOAT = 2;
+    INT_TO_DOUBLE = 3;
+    LONG_TO_FLOAT = 4;
+    LONG_TO_DOUBLE = 5;
+    FLOAT_TO_DOUBLE = 6;
+    NULL_TO_INT = 7;
+    NULL_TO_LONG = 8;
+    NULL_TO_FLOAT = 9;
+    NULL_TO_DOUBLE = 10;
+    NULL_TO_BOOLEAN = 11;
+    NULL_TO_STRING = 12;
+    NULL_TO_ARRAY = 13;
+    NULL_TO_RECORD = 14;
+  }
+  optional PPhysicalOperator operator = 1;
+}
+
+message PArrayCoercionBiFunction {
+    optional PType from_array_type = 1;
+    optional PType to_array_type = 2;
+    optional PCoercionTrieNode elements_trie = 3;
+}
+
+//
+// Values
+//
+message PValue {
+  extensions 5000 to max;
+
+  oneof specific_value {
+    PLightArrayConstructorValue light_array_constructor_value = 1;
+    PAndOrValue and_or_value = 2;
+    PArithmeticValue arithmetic_value = 3;
+    PConditionSelectorValue condition_selector_value = 4;
+    PConstantObjectValue constant_object_value = 5;
+    PConstantValue constant_value = 6;
+    PCountValue count_value = 7;
+    PDerivedValue derived_value = 8;
+    PEmptyValue empty_value = 9;
+    PExistsValue exists_value = 10;
+    PFieldValue field_value = 11;
+    PIndexedValue indexed_value = 12;
+    PMaxEverLongValue max_ever_long_value = 13;
+    PMinEverLongValue min_ever_long_value = 14;
+    PInOpValue in_op_value = 15;
+    PLikeOperatorValue like_operator_value = 16;
+    PLiteralValue literal_value = 17;
+    PNotValue not_value = 18;
+    PNullValue null_value = 19;
+    PNumericAggregationValue.PSum numeric_aggregation_value_sum = 20;
+    PNumericAggregationValue.PAvg numeric_aggregation_value_avg = 21;
+    PNumericAggregationValue.PMin numeric_aggregation_value_min = 22;
+    PNumericAggregationValue.PMax numeric_aggregation_value_max = 23;
+    PObjectValue object_value = 24;
+    POfTypeValue of_type_value = 25;
+    PPatternForLikeValue pattern_for_like_value = 26;
+    PPickValue pick_value = 27;
+    PPromoteValue promote_value = 28;
+    PQuantifiedObjectValue quantified_object_value = 29;
+    PQueriedValue queried_value = 30;
+    PRankValue rank_value = 31;
+    PRecordConstructorValue record_constructor_value = 32;
+    PRecordTypeValue record_type_value = 33;
+    PBinaryRelOpValue binary_rel_op_value = 34;
+    PUnaryRelOpValue unary_rel_op_value = 35;
+    PVariadicFunctionValue variadic_function_value = 36;
+    PVersionValue version_value = 37;
+  }
+}
+
+message PAbstractArrayConstructorValue {
+  repeated PValue children = 1;
+  optional PType element_type = 2;
+}
+
+message PLightArrayConstructorValue {
+  optional PAbstractArrayConstructorValue super = 1;
+}
+
+message PAndOrValue {
+  enum POperator {
+    AND = 1;
+    OR = 2;
+  }
+  optional string function_name = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+  optional POperator operator = 4;
+}
+
+message PArithmeticValue {
+  enum PPhysicalOperator {
+      ADD_II = 1;
+      ADD_IL = 2;
+      ADD_IF = 3;
+      ADD_ID = 4;
+      ADD_IS = 5;
+      ADD_LI = 6;
+      ADD_LL = 7;
+      ADD_LF = 8;
+      ADD_LD = 9;
+      ADD_LS = 10;
+      ADD_FI = 11;
+      ADD_FL = 12;
+      ADD_FF = 13;
+      ADD_FD = 14;
+      ADD_FS = 15;
+      ADD_DI = 16;
+      ADD_DL = 17;
+      ADD_DF = 18;
+      ADD_DD = 19;
+      ADD_DS = 20;
+      ADD_SI = 21;
+      ADD_SL = 22;
+      ADD_SF = 23;
+      ADD_SD = 24;
+      ADD_SS = 25;
+
+      SUB_II = 26;
+      SUB_IL = 27;
+      SUB_IF = 28;
+      SUB_ID = 29;
+      SUB_LI = 30;
+      SUB_LL = 31;
+      SUB_LF = 32;
+      SUB_LD = 33;
+      SUB_FI = 34;
+      SUB_FL = 35;
+      SUB_FF = 36;
+      SUB_FD = 37;
+      SUB_DI = 38;
+      SUB_DL = 39;
+      SUB_DF = 40;
+      SUB_DD = 41;
+
+      MUL_II = 42;  // my favorite
+      MUL_IL = 43;
+      MUL_IF = 44;
+      MUL_ID = 45;
+      MUL_LI = 46;
+      MUL_LL = 47;
+      MUL_LF = 48;
+      MUL_LD = 49;
+      MUL_FI = 50;
+      MUL_FL = 51;
+      MUL_FF = 52;
+      MUL_FD = 53;
+      MUL_DI = 54;
+      MUL_DL = 55;
+      MUL_DF = 56;
+      MUL_DD = 57;
+
+      DIV_II = 58;
+      DIV_IL = 59;
+      DIV_IF = 60;
+      DIV_ID = 61;
+      DIV_LI = 62;
+      DIV_LL = 63;
+      DIV_LF = 64;
+      DIV_LD = 65;
+      DIV_FI = 66;
+      DIV_FL = 67;
+      DIV_FF = 68;
+      DIV_FD = 69;
+      DIV_DI = 70;
+      DIV_DL = 71;
+      DIV_DF = 72;
+      DIV_DD = 73;
+
+      MOD_II = 74;
+      MOD_IL = 75;
+      MOD_IF = 76;
+      MOD_ID = 77;
+      MOD_LI = 78;
+      MOD_LL = 79;
+      MOD_LF = 80;
+      MOD_LD = 81;
+      MOD_FI = 82;
+      MOD_FL = 83;
+      MOD_FF = 84;
+      MOD_FD = 85;
+      MOD_DI = 86;
+      MOD_DL = 87;
+      MOD_DF = 88;
+      MOD_DD = 89;
+  }
+
+  optional PPhysicalOperator operator = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+}
+
+message PConditionSelectorValue {
+  repeated PValue implications = 1;
+}
+
+message PConstantObjectValue {
+  optional string alias = 1;
+  optional int32 ordinal = 2;
+  optional PType result_type = 3;
+}
+
+message PConstantValue {
+  optional PValue value = 1;
+}
+
+message PCountValue {
+  enum PPhysicalOperator {
+    COUNT = 1;
+    COUNT_STAR = 2;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+}
+
+message PDerivedValue {
+  repeated PValue children = 1;
+  optional PType result_type = 2;
+}
+
+message PEmptyValue {
+  // nothing
+}
+
+message PExistsValue {
+  optional PQuantifiedObjectValue child = 1;
+}
+
+message PFieldValue {
+  optional PValue child_value = 1;
+  optional PFieldPath field_path = 2;
+}
+
+message PFieldPath {
+  message PResolvedAccessor {
+    optional string name = 1;
+    optional int32 ordinal = 2;
+    optional PType type = 3;
+  }
+  repeated PResolvedAccessor field_accessors = 1;
+}
+
+message PIndexedValue {
+  optional PType result_type = 1;
+}
+
+message PIndexOnlyAggregateValue {  // abstract
+  enum PPhysicalOperator {
+    MAX_EVER_LONG = 1;
+    MIN_EVER_LONG = 2;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+}
+
+message PMaxEverLongValue {
+  optional PIndexOnlyAggregateValue super = 1;
+}
+
+message PMinEverLongValue {
+  optional PIndexOnlyAggregateValue super = 1;
+}
+
+message PInOpValue {
+  optional PValue probe_value = 1;
+  optional PValue in_array_value = 2;
+}
+
+message PLikeOperatorValue {
+  optional PValue src_child = 1;
+  optional PValue pattern_child = 2;
+}
+
+message PLiteralValue {
+  optional PType result_type = 1;
+  optional Value value = 2;
+}
+
+message PNotValue {
+  optional PValue child = 1;
+}
+
+message PNullValue {
+  optional PType result_type = 1;
+}
+
+message PNumericAggregationValue {
+  enum PPhysicalOperator {
+      SUM_I = 1;
+      SUM_L = 2;
+      SUM_F = 3;
+      SUM_D = 4;
+
+      AVG_I = 5;
+      AVG_L = 6;
+      AVG_F = 7;
+      AVG_D = 8;
+
+      MIN_I = 9;
+      MIN_L = 10;
+      MIN_F = 11;
+      MIN_D = 12;
+
+      MAX_I = 13;
+      MAX_L = 14;
+      MAX_F = 15;
+      MAX_D = 16;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+
+  message PSum {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PAvg {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PMin {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PMax {
+    optional PNumericAggregationValue super = 1;
+  }
+}
+
+message PObjectValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
+message POfTypeValue {
+  optional PValue child = 1;
+  optional PType expected_type = 2;
+}
+
+message PPatternForLikeValue {
+  optional PValue pattern_child = 1;
+  optional PValue escape_child = 2;
+}
+
+message PPickValue {
+  optional PValue selector_value = 1;
+  repeated PValue alternative_values = 2;
+  optional PType result_type = 3;
+}
+
+message PPromoteValue {
+  optional PValue in_value = 1;
+  optional PType promote_to_type = 2;
+  optional PCoercionTrieNode promotion_trie = 3;
+}
+
+message PQuantifiedObjectValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
+message PQueriedValue {
+  optional PType result_type = 1;
+}
+
+message PRankValue {
+  optional PWindowedValue super = 1;
+}
+
+message PRecordConstructorValue {
+  message PColumn {
+    optional PType.PRecordType.PField field = 1;
+    optional PValue value = 2;
+  }
+  optional PType result_type = 1;
+  repeated PColumn columns = 2;
+}
+
+message PRecordTypeValue {
+  optional string alias = 1;
+}
+
+message PRelOpValue {
+  enum PComparisonType {
+    EQUALS = 1;
+    NOT_EQUALS = 2;
+    LESS_THAN = 3;
+    LESS_THAN_OR_EQUALS = 4;
+    GREATER_THAN = 5;
+    GREATER_THAN_OR_EQUALS = 6;
+    STARTS_WITH = 7;
+    NOT_NULL = 8;
+    IS_NULL = 9;
+    IN = 10;
+    SORT = 11;
+    LIKE = 12;
+  }
+  optional string function_name = 1;
+  optional PComparisonType comparison_type = 2;
+  repeated PValue children = 3;
+}
+
+message PBinaryRelOpValue {
+  enum PBinaryPhysicalOperator {
+      EQ_BU = 1;
+      EQ_BB = 2;
+      EQ_IU = 3;
+      EQ_II = 4;
+      EQ_IL = 5;
+      EQ_IF = 6;
+      EQ_ID = 7;
+      EQ_IS = 8;
+      EQ_LU = 9;
+      EQ_LI = 10;
+      EQ_LL = 11;
+      EQ_LF = 12;
+      EQ_LD = 13;
+      EQ_LS = 14;
+      EQ_FU = 15;
+      EQ_FI = 16;
+      EQ_FL = 17;
+      EQ_FF = 18;
+      EQ_FD = 19;
+      EQ_FS = 20;
+      EQ_DU = 21;
+      EQ_DI = 22;
+      EQ_DL = 23;
+      EQ_DF = 24;
+      EQ_DD = 25;
+      EQ_DS = 26;
+      EQ_SI = 27;
+      EQ_SL = 28;
+      EQ_SF = 29;
+      EQ_SD = 30;
+      EQ_SU = 31;
+      EQ_SS = 32;
+      EQ_UU = 33;
+      EQ_UB = 34;
+      EQ_UI = 35;
+      EQ_UL = 36;
+      EQ_UF = 37;
+      EQ_UD = 38;
+      EQ_US = 39;
+      EQ_UV = 40;
+      EQ_VU = 41;
+      EQ_VV = 42;
+
+      NEQ_BU = 43;
+      NEQ_BB = 44;
+      NEQ_IU = 45;
+      NEQ_II = 46;
+      NEQ_IL = 47;
+      NEQ_IF = 48;
+      NEQ_ID = 49;
+      NEQ_IS = 50;
+      NEQ_LU = 51;
+      NEQ_LI = 52;
+      NEQ_LL = 53;
+      NEQ_LF = 54;
+      NEQ_LD = 55;
+      NEQ_LS = 56;
+      NEQ_FU = 57;
+      NEQ_FI = 58;
+      NEQ_FL = 59;
+      NEQ_FF = 60;
+      NEQ_FD = 61;
+      NEQ_FS = 62;
+      NEQ_DU = 63;
+      NEQ_DI = 64;
+      NEQ_DL = 65;
+      NEQ_DF = 66;
+      NEQ_DD = 67;
+      NEQ_DS = 68;
+      NEQ_SI = 69;
+      NEQ_SL = 70;
+      NEQ_SF = 71;
+      NEQ_SD = 72;
+      NEQ_SU = 73;
+      NEQ_SS = 74;
+      NEQ_UU = 75;
+      NEQ_UB = 76;
+      NEQ_UI = 77;
+      NEQ_UL = 78;
+      NEQ_UF = 79;
+      NEQ_UD = 80;
+      NEQ_US = 81;
+      NEQ_UV = 82;
+      NEQ_VU = 83;
+      NEQ_VV = 84;
+
+      LT_IU = 85;
+      LT_II = 86;
+      LT_IL = 87;
+      LT_IF = 88;
+      LT_ID = 89;
+      LT_IS = 90;
+      LT_LU = 91;
+      LT_LI = 92;
+      LT_LL = 93;
+      LT_LF = 94;
+      LT_LD = 95;
+      LT_LS = 96;
+      LT_FU = 97;
+      LT_FI = 98;
+      LT_FL = 99;
+      LT_FF = 100;
+      LT_FD = 101;
+      LT_FS = 102;
+      LT_DU = 103;
+      LT_DI = 104;
+      LT_DL = 105;
+      LT_DF = 106;
+      LT_DD = 107;
+      LT_DS = 108;
+      LT_SI = 109;
+      LT_SL = 110;
+      LT_SF = 111;
+      LT_SD = 112;
+      LT_SU = 113;
+      LT_SS = 114;
+      LT_UU = 115;
+      LT_UB = 116;
+      LT_UI = 117;
+      LT_UL = 118;
+      LT_UF = 119;
+      LT_UD = 120;
+      LT_US = 121;
+      LT_UV = 122;
+      LT_VU = 123;
+      LT_VV = 124;
+
+      LTE_IU = 125;
+      LTE_II = 126;
+      LTE_IL = 127;
+      LTE_IF = 128;
+      LTE_ID = 129;
+      LTE_IS = 130;
+      LTE_LU = 131;
+      LTE_LI = 132;
+      LTE_LL = 133;
+      LTE_LF = 134;
+      LTE_LD = 135;
+      LTE_LS = 136;
+      LTE_FU = 137;
+      LTE_FI = 138;
+      LTE_FL = 139;
+      LTE_FF = 140;
+      LTE_FD = 141;
+      LTE_FS = 142;
+      LTE_DU = 143;
+      LTE_DI = 144;
+      LTE_DL = 145;
+      LTE_DF = 146;
+      LTE_DD = 147;
+      LTE_DS = 148;
+      LTE_SI = 149;
+      LTE_SL = 150;
+      LTE_SF = 151;
+      LTE_SD = 152;
+      LTE_SU = 153;
+      LTE_SS = 154;
+      LTE_UU = 155;
+      LTE_UB = 156;
+      LTE_UI = 157;
+      LTE_UL = 158;
+      LTE_UF = 159;
+      LTE_UD = 160;
+      LTE_US = 161;
+      LTE_UV = 162;
+      LTE_VU = 163;
+      LTE_VV = 164;
+
+      GT_IU = 165;
+      GT_II = 166;
+      GT_IL = 167;
+      GT_IF = 168;
+      GT_ID = 169;
+      GT_IS = 170;
+      GT_LU = 171;
+      GT_LI = 172;
+      GT_LL = 173;
+      GT_LF = 174;
+      GT_LD = 175;
+      GT_LS = 176;
+      GT_FU = 177;
+      GT_FI = 178;
+      GT_FL = 179;
+      GT_FF = 180;
+      GT_FD = 181;
+      GT_FS = 182;
+      GT_DU = 183;
+      GT_DI = 184;
+      GT_DL = 185;
+      GT_DF = 186;
+      GT_DD = 187;
+      GT_DS = 188;
+      GT_SI = 189;
+      GT_SL = 190;
+      GT_SF = 191;
+      GT_SD = 192;
+      GT_SU = 193;
+      GT_SS = 194;
+      GT_UU = 195;
+      GT_UB = 196;
+      GT_UI = 197;
+      GT_UL = 198;
+      GT_UF = 199;
+      GT_UD = 200;
+      GT_US = 201;
+      GT_UV = 202;
+      GT_VU = 203;
+      GT_VV = 204;
+
+      GTE_IU = 205;
+      GTE_II = 206;
+      GTE_IL = 207;
+      GTE_IF = 208;
+      GTE_ID = 209;
+      GTE_IS = 210;
+      GTE_LU = 211;
+      GTE_LI = 212;
+      GTE_LL = 213;
+      GTE_LF = 214;
+      GTE_LD = 215;
+      GTE_LS = 216;
+      GTE_FU = 217;
+      GTE_FI = 218;
+      GTE_FL = 219;
+      GTE_FF = 220;
+      GTE_FD = 221;
+      GTE_FS = 222;
+      GTE_DU = 223;
+      GTE_DI = 224;
+      GTE_DL = 225;
+      GTE_DF = 226;
+      GTE_DD = 227;
+      GTE_DS = 228;
+      GTE_SI = 229;
+      GTE_SL = 230;
+      GTE_SF = 231;
+      GTE_SD = 232;
+      GTE_SU = 233;
+      GTE_SS = 234;
+      GTE_UU = 235;
+      GTE_UB = 236;
+      GTE_UI = 237;
+      GTE_UL = 238;
+      GTE_UF = 239;
+      GTE_UD = 240;
+      GTE_US = 241;
+      GTE_UV = 242;
+      GTE_VU = 243;
+      GTE_VV = 244;
+  }
+  optional PRelOpValue super = 1;
+  optional PBinaryPhysicalOperator operator = 2;
+}
+
+message PUnaryRelOpValue {
+  enum PUnaryPhysicalOperator {
+      IS_NULL_UI = 1;
+      IS_NULL_II = 2;
+      IS_NULL_LI = 3;
+      IS_NULL_FI = 4;
+      IS_NULL_DI = 5;
+      IS_NULL_SS = 6;
+      IS_NULL_BI = 7;
+
+      IS_NOT_NULL_UI = 8;
+      IS_NOT_NULL_II = 9;
+      IS_NOT_NULL_LI = 10;
+      IS_NOT_NULL_FI = 11;
+      IS_NOT_NULL_DI = 12;
+      IS_NOT_NULL_SS = 13;
+      IS_NOT_NULL_BI = 14;
+  }
+  optional PRelOpValue super = 1;
+  optional PUnaryPhysicalOperator operator = 2;
+}
+
+message PUdfValue { // abstract
+  repeated PValue children = 1;
+  optional PType result_type = 2;
+}
+
+message PVariadicFunctionValue {
+  enum PPhysicalOperator {
+      GREATEST_INT = 1;
+      GREATEST_LONG = 2;
+      GREATEST_BOOLEAN = 3;
+      GREATEST_STRING = 4;
+      GREATEST_FLOAT = 5;
+      GREATEST_DOUBLE = 6;
+      LEAST_INT = 7;
+      LEAST_LONG = 8;
+      LEAST_BOOLEAN = 9;
+      LEAST_STRING = 10;
+      LEAST_FLOAT = 11;
+      LEAST_DOUBLE = 12;
+      COALESCE_INT = 13;
+      COALESCE_LONG = 14;
+      COALESCE_BOOLEAN = 15;
+      COALESCE_STRING = 16;
+      COALESCE_FLOAT = 17;
+      COALESCE_DOUBLE = 18;
+      COALESCE_RECORD = 19;
+      COALESCE_ARRAY = 20;
+  }
+  optional PPhysicalOperator operator = 1;
+  repeated PValue children = 2;
+}
+
+message PVersionValue {
+  optional string base_alias = 1;
+}
+
+message PWindowedValue {
+  repeated PValue partitioning_values = 1;
+  repeated PValue argument_values = 2;
+}
+
+//
+// Comparisons
+//
+message PComparison {
+  extensions 5000 to max;
+
+  oneof specific_comparison {
+    PSimpleComparison simple_comparison = 1;
+    PParameterComparison parameter_comparison = 2;
+    PValueComparison value_comparison = 3;
+    PListComparison list_comparison = 4;
+    PNullComparison null_comparison = 5;
+    POpaqueEqualityComparison opaque_equality_comparison = 6;
+    PMultiColumnComparison multi_column_comparison = 7;
+    PInvertedFunctionComparison inverted_function_comparison = 8;
+  }
+}
+
+message PSimpleComparison {
+  optional ComparisonType type = 1;
+  optional Value object = 2;
+}
+
+message PParameterComparison {
+  enum BindingKind {
+    IN = 1;
+    RANK = 2;
+    CORRELATION = 3;
+    CONSTANT = 4;
+  }
+
+  optional ComparisonType type = 1;
+  optional string parameter = 2;
+  optional BindingKind internal = 3;
+}
+
+message PValueComparison {
+  optional ComparisonType type = 1;
+  optional PValue comparandValue = 2;
+}
+
+message PListComparison {
+  optional ComparisonType type = 1;
+  repeated Value comparand = 2;
+}
+
+message PNullComparison {
+  optional ComparisonType type = 1;
+}
+
+message POpaqueEqualityComparison {
+  // nothing
+}
+
+message PMultiColumnComparison {
+  optional PComparison inner = 1;
+}
+
+message PInvertedFunctionComparison {
+  optional Function function = 1;
+  optional Comparison original_comparison = 2;
+  optional ComparisonType type = 3;
+}
+
+//
+// Query Predicates
+//
+message PQueryPredicate {
+  extensions 5000 to max;
+
+  oneof specific_predicate {
+      PAndPredicate and_predicate = 1;
+      PConstantPredicate constant_predicate = 2;
+      PExistsPredicate exists_predicate = 3;
+      PNotPredicate not_predicate = 4;
+      POrPredicate or_predicate = 5;
+      PPredicateWithValueAndRanges predicate_with_value_and_ranges = 6;
+      PValuePredicate value_predicate = 7;
+  }
+}
+
+message PAbstractQueryPredicate {  // abstract
+  optional bool is_atomic = 1;
+}
+
+message PAndOrPredicate {  // abstract
+  optional PAbstractQueryPredicate super = 1;
+  repeated PQueryPredicate children = 2;
+}
+
+message PAndPredicate {
+  optional PAndOrPredicate super = 1;
+}
+
+message PConstantPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional bool value = 2;
+}
+
+message PExistsPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional string existential_alias = 2;
+}
+
+message PNotPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional PQueryPredicate child = 2;
+}
+
+message POrPredicate {
+  optional PAndOrPredicate super = 1;
+}
+
+message PPredicateWithValueAndRanges {
+  optional PAbstractQueryPredicate super = 1;
+  optional PValue value = 2;
+  repeated PRangeConstraints ranges = 3;
+}
+
+message PRangeConstraints {
+  optional PCompilableRange evaluable_range = 1;
+  repeated Comparison deferred_ranges = 2;
+}
+
+message PCompilableRange {
+  repeated Comparison compilable_comparisons = 1;
+}
+
+message PValuePredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional PValue value = 2;
+  optional PComparison comparison = 3;
+}
+
+//
+// Plan reference holder to facilitate polymorphism between different plans but also assign ids to plans.
+//
+message PPlanReference {
+  extensions 5000 to max;
+  optional int32 reference_id = 1;
+  oneof specific_plan {
+    PRecordQueryIndexPlan index_plan = 2;
+  }
+}
+
+//
+// Specific plan operators
+//
+message PRecordQueryIndexPlan {
+  optional string name = 1;
+  optional KeyExpression common_primary_key = 2;
+  optional PIndexScanParameters scan_parameters = 3;
+  optional PIndexFetchMethod index_fetch_method = 4;
+  optional PFetchIndexRecords fetch_index_records = 5;
+  optional bool reverse = 6;
+  optional bool strictly_sorted = 7;
+  optional PType result_type = 8;
+  optional PQueryPlanConstraint constraint = 9;
+}
+
+message PIndexScanParameters {
+  extensions 5000 to max;
+  oneof specific_index_scan_parameters {
+    PIndexScanComparisons index_scan_comparisons = 1;
+    PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 2;
+    PTimeWindowScanComparisons time_window_scan_comparisons = 3;
+  }
+}
+
+message PIndexScanComparisons {
+
+}
+
+message PMultidimensionalIndexScanComparisons {
+
+}
+
+message PTimeWindowScanComparisons {
+
+}
+
+enum PIndexFetchMethod {
+  SCAN_AND_FETCH = 1;
+  USE_REMOTE_FETCH = 2;
+  USE_REMOTE_FETCH_WITH_FALLBACK = 3;
+}
+
+enum PFetchIndexRecords {
+  PRIMARY_KEY = 1;
+  SYNTHETIC_CONSTITUENTS = 2;
+}
+
+message PQueryPlanConstraint {
+  optional PQueryPredicate predicate = 1;
+}

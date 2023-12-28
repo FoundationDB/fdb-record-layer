@@ -25,6 +25,14 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMax;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMin;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -35,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
@@ -73,7 +82,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     protected final PhysicalOperator operator;
     @Nonnull
     private final Value child;
-    
+
+    protected NumericAggregationValue(@Nonnull final PlanHashMode mode,
+                                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+        this.operator = PhysicalOperator.fromProto(mode, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
+        this.child = Value.fromValueProto(mode, Objects.requireNonNull(numericAggregationValueProto.getChild()));
+    }
+
     protected NumericAggregationValue(@Nonnull final PhysicalOperator operator,
                                       @Nonnull final Value child) {
         this.operator = operator;
@@ -141,16 +156,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * Min aggregation {@code Value}.
      */
-    public static class Min extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
 
         public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexName() {
-            return IndexTypes.PERMUTED_MIN;
         }
 
         @Nonnull
@@ -170,16 +179,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * Max aggregation {@code Value}.
      */
-    public static class Max extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
 
         public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexName() {
-            return IndexTypes.PERMUTED_MAX;
         }
 
         @Nonnull
@@ -254,6 +257,14 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     }
 
     @Nonnull
+    public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanHashMode mode) {
+        RecordQueryPlanProto.PNumericAggregationValue.Builder builder = RecordQueryPlanProto.PNumericAggregationValue.newBuilder();
+        builder.setOperator(operator.toProto(mode));
+        builder.setChild(child.toValueProto(mode));
+        return builder.build();
+    }
+
+    @Nonnull
     private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
@@ -285,6 +296,176 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             mapBuilder.put(Pair.of(operator.getLogicalOperator(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
+    }
+
+    /**
+     * Sum aggregation {@code Value}.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PSum.class)
+    public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+
+        public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Sum(@Nonnull final PlanHashMode mode,
+                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+            super(mode, numericAggregationValueProto);
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.SUM;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Sum(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PSum toProto(@Nonnull final PlanHashMode mode) {
+            return PSum.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Sum fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PSum sumProto) {
+            return new Sum(mode, Objects.requireNonNull(sumProto.getSuper()));
+        }
+    }
+
+    /**
+     * Average aggregation {@code Value}.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PAvg.class)
+    public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Avg(@Nonnull final PlanHashMode mode,
+                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+            super(mode, numericAggregationValueProto);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Avg(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PAvg toProto(@Nonnull final PlanHashMode mode) {
+            return PAvg.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Avg fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PAvg avgProto) {
+            return new Avg(mode, Objects.requireNonNull(avgProto.getSuper()));
+        }
+    }
+
+    /**
+     * Min aggregation {@code Value}.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMin.class)
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Min(@Nonnull final PlanHashMode mode,
+                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+            super(mode, numericAggregationValueProto);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Min(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMin toProto(@Nonnull final PlanHashMode mode) {
+            return PMin.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Min fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PMin minProto) {
+            return new Min(mode, Objects.requireNonNull(minProto.getSuper()));
+        }
+    }
+
+    /**
+     * Max aggregation {@code Value}.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMax.class)
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
+
+        public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Max(@Nonnull final PlanHashMode mode,
+                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+            super(mode, numericAggregationValueProto);
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Max(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMax toProto(@Nonnull final PlanHashMode mode) {
+            return PMax.newBuilder().setSuper(toNumericAggregationValueProto(mode)).build();
+        }
+
+        @Nonnull
+        public static Max fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PMax maxProto) {
+            return new Max(mode, Objects.requireNonNull(maxProto.getSuper()));
+        }
     }
 
     /**
@@ -435,7 +616,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
-        public LogicalOperator getLogicalOperator() {
+        private LogicalOperator getLogicalOperator() {
             return logicalOperator;
         }
 
@@ -450,16 +631,19 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public UnaryOperator<Object> getInitialToPartialFunction() {
             return initialToPartialFunction;
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public BinaryOperator<Object> getPartialToPartialFunction() {
             return partialToPartialFunction;
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public UnaryOperator<Object> getPartialToFinalFunction() {
             return partialToFinalFunction;
         }
@@ -491,6 +675,88 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 return null;
             }
             return partialToFinalFunction.apply(object);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanHashMode mode) {
+            switch (this) {
+                case SUM_I:
+                    return PPhysicalOperator.SUM_I;
+                case SUM_L:
+                    return PPhysicalOperator.SUM_L;
+                case SUM_F:
+                    return PPhysicalOperator.SUM_F;
+                case SUM_D:
+                    return PPhysicalOperator.SUM_D;
+                case AVG_I:
+                    return PPhysicalOperator.AVG_I;
+                case AVG_L:
+                    return PPhysicalOperator.AVG_L;
+                case AVG_F:
+                    return PPhysicalOperator.AVG_F;
+                case AVG_D:
+                    return PPhysicalOperator.AVG_D;
+                case MIN_I:
+                    return PPhysicalOperator.MIN_I;
+                case MIN_L:
+                    return PPhysicalOperator.MIN_L;
+                case MIN_F:
+                    return PPhysicalOperator.MIN_F;
+                case MIN_D:
+                    return PPhysicalOperator.MIN_D;
+                case MAX_I:
+                    return PPhysicalOperator.MAX_I;
+                case MAX_L:
+                    return PPhysicalOperator.MAX_L;
+                case MAX_F:
+                    return PPhysicalOperator.MAX_F;
+                case MAX_D:
+                    return PPhysicalOperator.MAX_D;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanHashMode mode, @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case SUM_I:
+                    return SUM_I;
+                case SUM_L:
+                    return SUM_L;
+                case SUM_F:
+                    return SUM_F;
+                case SUM_D:
+                    return SUM_D;
+                case AVG_I:
+                    return AVG_I;
+                case AVG_L:
+                    return AVG_L;
+                case AVG_F:
+                    return AVG_F;
+                case AVG_D:
+                    return AVG_D;
+                case MIN_I:
+                    return MIN_I;
+                case MIN_L:
+                    return MIN_L;
+                case MIN_F:
+                    return MIN_F;
+                case MIN_D:
+                    return MIN_D;
+                case MAX_I:
+                    return MAX_I;
+                case MAX_L:
+                    return MAX_L;
+                case MAX_F:
+                    return MAX_F;
+                case MAX_D:
+                    return MAX_D;
+                default:
+                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
+            }
         }
     }
 

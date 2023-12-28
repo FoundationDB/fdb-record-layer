@@ -133,6 +133,12 @@ class BooleanValueTest {
         public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
             return Optional.empty();
         }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanHashMode mode) {
+            throw new RuntimeException("Should not be called!");
+        }
     }
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
