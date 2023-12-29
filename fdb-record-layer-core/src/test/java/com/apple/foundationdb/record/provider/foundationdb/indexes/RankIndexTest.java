@@ -66,7 +66,6 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -106,7 +105,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
@@ -1237,12 +1235,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         } else {
             // TODO We currently cannot plan this query as the query component associated with it does not have a QGM
             //      representation which would be encoded as the compensation of that predicate.
-            assertMatchesExactly(plan,
-                    predicatesFilterPlan(
-                            typeFilterPlan(
-                                    scanPlan().where(scanComparisons(unbounded())))
-                                    .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
-                            .where(predicates(only(QueryPredicateMatchers.queryComponentPredicate(equalsObject(filter))))));
+            Assertions.fail();
         }
         
         try (FDBRecordContext context = openContext()) {

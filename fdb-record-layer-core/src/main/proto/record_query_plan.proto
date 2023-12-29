@@ -979,11 +979,11 @@ message PPredicateWithValueAndRanges {
 
 message PRangeConstraints {
   optional PCompilableRange evaluable_range = 1;
-  repeated Comparison deferred_ranges = 2;
+  repeated PComparison deferred_ranges = 2;
 }
 
 message PCompilableRange {
-  repeated Comparison compilable_comparisons = 1;
+  repeated PComparison compilable_comparisons = 1;
 }
 
 message PValuePredicate {

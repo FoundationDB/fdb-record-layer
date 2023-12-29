@@ -193,8 +193,8 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         }
 
         private LightArrayConstructorValue(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PAbstractArrayConstructorValue abstractArrayConstructorValueProto) {
-            super(serializationContext, abstractArrayConstructorValueProto);
+                                           @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
+            super(serializationContext, Objects.requireNonNull(lightArrayConstructorValueProto.getSuper()));
         }
 
         private LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
@@ -250,8 +250,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         public static LightArrayConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                            @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
-            return new LightArrayConstructorValue(serializationContext,
-                    Objects.requireNonNull(lightArrayConstructorValueProto.getSuper()));
+            return new LightArrayConstructorValue(serializationContext, lightArrayConstructorValueProto);
         }
 
         @Nonnull

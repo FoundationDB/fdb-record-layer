@@ -45,8 +45,8 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
     public RankValue(@Nonnull final PlanSerializationContext serializationContext,
-                     @Nonnull final RecordQueryPlanProto.PWindowedValue windowedValueProto) {
-        super(serializationContext, windowedValueProto);
+                     @Nonnull final PRankValue rankValueProto) {
+        super(serializationContext, Objects.requireNonNull(rankValueProto.getSuper()));
     }
 
     public RankValue(@Nonnull Iterable<? extends Value> partitioningValues,
@@ -93,6 +93,6 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     @Nonnull
     public static RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PRankValue rankValueProto) {
-        return new RankValue(serializationContext, Objects.requireNonNull(rankValueProto.getSuper()));
+        return new RankValue(serializationContext, rankValueProto);
     }
 }

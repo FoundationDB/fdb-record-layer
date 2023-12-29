@@ -53,6 +53,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -206,5 +208,15 @@ public class PlanSerialization {
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RecordCoreException("unable to invoke fromProto method", e);
         }
+    }
+
+    @Nonnull
+    public static <M extends Message, T> T getFieldOrThrow(@Nonnull M message,
+                                                           @Nonnull final Predicate<M> fieldSetPredicate,
+                                                           @Nonnull final Function<M, T> fieldExtractor) {
+        if (fieldSetPredicate.test(message)) {
+            return fieldExtractor.apply(message);
+        }
+        throw new RecordCoreException("Field is expected to be set but message does not have field.");
     }
 }

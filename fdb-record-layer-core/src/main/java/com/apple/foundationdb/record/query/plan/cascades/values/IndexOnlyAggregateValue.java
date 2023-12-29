@@ -194,8 +194,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     public static class MinEverLongValue extends IndexOnlyAggregateValue {
 
         MinEverLongValue(@Nonnull final PlanSerializationContext serializationContext,
-                         @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
-            super(serializationContext, indexOnlyAggregateValueProto);
+                         @Nonnull final PMinEverLongValue minEverLongValueProto) {
+            super(serializationContext, Objects.requireNonNull(minEverLongValueProto.getSuper()));
         }
 
         /**
@@ -246,7 +246,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         @Nonnull
         public static MinEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PMinEverLongValue minEverLongValueProto) {
-            return new MinEverLongValue(serializationContext, Objects.requireNonNull(minEverLongValueProto.getSuper()));
+            return new MinEverLongValue(serializationContext, minEverLongValueProto);
         }
     }
 
@@ -257,8 +257,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @ProtoMessage(PMaxEverLongValue.class)
     public static class MaxEverLongValue extends IndexOnlyAggregateValue {
         MaxEverLongValue(@Nonnull final PlanSerializationContext serializationContext,
-                         @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
-            super(serializationContext, indexOnlyAggregateValueProto);
+                         @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
+            super(serializationContext, Objects.requireNonNull(maxEverLongValueProto.getSuper()));
         }
 
         /**
@@ -309,7 +309,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         @Nonnull
         public static MaxEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
-            return new MaxEverLongValue(serializationContext, Objects.requireNonNull(maxEverLongValueProto.getSuper()));
+            return new MaxEverLongValue(serializationContext, maxEverLongValueProto);
         }
     }
 

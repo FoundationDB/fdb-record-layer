@@ -311,8 +311,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         protected Sum(@Nonnull final PlanSerializationContext serializationContext,
-                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(serializationContext, numericAggregationValueProto);
+                      @Nonnull final PSum sumProto) {
+            super(serializationContext, Objects.requireNonNull(sumProto.getSuper()));
         }
 
         @Nonnull
@@ -348,7 +348,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         public static Sum fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PSum sumProto) {
-            return new Sum(serializationContext, Objects.requireNonNull(sumProto.getSuper()));
+            return new Sum(serializationContext, sumProto);
         }
     }
 
@@ -364,8 +364,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         protected Avg(@Nonnull final PlanSerializationContext serializationContext,
-                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(serializationContext, numericAggregationValueProto);
+                      @Nonnull final PAvg avgProto) {
+            super(serializationContext, Objects.requireNonNull(avgProto.getSuper()));
         }
 
         @Nonnull
@@ -395,7 +395,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         public static Avg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PAvg avgProto) {
-            return new Avg(serializationContext, Objects.requireNonNull(avgProto.getSuper()));
+            return new Avg(serializationContext, avgProto);
         }
     }
 
@@ -411,8 +411,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         protected Min(@Nonnull final PlanSerializationContext serializationContext,
-                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(serializationContext, numericAggregationValueProto);
+                      @Nonnull final PMin minProto) {
+            super(serializationContext, Objects.requireNonNull(minProto.getSuper()));
         }
 
         @Nonnull
@@ -442,7 +442,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         public static Min fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMin minProto) {
-            return new Min(serializationContext, Objects.requireNonNull(minProto.getSuper()));
+            return new Min(serializationContext, minProto);
         }
     }
 
@@ -458,8 +458,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         protected Max(@Nonnull final PlanSerializationContext serializationContext,
-                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-            super(serializationContext, numericAggregationValueProto);
+                      @Nonnull final PMax maxProto) {
+            super(serializationContext, Objects.requireNonNull(maxProto.getSuper()));
         }
 
         @Nonnull
@@ -489,7 +489,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         public static Max fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMax maxProto) {
-            return new Max(serializationContext, Objects.requireNonNull(maxProto.getSuper()));
+            return new Max(serializationContext, maxProto);
         }
     }
 

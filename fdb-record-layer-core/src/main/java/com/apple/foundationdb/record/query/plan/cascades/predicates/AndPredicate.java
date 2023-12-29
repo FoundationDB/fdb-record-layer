@@ -23,17 +23,22 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PAndPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -54,8 +59,15 @@ import java.util.stream.Collectors;
  * <li>Else {@code null}.</li>
  * </ul>
  */
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PAndPredicate.class)
 public class AndPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Predicate");
+
+    private AndPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                         @Nonnull final PAndPredicate andPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(andPredicateProto.getSuper()));
+    }
 
     private AndPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
         super(children, isAtomic);
@@ -132,6 +144,24 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public AndPredicate withAtomicity(final boolean isAtomic) {
         return new AndPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
+    }
+
+    @Nonnull
+    @Override
+    public PAndPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PAndPredicate.newBuilder().setSuper(toAndOrPredicateProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setAndPredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static AndPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PAndPredicate andPredicateProto) {
+        return new AndPredicate(serializationContext, andPredicateProto);
     }
 
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,

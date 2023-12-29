@@ -1762,10 +1762,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         private final BinaryPhysicalOperator operator;
 
         private BinaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
-                                 @Nonnull final PRelOpValue relOpValueProto,
-                                 @Nonnull final BinaryPhysicalOperator operator) {
-            super(serializationContext, relOpValueProto);
-            this.operator = operator;
+                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            super(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getSuper()));
+            this.operator = BinaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getOperator()));
         }
 
         private BinaryRelOpValue(@Nonnull final String functionName,
@@ -1842,9 +1841,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @SuppressWarnings("unused")
         public static BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
-            return new BinaryRelOpValue(serializationContext,
-                    Objects.requireNonNull(binaryRelOpValueProto.getSuper()),
-                    BinaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getOperator())));
+            return new BinaryRelOpValue(serializationContext, binaryRelOpValueProto);
         }
     }
 
@@ -1858,10 +1855,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         private final UnaryPhysicalOperator operator;
 
         private UnaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PRelOpValue relOpValueProto,
-                                @Nonnull final UnaryPhysicalOperator operator) {
-            super(serializationContext, relOpValueProto);
-            this.operator = operator;
+                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            super(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getSuper()));
+            this.operator = UnaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getOperator()));
         }
 
         private UnaryRelOpValue(@Nonnull final String functionName,
@@ -1936,10 +1932,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
-            return new UnaryRelOpValue(serializationContext,
-                    Objects.requireNonNull(unaryRelOpValueProto.getSuper()),
-                    UnaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getOperator())));
+        public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            return new UnaryRelOpValue(serializationContext, unaryRelOpValueProto);
         }
     }
 }

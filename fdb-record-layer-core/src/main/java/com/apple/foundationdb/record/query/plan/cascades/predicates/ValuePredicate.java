@@ -24,12 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -42,13 +48,22 @@ import java.util.Set;
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PValuePredicate.class)
 public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
     private final Comparison comparison;
 
-    public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
+    private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
+                           @Nonnull final PValuePredicate valuePredicate) {
+        super(serializationContext, Objects.requireNonNull(valuePredicate.getSuper()));
+        this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(valuePredicate.getValue()));
+        this.comparison = Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(valuePredicate.getComparison()));
+    }
+
+    public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(false);
         this.value = value;
         this.comparison = comparison;
@@ -143,5 +158,26 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     public String toString() {
         return value + " " + comparison;
+    }
+
+    @Nonnull
+    @Override
+    public PValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValuePredicate.newBuilder()
+                .setSuper(toAbstractQueryPredicateProto(serializationContext))
+                .setValue(value.toValueProto(serializationContext))
+                .setComparison(comparison.toComparisonProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PValuePredicate valuePredicateProto) {
+        return new ValuePredicate(serializationContext, valuePredicateProto);
     }
 }

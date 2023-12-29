@@ -21,7 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -41,6 +44,13 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
     private final Supplier<Integer> semanticHashCodeSupplier;
+
+    @SuppressWarnings("unused")
+    protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
+        this(PlanSerialization.getFieldOrThrow(abstractQueryPredicateProto,
+                PAbstractQueryPredicate::hasIsAtomic, PAbstractQueryPredicate::getIsAtomic));
+    }
 
     protected AbstractQueryPredicate(final boolean isAtomic) {
         this.isAtomic = isAtomic;
@@ -86,5 +96,10 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Override
     public boolean isAtomic() {
         return isAtomic;
+    }
+
+    @Nonnull
+    public PAbstractQueryPredicate toAbstractQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PAbstractQueryPredicate.newBuilder().setIsAtomic(isAtomic).build();
     }
 }

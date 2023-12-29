@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
@@ -88,14 +87,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Override
     protected boolean hasAsyncFilter() {
-        // TODO Query components can be evaluated in an async way as they may access indexes, etc. themselves. In
-        //      QGM such an access is always explicitly modelled. Therefore predicates don't need this functionality
-        //      and we should not add evalAsync() and isAsync() in the way it is implemented on query components.
-        //      Since predicates cannot speak up for themselves when it comes to async-ness of the filter, we need
-        //      to special case this (shim) class.
-        return predicates.stream()
-                .filter(predicate -> predicate instanceof QueryComponentPredicate)
-                .anyMatch(predicate -> ((QueryComponentPredicate)predicate).hasAsyncQueryComponent());
+        return false;
     }
 
     @Nullable
@@ -112,15 +104,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
         return new AsyncBoolean<>(false,
                 getPredicates(),
-                predicate -> {
-                    if (predicate instanceof QueryComponentPredicate) {
-                        final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
-                        if (queryComponentPredicate.hasAsyncQueryComponent()) {
-                            return queryComponentPredicate.evalMessageAsync(store, nestedContext);
-                        }
-                    }
-                    return CompletableFuture.completedFuture(predicate.eval(store, nestedContext));
-                },
+                predicate -> CompletableFuture.completedFuture(predicate.eval(store, nestedContext)),
                 store).eval();
     }
 

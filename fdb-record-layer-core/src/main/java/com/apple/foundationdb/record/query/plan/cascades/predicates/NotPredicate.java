@@ -25,6 +25,10 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNotPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -32,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -49,11 +55,19 @@ import java.util.Optional;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PNotPredicate.class)
 public class NotPredicate extends AbstractQueryPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
     @Nonnull
     public final QueryPredicate child;
+
+    private NotPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                         @Nonnull final PNotPredicate notPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(notPredicateProto.getSuper()));
+        this.child = QueryPredicate.fromQueryPredicateProto(serializationContext, Objects.requireNonNull(notPredicateProto.getChild()));
+    }
 
     private NotPredicate(@Nonnull final QueryPredicate child, final boolean isAtomic) {
         super(isAtomic);
@@ -148,6 +162,23 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Override
     public NotPredicate withAtomicity(final boolean isAtomic) {
         return new NotPredicate(getChild(), isAtomic);
+    }
+
+    @Nonnull
+    @Override
+    public PNotPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PNotPredicate.newBuilder().setChild(child.toQueryPredicateProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setNotPredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static NotPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNotPredicate notPredicateProto) {
+        return new NotPredicate(serializationContext, notPredicateProto);
     }
 
     @Nonnull
