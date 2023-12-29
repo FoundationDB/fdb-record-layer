@@ -514,22 +514,8 @@ message PRecordTypeValue {
 }
 
 message PRelOpValue {
-  enum PComparisonType {
-    EQUALS = 1;
-    NOT_EQUALS = 2;
-    LESS_THAN = 3;
-    LESS_THAN_OR_EQUALS = 4;
-    GREATER_THAN = 5;
-    GREATER_THAN_OR_EQUALS = 6;
-    STARTS_WITH = 7;
-    NOT_NULL = 8;
-    IS_NULL = 9;
-    IN = 10;
-    SORT = 11;
-    LIKE = 12;
-  }
   optional string function_name = 1;
-  optional PComparisonType comparison_type = 2;
+  optional PComparison.PComparisonType comparison_type = 2;
   repeated PValue children = 3;
 }
 
@@ -858,6 +844,21 @@ message PWindowedValue {
 message PComparison {
   extensions 5000 to max;
 
+  enum PComparisonType {
+    EQUALS = 1;
+    NOT_EQUALS = 2;
+    LESS_THAN = 3;
+    LESS_THAN_OR_EQUALS = 4;
+    GREATER_THAN = 5;
+    GREATER_THAN_OR_EQUALS = 6;
+    STARTS_WITH = 7;
+    NOT_NULL = 8;
+    IS_NULL = 9;
+    IN = 10;
+    SORT = 11;
+    LIKE = 12;
+  }
+
   oneof specific_comparison {
     PSimpleComparison simple_comparison = 1;
     PParameterComparison parameter_comparison = 2;
@@ -867,39 +868,40 @@ message PComparison {
     POpaqueEqualityComparison opaque_equality_comparison = 6;
     PMultiColumnComparison multi_column_comparison = 7;
     PInvertedFunctionComparison inverted_function_comparison = 8;
+    PRecordTypeKeyComparison record_type_key_comparison = 9;
   }
 }
 
 message PSimpleComparison {
-  optional ComparisonType type = 1;
+  optional PComparison.PComparisonType type = 1;
   optional Value object = 2;
 }
 
 message PParameterComparison {
-  enum BindingKind {
+  enum PBindingKind {
     IN = 1;
     RANK = 2;
     CORRELATION = 3;
     CONSTANT = 4;
   }
 
-  optional ComparisonType type = 1;
+  optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
-  optional BindingKind internal = 3;
+  optional PBindingKind internal = 3;
 }
 
 message PValueComparison {
-  optional ComparisonType type = 1;
+  optional PComparison.PComparisonType type = 1;
   optional PValue comparandValue = 2;
 }
 
 message PListComparison {
-  optional ComparisonType type = 1;
+  optional PComparison.PComparisonType type = 1;
   repeated Value comparand = 2;
 }
 
 message PNullComparison {
-  optional ComparisonType type = 1;
+  optional PComparison.PComparisonType type = 1;
 }
 
 message POpaqueEqualityComparison {
@@ -912,8 +914,12 @@ message PMultiColumnComparison {
 
 message PInvertedFunctionComparison {
   optional Function function = 1;
-  optional Comparison original_comparison = 2;
-  optional ComparisonType type = 3;
+  optional PComparison original_comparison = 2;
+  optional PComparison.PComparisonType type = 3;
+}
+
+message PRecordTypeKeyComparison {
+  optional string record_type_name = 1;
 }
 
 //

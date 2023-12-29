@@ -26,11 +26,21 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparison.PComparisonType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInvertedFunctionComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PListComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMultiColumnComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNullComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.POpaqueEqualityComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PSimpleComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PValueComparison;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
@@ -49,9 +59,12 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +74,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Internal;
+import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
@@ -608,26 +622,26 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        public RecordQueryPlanProto.PRelOpValue.PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case EQUALS:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.EQUALS;
+                    return PComparisonType.EQUALS;
                 case NOT_EQUALS:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.NOT_EQUALS;
+                    return PComparisonType.NOT_EQUALS;
                 case LESS_THAN:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.LESS_THAN;
+                    return PComparisonType.LESS_THAN;
                 case LESS_THAN_OR_EQUALS:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.LESS_THAN_OR_EQUALS;
+                    return PComparisonType.LESS_THAN_OR_EQUALS;
                 case GREATER_THAN:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.GREATER_THAN;
+                    return PComparisonType.GREATER_THAN;
                 case GREATER_THAN_OR_EQUALS:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.GREATER_THAN_OR_EQUALS;
+                    return PComparisonType.GREATER_THAN_OR_EQUALS;
                 case STARTS_WITH:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.STARTS_WITH;
+                    return PComparisonType.STARTS_WITH;
                 case NOT_NULL:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.NOT_NULL;
+                    return PComparisonType.NOT_NULL;
                 case IS_NULL:
-                    return RecordQueryPlanProto.PRelOpValue.PComparisonType.IS_NULL;
+                    return PComparisonType.IS_NULL;
                 default:
                     throw new RecordCoreException("unknown comparison type mapping. did you forget to add it here?");
             }
@@ -636,7 +650,7 @@ public class Comparisons {
         @Nonnull
         @SuppressWarnings("unused")
         public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final RecordQueryPlanProto.PRelOpValue.PComparisonType comparisonTypeProto) {
+                                     @Nonnull final PComparisonType comparisonTypeProto) {
             switch (comparisonTypeProto) {
                 case EQUALS:
                     return EQUALS;
@@ -741,7 +755,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends PlanHashable, QueryHashable, Correlated<Comparison> {
+    public interface Comparison extends PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -832,6 +846,16 @@ public class Comparisons {
         default int semanticHashCode() {
             return hashCode();
         }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final RecordQueryPlanProto.PComparison comparisonProto) {
+            return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
+        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -847,6 +871,8 @@ public class Comparisons {
     /**
      * A comparison with a constant value.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PSimpleComparison.class)
     public static class SimpleComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
 
@@ -994,6 +1020,28 @@ public class Comparisons {
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
         }
+
+        @Nonnull
+        @Override
+        public PSimpleComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PSimpleComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setObject(PlanSerialization.valueObjectToProto(comparand))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSimpleComparison simpleComparisonProto) {
+            return new SimpleComparison(Type.fromProto(serializationContext, Objects.requireNonNull(simpleComparisonProto.getType())),
+                    Objects.requireNonNull(PlanSerialization.protoObjectToValue(Objects.requireNonNull(simpleComparisonProto.getObject()))));
+        }
     }
 
     /**
@@ -1032,6 +1080,8 @@ public class Comparisons {
     /**
      * A comparison with a bound parameter, as opposed to a literal constant in the query.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PParameterComparison.class)
     public static class ParameterComparison implements ComparisonWithParameter {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Comparison");
 
@@ -1267,6 +1317,39 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        public PParameterComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PParameterComparison.Builder builder = PParameterComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setParameter(parameter);
+
+            if (internal != null) {
+                builder.setInternal(internal.toProto(serializationContext));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PParameterComparison parameterComparisonProto) {
+            final Bindings.Internal internal;
+            if (parameterComparisonProto.hasInternal()) {
+                internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getInternal()));
+            } else {
+                internal = null;
+            }
+            return new ParameterComparison(Type.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getType())),
+                    Objects.requireNonNull(parameterComparisonProto.getParameter()),
+                    internal);
+        }
+
+        @Nonnull
         private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
             if (internal == null && Bindings.Internal.isInternal(parameter)) {
                 throw new RecordCoreException(
@@ -1277,8 +1360,10 @@ public class Comparisons {
     }
 
     /**
-     * A comparison with a bound parameter, as opposed to a literal constant in the query.
+     * A comparison with a {@link Value}, as opposed to a literal constant in the query.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PValueComparison.class)
     public static class ValueComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Comparison");
         @Nonnull
@@ -1444,11 +1529,35 @@ public class Comparisons {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ValueComparison(type, comparandValue, parameterRelationshipGraph);
         }
+
+        @Nonnull
+        @Override
+        public PValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValueComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setComparandValue(comparandValue.toValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PValueComparison valueComparisonProto) {
+            return new ValueComparison(Type.fromProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getType())),
+                    Value.fromValueProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getComparandValue())));
+        }
     }
 
     /**
      * A comparison with a list of values.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PListComparison.class)
     public static class ListComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Comparison");
 
@@ -1616,11 +1725,41 @@ public class Comparisons {
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
         }
+
+        @Nonnull
+        @Override
+        public PListComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final var builder = PListComparison.newBuilder()
+                    .setType(type.toProto(serializationContext));
+            for (final Object element : comparand) {
+                builder.addComparand(PlanSerialization.valueObjectToProto(element));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ListComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PListComparison listComparisonProto) {
+            List<Object> comparand = Lists.newArrayList();
+            for (int i = 0; i < listComparisonProto.getComparandCount(); i ++) {
+                comparand.add(PlanSerialization.protoObjectToValue(listComparisonProto.getComparand(i)));
+            }
+            return new ListComparison(Type.fromProto(serializationContext, Objects.requireNonNull(listComparisonProto.getType())),
+                    comparand);
+        }
     }
 
     /**
      * A unary predicate for special nullity checks, such as {@code NULL} and {@code NOT NULL}.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PNullComparison.class)
     public static class NullComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Comparison");
 
@@ -1720,11 +1859,31 @@ public class Comparisons {
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
+
+        @Nonnull
+        @Override
+        public PNullComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PNullComparison.newBuilder().setType(type.toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static NullComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PNullComparison nullComparisonProto) {
+            return new NullComparison(Type.fromProto(serializationContext, Objects.requireNonNull(nullComparisonProto.getType())));
+        }
     }
 
     /**
      * A predicate for comparisons to things unknown or opaque to the planner. We only know it is equal to some value.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(POpaqueEqualityComparison.class)
     public static class OpaqueEqualityComparison implements Comparison {
         @Nullable
         @Override
@@ -1792,6 +1951,25 @@ public class Comparisons {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
+
+        @Nonnull
+        @Override
+        public POpaqueEqualityComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return POpaqueEqualityComparison.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static OpaqueEqualityComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
+            return new OpaqueEqualityComparison();
         }
     }
 
@@ -2002,6 +2180,18 @@ public class Comparisons {
         public int hashCode() {
             return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
         }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("serialization of comparison of this kind is not supported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("serialization of comparison of this kind is not supported");
+        }
     }
 
     /**
@@ -2204,6 +2394,8 @@ public class Comparisons {
     /**
      * Comparison wrapping another one and answering {@code true} to {@link #hasMultiColumnComparand}.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMultiColumnComparison.class)
     public static class MultiColumnComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Multi-Column-Comparison");
 
@@ -2329,6 +2521,27 @@ public class Comparisons {
         public String toString() {
             return inner.toString();
         }
+
+        @Nonnull
+        @Override
+        public PMultiColumnComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMultiColumnComparison.newBuilder()
+                    .setInner(inner.toComparisonProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static MultiColumnComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PMultiColumnComparison multiColumnComparisonProto) {
+            return new MultiColumnComparison(Comparison.fromComparisonProto(serializationContext,
+                    Objects.requireNonNull(multiColumnComparisonProto.getInner())));
+        }
     }
 
     /**
@@ -2346,6 +2559,8 @@ public class Comparisons {
      * </p>
      */
     @API(API.Status.INTERNAL)
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PInvertedFunctionComparison.class)
     public static class InvertedFunctionComparison implements Comparison {
         @Nonnull
         private final InvertibleFunctionKeyExpression function;
@@ -2474,6 +2689,30 @@ public class Comparisons {
             } else {
                 return new InvertedFunctionComparison(function, translated, type);
             }
+        }
+
+        @Nonnull
+        @Override
+        public PInvertedFunctionComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PInvertedFunctionComparison.newBuilder()
+                    .setFunction(function.toProto())
+                    .setOriginalComparison(originalComparison.toComparisonProto(serializationContext))
+                    .setType(type.toProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static InvertedFunctionComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PInvertedFunctionComparison invertedFunctionComparisonProto) {
+            return new InvertedFunctionComparison((InvertibleFunctionKeyExpression)InvertibleFunctionKeyExpression.fromProto(Objects.requireNonNull(invertedFunctionComparisonProto.getFunction())),
+                    Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getOriginalComparison())),
+                    Type.fromProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getType())));
         }
 
         /**

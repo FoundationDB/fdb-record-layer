@@ -341,6 +341,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueSum(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
         public static Sum fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PSum sumProto) {
             return new Sum(serializationContext, Objects.requireNonNull(sumProto.getSuper()));
         }
@@ -379,6 +385,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Override
         public PAvg toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PAvg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueAvg(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -423,6 +435,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMin(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
         public static Min fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMin minProto) {
             return new Min(serializationContext, Objects.requireNonNull(minProto.getSuper()));
         }
@@ -461,6 +479,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Override
         public PMax toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PMax.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMax(toProto(serializationContext)).build();
         }
 
         @Nonnull

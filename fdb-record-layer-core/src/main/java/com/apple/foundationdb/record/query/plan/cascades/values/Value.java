@@ -365,9 +365,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    default RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("unable to generify value of class " + getClass().getSimpleName());
-    }
+    RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext);
 
     @Nonnull
     static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,

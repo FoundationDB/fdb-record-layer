@@ -599,9 +599,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     @Nonnull
-    default RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("unable to generify value of class " + getClass().getSimpleName());
-    }
+    RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext);
 
     @Nonnull
     static Type fromTypeProto(@Nonnull final PlanSerializationContext serializationContext,

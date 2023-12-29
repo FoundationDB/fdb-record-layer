@@ -633,9 +633,7 @@ public class MessageHelpers {
     public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
         @Nonnull
         @SuppressWarnings("unused")
-        default PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
-            throw new RecordCoreException("unable to generify coercion bi-function of class " + getClass().getSimpleName());
-        }
+        PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext);
 
         @Nonnull
         static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
