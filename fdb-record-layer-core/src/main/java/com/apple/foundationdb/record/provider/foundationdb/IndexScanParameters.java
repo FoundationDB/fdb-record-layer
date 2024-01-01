@@ -24,10 +24,14 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexScanParameters;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -38,7 +42,7 @@ import javax.annotation.Nonnull;
  * These parameters are stored in the plan and then bound to the context before passing on to the index maintainer.
  */
 @API(API.Status.UNSTABLE)
-public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanParameters> {
+public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanParameters>, PlanSerializable {
     /**
      * Get the type of index scan to be performed.
      * @return the scan type
@@ -82,4 +86,13 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
 
     @Nonnull
     IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap);
+
+    @Nonnull
+    PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext);
+
+    @Nonnull
+    static IndexScanParameters fromIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PIndexScanParameters indexScanParametersProto) {
+        return (IndexScanParameters)PlanSerialization.dispatchFromProtoContainer(serializationContext, indexScanParametersProto);
+    }
 }

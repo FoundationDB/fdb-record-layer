@@ -25,7 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
@@ -38,6 +40,7 @@ import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -163,5 +166,17 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("TODO"); // TODO
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("TODO"); // TODO
     }
 }

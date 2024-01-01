@@ -35,11 +35,11 @@ public class PlanSerializationTest {
         LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan.Builder luceneIndexQueryPlanBuilder =
                 LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan.newBuilder();
         luceneIndexQueryPlanBuilder.addStoredFields(RecordMetaDataProto.KeyExpression.newBuilder().setValue(RecordMetaDataProto.Value.newBuilder().setBoolValue(true)));
-        RecordQueryPlanProto.PPlanReference.Builder planReferenceBuilder = RecordQueryPlanProto.PPlanReference.newBuilder();
+        RecordQueryPlanProto.PRecordQueryPlan.Builder planReferenceBuilder = RecordQueryPlanProto.PRecordQueryPlan.newBuilder();
         planReferenceBuilder.setReferenceId(1);
         planReferenceBuilder.setIndexPlan(RecordQueryPlanProto.PRecordQueryIndexPlan.newBuilder().setName("index"));
         planReferenceBuilder.setExtension(LuceneRecordQueryPlanProto.luceneIndexQueryPlan, luceneIndexQueryPlanBuilder.build());
-        final RecordQueryPlanProto.PPlanReference planReference = planReferenceBuilder.build();
+        final RecordQueryPlanProto.PRecordQueryPlan planReference = planReferenceBuilder.build();
         System.out.println(planReference);
     }
 }

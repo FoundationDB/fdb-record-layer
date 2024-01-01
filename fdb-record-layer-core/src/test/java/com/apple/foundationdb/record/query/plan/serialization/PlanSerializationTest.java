@@ -20,13 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
@@ -49,5 +55,29 @@ public class PlanSerializationTest {
         final Value parsedValue = Value.fromValueProto(PlanSerializationContext.newForCurrentMode(), parsedValueProto);
         Verify.verify(parsedValue instanceof FieldValue);
         System.out.println(parsedValue);
+    }
+
+    @Test
+    void simpleIndexScanTest() throws Exception {
+        final RecordQueryIndexPlan plan = new RecordQueryIndexPlan("an_index",
+                null,
+                IndexScanComparisons.byValue(),
+                IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                true,
+                false,
+                Optional.empty(),
+                Type.Record.fromFields(false,
+                        ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
+                                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
+                QueryPlanConstraint.tautology());
+        PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final RecordQueryPlanProto.PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
+        final byte[] bytes = proto.toByteArray();
+        final RecordQueryPlanProto.PPlanReference parsedProto = RecordQueryPlanProto.PPlanReference.parseFrom(bytes);
+        planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
+        Verify.verify(parsedPlan instanceof RecordQueryIndexPlan);
+        System.out.println(parsedPlan);
     }
 }

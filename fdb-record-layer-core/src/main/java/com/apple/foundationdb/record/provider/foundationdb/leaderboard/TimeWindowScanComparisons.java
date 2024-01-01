@@ -23,23 +23,38 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PTimeWindowScanComparisons;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Extend {@link IndexScanComparisons} to have {@link TimeWindowForFunction}.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PTimeWindowScanComparisons.class)
 public class TimeWindowScanComparisons extends IndexScanComparisons {
     @Nonnull
     private final TimeWindowForFunction timeWindow;
+
+    protected TimeWindowScanComparisons(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
+        super(serializationContext, Objects.requireNonNull(timeWindowScanComparisonsProto.getSuper()));
+        this.timeWindow = TimeWindowForFunction.fromProto(serializationContext, Objects.requireNonNull(timeWindowScanComparisonsProto.getTimeWindow()));
+    }
 
     public TimeWindowScanComparisons(@Nonnull TimeWindowForFunction timeWindow, @Nonnull ScanComparisons comparisons) {
         super(IndexScanType.BY_TIME_WINDOW, comparisons);
@@ -105,5 +120,26 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
         int result = super.hashCode();
         result = 31 * result + timeWindow.hashCode();
         return result;
+    }
+
+    @Nonnull
+    @Override
+    public PTimeWindowScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PTimeWindowScanComparisons.newBuilder()
+                .setSuper(toIndexScanComparisonsProto(serializationContext))
+                .setTimeWindow(timeWindow.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PIndexScanParameters.newBuilder().setTimeWindowScanComparisons(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static TimeWindowScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
+        return new TimeWindowScanComparisons(serializationContext, timeWindowScanComparisonsProto);
     }
 }

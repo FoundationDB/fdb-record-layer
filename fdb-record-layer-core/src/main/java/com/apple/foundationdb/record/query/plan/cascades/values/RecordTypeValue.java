@@ -156,7 +156,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @Nonnull
     @SuppressWarnings("unused")
     public static RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final RecordQueryPlanProto.PQuantifiedObjectValue quantifiedObjectValue) {
-        return new RecordTypeValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())));
+                                            @Nonnull final PRecordTypeValue recordTypeValueProto) {
+        return new RecordTypeValue(CorrelationIdentifier.of(Objects.requireNonNull(recordTypeValueProto.getAlias())));
     }
 }

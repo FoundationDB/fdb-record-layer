@@ -24,8 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -37,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -59,7 +63,7 @@ import java.util.Objects;
  */
 @API(API.Status.STABLE)
 @GenerateVisitor(stripPrefix = "RecordQuery")
-public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable {
+public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable, PlanSerializable {
 
     /**
      * Execute this query plan.
@@ -275,6 +279,23 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         }
 
         return false;
+    }
+
+    @Nonnull
+    @Override
+    default Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new UnsupportedOperationException("::");
+    }
+
+    @Nonnull
+    default RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new UnsupportedOperationException("::");
+    }
+
+    @Nonnull
+    static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final RecordQueryPlanProto.PRecordQueryPlan recordQueryPlanProto) {
+        return (RecordQueryPlan)PlanSerialization.dispatchFromProtoContainer(serializationContext, recordQueryPlanProto);
     }
 
     @API(API.Status.EXPERIMENTAL)

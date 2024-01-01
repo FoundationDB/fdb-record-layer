@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -1642,6 +1644,18 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
         @Nonnull
         @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
         public IndexScanType getScanType() {
             return IndexScanType.BY_VALUE;
         }
@@ -1719,6 +1733,18 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             return 13;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
         }
 
         @Nonnull

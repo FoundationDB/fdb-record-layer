@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -62,7 +61,7 @@ import java.util.stream.Stream;
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s.
  */
 public class PlanSerialization {
-    private static final Logger logger = LoggerFactory.getLogger(FunctionCatalog.class);
+    private static final Logger logger = LoggerFactory.getLogger(PlanSerialization.class);
 
     private static final String PREFIX = "META-INF/services/";
 

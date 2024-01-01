@@ -31,12 +31,16 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryIndexPlan;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.FallbackCursor;
@@ -76,8 +80,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -125,6 +131,8 @@ import java.util.function.Supplier;
  * </p>
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryIndexPlan.class)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                              RecordQueryPlanWithComparisons,
@@ -182,6 +190,20 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 @Nonnull final Type.Record resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
         this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType, constraint);
+    }
+
+    protected RecordQueryIndexPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+        this(Objects.requireNonNull(recordQueryIndexPlanProto.getIndexName()),
+                recordQueryIndexPlanProto.hasCommonPrimaryKey() ? KeyExpression.fromProto(recordQueryIndexPlanProto.getCommonPrimaryKey()) : null,
+                IndexScanParameters.fromIndexScanParametersProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getScanParameters())),
+                IndexFetchMethod.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getIndexFetchMethod())),
+                FetchIndexRecords.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getFetchIndexRecords())),
+                recordQueryIndexPlanProto.getReverse(),
+                recordQueryIndexPlanProto.getStrictlySorted(),
+                Optional.empty(),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getResultType())),
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
     }
 
     @VisibleForTesting
@@ -672,6 +694,40 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return toRecordQueryIndexPlanProto(serializationContext);
+    }
+
+    public PRecordQueryIndexPlan toRecordQueryIndexPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryIndexPlan.newBuilder()
+                .setIndexName(indexName);
+        if (commonPrimaryKey != null) {
+            builder.setCommonPrimaryKey(commonPrimaryKey.toKeyExpression());
+        }
+        builder.setScanParameters(scanParameters.toIndexScanParametersProto(serializationContext));
+        builder.setIndexFetchMethod(indexFetchMethod.toProto(serializationContext));
+        builder.setFetchIndexRecords(fetchIndexRecords.toProto(serializationContext));
+        builder.setReverse(reverse);
+        builder.setStrictlySorted(strictlySorted);
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        builder.setConstraint(constraint.toProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryIndexPlan(toRecordQueryIndexPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+        return new RecordQueryIndexPlan(serializationContext, recordQueryIndexPlanProto);
     }
 
     /**

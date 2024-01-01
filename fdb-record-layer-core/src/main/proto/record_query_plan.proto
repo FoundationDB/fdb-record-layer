@@ -996,10 +996,14 @@ message PValuePredicate {
 // Plan reference holder to facilitate polymorphism between different plans but also assign ids to plans.
 //
 message PPlanReference {
-  extensions 5000 to max;
   optional int32 reference_id = 1;
+  optional PRecordQueryPlan record_query_plan = 2;
+}
+
+message PRecordQueryPlan {
+  extensions 5000 to max;
   oneof specific_plan {
-    PRecordQueryIndexPlan index_plan = 2;
+    PRecordQueryIndexPlan record_query_index_plan = 2;
   }
 }
 
@@ -1007,7 +1011,7 @@ message PPlanReference {
 // Specific plan operators
 //
 message PRecordQueryIndexPlan {
-  optional string name = 1;
+  optional string index_name = 1;
   optional KeyExpression common_primary_key = 2;
   optional PIndexScanParameters scan_parameters = 3;
   optional PIndexFetchMethod index_fetch_method = 4;
@@ -1027,16 +1031,36 @@ message PIndexScanParameters {
   }
 }
 
-message PIndexScanComparisons {
+message PIndexScanType {
+  optional string name = 1;
+}
 
+message PScanComparisons {
+  repeated PComparison equality_comparisons = 1;
+  repeated PComparison inequality_comparisons = 2;
+}
+
+message PIndexScanComparisons {
+  optional PIndexScanType scan_type = 1;
+  optional PScanComparisons scan_comparisons = 2;
 }
 
 message PMultidimensionalIndexScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  repeated PScanComparisons dimensions_scan_comparisons = 2;
+  optional PScanComparisons suffix_scan_comparisons = 3;
+}
 
+message PTimeWindowForFunction {
+  optional int32 leaderboard_type = 1;
+  optional int64 leaderboard_timestamp = 2;
+  optional string leaderboard_type_parameter = 3;
+  optional string leaderboard_timestamp_parameter = 4;
 }
 
 message PTimeWindowScanComparisons {
-
+ optional PIndexScanComparisons super = 1;
+ optional PTimeWindowForFunction time_window = 2;
 }
 
 enum PIndexFetchMethod {

@@ -24,6 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexScanComparisons;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -31,24 +35,36 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * {@link ScanComparisons} for use in an index scan.
  */
 @API(API.Status.MAINTAINED)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PIndexScanComparisons.class)
 public class IndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final IndexScanType scanType;
     @Nonnull
     private final ScanComparisons scanComparisons;
 
-    public IndexScanComparisons(@Nonnull IndexScanType scanType, @Nonnull ScanComparisons scanComparisons) {
+    protected IndexScanComparisons(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+        this(IndexScanType.fromProto(serializationContext, Objects.requireNonNull(indexScanComparisonsProto.getScanType())),
+                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(indexScanComparisonsProto.getScanComparisons())));
+    }
+
+    public IndexScanComparisons(@Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons scanComparisons) {
         this.scanType = scanType;
         this.scanComparisons = scanComparisons;
     }
@@ -191,5 +207,31 @@ public class IndexScanComparisons implements IndexScanParameters {
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return toIndexScanComparisonsProto(serializationContext);
+    }
+
+    @Nonnull
+    public PIndexScanComparisons toIndexScanComparisonsProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexScanComparisons.newBuilder()
+                .setScanType(scanType.toProto(serializationContext))
+                .setScanComparisons(scanComparisons.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PIndexScanParameters.newBuilder().setIndexScanComparisons(toIndexScanComparisonsProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static IndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+        return new IndexScanComparisons(serializationContext, indexScanComparisonsProto);
     }
 }

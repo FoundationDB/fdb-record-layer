@@ -27,7 +27,10 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PFetchIndexRecords;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -284,6 +287,33 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                                 @Nonnull final RecordCursor<IndexEntry> entryRecordCursor,
                                                                                 @Nonnull final ExecuteProperties executeProperties) {
             return fetchIndexRecordsFunction.fetchIndexRecords(store, entryRecordCursor, executeProperties);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public final PFetchIndexRecords toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            switch (this) {
+                case PRIMARY_KEY:
+                    return PFetchIndexRecords.PRIMARY_KEY;
+                case SYNTHETIC_CONSTITUENTS:
+                    return PFetchIndexRecords.SYNTHETIC_CONSTITUENTS;
+                default:
+                    throw new RecordCoreException("unknown fetch index records mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static FetchIndexRecords fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PFetchIndexRecords fetchIndexRecordsProto) {
+            switch (fetchIndexRecordsProto) {
+                case PRIMARY_KEY:
+                    return PRIMARY_KEY;
+                case SYNTHETIC_CONSTITUENTS:
+                    return SYNTHETIC_CONSTITUENTS;
+                default:
+                    throw new RecordCoreException("unknown fetch index records mapping. did you forget to add it?");
+            }
         }
 
         /**
