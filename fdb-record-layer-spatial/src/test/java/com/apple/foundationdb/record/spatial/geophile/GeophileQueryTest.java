@@ -109,7 +109,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         int total = 0;
         try {
             openRecordStore(context, hook);
-            try (FileInputStream file = new FileInputStream(".out/cities15000.txt")) {
+            try (FileInputStream file = new FileInputStream(".out/geonames/cities15000.txt")) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
                 String line;
                 int count = 0;
@@ -148,7 +148,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void loadCountries(RecordMetaDataHook hook, int minPopulation) throws Exception {
         int total = 0;
-        try (FileInputStream file = new FileInputStream(".out/countryInfo.txt"); FDBRecordContext context = openContext()) {
+        try (FileInputStream file = new FileInputStream(".out/geonames/countryInfo.txt"); FDBRecordContext context = openContext()) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
             openRecordStore(context, hook);
             String line;
@@ -180,7 +180,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         FDBRecordContext context = openContext();
         try {
             openRecordStore(context, hook);
-            try (FileInputStream file = new FileInputStream(".out/shapes_all_low.txt")) {
+            try (FileInputStream file = new FileInputStream(".out/geonames/shapes_all_low.txt")) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
                 String line = reader.readLine();
                 int count = 0;
