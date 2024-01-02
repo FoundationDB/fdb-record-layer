@@ -25,7 +25,6 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -53,7 +52,6 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
@@ -76,7 +74,6 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -985,77 +982,10 @@ public class FDBDirectory extends Directory  {
         return ref.getId();
     }
 
-    private byte[] fileLockKey(String lockName) {
+    byte[] fileLockKey(String lockName) {
         return fileLockSubspace.pack(Tuple.from(lockName));
     }
 
-    private static byte[] fileLockValue(long timeStampMillis) {
-        return Tuple.from(timeStampMillis).pack();
-    }
-
-    private static long fileLockValueToTimestamp(byte[] value) {
-        return value == null || value.length < 2 ? 0 :
-               Tuple.fromBytes(value).getLong(0);
-    }
-
-    public void fileLockSet(String lockName, long timeStampMillis) {
-        byte[] key = fileLockKey(lockName);
-        byte[] value = fileLockValue(timeStampMillis);
-        asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
-                agilityContext.apply(aContext ->
-                        aContext.ensureActive().get(key)
-                                .thenAccept(val -> {
-                                    if (val != null) {
-                                        long existingTimeStamp =  fileLockValueToTimestamp(val);
-                                        if (existingTimeStamp > (timeStampMillis - DateUtils.MILLIS_PER_HOUR) &&
-                                                existingTimeStamp < (timeStampMillis + DateUtils.MILLIS_PER_HOUR)) {
-                                            // Here: this lock is valid
-                                            throw new RecordCoreException("FileLock: Set: found old lock")
-                                                    .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
-                                                            LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
-                                        }
-                                        // Here: this lock is either too old, or in the future. Steal it
-                                        if (LOGGER.isWarnEnabled()) {
-                                            LOGGER.warn(getLogMessage("FileLock: Set: found old lock, discard it",
-                                                    LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
-                                                    LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis));
-                                        }
-                                    }
-                                    final Transaction tr = aContext.ensureActive();
-                                    tr.addWriteConflictKey(key);
-                                    tr.set(key, value);
-                                })
-                ));
-        agilityContext.flush();
-    }
-
-    public long fileLockGet(String lockName) {
-        // return time stamp if exists, 0 if not
-        byte[] key = fileLockKey(lockName);
-        byte[] val = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(key));
-        return fileLockValueToTimestamp(val);
-    }
-
-    public void fileLockClear(String lockName, long timeStampMillis) {
-        byte[] key = fileLockKey(lockName);
-        byte[] value = fileLockValue(timeStampMillis);
-        asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
-                agilityContext.apply(aContext ->
-                        aContext.ensureActive().get(key)
-                                .thenAccept(val -> {
-                                    if (!Arrays.equals(value, val)) {
-                                        throw new RecordCoreException("FileLock: Clear: found unexpected lock")
-                                                .addLogInfo(LogMessageKeys.ACTUAL, val,
-                                                        LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, fileLockValueToTimestamp(val),
-                                                        LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis);
-                                    }
-                                    final Transaction tr = aContext.ensureActive();
-                                    tr.addWriteConflictKey(key);
-                                    tr.clear(key);
-                                })
-                ));
-        agilityContext.flush();
-    }
 
     // Map stored segment id back to segment name.
     @Nullable

@@ -15,8 +15,8 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fixe Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
-* **Bug fix** Make stored fields test less flaky [(Issue #2401)](https://github.com/FoundationDB/fdb-record-layer/issues/2401)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,13 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.443.0
+
+* **Bug fix** Fixe Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
+* **Bug fix** Make stored fields test less flaky [(Issue #2401)](https://github.com/FoundationDB/fdb-record-layer/issues/2401)
+* **Feature** Add lucene partitioning metadata [(Issue #2390)](https://github.com/FoundationDB/fdb-record-layer/issues/2390)
+* **Feature** Lucene: cross transactional merge path - extra cleanup [(Issue #2415)](https://github.com/FoundationDB/fdb-record-layer/issues/2415)
 
 ### 3.3.442.0
 

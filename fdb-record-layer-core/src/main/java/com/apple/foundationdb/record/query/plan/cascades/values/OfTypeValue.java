@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -80,6 +81,9 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         final var value = child.eval(store, context);
         if (value == null) {
             return expectedType.isNullable();
+        }
+        if (value instanceof DynamicMessage) {
+            return expectedType.isRecord();
         }
         final var type = Type.fromObject(value);
         return expectedType.equals(type);
