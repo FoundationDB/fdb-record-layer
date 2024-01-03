@@ -49,10 +49,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
 
-    protected final CompoundFormat compoundFormat;
+    protected final CompoundFormat underlying;
 
     public LuceneOptimizedCompoundFormat(final CompoundFormat underlying) {
-        this.compoundFormat = underlying;
+        this.underlying = underlying;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         si.setFiles(filteredFiles);
         @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
         final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(dir);
-        compoundFormat.write(dir, si, context);
+        underlying.write(dir, si, context);
         si.setFiles(filesForAfter);
         copyFieldInfos(si, filesForAfter, directory);
     }

@@ -63,7 +63,7 @@ import java.util.Set;
  */
 @AutoService(Codec.class)
 public class TestingCodec extends Codec {
-    private LuceneOptimizedCodec underlying;
+    private final LuceneOptimizedCodec underlying;
     private static boolean disableLaziness;
     private static boolean disableLazinessForLiveDocs;
     private static boolean allowRandomCompoundFiles;
@@ -104,6 +104,7 @@ public class TestingCodec extends Codec {
     public static void reset() {
         disableLaziness = false;
         disableLazinessForLiveDocs = false;
+        allowRandomCompoundFiles = false;
     }
 
     @Override
@@ -208,7 +209,7 @@ public class TestingCodec extends Codec {
     @Override
     public CompoundFormat compoundFormat() {
         if (allowRandomCompoundFiles) {
-            return new LuceneOptimizedCompoundFormat(((LuceneOptimizedCompoundFormat)underlying.compoundFormat()).compoundFormat) {
+            return new LuceneOptimizedCompoundFormat(((LuceneOptimizedCompoundFormat)underlying.compoundFormat()).underlying) {
                 @Override
                 protected void copyFieldInfos(final SegmentInfo si, final Set<String> filesForAfter, final FDBDirectory directory) {
                     // copy the id, only if it's present
