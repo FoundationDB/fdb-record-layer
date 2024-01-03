@@ -111,8 +111,6 @@ def configureTestTask = { propertyPrefix, task ->
         // disable BLOCKING_DETECTION to better simulate performance
         task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
             System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
-        // Enable coverage for all non-performance tests
-        task.finalizedBy("jacoco${task.name.capitalize()}Report")
     }
 
 
@@ -130,15 +128,22 @@ def configureTestTask = { propertyPrefix, task ->
     }
 }
 
-tasks.withType(Test) { task ->
-    configureTestTask('allTest', task)
-    configureTestTask(task.name, task)
+tasks.withType(Test) { theTask ->
+    configureTestTask('allTest', theTask)
+    configureTestTask(theTask.name, theTask)
     testLogging {
         events 'started', 'passed', 'failed', 'skipped'
         exceptionFormat = 'full'
     }
     reports {
         junitXml.outputPerTestCase = true
+    }
+    // Don't gather coverage for performance tests
+    // test automatically gets a coverage task
+    if (theTask.name != 'performanceTest' && theTask.name != 'test') {
+        task "jacoco${theTask.name.capitalize()}Report"(type: JacocoReport) {
+        }
+        theTask.finalizedBy("jacoco${theTask.name.capitalize()}Report")
     }
 }
 
