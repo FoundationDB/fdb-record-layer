@@ -24,14 +24,19 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Helper class to describe an IN-list for physical {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
@@ -39,12 +44,18 @@ import java.util.List;
  * This class is more or less a physical counterpart of a {@link Quantifier} ranging over an {@link ExplodeExpression}.
  */
 @API(API.Status.INTERNAL)
-public abstract class InSource implements PlanHashable {
+public abstract class InSource implements PlanHashable, PlanSerializable {
     @SuppressWarnings("unchecked")
     private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);
 
     @Nonnull
     private final String bindingName;
+
+    @SuppressWarnings("unused")
+    protected InSource(@Nonnull final PlanSerializationContext serializationContext,
+                       @Nonnull final PInSource.Super inSourceProto) {
+        this(Objects.requireNonNull(inSourceProto.getBindingName()));
+    }
 
     protected InSource(@Nonnull final String bindingName) {
         this.bindingName = bindingName;
@@ -79,6 +90,23 @@ public abstract class InSource implements PlanHashable {
         // TODO We should really use objectPlanHash here, too, but it seems doing so will change a lot
         //      of plan hashes.
         return objectPlanHash.planHash(mode);
+    }
+
+    @Nonnull
+    protected abstract PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext);
+
+    @Nonnull
+    protected static InSource fromInSourceProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PInSource inSourceProto) {
+        return (InSource)PlanSerialization.dispatchFromProtoContainer(serializationContext, inSourceProto);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    protected PInSource.Super toInSourceSuperProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.Super.newBuilder()
+                .setBindingName(bindingName)
+                .build();
     }
 
     @Nonnull

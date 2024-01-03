@@ -21,12 +21,19 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInParameterSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.google.auto.service.AutoService;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,6 +48,8 @@ import java.util.Objects;
  * This source is used by {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PInParameterSource.class)
 public class InParameterSource extends InSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE = new ObjectPlanHash("In-Parameter");
@@ -48,7 +57,13 @@ public class InParameterSource extends InSource {
     @Nonnull
     private final String parameterName;
 
-    public InParameterSource(@Nonnull String bindingName, @Nonnull final String parameterName) {
+    protected InParameterSource(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final PInParameterSource inParameterSourceProto) {
+        super(serializationContext, Objects.requireNonNull(inParameterSourceProto.getSuper()));
+        this.parameterName = Objects.requireNonNull(inParameterSourceProto.getParameterName());
+    }
+
+    public InParameterSource(@Nonnull final String bindingName, @Nonnull final String parameterName) {
         super(bindingName);
         this.parameterName = parameterName;
     }
@@ -129,5 +144,31 @@ public class InParameterSource extends InSource {
     @Override
     public int hashCode() {
         return parameterName.hashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return toInParameterSourceProto(serializationContext);
+    }
+
+    @Nonnull
+    protected PInParameterSource toInParameterSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInParameterSource.newBuilder()
+                .setSuper(toInSourceSuperProto(serializationContext))
+                .setParameterName(parameterName)
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setInParameterSource(toInParameterSourceProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static InParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PInParameterSource inParameterSourceProto) {
+        return new InParameterSource(serializationContext, inParameterSourceProto);
     }
 }

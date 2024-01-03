@@ -993,7 +993,15 @@ message PValuePredicate {
 }
 
 //
-// Plan reference holder to facilitate polymorphism between different plans but also assign ids to plans.
+// Plans
+//
+message PPhysicalQuantifier {
+  optional string alias = 1;
+  repeated PPlanReference plan_references = 2;
+}
+
+//
+// Plan reference holder to assign ids to plans in order to support plan DAGs.
 //
 message PPlanReference {
   optional int32 reference_id = 1;
@@ -1003,12 +1011,44 @@ message PPlanReference {
 message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
-    PRecordQueryIndexPlan record_query_index_plan = 2;
+    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 1;
+    PRecordQueryFlatMapPlan flat_map_plan = 2;
+    PRecordQueryInComparandJoinPlan record_query_in_comparand_join_plan = 3;
+    PRecordQueryIndexPlan record_query_index_plan = 4;
+    PRecordQueryInParameterJoinPlan record_query_in_parameter_join_plan = 5;
+    PRecordQueryInValuesJoinPlan record_query_in_values_join_plan = 6;
+    PRecordQueryMapPlan map_plan = 7;
+    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 8;
+    PRecordQueryScanPlan scan_plan = 9;
+    PRecordQueryTypeFilterPlan type_filter_plan = 10;
   }
 }
 
 //
-// Specific plan operators
+// Specific plan operators (in alphabetical order)
+//
+
+//
+// PRecordQueryFetchFromPartialRecordPlan
+//
+message PRecordQueryFetchFromPartialRecordPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PType result_type = 2;
+  optional PFetchIndexRecords fetch_index_records = 3;
+}
+
+//
+// PRecordQueryFlatMapPlan
+//
+message PRecordQueryFlatMapPlan {
+  optional PPhysicalQuantifier outer_quantifier = 1;
+  optional PPhysicalQuantifier inner_quantifier = 2;
+  optional PValue result_value = 3;
+  optional bool inherit_outer_record_properties = 4;
+}
+
+//
+// PRecordQueryIndexPlan
 //
 message PRecordQueryIndexPlan {
   optional string index_name = 1;
@@ -1076,4 +1116,121 @@ enum PFetchIndexRecords {
 
 message PQueryPlanConstraint {
   optional PQueryPredicate predicate = 1;
+}
+
+//
+// PRecordQueryInComparandJoinPlan
+//
+message PRecordQueryInComparandJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryInJoinPlan
+//
+message PRecordQueryInJoinPlan {
+  optional PPhysicalQuantifier physical_quantifier = 1;
+  optional PInSource in_source = 2;
+  optional PParameterComparison.PBindingKind internal = 3;
+}
+
+message PInSource {
+  message Super {
+    optional string binding_name = 1;
+  }
+
+  oneof specific_in_source {
+    PInComparandSource in_comparand_source = 1;
+    PSortedInComparandSource sorted_in_comparand_source = 2;
+    PInParameterSource in_parameter_source = 3;
+    PSortedInParameterSource sorted_in_parameter_source = 4;
+    PInValuesSource in_values_source = 5;
+    PSortedInValuesSource sorted_in_values_source = 6;
+  }
+}
+
+message PInComparandSource {
+  optional PInSource.Super super = 1;
+  optional PComparison comparison = 2;
+}
+
+message PSortedInComparandSource {
+  optional PInComparandSource super = 1;
+  optional bool reverse = 2;
+}
+
+message PInParameterSource {
+  optional PInSource.Super super = 1;
+  optional string parameter_name = 2;
+}
+
+message PSortedInParameterSource {
+  optional PInParameterSource super = 1;
+  optional bool reverse = 2;
+}
+
+message PInValuesSource {
+  optional PInSource.Super super = 1;
+  repeated Value values = 2;
+}
+
+message PSortedInValuesSource {
+  optional PInValuesSource super = 1;
+  optional bool reverse = 2;
+}
+
+//
+// PRecordQueryInParameterJoinPlan
+//
+message PRecordQueryInParameterJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryInValuesJoinPlan
+//
+message PRecordQueryInValuesJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryMapPlan
+//
+message PRecordQueryMapPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PValue result_value = 2;
+}
+
+//
+// PRecordQueryPredicatesFilterPlan
+//
+message PRecordQueryPredicatesFilterPlan {
+  optional PRecordQueryFilterPlanBase super = 1;
+  repeated PQueryPredicate predicates = 2;
+}
+
+message PRecordQueryFilterPlanBase {
+  optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryScanPlan
+//
+message PRecordQueryScanPlan {
+  optional bool has_record_types = 1;
+  repeated string record_types = 2;
+  optional PType flowed_type = 3;
+  optional KeyExpression common_primary_key = 4;
+  optional PScanComparisons comparisons = 5;
+  optional bool reverse = 6;
+  optional bool strictly_sorted = 7;
+}
+
+//
+// PRecordQueryTypeFilterPlan
+//
+message PRecordQueryTypeFilterPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated string record_types = 2;
+  optional PType result_type = 3;
 }

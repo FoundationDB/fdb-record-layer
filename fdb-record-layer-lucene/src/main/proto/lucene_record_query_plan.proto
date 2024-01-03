@@ -35,3 +35,23 @@ message PLuceneIndexQueryPlan {
 extend PRecordQueryPlan {
   optional PLuceneIndexQueryPlan lucene_index_query_plan = 5001;
 }
+
+message PLuceneScanParameters {
+  optional PIndexScanType scan_type = 1;
+  optional PScanComparisons group_comparisons = 2;
+}
+
+message PLuceneScanQueryParameters {
+  optional PLuceneScanParameters super = 1;
+  // TODO
+}
+
+message PLuceneScanSpellCheckParameters {
+  optional PLuceneScanParameters super = 1;
+  // TODO
+}
+
+extend PIndexScanParameters {
+  optional PLuceneScanQueryParameters lucene_scan_query_parameters = 5001;
+  optional PLuceneScanSpellCheckParameters lucene_scan_spell_check_parameters = 5002;
+}

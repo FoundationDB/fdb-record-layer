@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -213,6 +215,18 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             // Select a plan using the plan selector
             return planSelector.selectPlan(getChildren());
         }
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("serialization of this plan is not supported");
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("serialization of this plan is not supported");
     }
 
     private static class SelectorPlanCursor implements RecordCursor<QueryResult> {

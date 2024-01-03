@@ -20,26 +20,55 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
+
+import java.util.List;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 
 /**
  * Tests around plan serialization.
  */
 public class PlanSerializationTest {
 
+    private static final List<KeyExpression> COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS =
+            List.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
+
+    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE = new Index("Complex$text_multipleIndexes",
+            concat(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of());
+
     @Test
-    public void simpleExtension() {
-        LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan.Builder luceneIndexQueryPlanBuilder =
-                LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan.newBuilder();
-        luceneIndexQueryPlanBuilder.addStoredFields(RecordMetaDataProto.KeyExpression.newBuilder().setValue(RecordMetaDataProto.Value.newBuilder().setBoolValue(true)));
-        RecordQueryPlanProto.PRecordQueryPlan.Builder planReferenceBuilder = RecordQueryPlanProto.PRecordQueryPlan.newBuilder();
-        planReferenceBuilder.setReferenceId(1);
-        planReferenceBuilder.setIndexPlan(RecordQueryPlanProto.PRecordQueryIndexPlan.newBuilder().setName("index"));
-        planReferenceBuilder.setExtension(LuceneRecordQueryPlanProto.luceneIndexQueryPlan, luceneIndexQueryPlanBuilder.build());
-        final RecordQueryPlanProto.PRecordQueryPlan planReference = planReferenceBuilder.build();
-        System.out.println(planReference);
+    public void simpleLuceneIndexPlan() throws Exception {
+        final RecordQueryPlan plan =
+                LuceneIndexQueryPlan.of(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE.getName(),
+                        new LuceneScanQueryParameters(ScanComparisons.EMPTY,
+                                new LuceneAutoCompleteQueryClause("good", false, ImmutableSet.of("text", "text2"))),
+                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                        false,
+                        null,
+                        COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS);
+        PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final RecordQueryPlanProto.PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
+        final byte[] bytes = proto.toByteArray();
+        final RecordQueryPlanProto.PPlanReference parsedProto =
+                RecordQueryPlanProto.PPlanReference.parseFrom(bytes, LucenePlanSerialization.getExtensionRegistry());
+        planSerializationContext = PlanSerializationContext.newForCurrentMode();
+        final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
+        Verify.verify(parsedPlan instanceof LuceneIndexQueryPlan);
+        System.out.println(parsedPlan);
     }
 }

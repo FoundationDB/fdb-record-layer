@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRankValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;

@@ -283,14 +283,10 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
     @Nonnull
     @Override
-    default Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new UnsupportedOperationException("::");
-    }
+    Message toProto(@Nonnull final PlanSerializationContext serializationContext);
 
     @Nonnull
-    default RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new UnsupportedOperationException("::");
-    }
+    RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext);
 
     @Nonnull
     static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,

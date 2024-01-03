@@ -23,8 +23,11 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanSpellCheckParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -36,27 +39,39 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.util.LogMessageKeys;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Scan parameters for making a {@link LuceneScanSpellCheck}.
  */
 @API(API.Status.UNSTABLE)
-public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PLuceneScanSpellCheckParameters.class)
+public class LuceneScanSpellCheckParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Spell-Check");
 
     @Nonnull
     final String key;
     final boolean isParameter;
+
+    protected LuceneScanSpellCheckParameters(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+        super(serializationContext, Objects.requireNonNull(luceneScanSpellCheckParametersProto.getSuper()));
+        // TODO replace stub by extracting info out of the proto
+        this.key = "TODO";
+        this.isParameter = false;
+    }
 
     protected LuceneScanSpellCheckParameters(@Nonnull ScanComparisons groupComparisons,
                                              @Nonnull String key, boolean isParameter) {
@@ -170,13 +185,25 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters {
 
     @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("TODO"); // TODO
+    public PLuceneScanSpellCheckParameters toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        // TODO replace stub
+        return PLuceneScanSpellCheckParameters.newBuilder()
+                .setSuper(toLuceneScanParametersProto(serializationContext))
+                .build();
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("TODO"); // TODO
+        return RecordQueryPlanProto.PIndexScanParameters.newBuilder()
+                .setExtension(LuceneRecordQueryPlanProto.luceneScanSpellCheckParameters, toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static LuceneScanSpellCheckParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+        return new LuceneScanSpellCheckParameters(serializationContext, luceneScanSpellCheckParametersProto);
     }
 }

@@ -21,9 +21,14 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -41,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +65,8 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryPredicatesFilterPlan.class)
 public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
 
@@ -66,6 +74,17 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     private final List<QueryPredicate> predicates;
     @Nonnull
     private final QueryPredicate conjunctedPredicate;
+
+    protected RecordQueryPredicatesFilterPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryPredicatesFilterPlanProto.getSuper()));
+        final ImmutableList.Builder<QueryPredicate> predicatesBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryPredicatesFilterPlanProto.getPredicatesCount(); i ++) {
+            predicatesBuilder.add(QueryPredicate.fromQueryPredicateProto(serializationContext, recordQueryPredicatesFilterPlanProto.getPredicates(i)));
+        }
+        this.predicates = predicatesBuilder.build();
+        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+    }
 
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
@@ -208,5 +227,28 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(conjunctedPredicate.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryPredicatesFilterPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryPredicatesFilterPlan.Builder builder = PRecordQueryPredicatesFilterPlan.newBuilder()
+                .setSuper(toRecordQueryFilterPlanBaseProto(serializationContext));
+        for (final QueryPredicate predicate : predicates) {
+            builder.addPredicates(predicate.toQueryPredicateProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setPredicatesFilterPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+        return new RecordQueryPredicatesFilterPlan(serializationContext, recordQueryPredicatesFilterPlanProto);
     }
 }

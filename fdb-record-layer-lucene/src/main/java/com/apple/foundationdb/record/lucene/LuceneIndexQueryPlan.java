@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -37,6 +38,8 @@ import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.annotation.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -51,6 +54,8 @@ import java.util.Set;
 /**
  * Lucene query plan for including search-related scan parameters.
  */
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PLuceneIndexQueryPlan.class)
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields {
     @Nullable
     private final PlanOrderingKey planOrderingKey;
@@ -60,7 +65,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     protected LuceneIndexQueryPlan(@Nonnull final PlanSerializationContext serializationContext,
                                    @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
         super(serializationContext, Objects.requireNonNull(luceneIndexQueryPlanProto.getSuper()));
-        this.planOrderingKey = null; // TBD
+        this.planOrderingKey = null; // TODO
         Verify.verify(luceneIndexQueryPlanProto.hasHasStoredFields());
         if (luceneIndexQueryPlanProto.getHasStoredFields()) {
             this.storedFields = Lists.newArrayList();
@@ -266,6 +271,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
                 builder.addStoredFields(storedField.toKeyExpression());
             }
         }
+        // TODO plan ordering key
         return builder.build();
     }
 

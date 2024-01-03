@@ -21,12 +21,17 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInComparandSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,11 +42,20 @@ import java.util.Objects;
  * Variation of {@link InComparandSource} where the values should be returned in a sorted order.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PSortedInComparandSource.class)
 public class SortedInComparandSource extends InComparandSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE = new ObjectPlanHash("Sorted-In-Comparand");
 
     private final boolean reverse;
+
+    protected SortedInComparandSource(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+        super(serializationContext, Objects.requireNonNull(sortedInComparandSourceProto.getSuper()));
+        Verify.verify(sortedInComparandSourceProto.hasReverse());
+        this.reverse = sortedInComparandSourceProto.getReverse();
+    }
 
     protected SortedInComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison, boolean reverse) {
         super(bindingName, comparison);
@@ -63,22 +77,11 @@ public class SortedInComparandSource extends InComparandSource {
         return reverse;
     }
 
-    @Override
-    protected int size(@Nonnull final EvaluationContext context) {
-        return super.getValues(context).size();
-    }
-
     @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         List<Object> unsortedValues = super.getValues(context);
         return Objects.requireNonNull(InSource.sortValues(unsortedValues, reverse));
-    }
-
-    @Nonnull
-    @Override
-    public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
-        return new RecordQueryInComparandJoinPlan(innerQuantifier, this, Bindings.Internal.CORRELATION);
     }
 
     @Nonnull
@@ -106,5 +109,26 @@ public class SortedInComparandSource extends InComparandSource {
     @Override
     public int hashCode() {
         return Objects.hash(getComparison(), reverse);
+    }
+
+    @Nonnull
+    @Override
+    public PSortedInComparandSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PSortedInComparandSource.newBuilder()
+                .setSuper(toInComparandSourceProto(serializationContext))
+                .setReverse(reverse)
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setSortedInComparandSource(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static SortedInComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+        return new SortedInComparandSource(serializationContext, sortedInComparandSourceProto);
     }
 }

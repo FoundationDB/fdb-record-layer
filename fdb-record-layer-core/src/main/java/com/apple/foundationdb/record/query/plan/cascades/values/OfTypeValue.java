@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.DynamicMessage;
-import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 

@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanQueryParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -36,10 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.annotation.ProtoMessage;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Message;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 
@@ -53,7 +56,9 @@ import java.util.Set;
  * Scan parameters for making a {@link LuceneScanQuery}.
  */
 @API(API.Status.UNSTABLE)
-public class LuceneScanQueryParameters extends LuceneScanParameters {
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PLuceneScanQueryParameters.class)
+public class LuceneScanQueryParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Query");
 
     @Nonnull
@@ -67,6 +72,18 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
     @Nullable
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+
+    protected LuceneScanQueryParameters(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+        super(serializationContext, Objects.requireNonNull(luceneScanQueryParametersProto.getSuper()));
+        // TODO replace stub by extracting info out of the proto
+        //noinspection DataFlowIssue
+        this.query = null;
+        this.sort = null;
+        this.storedFields = null;
+        this.storedFieldTypes = null;
+        this.luceneQueryHighlightParameters = null;
+    }
 
     public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
         this(groupComparisons, query, null, null, null, null);
@@ -218,14 +235,26 @@ public class LuceneScanQueryParameters extends LuceneScanParameters {
 
     @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("TODO"); // TODO
+    public PLuceneScanQueryParameters toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        // TODO replace stub
+        return PLuceneScanQueryParameters.newBuilder()
+                .setSuper(toLuceneScanParametersProto(serializationContext))
+                .build();
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("TODO"); // TODO
+        return RecordQueryPlanProto.PIndexScanParameters.newBuilder()
+                .setExtension(LuceneRecordQueryPlanProto.luceneScanQueryParameters, toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static LuceneScanQueryParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+        return new LuceneScanQueryParameters(serializationContext, luceneScanQueryParametersProto);
     }
 
     /**

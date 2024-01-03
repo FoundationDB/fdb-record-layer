@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -42,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +70,8 @@ import java.util.Set;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryTypeFilterPlan.class)
 public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Type-Filter-Plan");
 
@@ -220,6 +228,36 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryTypeFilterPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryTypeFilterPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext));
+        for (final String recordType : recordTypes) {
+            builder.addRecordTypes(recordType);
+        }
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setTypeFilterPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryTypeFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
+        final Quantifier.Physical q =
+                Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryTypeFilterPlanProto.getInner()));
+        final ImmutableList.Builder<String> recordTypesBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryTypeFilterPlanProto.getRecordTypesCount(); i ++) {
+            recordTypesBuilder.add(recordQueryTypeFilterPlanProto.getRecordTypes(i));
+        }
+        return new RecordQueryTypeFilterPlan(q, recordTypesBuilder.build(), Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryTypeFilterPlanProto.getResultType())));
     }
 
     private static int stringHashUnordered(@Nonnull Iterable<String> strings) {

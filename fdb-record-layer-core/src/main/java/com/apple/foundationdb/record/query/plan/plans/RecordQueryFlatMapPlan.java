@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -42,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +66,8 @@ import java.util.function.Supplier;
  * method: Mapping one {@link Value} to another.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryFlatMapPlan.class)
 public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Flat-Map-Plan");
 
@@ -180,11 +188,6 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     }
 
     @Override
-    public boolean isStrictlySorted() {
-        return false;
-    }
-
-    @Override
     public RecordQueryFlatMapPlan strictlySorted(@Nonnull Memoizer memoizer) {
         return this;
     }
@@ -272,4 +275,32 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                 childGraphs,
                 getQuantifiers());
     }
+
+    @Nonnull
+    @Override
+    public PRecordQueryFlatMapPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryFlatMapPlan.newBuilder()
+                .setOuterQuantifier(outerQuantifier.toProto(serializationContext))
+                .setInnerQuantifier(innerQuantifier.toProto(serializationContext))
+                .setResultValue(resultValue.toValueProto(serializationContext))
+                .setInheritOuterRecordProperties(inheritOuterRecordProperties)
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setFlatMapPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryFlatMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
+        Verify.verifyNotNull(recordQueryFlatMapPlanProto.hasInheritOuterRecordProperties());
+        return new RecordQueryFlatMapPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFlatMapPlanProto.getOuterQuantifier())),
+                Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFlatMapPlanProto.getInnerQuantifier())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryFlatMapPlanProto.getResultValue())),
+                recordQueryFlatMapPlanProto.getInheritOuterRecordProperties());
+    }
+
 }

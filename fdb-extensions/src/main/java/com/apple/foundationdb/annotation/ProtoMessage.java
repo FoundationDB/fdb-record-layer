@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.serialization;
-
-import com.apple.foundationdb.record.PlanSerializable;
-import com.google.auto.service.AutoService;
+package com.apple.foundationdb.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -31,7 +28,6 @@ import java.lang.annotation.Target;
 /**
  * Annotation for classes that serialize as part of a query plan.
  */
-@AutoService(PlanSerializable.class)
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface ProtoMessage {

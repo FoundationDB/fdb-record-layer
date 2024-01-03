@@ -40,7 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;

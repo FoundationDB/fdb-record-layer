@@ -21,20 +21,26 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -48,9 +54,16 @@ import java.util.Objects;
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryInValuesJoinPlan.class)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Values-Join-Plan");
+
+    protected RecordQueryInValuesJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryInValuesJoinPlanProto.getSuper()));
+    }
 
     public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
                                        @Nonnull final String bindingName,
@@ -175,5 +188,25 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 .addEdge(valuesNode, root, fromValuesEdge)
                 .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromValuesEdge)))
                 .build();
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryInValuesJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInValuesJoinPlan.newBuilder()
+                .setSuper(toRecordQueryInJoinPlanProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryInValuesJoinPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInValuesJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+        return new RecordQueryInValuesJoinPlan(serializationContext, recordQueryInValuesJoinPlanProto);
     }
 }

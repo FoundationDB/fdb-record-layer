@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.C
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.record.query.plan.serialization.ProtoMessage;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;

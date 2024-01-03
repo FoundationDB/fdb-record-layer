@@ -21,12 +21,17 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryScanPlan;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -50,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -72,6 +78,8 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryScanPlan.class)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
 
@@ -411,5 +419,62 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
                         dataNodeWithInfo,
                         childGraphs)));
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryScanPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryScanPlan.Builder builder = PRecordQueryScanPlan.newBuilder();
+        builder.setHasRecordTypes(recordTypes != null);
+        if (recordTypes != null) {
+            for (final String recordType : recordTypes) {
+                builder.addRecordTypes(recordType);
+            }
+        }
+        builder.setFlowedType(flowedType.toTypeProto(serializationContext));
+        if (commonPrimaryKey != null) {
+            builder.setCommonPrimaryKey(commonPrimaryKey.toKeyExpression());
+        }
+        builder.setComparisons(comparisons.toProto(serializationContext));
+        builder.setReverse(reverse);
+        builder.setStrictlySorted(strictlySorted);
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setScanPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final RecordQueryPlanProto.PRecordQueryScanPlan recordQueryScanPlanProto) {
+        Verify.verify(recordQueryScanPlanProto.hasReverse());
+        Verify.verify(recordQueryScanPlanProto.hasStrictlySorted());
+        Verify.verify(recordQueryScanPlanProto.hasHasRecordTypes());
+        final Set<String> recordTypes;
+        if (recordQueryScanPlanProto.getHasRecordTypes()) {
+            final ImmutableSet.Builder<String> recordTypesBuilder = ImmutableSet.builder();
+            for (int i = 0; i < recordQueryScanPlanProto.getRecordTypesCount(); i++) {
+                recordTypesBuilder.add(recordQueryScanPlanProto.getRecordTypes(i));
+            }
+            recordTypes = recordTypesBuilder.build();
+        } else {
+            recordTypes = null;
+        }
+        final KeyExpression commonPrimaryKey;
+        if (recordQueryScanPlanProto.hasCommonPrimaryKey()) {
+            commonPrimaryKey = KeyExpression.fromProto(recordQueryScanPlanProto.getCommonPrimaryKey());
+        } else {
+            commonPrimaryKey = null;
+        }
+        return new RecordQueryScanPlan(recordTypes,
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryScanPlanProto.getFlowedType())),
+                commonPrimaryKey,
+                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(recordQueryScanPlanProto.getComparisons())),
+                recordQueryScanPlanProto.getReverse(),
+                recordQueryScanPlanProto.getStrictlySorted(),
+                Optional.empty());
     }
 }

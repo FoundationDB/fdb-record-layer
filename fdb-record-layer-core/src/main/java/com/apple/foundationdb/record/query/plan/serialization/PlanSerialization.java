@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -200,7 +201,7 @@ public class PlanSerialization {
     public static Object dispatchFromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
         final Method fromProtoMethod = fromProtoMapMethodMap.get(message.getClass());
         if (fromProtoMethod == null) {
-            throw new RecordCoreException("unable to dispatch for message of class {}", message.getClass());
+            throw new RecordCoreException("unable to dispatch for message of class " + message.getClass());
         }
         try {
             return Objects.requireNonNull(fromProtoMethod.invoke(null, serializationContext, message));

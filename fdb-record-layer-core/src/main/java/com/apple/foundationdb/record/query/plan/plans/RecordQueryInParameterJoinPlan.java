@@ -21,12 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -34,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -41,15 +46,22 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 
 /**
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryInParameterJoinPlan.class)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Parameter-Join-Plan");
+
+    protected RecordQueryInParameterJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PRecordQueryInParameterJoinPlan recordQueryInParameterJoinPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryInParameterJoinPlanProto.getSuper()));
+    }
 
     public RecordQueryInParameterJoinPlan(@Nonnull final RecordQueryPlan plan,
                                           @Nonnull final String bindingName,
@@ -100,12 +112,6 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
-
-    @Nonnull
-    @Override
     public RecordQueryInParameterJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                 @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInParameterJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
@@ -149,7 +155,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models this operator as a logical nested loop join
      *         joining an outer table of iterated values over a parameter in the IN clause to the correlated inner
-     *         result of executing (usually) a index lookup for each bound outer value.
+     *         result of executing (usually) an index lookup for each bound outer value.
      */
     @Nonnull
     @Override
@@ -170,5 +176,25 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                 .addEdge(explodeNode, root, fromExplodeEdge)
                 .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromExplodeEdge)))
                 .build();
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryInParameterJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInParameterJoinPlan.newBuilder()
+                .setSuper(toRecordQueryInJoinPlanProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryInParameterJoinPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInParameterJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PRecordQueryInParameterJoinPlan recordQueryInParameterJoinPlanProto) {
+        return new RecordQueryInParameterJoinPlan(serializationContext, recordQueryInParameterJoinPlanProto);
     }
 }
