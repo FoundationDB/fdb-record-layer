@@ -48,6 +48,7 @@ public class IndexingMerger {
     private final Index index;
     private long mergesLimit;
     private int mergeSuccesses = 0;
+    private long timeQuotaMillis = 0;
     private final IndexingCommon common;
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
@@ -73,6 +74,7 @@ public class IndexingMerger {
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
                                     mergeControl.setMergesLimit(mergesLimit);
+                                    mergeControl.setTimeQuotaMillis(timeQuotaMillis);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
@@ -80,6 +82,7 @@ public class IndexingMerger {
                 ).handle((ignore, e) -> {
                     recordTime.get().run();
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
+                    // Note: this mergeControl will not be re-used and should not be modified.
                     if (e == null) {
                         // Here: no errors
                         return handleSuccess(mergeControl);
@@ -88,17 +91,7 @@ public class IndexingMerger {
                         // Here: too many retries, unconditionally give up
                         giveUpMerging(mergeControl, e);
                     }
-                    if (mergeControl.getMergesTried() < 2) {
-                        if (LOGGER.isWarnEnabled()) {
-                            LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
-                                            .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                                            .toString(), e);
-                        }
-                    } else {
-                        return handleFailure(mergeControl, e);
-                    }
-                    // Here: this exception will not be recovered by dilution. Throw it.
-                    throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
+                    return handleFailure(mergeControl, e);
                 }).thenCompose(Function.identity()
                 ), common.getRunner().getExecutor());
     }
@@ -110,8 +103,6 @@ public class IndexingMerger {
         }
         mergeSuccesses++;
         // after a successful merge, reset the agility context time and size quota. It is likely to be inapplicable for the next merge
-        mergeControl.setTimeQuotaMillis(0);
-        mergeControl.setSizeQuotaBytes(0);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
                     .addKeysAndValues(mergerKeysAndValues(mergeControl))
@@ -149,12 +140,12 @@ public class IndexingMerger {
     private void handleSingleMergeFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         // Here: make agility context auto-commit more rapidly
         // Note: this will only change the time quota. Size quota seems to be a non-issue.
-        long timeQuotaMillis = mergeControl.getTimeQuotaMillis();
+        timeQuotaMillis = mergeControl.getTimeQuotaMillis();
         // log 4000 base 2 =~ 11.96 So it'll take about 12 retries from 4 seconds to the minimum.
         if (timeQuotaMillis <= 2) {
             giveUpMerging(mergeControl, e);
         }
-        mergeControl.setTimeQuotaMillis(timeQuotaMillis / 2);
+        timeQuotaMillis /= 2;
     }
 
     private void giveUpMerging(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
