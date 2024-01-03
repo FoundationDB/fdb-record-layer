@@ -18,18 +18,10 @@
  * limitations under the License.
  */
 
-if (hasProperty('testEnableCoverage')) {
-    apply plugin: 'jacoco'
-    jacoco {
-        toolVersion = jacocoVersion
-    }
-    tasks.withType(Test) { task ->
-        finalizedBy "jacoco${task.name.capitalize()}Report"
-    }
-}
-
-tasks.withType(JacocoReport) { task ->
-    task.reports.xml.required = true
+apply plugin: 'jacoco'
+apply plugin: 'jacoco-report-aggregation'
+jacoco {
+    toolVersion = jacocoVersion
 }
 
 def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
@@ -113,13 +105,14 @@ def configureTestTask = { propertyPrefix, task ->
         task.exclude excludes
     }
 
-    // Configure whether or not tests will validate that asyncToSync isn't being called in async
-    // context.  See BlockingInAsyncDetection class for details on values.
-
-    // disable BLOCKING_DETECTION to better simulate performance
     if (task.name != 'performanceTest') {
+        // Configure whether or not tests will validate that asyncToSync isn't being called in async
+        // context.  See BlockingInAsyncDetection class for details on values.
+        // disable BLOCKING_DETECTION to better simulate performance
         task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
             System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
+        // Enable coverage for all non-performance tests
+        task.finalizedBy("jacoco${task.name.capitalize()}Report")
     }
 
 
