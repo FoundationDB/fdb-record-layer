@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,8 +45,27 @@ import java.util.function.Function;
  */
 public interface AgilityContext {
 
+    @VisibleForTesting
     static AgilityContext factory(FDBRecordContext callerContext, boolean useAgileContext) {
-        return useAgileContext ? new Agile(callerContext) : new NonAgile(callerContext);
+        return useAgileContext ? agile(callerContext) : nonAgile(callerContext);
+    }
+
+    static AgilityContext nonAgile(FDBRecordContext callerContext) {
+        return new NonAgile(callerContext);
+    }
+
+    static AgilityContext agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        return new Agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
+    }
+
+    static AgilityContext agile(FDBRecordContext callerContext) {
+        final long timeQuotaMillis =
+                Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA),
+                        4000);
+        final long sizeQuotaBytes =
+                Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA),
+                        900_000);
+        return agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
     }
 
     // `apply` should be called when a returned value is expected
@@ -110,6 +131,10 @@ public interface AgilityContext {
         return getCallerContext().asyncToSync(event, async);
     }
 
+    @Nullable
+    default <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
+        return getCallerContext().getPropertyStorage().getPropertyValue(propertyKey);
+    }
 
     /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
@@ -137,14 +162,13 @@ public interface AgilityContext {
         private final Object commitLockSync = new Object();
         private boolean committingNow = false;
 
-        Agile(FDBRecordContext callerContext) {
+        Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
             database = callerContext.getDatabase();
-            this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
-            this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
-
+            this.timeQuotaMillis = timeQuotaMillis;
+            this.sizeQuotaBytes = sizeQuotaBytes;
             callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
         }
 

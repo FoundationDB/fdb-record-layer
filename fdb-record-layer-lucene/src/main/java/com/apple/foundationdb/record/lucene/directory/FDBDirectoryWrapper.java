@@ -75,11 +75,30 @@ class FDBDirectoryWrapper implements AutoCloseable {
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
-        final boolean useAgility = useAgilityContext && Boolean.FALSE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT));
-
         this.state = state;
-        this.directory = new FDBDirectory(subspace, state.context, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, useAgility);
+        final AgilityContext agilityContext = getAgilityContext(useAgilityContext);
+        this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
         this.mergeDirectoryCount = mergeDirectoryCount;
+    }
+
+    private AgilityContext getAgilityContext(boolean useAgilityContext) {
+        if (!useAgilityContext || Boolean.TRUE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
+            return AgilityContext.nonAgile(state.context);
+        }
+        // Here: return an agile context
+        // Note: if non agile, the quota values will not be initialized in the deferred control, hence not retried with diminished quota.
+        final IndexDeferredMaintenanceControl defferedControl = state.store.getIndexDeferredMaintenanceControl();
+        long timeQuotaMillis = defferedControl.getTimeQuotaMillis();
+        if (timeQuotaMillis <= 0) {
+            timeQuotaMillis = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
+            defferedControl.setTimeQuotaMillis(timeQuotaMillis);
+        }
+        long sizeQuotaBytes = defferedControl.getSizeQuotaBytes();
+        if (sizeQuotaBytes <= 0) {
+            sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
+            defferedControl.setSizeQuotaBytes(sizeQuotaBytes);
+        }
+        return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
     }
 
     public FDBDirectory getDirectory() {

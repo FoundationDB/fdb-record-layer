@@ -41,7 +41,7 @@ class FDBDirectoryLockTest extends FDBDirectoryBaseTest {
     @ValueSource(booleans = {false, true})
     void testFileLock(boolean useAgile) throws IOException {
         try (FDBRecordContext context = fdb.openContext()) {
-            directory = new FDBDirectory(subspace, context, null, null, null, true, useAgile);
+            directory = new FDBDirectory(subspace, null, null, null, true, AgilityContext.factory(context, useAgile));
             String lockName = "file.lock";
             final Lock lock1 = directory.obtainLock(lockName);
             lock1.ensureValid();

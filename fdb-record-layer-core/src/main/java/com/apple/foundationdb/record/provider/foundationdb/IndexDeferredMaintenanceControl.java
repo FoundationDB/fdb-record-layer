@@ -35,6 +35,8 @@ public class IndexDeferredMaintenanceControl {
     private long mergesLimit = 0;
     private long mergesFound;
     private long mergesTried;
+    private long timeQuotaMillis;
+    private long sizeQuotaBytes;
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -120,5 +122,37 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setMergesTried(final long mergesTried) {
         this.mergesTried = mergesTried;
+    }
+
+    /**
+     * If bigger than 0, define time quota for agility context (i.e. auto-commit).
+     * @return time quota in milliseconds
+     */
+    public long getTimeQuotaMillis() {
+        return timeQuotaMillis;
+    }
+
+    /**
+     * Set by the caller - if applicable, request to auto-commit after this time quota.
+     * @param timeQuotaMillis time quota in milliseconds
+     */
+    public void setTimeQuotaMillis(final long timeQuotaMillis) {
+        this.timeQuotaMillis = timeQuotaMillis;
+    }
+
+    /**
+     * If bigger than 0, define size quota for agility context (i.e. auto-commit).
+     * @return size quota in bytes
+     */
+    public long getSizeQuotaBytes() {
+        return sizeQuotaBytes;
+    }
+
+    /**
+     * Set by the caller - if applicable, request to auto-commit after this size quota.
+     * @param sizeQuotaBytes size quota in bytes
+     */
+    public void setSizeQuotaBytes(final long sizeQuotaBytes) {
+        this.sizeQuotaBytes = sizeQuotaBytes;
     }
 }

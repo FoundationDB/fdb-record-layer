@@ -81,45 +81,89 @@ public class IndexingMerger {
                     recordTime.get().run();
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     if (e == null) {
-                        if (mergesLimit > 0 && mergeSuccesses > 2) {
-                            mergeSuccesses = 0;
-                            mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
-                        }
-                        mergeSuccesses++;
-                        if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
-                                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                                    .toString());
-                        }
-                        // Here: no error, stop the iteration unless has more
-                        final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
-                        return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                        // Here: no errors
+                        return handleSuccess(mergeControl);
                     }
-                    // Here: got exception.
-                    if (0 > failureCountLimit.decrementAndGet() || mergeControl.getMergesTried() < 2) {
+                    if (0 > failureCountLimit.decrementAndGet()) {
+                        // Here: too many retries, unconditionally give up
+                        giveUpMerging(mergeControl, e);
+                    }
+                    if (mergeControl.getMergesTried() < 2) {
                         if (LOGGER.isWarnEnabled()) {
                             LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
                                             .addKeysAndValues(mergerKeysAndValues(mergeControl))
                                             .toString(), e);
                         }
                     } else {
-                        final FDBException ex = IndexingBase.findException(e, FDBException.class);
-                        if (IndexingBase.shouldLessenWork(ex)) {
-                            // Here: this exception might be resolved by reducing the load
-                            mergesLimit = mergeControl.getMergesTried() / 2;
-                            if (LOGGER.isInfoEnabled()) {
-                                // TODO: demote this info message to a trace or debug after this code is tested a bit
-                                LOGGER.info(KeyValueLogMessage.build("IndexMerge: Merges diluted")
-                                        .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                                        .toString(), e);
-                            }
-                            return AsyncUtil.READY_TRUE; // and retry
-                        }
+                        return handleFailure(mergeControl, e);
                     }
                     // Here: this exception will not be recovered by dilution. Throw it.
                     throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
                 }).thenCompose(Function.identity()
                 ), common.getRunner().getExecutor());
+    }
+
+    private CompletableFuture<Boolean> handleSuccess(final IndexDeferredMaintenanceControl mergeControl) {
+        if (mergesLimit > 0 && mergeSuccesses > 2) {
+            mergeSuccesses = 0;
+            mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
+        }
+        mergeSuccesses++;
+        // after a successful merge, reset the agility context time and size quota. It is likely to be inapplicable for the next merge
+        mergeControl.setTimeQuotaMillis(0);
+        mergeControl.setSizeQuotaBytes(0);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
+                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
+                    .toString());
+        }
+        // Here: no error, stop the iteration unless has more
+        final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
+        return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+    }
+
+    private CompletableFuture<Boolean> handleFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        final FDBException ex = IndexingBase.findException(e, FDBException.class);
+        if (!IndexingBase.shouldLessenWork(ex)) {
+            giveUpMerging(mergeControl, e);
+        }
+        // Here: this exception might be resolved by reducing the number of merges or the time quota
+        if (mergeControl.getMergesTried() < 2) {
+            handleSingleMergeFailure(mergeControl, e);
+        } else {
+            handleMultiMergeFailure(mergeControl, e);
+        }
+        return AsyncUtil.READY_TRUE; // and retry
+    }
+
+    private void handleMultiMergeFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        // Here: reduce the number of OneMerge items attempted
+        mergesLimit = mergeControl.getMergesTried() / 2;
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.build("IndexMerge: Merges diluted")
+                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
+                    .toString(), e);
+        }
+    }
+
+    private void handleSingleMergeFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        // Here: make agility context auto-commit more rapidly
+        // Note: this will only change the time quota. Size quota seems to be a non-issue.
+        long timeQuotaMillis = mergeControl.getTimeQuotaMillis();
+        // log 4000 base 2 =~ 11.96 So it'll take about 12 retries from 4 seconds to the minimum.
+        if (timeQuotaMillis <= 2) {
+            giveUpMerging(mergeControl, e);
+        }
+        mergeControl.setTimeQuotaMillis(timeQuotaMillis / 2);
+    }
+
+    private void giveUpMerging(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        if (LOGGER.isWarnEnabled()) {
+            LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
+                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
+                    .toString(), e);
+            throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
+        }
     }
 
     List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
