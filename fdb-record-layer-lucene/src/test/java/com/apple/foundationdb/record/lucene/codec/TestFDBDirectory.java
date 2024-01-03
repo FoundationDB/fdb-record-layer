@@ -119,7 +119,7 @@ public class TestFDBDirectory extends FDBDirectory {
     }
 
     public static void reset() {
-        TestFDBDirectory.fullBufferToSurviveDeletes = false;
+        fullBufferToSurviveDeletes = false;
         allowAddIndexes = false;
         previousFieldInfos.set(null);
         previousStoredFields.set(null);
