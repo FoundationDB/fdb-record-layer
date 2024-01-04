@@ -19,7 +19,6 @@
  */
 
 apply plugin: 'jacoco'
-apply plugin: 'jacoco-report-aggregation'
 // configure for test, other *Test are configured below
 jacoco {
     toolVersion = jacocoVersion
