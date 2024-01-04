@@ -126,7 +126,19 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit) {
+    @Test
+    void testAgilityContextConcurrentNonExplicitCommitsExplicitParams() throws ExecutionException, InterruptedException {
+        for (int sizeQuota : new int[] {1, 2, 7, 21, 100, 10000}) {
+            try (FDBRecordContext context = openContext()) {
+                final AgilityContext agilityContext = AgilityContext.agile(context, 10000, sizeQuota);
+                testAgilityContextConcurrentSingleObject(agilityContext, false);
+                context.commit();
+            }
+        }
+        assertLoopThreadsValues();
+    }
+
+    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp) {
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
@@ -138,8 +150,9 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                         "And looked down one as far as I could\n" +
                         "To where it bent in the undergrowth;" ;
 
-        try (FDBRecordContext context = openContext(insertProps)) {
-            final AgilityContext agilityContext = AgilityContext.factory(context, true);
+        try (FDBRecordContext context = useProp ? openContext(insertProps) : openContext()) {
+            final AgilityContext agilityContext =
+                    useProp ? AgilityContext.agile(context) : AgilityContext.agile(context, timeLimit, sizeLimit);
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = Tuple.from(2023, i).pack();
                 byte[] val = Tuple.from(i, RobertFrost).pack();
@@ -159,14 +172,16 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testAgilityContextSizeLimit() {
-        testAgilityContextOneLongWrite(73, 100, 100000);
+    @ParameterizedTest
+    @BooleanSource
+    void testAgilityContextSizeLimit(boolean useProp) {
+        testAgilityContextOneLongWrite(73, 100, 100000, useProp);
     }
 
-    @Test
-    void testAgilityContextTimeLimit() {
-        testAgilityContextOneLongWrite(77, 100000, 10);
+    @ParameterizedTest
+    @BooleanSource
+    void testAgilityContextTimeLimit(boolean useProp) {
+        testAgilityContextOneLongWrite(77, 100000, 10, useProp);
     }
 
     void napTime(int napTimeMilliseconds) {
