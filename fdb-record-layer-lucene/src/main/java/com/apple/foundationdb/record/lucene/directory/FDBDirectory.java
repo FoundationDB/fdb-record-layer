@@ -373,20 +373,16 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public Pair<byte[], byte[]> getFirstPostingsTerm(final String segmentName, final int fieldNumber) {
         final Subspace termsSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
-        return asyncToSync(
+        final List<KeyValue> list = asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
-                agilityContext.apply(context -> {
-                    // Scan for the term matching the termBytes or the one immediately following
-                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(termsSub.range(), 1).iterator();
-                    return iterator.onHasNext().thenApply(hasNext -> {
-                        if (Boolean.TRUE.equals(hasNext)) {
-                            final KeyValue next = iterator.next();
-                            return Pair.of(termsSub.unpack(next.getKey()).getBytes(0), next.getValue());
-                        } else {
-                            return null;
-                        }
-                    });
-                }));
+                // Scan for the term matching the termBytes or the one immediately following
+                agilityContext.apply(context -> context.ensureActive().getRange(termsSub.range(), 1).asList()));
+        if ((list == null) || list.isEmpty()) {
+            return null;
+        } else {
+            KeyValue next = list.get(0);
+            return Pair.of(termsSub.unpack(next.getKey()).getBytes(0), next.getValue());
+        }
     }
 
     @Nullable
@@ -395,7 +391,54 @@ public class FDBDirectory extends Directory  {
         final byte[] key = postingsTermsSubspace.pack(Tuple.from(segmentName, fieldNumber, termBytes));
         return asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
-                agilityContext.apply(context -> context.ensureActive().get(key)));
+                agilityContext.get(key));
+    }
+
+    public enum RangeType {INCLUSIVE, EXCLUSIVE};
+
+    /**
+     * Scan for the next term element: Either the one matching the given parameters or the one immediately following.
+     * @param segmentName
+     * @param fieldNumber
+     * @param term
+     * @param rangeStartType
+     * @return
+     */
+    @Nullable
+    public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeType rangeStartType) {
+        byte[] termBytes = copyFrom(term);
+        EndpointType startEndpoint = (rangeStartType == RangeType.INCLUSIVE) ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE;
+        // subspace for all terms for the field
+        final Subspace fieldSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
+        // range from termBytes to the end of the subspace
+        final byte[] rangeBegin = fieldSub.pack(termBytes);
+        final byte[] rangeEnd = fieldSub.pack();
+        final Range range = TupleRange.toRange(rangeBegin, rangeEnd, startEndpoint, EndpointType.RANGE_INCLUSIVE);
+        List<KeyValue> list = asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
+                // Scan for the term matching the termBytes or the one immediately following
+                // Limit to a result of 1, so can call asList here
+                agilityContext.apply(context -> context.ensureActive().getRange(range, 1).asList()));
+        if ((list == null) || list.isEmpty()) {
+            return null;
+        } else {
+            final KeyValue next = list.get(0);
+            return Pair.of(fieldSub.unpack(next.getKey()).getBytes(0), next.getValue());
+        }
+    }
+
+    public byte[] getTermDocuments(final String segmentName, final int fieldNumber, final long termOrd) {
+        final byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_DOCUMENTS,
+                agilityContext.get(key));
+    }
+
+    public byte[] getTermDocumentPositions(final String segmentName, final int fieldNumber, final long ord, final int docId) {
+        final byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, ord, docId));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_POSITIONS,
+                agilityContext.get(key));
     }
 
     public void writePostingsTermMetadata(final String segmentName, final int fieldNumber, final byte[] metadata) {
@@ -450,56 +493,6 @@ public class FDBDirectory extends Directory  {
 
     public void writePostingsPayloads(final String segmentName, final int fieldNumber, final long termOrd, final int docId, final byte[] payloads) {
         // TODO
-    }
-
-    public enum RangeType {INCLUSIVE, EXCLUSIVE};
-
-    /**
-     * Scan for the next term element: Either the one matching the given parameters or the one immediately following.
-     * @param segmentName
-     * @param fieldNumber
-     * @param term
-     * @param rangeStartType
-     * @return
-     */
-    @Nullable
-    public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeType rangeStartType) {
-        byte[] termBytes = copyFrom(term);
-        EndpointType startEndpoint = (rangeStartType == RangeType.INCLUSIVE) ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE;
-        // subspace for all terms for the field
-        final Subspace fieldSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
-        final byte[] rangeBegin = fieldSub.pack(termBytes);
-        final byte[] rangeEnd = fieldSub.pack();
-        // range from termBytes to the end of the subspace
-        final Range range = TupleRange.toRange(rangeBegin, rangeEnd, startEndpoint, EndpointType.RANGE_INCLUSIVE);
-        return asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
-                agilityContext.apply(context -> {
-                    // Scan for the term matching the termBytes or the one immediately following
-                    final AsyncIterator<KeyValue> iterator = context.ensureActive().getRange(range, 1).iterator();
-                    return iterator.onHasNext().thenApply(hasNext -> {
-                        if (Boolean.TRUE.equals(hasNext)) {
-                            final KeyValue next = iterator.next();
-                            return Pair.of(fieldSub.unpack(next.getKey()).getBytes(0), next.getValue());
-                        } else {
-                            return null;
-                        }
-                    });
-                }));
-    }
-
-    public byte[] getTermDocuments(final String segmentName, final int fieldNumber, final long termOrd) {
-        final byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
-        return asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_DOCUMENTS,
-                agilityContext.apply(context -> context.ensureActive().get(key)));
-    }
-
-    public byte[] getTermDocumentPositions(final String segmentName, final int fieldNumber, final long ord, final int docId) {
-        final byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, ord, docId));
-        return asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_POSITIONS,
-                agilityContext.apply(context -> context.ensureActive().get(key)));
     }
 
     public static boolean isSegmentInfo(String name) {

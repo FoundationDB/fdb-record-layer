@@ -29,6 +29,7 @@ import org.apache.lucene.index.ImpactsEnum;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.index.SlowImpactsEnum;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Accountable;
@@ -84,7 +85,9 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     public ImpactsEnum impacts(final FieldInfo fieldInfo, final BlockTermState state, final int flags) throws IOException {
         final boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
         final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
-        return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
+        final LuceneOptimizedPostingsEnum postingsEnum = new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
+        // TODO: Is this right?
+        return new SlowImpactsEnum(postingsEnum);
 //        if (hasPositions) {
 //            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
 //                    key.add(fieldInfo.number).add(state.ord))), directory, false, false, false);
