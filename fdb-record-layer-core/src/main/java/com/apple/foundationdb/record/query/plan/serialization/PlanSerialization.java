@@ -219,4 +219,14 @@ public class PlanSerialization {
         }
         throw new RecordCoreException("Field is expected to be set but message does not have field.");
     }
+
+    @Nullable
+    public static <M extends Message, T> T getFieldOrNull(@Nonnull M message,
+                                                          @Nonnull final Predicate<M> fieldSetPredicate,
+                                                          @Nonnull final Function<M, T> fieldExtractor) {
+        if (fieldSetPredicate.test(message)) {
+            return fieldExtractor.apply(message);
+        }
+        return null;
+    }
 }

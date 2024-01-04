@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -43,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +69,8 @@ import java.util.Set;
  * A query plan that removes duplicates by means of a hash table of previously seen values.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryUnorderedDistinctPlan.class)
 public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Distinct-Plan");
 
@@ -221,5 +229,27 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                         ImmutableList.of("comparison key: {{comparisonKey}}"),
                         ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryUnorderedDistinctPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUnorderedDistinctPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setComparisonKey(comparisonKey.toKeyExpression())
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUnorderedDistinctPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
+        return new RecordQueryUnorderedDistinctPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getInner())),
+                KeyExpression.fromProto(Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getComparisonKey())));
     }
 }

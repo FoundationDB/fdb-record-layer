@@ -201,7 +201,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryInValuesJoinPlan(toProto(serializationContext)).build();
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInValuesJoinPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

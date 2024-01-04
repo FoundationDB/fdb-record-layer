@@ -21,7 +21,15 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PConditionalUponPathPredicate;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PTruePredicate;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -32,7 +40,9 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -274,8 +284,7 @@ public class AvailableFields {
 
         if ((constituentName != null) && constituentNameToPathMap.containsKey(constituentName)) {
             final ImmutableIntArray conditionalPath = constituentNameToPathMap.get(constituentName);
-            return FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, path,
-                    tuple -> IndexKeyValueToPartialRecord.existsSubTupleForOrdinalPath(tuple, conditionalPath));
+            return FieldData.ofConditional(IndexKeyValueToPartialRecord.TupleSource.KEY, path, conditionalPath);
         } else {
             return FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, path);
         }
@@ -346,9 +355,12 @@ public class AvailableFields {
         private final IndexKeyValueToPartialRecord.TupleSource source;
         @Nonnull
         private final ImmutableIntArray ordinalPath;
-        private final Predicate<Tuple> copyIfPredicate;
+        @Nonnull
+        private final CopyIfPredicate copyIfPredicate;
 
-        private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source, @Nonnull final ImmutableIntArray ordinalPath, final Predicate<Tuple> copyIfPredicate) {
+        private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
+                          @Nonnull final ImmutableIntArray ordinalPath,
+                          @Nonnull final CopyIfPredicate copyIfPredicate) {
             this.source = source;
             this.ordinalPath = ordinalPath;
             this.copyIfPredicate = copyIfPredicate;
@@ -363,18 +375,113 @@ public class AvailableFields {
             return ordinalPath;
         }
 
-        public Predicate<Tuple> getCopyIfPredicate() {
+        public CopyIfPredicate getCopyIfPredicate() {
             return copyIfPredicate;
         }
 
         @Nonnull
         public static FieldData ofUnconditional(@Nonnull IndexKeyValueToPartialRecord.TupleSource source, final ImmutableIntArray ordinalPath) {
-            return new FieldData(source, ordinalPath, t -> true);
+            return new FieldData(source, ordinalPath, new TruePredicate());
         }
 
         @Nonnull
-        public static FieldData of(@Nonnull IndexKeyValueToPartialRecord.TupleSource source, @Nonnull final ImmutableIntArray ordinalPath, @Nonnull final Predicate<Tuple> copyIfPredicate) {
-            return new FieldData(source, ordinalPath, copyIfPredicate);
+        public static FieldData ofConditional(@Nonnull IndexKeyValueToPartialRecord.TupleSource source,
+                                              @Nonnull final ImmutableIntArray ordinalPath,
+                                              @Nonnull final ImmutableIntArray conditionalPath) {
+            return new FieldData(source, ordinalPath, new ConditionalUponPathPredicate(conditionalPath));
+        }
+    }
+
+    @API(API.Status.INTERNAL)
+    public interface CopyIfPredicate extends Predicate<Tuple>, PlanHashable, PlanSerializable {
+        @Nonnull
+        PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static CopyIfPredicate fromCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PCopyIfPredicate copyIfPredicateProto) {
+            return (CopyIfPredicate)PlanSerialization.dispatchFromProtoContainer(serializationContext, copyIfPredicateProto);
+        }
+    }
+
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PTruePredicate.class)
+    public static class TruePredicate implements CopyIfPredicate {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("True-Predicate");
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectPlanHash(hashMode, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public PTruePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PTruePredicate.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCopyIfPredicate.newBuilder().setTruePredicate(toProto(serializationContext)).build();
+        }
+
+        @Override
+        public boolean test(final Tuple tuple) {
+            return true;
+        }
+
+        @Nonnull
+        public static TruePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PTruePredicate truePredicateProto) {
+            return new TruePredicate();
+        }
+    }
+
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PConditionalUponPathPredicate.class)
+    public static class ConditionalUponPathPredicate implements CopyIfPredicate {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Conditional-Upon-Predicate");
+
+        @Nonnull
+        private final ImmutableIntArray conditionalPath;
+
+        public ConditionalUponPathPredicate(@Nonnull final ImmutableIntArray conditionalPath) {
+            this.conditionalPath = conditionalPath;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, conditionalPath);
+        }
+
+        @Nonnull
+        @Override
+        public PConditionalUponPathPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PConditionalUponPathPredicate.Builder builder = PConditionalUponPathPredicate.newBuilder();
+            conditionalPath.forEach(i -> builder.addOrdinalPath(i));
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCopyIfPredicate.newBuilder().setConditionalUponPathPredicate(toProto(serializationContext)).build();
+        }
+
+        @Override
+        public boolean test(final Tuple tuple) {
+            return IndexKeyValueToPartialRecord.existsSubTupleForOrdinalPath(tuple, conditionalPath);
+        }
+
+        @Nonnull
+        public static ConditionalUponPathPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PConditionalUponPathPredicate conditionalUponPredicateProto) {
+            final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
+            for (int i = 0; i < conditionalUponPredicateProto.getOrdinalPathCount(); i ++) {
+                ordinalPathBuilder.add(i);
+            }
+            return new ConditionalUponPathPredicate(ordinalPathBuilder.build());
         }
     }
 }

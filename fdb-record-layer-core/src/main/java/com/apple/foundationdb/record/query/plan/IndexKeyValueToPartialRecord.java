@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.function.Predicate;
 
 /**
  * Construct a record from a covering index.
@@ -154,7 +153,7 @@ public class IndexKeyValueToPartialRecord {
         @Nonnull
         private final TupleSource source;
         @Nonnull
-        private final Predicate<Tuple> copyIfPredicate;
+        private final AvailableFields.CopyIfPredicate copyIfPredicate;
         @Nonnull
         private final ImmutableIntArray ordinalPath;
         private final Descriptors.FieldDescriptor fieldDescriptor;
@@ -162,7 +161,7 @@ public class IndexKeyValueToPartialRecord {
         private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
                             @Nonnull final String field,
                             @Nonnull final TupleSource source,
-                            @Nonnull final Predicate<Tuple> copyIfPredicate,
+                            @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
                             @Nonnull final ImmutableIntArray ordinalPath) {
             this.field = field;
             this.source = source;
@@ -330,7 +329,9 @@ public class IndexKeyValueToPartialRecord {
         }
 
         @SuppressWarnings("UnstableApiUsage")
-        public Builder addField(@Nonnull String field, @Nonnull TupleSource source, @Nonnull final Predicate<Tuple> copyIfPredicate, @Nonnull ImmutableIntArray ordinalPath) {
+        public Builder addField(@Nonnull final String field, @Nonnull final TupleSource source,
+                                @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
+                                @Nonnull final ImmutableIntArray ordinalPath) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);

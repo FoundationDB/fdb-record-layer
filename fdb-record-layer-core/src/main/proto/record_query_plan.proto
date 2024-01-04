@@ -121,7 +121,7 @@ message PCoercionTrieNode {
   }
   optional bool children_map_is_null = 1;
   repeated IntChildPair child_pair = 2;
-  optional PCoercionBiFunction coercion_bi_function = 3;
+  optional PCoercionBiFunction value = 3;
 }
 
 message PCoercionBiFunction {
@@ -156,6 +156,16 @@ message PArrayCoercionBiFunction {
     optional PType from_array_type = 1;
     optional PType to_array_type = 2;
     optional PCoercionTrieNode elements_trie = 3;
+}
+
+message PTransformationTrieNode {
+  message IntChildPair {
+    optional int32 index = 1;
+    optional PTransformationTrieNode child_transformation_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated IntChildPair child_pair = 2;
+  optional PValue value = 3;
 }
 
 //
@@ -1011,16 +1021,21 @@ message PPlanReference {
 message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
-    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 1;
-    PRecordQueryFlatMapPlan flat_map_plan = 2;
-    PRecordQueryInComparandJoinPlan record_query_in_comparand_join_plan = 3;
-    PRecordQueryIndexPlan record_query_index_plan = 4;
-    PRecordQueryInParameterJoinPlan record_query_in_parameter_join_plan = 5;
-    PRecordQueryInValuesJoinPlan record_query_in_values_join_plan = 6;
-    PRecordQueryMapPlan map_plan = 7;
-    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 8;
-    PRecordQueryScanPlan scan_plan = 9;
-    PRecordQueryTypeFilterPlan type_filter_plan = 10;
+    PRecordQueryCoveringIndexPlan covering_index_plan = 1;
+    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 2;
+    PRecordQueryFlatMapPlan flat_map_plan = 3;
+    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 4;
+    PRecordQueryIndexPlan record_query_index_plan = 5;
+    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 6;
+    PRecordQueryInsertPlan insert_plan = 7;
+    PRecordQueryInValuesJoinPlan in_values_join_plan = 8;
+    PRecordQueryMapPlan map_plan = 9;
+    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 10;
+    PRecordQueryScanPlan scan_plan = 11;
+    PRecordQueryTypeFilterPlan type_filter_plan = 12;
+    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 13;
+    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 14;
+    PRecordQueryUpdatePlan update_plan = 15;
   }
 }
 
@@ -1029,12 +1044,88 @@ message PRecordQueryPlan {
 //
 
 //
+// PRecordQueryAbstractDataModificationPlan
+//
+message PRecordQueryAbstractDataModificationPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional string target_record_type = 2;
+  optional PType.PRecordType target_type = 3;
+  optional PTransformationTrieNode transformations_trie = 4;
+  optional PCoercionTrieNode coercion_trie = 5;
+  optional PValue computation_value = 6;
+  optional string current_modified_record_alias = 7;
+}
+
+//
+// PRecordQueryCoveringIndexPlan
+//
+message PRecordQueryCoveringIndexPlan {
+  optional PRecordQueryPlan index_plan = 1;
+  optional string record_type_name = 2;
+  optional PIndexKeyValueToPartialRecord to_record = 3;
+}
+
+message PIndexKeyValueToPartialRecord {
+  message PCopier {
+      extensions 5000 to max;
+      oneof specific_copier {
+        PFieldCopier field_copier = 1;
+        PMessageCopier message_copier = 2;
+      }
+  }
+
+  message PFieldCopier {
+    optional string field = 1;
+    optional PTupleSource source = 2;
+    optional PCopyIfPredicate copy_if_predicate = 3;
+    repeated int32 ordinal_path = 4;
+  }
+
+  enum PTupleSource {
+    KEY = 1;
+    VALUE = 2;
+    OTHER = 3;
+  }
+
+  message PCopyIfPredicate {
+    message PTruePredicate {
+      // nothing
+    }
+
+    message PConditionalUponPathPredicate {
+      repeated int32 ordinal_path = 1;
+    }
+
+    extensions 5000 to max;
+    oneof specific_copy_if_predicate {
+       PTruePredicate true_predicate = 1;
+       PConditionalUponPathPredicate conditional_upon_path_predicate = 2;
+    }
+  }
+
+  message PMessageCopier {
+    optional string field = 1;
+    optional PIndexKeyValueToPartialRecord nested = 2;
+  }
+
+  repeated PCopier copiers = 1;
+  optional bool is_required = 2;
+}
+
+//
 // PRecordQueryFetchFromPartialRecordPlan
 //
 message PRecordQueryFetchFromPartialRecordPlan {
   optional PPhysicalQuantifier inner = 1;
   optional PType result_type = 2;
   optional PFetchIndexRecords fetch_index_records = 3;
+}
+
+//
+// PRecordQueryFilterPlanBase
+//
+message PRecordQueryFilterPlanBase {
+  optional PPhysicalQuantifier inner = 1;
 }
 
 //
@@ -1187,6 +1278,13 @@ message PRecordQueryInParameterJoinPlan {
 }
 
 //
+// PRecordQueryInsertPlan
+//
+message PRecordQueryInsertPlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
 // PRecordQueryInValuesJoinPlan
 //
 message PRecordQueryInValuesJoinPlan {
@@ -1209,10 +1307,6 @@ message PRecordQueryPredicatesFilterPlan {
   repeated PQueryPredicate predicates = 2;
 }
 
-message PRecordQueryFilterPlanBase {
-  optional PPhysicalQuantifier inner = 1;
-}
-
 //
 // PRecordQueryScanPlan
 //
@@ -1233,4 +1327,26 @@ message PRecordQueryTypeFilterPlan {
   optional PPhysicalQuantifier inner = 1;
   repeated string record_types = 2;
   optional PType result_type = 3;
+}
+
+//
+// PRecordQueryUnorderedDistinctPlan
+//
+message PRecordQueryUnorderedDistinctPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional KeyExpression comparison_key = 2;
+}
+
+//
+// PRecordQueryUnorderedPrimaryKeyDistinctPlan
+//
+message PRecordQueryUnorderedPrimaryKeyDistinctPlan {
+  optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryUpdatePlan
+//
+message PRecordQueryUpdatePlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
 }

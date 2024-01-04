@@ -21,9 +21,14 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -36,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -55,17 +61,24 @@ import java.util.concurrent.CompletableFuture;
  * actual record type of the record.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryInsertPlan.class)
 public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Insert-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryInsertPlan.class);
+
+    protected RecordQueryInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryInsertPlanProto.getSuper()));
+    }
 
     private RecordQueryInsertPlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, recordType, targetType, null, coercionsTrie, computationValue);
+        super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
     @Override
@@ -145,6 +158,24 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                         ImmutableList.of("INSERT"),
                         ImmutableMap.of()),
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInsertPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+        return new RecordQueryInsertPlan(serializationContext, recordQueryInsertPlanProto);
     }
 
     /**

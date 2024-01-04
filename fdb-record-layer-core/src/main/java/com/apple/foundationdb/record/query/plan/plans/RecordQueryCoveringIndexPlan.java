@@ -71,7 +71,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     private final RecordQueryPlanWithIndex indexPlan;
     @Nonnull
     private final String recordTypeName;
-    @Nonnull
+    @Nullable
     private final AvailableFields availableFields;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
@@ -159,7 +159,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Override
     public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
-        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, availableFields, toRecord);
+        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
     }
 
     @Nonnull
@@ -171,7 +171,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
-        return availableFields;
+        return Objects.requireNonNull(availableFields);
     }
 
     @Nonnull
@@ -212,7 +212,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
-            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord);
+            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, getAvailableFields(), toRecord);
         }
         return this;
     }

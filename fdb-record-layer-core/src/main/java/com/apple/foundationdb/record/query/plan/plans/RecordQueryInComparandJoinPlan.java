@@ -176,7 +176,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryInComparandJoinPlan(toProto(serializationContext)).build();
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInComparandJoinPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

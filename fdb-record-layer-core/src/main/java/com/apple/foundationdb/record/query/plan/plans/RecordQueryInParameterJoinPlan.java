@@ -189,7 +189,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     @Nonnull
     @Override
     public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRecordQueryInParameterJoinPlan(toProto(serializationContext)).build();
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInParameterJoinPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

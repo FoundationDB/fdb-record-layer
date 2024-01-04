@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionTrieNode;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PTransformationTrieNode;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -496,7 +497,7 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
+    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -506,6 +507,14 @@ public class MessageHelpers {
         @Override
         public TransformationTrieNode getThis() {
             return this;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            if (getChildrenMap() == null) {
+                return PlanHashable.objectPlanHash(mode, getValue());
+            }
+            return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -551,6 +560,56 @@ public class MessageHelpers {
             }
             return nonNullableTest.apply(self, other);
         }
+
+        @Nonnull
+        @Override
+        public PTransformationTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PTransformationTrieNode.Builder builder = PTransformationTrieNode.newBuilder();
+
+            if (getValue() != null) {
+                builder.setValue(getValue().toValueProto(serializationContext));
+            }
+            builder.setChildrenMapIsNull(getChildrenMap() == null);
+            if (getChildrenMap() != null) {
+                for (final Map.Entry<Integer, TransformationTrieNode> entry : getChildrenMap().entrySet()) {
+                    builder.addChildPair(PTransformationTrieNode.IntChildPair.newBuilder()
+                            .setIndex(entry.getKey())
+                            .setChildTransformationTrieNode(entry.getValue().toProto(serializationContext)));
+                }
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static TransformationTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PTransformationTrieNode transformationTrieNodeProto) {
+            final Value value;
+            if (transformationTrieNodeProto.hasValue()) {
+                value =
+                        Value.fromValueProto(serializationContext, transformationTrieNodeProto.getValue());
+            } else {
+                value = null;
+            }
+
+            Verify.verify(transformationTrieNodeProto.hasChildrenMapIsNull());
+
+            final Map<Integer, TransformationTrieNode> childrenMap;
+            if (!transformationTrieNodeProto.getChildrenMapIsNull()) {
+                final ImmutableMap.Builder<Integer, TransformationTrieNode> childrenMapBuilder = ImmutableMap.builder();
+
+                for (int i = 0; i < transformationTrieNodeProto.getChildPairCount(); i ++) {
+                    final PTransformationTrieNode.IntChildPair childPair = transformationTrieNodeProto.getChildPair(i);
+                    Verify.verify(childPair.hasIndex());
+                    Verify.verify(childPair.hasChildTransformationTrieNode());
+                    childrenMapBuilder.put(childPair.getIndex(),
+                            TransformationTrieNode.fromProto(serializationContext, childPair.getChildTransformationTrieNode()));
+                }
+                childrenMap = childrenMapBuilder.build();
+            } else {
+                childrenMap = null;
+            }
+            return new TransformationTrieNode(value, childrenMap);
+        }
     }
 
     /**
@@ -571,7 +630,7 @@ public class MessageHelpers {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             if (getChildrenMap() == null) {
-                return 0;
+                return PlanHashable.objectPlanHash(mode, getValue());
             }
             return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
@@ -582,7 +641,7 @@ public class MessageHelpers {
             final PCoercionTrieNode.Builder builder = PCoercionTrieNode.newBuilder();
 
             if (getValue() != null) {
-                builder.setCoercionBiFunction(getValue().toCoercionBiFunctionProto(serializationContext));
+                builder.setValue(getValue().toCoercionBiFunctionProto(serializationContext));
             }
             builder.setChildrenMapIsNull(getChildrenMap() == null);
             if (getChildrenMap() != null) {
@@ -596,12 +655,13 @@ public class MessageHelpers {
         }
 
         @Nonnull
-        public static CoercionTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
+        public static CoercionTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
             final CoercionBiFunction value;
-            if (coercionTrieNodeProto.hasCoercionBiFunction()) {
+            if (coercionTrieNodeProto.hasValue()) {
                 value =
                         CoercionBiFunction.fromCoercionBiFunctionProto(serializationContext,
-                                coercionTrieNodeProto.getCoercionBiFunction());
+                                coercionTrieNodeProto.getValue());
             } else {
                 value = null;
             }

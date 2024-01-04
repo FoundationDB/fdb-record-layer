@@ -21,10 +21,15 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUpdatePlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -38,8 +43,10 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,18 +71,25 @@ import java.util.concurrent.CompletableFuture;
  * {@link FDBRecordStoreBase#saveRecord(Message)}.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryUpdatePlan.class)
 public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Update-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUpdatePlan.class);
 
+    protected RecordQueryUpdatePlan(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryUpdatePlanProto.getSuper()));
+    }
+
     private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nullable final TransformationTrieNode transformationsTrie,
-                                  @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
+                                  @Nullable final CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue);
+        super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
     @Override
@@ -182,6 +196,24 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                         ImmutableList.of("UPDATE"),
                         ImmutableMap.of()),
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryUpdatePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUpdatePlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUpdatePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final RecordQueryPlanProto.PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+        return new RecordQueryUpdatePlan(serializationContext, recordQueryUpdatePlanProto);
     }
 
     /**
