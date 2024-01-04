@@ -82,21 +82,23 @@ class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     private AgilityContext getAgilityContext(boolean useAgilityContext) {
+        final IndexDeferredMaintenanceControl deferredControl = state.store.getIndexDeferredMaintenanceControl();
         if (!useAgilityContext || Boolean.TRUE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
+            // Avoid potential retries:
+            deferredControl.setTimeQuotaMillis(0);
+            deferredControl.setSizeQuotaBytes(0);
             return AgilityContext.nonAgile(state.context);
         }
         // Here: return an agile context
-        // Note: if non agile, the quota values will not be initialized in the deferred control, hence not retried with diminished quota.
-        final IndexDeferredMaintenanceControl defferedControl = state.store.getIndexDeferredMaintenanceControl();
-        long timeQuotaMillis = defferedControl.getTimeQuotaMillis();
+        long timeQuotaMillis = deferredControl.getTimeQuotaMillis();
         if (timeQuotaMillis <= 0) {
             timeQuotaMillis = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
-            defferedControl.setTimeQuotaMillis(timeQuotaMillis);
+            deferredControl.setTimeQuotaMillis(timeQuotaMillis);
         }
-        long sizeQuotaBytes = defferedControl.getSizeQuotaBytes();
+        long sizeQuotaBytes = deferredControl.getSizeQuotaBytes();
         if (sizeQuotaBytes <= 0) {
             sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
-            defferedControl.setSizeQuotaBytes(sizeQuotaBytes);
+            deferredControl.setSizeQuotaBytes(sizeQuotaBytes);
         }
         return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
     }

@@ -125,7 +125,7 @@ public class IndexDeferredMaintenanceControl {
     }
 
     /**
-     * If bigger than 0, define time quota for agility context (i.e. auto-commit).
+     * If bigger than 0, define a time quota for agility context (i.e. auto-commit).
      * @return time quota in milliseconds
      */
     public long getTimeQuotaMillis() {
@@ -141,7 +141,7 @@ public class IndexDeferredMaintenanceControl {
     }
 
     /**
-     * If bigger than 0, define size quota for agility context (i.e. auto-commit).
+     * If bigger than 0, define a size quota for agility context (i.e. auto-commit).
      * @return size quota in bytes
      */
     public long getSizeQuotaBytes() {

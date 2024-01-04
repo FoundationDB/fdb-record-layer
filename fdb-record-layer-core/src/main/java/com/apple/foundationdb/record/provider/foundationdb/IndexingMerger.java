@@ -102,15 +102,16 @@ public class IndexingMerger {
             mergesLimit = (mergesLimit * 5) / 4; // increase 25%, case there was an isolated issue
         }
         mergeSuccesses++;
-        // after a successful merge, reset the agility context time and size quota. It is likely to be inapplicable for the next merge
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
                     .addKeysAndValues(mergerKeysAndValues(mergeControl))
                     .toString());
         }
-        // Here: no error, stop the iteration unless has more
+        // after a successful merge, reset the time quota. It is unlikely to be applicable for the next merge.
+        timeQuotaMillis = 0;
+        // Here: no errors, stop the iteration unless has more
         final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
-        return hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+        return  hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
     }
 
     private CompletableFuture<Boolean> handleFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
@@ -118,7 +119,7 @@ public class IndexingMerger {
         if (!IndexingBase.shouldLessenWork(ex)) {
             giveUpMerging(mergeControl, e);
         }
-        // Here: this exception might be resolved by reducing the number of merges or the time quota
+        // Here: this exception might be resolved by reducing the number of merges or forcing shorter intervals between auto-commits
         if (mergeControl.getMergesTried() < 2) {
             handleSingleMergeFailure(mergeControl, e);
         } else {
@@ -146,6 +147,11 @@ public class IndexingMerger {
             giveUpMerging(mergeControl, e);
         }
         timeQuotaMillis /= 2;
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.build("IndexMerge: Decrease time quota")
+                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
+                    .toString(), e);
+        }
     }
 
     private void giveUpMerging(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
@@ -153,16 +159,17 @@ public class IndexingMerger {
             LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
                     .addKeysAndValues(mergerKeysAndValues(mergeControl))
                     .toString(), e);
-            throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
         }
+        throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
     }
 
     List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
         return List.of(
-                    LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.INDEX_MERGES_LIMIT, mergeControl.getMergesLimit(),
-                    LogMessageKeys.INDEX_MERGES_FOUND, mergeControl.getMergesFound(),
-                    LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried()
+                LogMessageKeys.INDEX_NAME, index.getName(),
+                LogMessageKeys.INDEX_MERGES_LIMIT, mergeControl.getMergesLimit(),
+                LogMessageKeys.INDEX_MERGES_FOUND, mergeControl.getMergesFound(),
+                LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried(),
+                LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis()
         );
     }
 
