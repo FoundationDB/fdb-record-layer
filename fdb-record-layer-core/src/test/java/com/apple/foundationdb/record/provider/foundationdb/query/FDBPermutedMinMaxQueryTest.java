@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -110,8 +111,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         }
         final var num2Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_2");
         final var num3Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_3_indexed");
+        final List<Column<? extends Value>> groupingColumns = List.of(
+                Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value),
+                Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)
+        );
         selectWhereBuilder
-                .addResultValue(RecordConstructorValue.ofColumns(List.of(Column.unnamedOf(num2Value), Column.unnamedOf(num3Value))))
+                .addResultValue(RecordConstructorValue.ofColumns(groupingColumns))
                 .addResultValue(baseQun.getFlowedObjectValue());
         return Quantifier.forEach(GroupExpressionRef.of(selectWhereBuilder.build().buildSelect()));
     }
