@@ -43,6 +43,7 @@ test {
             systemProperty "junit.jupiter.execution.timeout.default", "5m"
         }
         excludeTags 'Performance'
+        excludeTags 'WipesFDB'
     }
 }
 
