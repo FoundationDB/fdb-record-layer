@@ -20,8 +20,14 @@
 
 apply plugin: 'jacoco'
 apply plugin: 'jacoco-report-aggregation'
+// configure for test, other *Test are configured below
 jacoco {
     toolVersion = jacocoVersion
+}
+jacocoTestReport {
+    reports {
+        xml.required = true
+    }
 }
 
 def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
@@ -139,9 +145,23 @@ tasks.withType(Test) { theTask ->
         junitXml.outputPerTestCase = true
     }
     // Don't gather coverage for performance tests
-    // test automatically gets a coverage task
-    if (theTask.name != 'performanceTest' && theTask.name != 'test') {
-        task "jacoco${theTask.name.capitalize()}Report"(type: JacocoReport) {
+    if (theTask.name != 'performanceTest') {
+        if (theTask.name != 'test') { // jacocoTestReport gets created automatically
+            task "jacoco${theTask.name.capitalize()}Report"(type: JacocoReport) {
+                executionData theTask
+                sourceDirectories.from = project.files(project.sourceSets.test.allSource.srcDirs)
+                classDirectories.from = project.sourceSets.test.output
+                def htmlReportDir = project.reporting.file("jacoco/${theTask.name}/html")
+                def xmlReportFile = project.reporting.file("jacoco/${theTask.name}/jacoco.xml")
+                reports {
+                    xml.required = true
+                    html.destination = htmlReportDir
+                    xml.destination = xmlReportFile
+                }
+                doLast {
+                    println("See jacoco report at: file://${htmlReportDir.toURI().path}index.html")
+                }
+            }
         }
         theTask.finalizedBy("jacoco${theTask.name.capitalize()}Report")
     }
