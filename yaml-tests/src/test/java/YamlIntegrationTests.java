@@ -159,6 +159,11 @@ public class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
+    void bytes() throws Exception {
+        doRun("bytes.yamsql");
+    }
+
+    @Test
     void catalog() throws Exception {
         doRun("catalog.yamsql");
     }

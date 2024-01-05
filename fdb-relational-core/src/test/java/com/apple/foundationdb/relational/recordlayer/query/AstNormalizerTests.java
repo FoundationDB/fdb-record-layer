@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
 import org.assertj.core.api.Assertions;
@@ -44,7 +45,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Array;
-import java.math.BigInteger;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Base64;
@@ -426,7 +426,14 @@ public class AstNormalizerTests {
     void stripHexadecimalLiteral() throws RelationalException {
         validate("select X'0A0B' from t1",
                 "select ? from \"T1\" ",
-                List.of(new BigInteger("0A0B", 16).longValue()));
+                List.of(Hex.decodeHex("0a0b")));
+    }
+
+    @Test
+    void stripBase64Literal() throws RelationalException {
+        validate("select B64'yv4=' from t1",
+                "select ? from \"T1\" ",
+                List.of(Hex.decodeHex("cafe")));
     }
 
     @Test
@@ -449,9 +456,9 @@ public class AstNormalizerTests {
 
     @Test
     void continuationIsStripped() throws Exception {
-        validate(List.of("select * from t1 with continuation 'foo'",
-                        "select * from   t1 with      continuation 'foo'",
-                        "select * from   t1 lIMIt     200   with conTINUation 'bar'",
+        validate(List.of("select * from t1 with continuation b64'yv4='",
+                        "select * from   t1 with      continuation x'cafe'",
+                        "select * from   t1 lIMIt     200   with conTINUation x'0ff1ce'",
                         "select * from t1"),
                 "select * from \"T1\" ");
     }
@@ -459,8 +466,8 @@ public class AstNormalizerTests {
     @Test
     void parseContinuation() throws Exception {
         final var expectedContinuationStr = "FBUCFA==";
-        validate(List.of("select * from t1 limit 100 with continuation '" + expectedContinuationStr + "'",
-                        "select * from t1 limit             100   with  continuation    '" + expectedContinuationStr + "'"),
+        validate(List.of("select * from t1 limit 100 with continuation b64'" + expectedContinuationStr + "'",
+                        "select * from t1 limit             100   with  continuation    b64'" + expectedContinuationStr + "'"),
                 PreparedStatementParameters.empty(),
                 "select * from \"T1\" ",
                 List.of(List.of(), List.of()),
@@ -737,9 +744,17 @@ public class AstNormalizerTests {
     @Test
     void stripHexadecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select X'0A0B', ?, ?param from t1",
-                PreparedStatementParameters.of(Map.of(1, new BigInteger("0A0C", 16)), Map.of("param", new BigInteger("0B0C", 16))),
+                PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
                 "select ? , ? , ?param from \"T1\" ",
-                List.of(new BigInteger("0A0B", 16).longValue(), new BigInteger("0A0C", 16), new BigInteger("0B0C", 16)));
+                List.of(Hex.decodeHex("0A0B"), Hex.decodeHex("0A0C"), Hex.decodeHex("0B0C")));
+    }
+
+    @Test
+    void stripBase64LiteralWithPreparedParameters() throws RelationalException {
+        validate("select B64'yv4=', ?, ?param from t1",
+                PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
+                "select ? , ? , ?param from \"T1\" ",
+                List.of(Hex.decodeHex("cafe"), Hex.decodeHex("0A0C"), Hex.decodeHex("0B0C")));
     }
 
     @Test

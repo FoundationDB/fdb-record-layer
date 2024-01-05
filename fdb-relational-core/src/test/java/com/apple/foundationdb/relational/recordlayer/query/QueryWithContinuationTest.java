@@ -329,7 +329,7 @@ public class QueryWithContinuationTest {
             }
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 12L)
                             .hasNextRow().hasColumn("REST_NO", 13L)
@@ -338,7 +338,7 @@ public class QueryWithContinuationTest {
                     assertContinuation(continuation, false, false);
                 }
                 continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 14L)
                             .hasNoNextRow();
@@ -374,7 +374,7 @@ public class QueryWithContinuationTest {
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {
                     String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("REST_NO", 12L)
                                 .hasNextRow().hasColumn("REST_NO", 13L)
@@ -390,7 +390,7 @@ public class QueryWithContinuationTest {
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {
                     String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("REST_NO", 14L)
                                 .hasNoNextRow();
@@ -419,7 +419,7 @@ public class QueryWithContinuationTest {
             }
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 12L)
                             .hasNextRow().hasColumn("REST_NO", 13L)
@@ -428,7 +428,7 @@ public class QueryWithContinuationTest {
                     assertContinuation(continuation, false, false);
                 }
                 continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION '" + continuationString + "'")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 9 LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'")) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 14L)
                             .hasNoNextRow();
@@ -456,7 +456,7 @@ public class QueryWithContinuationTest {
             }
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > 10 LIMIT 2 WITH CONTINUATION '" + continuationString + "'"))
+                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord WHERE REST_NO > 10 LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'"))
                         .hasCauseInstanceOf(RelationalException.class)
                         .hasMessageContaining("Continuation binding does not match query");
             }
@@ -480,7 +480,7 @@ public class QueryWithContinuationTest {
             }
             try (RelationalStatement statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
-                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION '" + continuationString + "'"))
+                Assertions.assertThatThrownBy(() -> statement.executeQuery("SELECT REST_NO FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION B64'" + continuationString + "'"))
                         .hasCauseInstanceOf(RelationalException.class)
                         .hasMessageContaining("Continuation plan does not match query");
             }

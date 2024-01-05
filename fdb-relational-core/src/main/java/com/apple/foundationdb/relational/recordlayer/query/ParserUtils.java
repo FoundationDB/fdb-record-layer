@@ -65,10 +65,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -88,6 +90,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -247,6 +250,23 @@ public final class ParserUtils {
             } else {
                 return result;
             }
+        }
+    }
+
+    @Nonnull
+    public static byte[] parseBytes(String text) {
+        try {
+            if (text.toLowerCase(Locale.ROOT).startsWith("x'") && text.endsWith("'")) {
+                return Hex.decodeHex(text.substring(2, text.length() - 1)); // of the form: X'CAFE'
+            } else if (text.toLowerCase(Locale.ROOT).startsWith("b64'") && text.endsWith("'")) {
+                return Base64.getDecoder().decode(text.substring(4, text.length() - 1)); // of the form: B64'yv4='
+            } else {
+                throw new RelationalException("Could not parse bytes literal", ErrorCode.INVALID_BINARY_REPRESENTATION).toUncheckedWrappedException();
+            }
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        } catch (IllegalArgumentException e) {
+            throw new RelationalException("Could not parse bytes literal", ErrorCode.INVALID_BINARY_REPRESENTATION, e).toUncheckedWrappedException();
         }
     }
 

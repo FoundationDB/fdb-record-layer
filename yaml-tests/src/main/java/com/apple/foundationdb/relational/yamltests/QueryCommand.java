@@ -179,7 +179,7 @@ class QueryCommand extends Command {
             currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
         }
         if (continuation instanceof ContinuationImpl) {
-            currentQuery += String.format(" with continuation '%s'", ResultSetFormat.formatContinuation(continuation));
+            currentQuery += String.format(" with continuation b64'%s'", ResultSetFormat.formatContinuation(continuation));
         }
         return currentQuery;
     }

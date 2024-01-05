@@ -192,7 +192,7 @@ selectStatementWithContinuation
     ;
 
 continuationAtom
-    : stringLiteral
+    : bytesLiteral
     | preparedStatementParameter
     ;
 
@@ -574,8 +574,8 @@ booleanLiteral
     : TRUE | FALSE;
 
 // done. check X'0A0B...' literal syntax.
-hexadecimalLiteral
-    : STRING_CHARSET_NAME? HEXADECIMAL_LITERAL;
+bytesLiteral
+    : HEXADECIMAL_LITERAL | BASE64_LITERAL;
 
 // done
 nullLiteral
@@ -586,7 +586,7 @@ constant
     : stringLiteral       #stringConstant // done
     | decimalLiteral      #decimalConstant // done
     | '-' decimalLiteral  #negativeDecimalConstant // done
-    | hexadecimalLiteral  #hexadecimalConstant // done
+    | bytesLiteral        #bytesConstant // done
     | booleanLiteral      #booleanConstant // done
     | BIT_STRING          #bitStringConstant // done (unsupported)
     | NOT? nullLiteral    #nullConstant // done (unsupported) - if NOT exists.

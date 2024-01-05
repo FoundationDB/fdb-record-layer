@@ -362,7 +362,7 @@ public class StandardQueryTests {
                 while (!continuation.atEnd()) {
                     String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION '" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                        query += " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
@@ -387,7 +387,7 @@ public class StandardQueryTests {
                 final String begin = "select * from RestaurantComplexRecord where rest_no > 40 with continuation null";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery(begin))
                         .hasErrorCode(ErrorCode.SYNTAX_ERROR);
-                final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation ''";
+                final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation b64''";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery(end))
                         .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
             }

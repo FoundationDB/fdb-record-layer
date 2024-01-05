@@ -1,0 +1,65 @@
+#
+# bytes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop schema template if exists bytes_tests_schema_template
+---
+- query: create schema template bytes_tests_schema_template
+    create table lb(a bigint, b bytes, primary key(a))
+---
+- query: drop database if exists /FRL/BYTES_YAML
+---
+- query: create database /FRL/BYTES_YAML
+---
+- query: create schema /FRL/BYTES_YAML/BYTES_SCHEMA with template bytes_tests_schema_template
+---
+- connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
+---
+- query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null);
+---
+- query: select b from lb
+- result: [ { x'deadbeef'}, { x'cafe' }, { !null } ]
+---
+- query: select x'0ff1ce' from lb where a = 1
+- result: [ {x'0ff1ce'}]
+---
+- query: select x'' from lb where a = 1
+- result: [ {x''} ]
+---
+- query: select x'0' from lb where a = 1
+- error: 22F03
+---
+- query: select x'ABCDMN' from lb where a = 1
+- error: 22F03
+---
+- query: select b64'***' from lb where a = 1
+- error: 22F03
+# TODO (Cannot compare bytes field in SQL)
+#---
+#- query: select a from lb where b = x'cafe'
+#- result: [ { 2 } ]
+---
+- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+---
+- query: drop database /FRL/BYTES_YAML
+---
+- query: drop schema template bytes_tests_schema_template
+...

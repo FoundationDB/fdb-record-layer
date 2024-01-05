@@ -82,11 +82,9 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.math.BigInteger;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -201,23 +199,22 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public byte[] visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
-        if (ctx.stringLiteral() != null) {
+        if (ctx.bytesLiteral() != null) {
             return context.withDisabledLiteralProcessing(() -> {
                 final var literal = visitChildren(ctx);
                 Assert.thatUnchecked(literal instanceof LiteralValue<?>);
-                final var continuationObject = ((LiteralValue<?>) literal).getLiteralValue();
-                Assert.thatUnchecked(continuationObject instanceof String);
-                final var continuationString = (String) continuationObject;
-                Assert.notNullUnchecked(continuationString, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
-                Assert.thatUnchecked(!continuationString.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
-                return Base64.getDecoder().decode(continuationString);
+                final var continuationBytes = ((LiteralValue<?>) literal).getLiteralValue();
+                Assert.notNullUnchecked(continuationBytes);
+                Assert.thatUnchecked(continuationBytes instanceof ByteString,
+                        String.format("Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName()),
+                        ErrorCode.INVALID_CONTINUATION);
+                return ((ByteString) continuationBytes).toByteArray();
             });
         } else {
             return context.withDisabledLiteralProcessing(() -> {
                 final var literal = visitChildren(ctx);
                 Assert.thatUnchecked(literal instanceof LiteralValue<?>);
                 final var continuationBytes = ((LiteralValue<?>) literal).getLiteralValue();
-                Assert.notNullUnchecked(continuationBytes);
                 Assert.thatUnchecked(continuationBytes instanceof ByteString,
                         String.format("Unexpected prepared continuation parameter of type %s", continuationBytes.getClass().getSimpleName()),
                         ErrorCode.INVALID_CONTINUATION);
@@ -1142,12 +1139,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Value visitHexadecimalLiteral(RelationalParser.HexadecimalLiteralContext ctx) {
-        Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
-        Assert.notNullUnchecked(ctx.HEXADECIMAL_LITERAL(), UNSUPPORTED_QUERY);
-        // todo (yhatem) test this.
-        final var literal = ctx.HEXADECIMAL_LITERAL().getText();
-        final var byteArray = new BigInteger(literal.substring(2, literal.length() - 1), 16).toByteArray(); // of the form: X'CAFE'
+    public Value visitBytesLiteral(RelationalParser.BytesLiteralContext ctx) {
+        final String literal;
+        if (ctx.HEXADECIMAL_LITERAL() != null) {
+            literal = ctx.HEXADECIMAL_LITERAL().getText();
+        } else {
+            literal = ctx.BASE64_LITERAL().getText();
+        }
+        final byte[] byteArray = ParserUtils.parseBytes(literal);
         return LiteralsUtils.processLiteral(ZeroCopyByteString.wrap(byteArray), context);
     }
 

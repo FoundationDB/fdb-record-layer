@@ -145,7 +145,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(57, "select * from restaurant where (((42 + 3) - 2) + 6 is not null OR ((42 + 3) - 2) + 6 > rest_no) OR (name = 'foo')", null),
                     Arguments.of(58, "select * from restaurant where rest_no is null", null),
                     Arguments.of(59, "select * from restaurant where rest_no is not null", null),
-                    Arguments.of(60, "select * from restaurant with continuation 'abc'", null),
+                    Arguments.of(60, "select * from restaurant with continuation b64'abc'", null),
                     Arguments.of(61, "select * from restaurant USE INDEX (record_name_idx) where rest_no > 10 ", null),
                     Arguments.of(62, "select * from restaurant USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", null),
                     Arguments.of(63, "select * from restaurant USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null),

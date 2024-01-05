@@ -49,14 +49,12 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -139,7 +137,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             final var ctx = (RelationalParser.BooleanLiteralContext) context;
             return ctx.FALSE() == null;
         });
-        literalNodes.put(RelationalParser.HexadecimalConstantContext.class, context -> new BigInteger(context.getText().substring(2, context.getText().length() - 1), 16).longValue());
+        literalNodes.put(RelationalParser.BytesConstantContext.class, context -> ParserUtils.parseBytes(context.getText()));
         literalNodes.put(RelationalParser.StringConstantContext.class, context -> ParserUtils.normalizeString(context.getText(), false));
         literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParserUtils.parseDecimal(context.getText()));
@@ -337,13 +335,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Void visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
         allowLiteralAddition = false;
         allowTokenAddition = false;
-        if (ctx.stringLiteral() != null) {
-            final var continuationStr = ParserUtils.normalizeString(ctx.stringLiteral().getText(), caseSensitive);
-            Assert.notNullUnchecked(continuationStr, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
-            Assert.thatUnchecked(!continuationStr.isEmpty(), "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
-            final var continuationBytes = Base64.getDecoder().decode(continuationStr);
-            context.setContinuation(continuationBytes);
-            processLiteral(continuationBytes);
+        if (ctx.bytesLiteral() != null) {
+            final var continuation = ParserUtils.parseBytes(ctx.bytesLiteral().getText());
+            Assert.notNullUnchecked(continuation, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
+            Assert.thatUnchecked(continuation.length != 0, "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
+            context.setContinuation(continuation);
+            processLiteral(continuation);
         } else {
             final var continuation = visit(ctx.preparedStatementParameter());
             Assert.thatUnchecked(continuation instanceof byte[]);

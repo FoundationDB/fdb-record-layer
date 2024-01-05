@@ -24,6 +24,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.HashMultiset;
@@ -35,7 +36,9 @@ import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -598,6 +601,9 @@ public class Matchers {
 
         if (expected instanceof String && actual instanceof byte[]) {
             if (Objects.equals(expected, new String((byte[]) actual, StandardCharsets.UTF_8))) {
+                return ResultSetMatchResult.success();
+            } else if (((String) expected).toLowerCase(Locale.ROOT).startsWith("x'") && ((String) expected).endsWith("'") &&
+                    Arrays.equals(ParserUtils.parseBytes((String) expected), (byte[]) actual)) {
                 return ResultSetMatchResult.success();
             }
         }

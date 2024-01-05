@@ -1258,7 +1258,8 @@ FILESIZE_LITERAL:                    DEC_DIGIT+ ('K'|'M'|'G'|'T');
 START_NATIONAL_STRING_LITERAL:       'N' SQUOTA_STRING;
 STRING_LITERAL:                      SQUOTA_STRING;
 DECIMAL_LITERAL:                     DEC_DIGIT+;
-HEXADECIMAL_LITERAL:                 'X' '\'' (HEX_DIGIT HEX_DIGIT)+ '\'';
+HEXADECIMAL_LITERAL:                 'X' STRING_LITERAL;
+BASE64_LITERAL:                      'B64' STRING_LITERAL;
 
 REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ TYPE_MODIFIER?
                                      | DEC_DIGIT+ '.' EXPONENT_NUM_PART TYPE_MODIFIER?
@@ -1320,7 +1321,6 @@ fragment EXPONENT_NUM_PART:          'E' [-+]? DEC_DIGIT+;
 fragment ID_LITERAL:                 [A-Za-z/][A-Za-z0-9_/]*;
 fragment DQUOTA_STRING:              '"' ( '\\'. | '""' | ~('"'| '\\') )* '"';
 fragment SQUOTA_STRING:              '\'' ('\'\'' | ~('\''))* '\'';
-fragment HEX_DIGIT:                  [0-9A-F];
 fragment DEC_DIGIT:                  [0-9];
 fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
 
