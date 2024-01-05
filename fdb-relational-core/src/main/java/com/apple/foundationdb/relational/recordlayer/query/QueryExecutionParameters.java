@@ -104,24 +104,20 @@ public interface QueryExecutionParameters {
             arrayLiteralScopeCount--;
         }
 
-        void finishStructLiteral(@Nullable Type.Record type) {
+        void finishStructLiteral(@Nonnull Type.Record type) {
             Assert.thatUnchecked(!current.empty());
             Assert.thatUnchecked(structLiteralScopeCount > 0);
             final var array = current.pop();
-            if (type != null) {
-                // TODO: Consider creating the TypeRepository in the beginning and reusing throughout the lifetime of the builder.
-                final var builder = TypeRepository.newBuilder();
-                type.defineProtoType(builder);
-                final var messageBuilder = builder.build().newMessageBuilder(type);
-                final var fieldDescriptors = messageBuilder.getDescriptorForType().getFields();
-                for (int i = 0; i < array.size(); i++) {
-                    final var value = array.get(i);
-                    messageBuilder.setField(fieldDescriptors.get(i), value);
-                }
-                current.peek().add(messageBuilder.build());
-            } else {
-                current.peek().add(array);
+            // TODO: Consider creating the TypeRepository in the beginning and reusing throughout the lifetime of the builder.
+            final var builder = TypeRepository.newBuilder();
+            type.defineProtoType(builder);
+            final var messageBuilder = builder.build().newMessageBuilder(type);
+            final var fieldDescriptors = messageBuilder.getDescriptorForType().getFields();
+            for (int i = 0; i < array.size(); i++) {
+                final var value = array.get(i);
+                messageBuilder.setField(fieldDescriptors.get(i), value);
             }
+            current.peek().add(messageBuilder.build());
             structLiteralScopeCount--;
         }
 

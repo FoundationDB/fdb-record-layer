@@ -1,5 +1,5 @@
 /*
- * UpdateWithContinuationTest.java
+ * UpdateTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,12 +36,16 @@ import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.jupiter.api.Assertions;
+import org.apache.logging.log4j.Level;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -55,7 +59,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class UpdateWithContinuationTest {
+public class UpdateTest {
 
     private static final String schemaTemplate =
             "CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)" +
@@ -68,18 +72,35 @@ public class UpdateWithContinuationTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, UpdateWithContinuationTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, UpdateTest.class, schemaTemplate, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
-    @Test
-    void updateWithSimpleFieldTest() throws Exception {
-        final var fieldToUpdate = "name";
-        final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
-        final var expectedValue = updateValue.apply(null);
-        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+    @RegisterExtension
+    @Order(4)
+    public final LogAppenderRule logAppender = new LogAppenderRule("UpdateTestLogAppender", PlanGenerator.class, Level.DEBUG);
+
+    @BeforeEach
+    public void beforeEach() throws SQLException, RelationalException {
+        insertRecords(10);
     }
 
     @Test
-    void updateWithStructFieldTest() throws Exception {
+    void updateSimpleFieldWithContinuationTest() throws Exception {
+        final var fieldToUpdate = "name";
+        final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        final var expectedValue = updateValue.apply(null);
+        testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    @Test
+    void updateSimpleFieldVerifyCacheTest() throws Exception {
+        final var fieldToUpdate = "name";
+        final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        final var expectedValue = updateValue.apply(null);
+        testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    @Test
+    void updateStructFieldWithContinuationTest() throws Exception {
         final var fieldToUpdate = "stats";
         final var expectedValue = new ImmutableRowStruct(new ArrayRow(123L, "blah", "blah2"), new RelationalStructMetaData(
                 FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
@@ -92,11 +113,28 @@ public class UpdateWithContinuationTest {
                 throw new RuntimeException(e);
             }
         };
-        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+        testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
     }
 
     @Test
-    void updateWithArrayFieldTest() throws Exception {
+    void updateStructFieldVerifyCacheTest() throws Exception {
+        final var fieldToUpdate = "stats";
+        final var expectedValue = new ImmutableRowStruct(new ArrayRow(123L, "blah", "blah2"), new RelationalStructMetaData(
+                FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                FieldDescription.primitive("SCHOOL_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                FieldDescription.primitive("HOMETOWN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
+        final Function<RelationalConnection, Object> updateValue = conn -> {
+            try {
+                return conn.createStruct("ReviewerStats", new Object[]{123L, "blah", "blah2"});
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    @Test
+    void updateArrayFieldWithContinuationTest() throws Exception {
         final var fieldToUpdate = "secrets";
         final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
         final Function<RelationalConnection, Object> updateValue = conn -> {
@@ -108,10 +146,27 @@ public class UpdateWithContinuationTest {
         };
         final var expectedValue = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), new RelationalStructMetaData(
                 FieldDescription.primitive("SECRETS", SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls)));
-        testUpdateInternal(fieldToUpdate, updateValue, expectedValue);
+        testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
     }
 
-    private void insertRecords(int numRecords) throws RelationalException, SQLException {
+    @Test
+    @Disabled // Owing to TODO (Bytes type parameter plans are not getting retrieved from cache correctly)
+    void updateArrayFieldVerifyCacheTest() throws Exception {
+        final var fieldToUpdate = "secrets";
+        final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
+        final Function<RelationalConnection, Object> updateValue = conn -> {
+            try {
+                return conn.createArrayOf("BINARY", array.stream().map(t -> Arrays.copyOf(t, t.length)).toArray());
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        final var expectedValue = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), new RelationalStructMetaData(
+                FieldDescription.primitive("SECRETS", SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls)));
+        testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
+    }
+
+    public void insertRecords(int numRecords) throws RelationalException, SQLException {
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
             con.beginTransaction();
@@ -152,6 +207,11 @@ public class UpdateWithContinuationTest {
     }
 
     private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+                                                               Object expectedValue) throws SQLException, RelationalException {
+        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Options.NONE);
+    }
+
+    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
                                                                Object expectedValue, Options options) throws SQLException, RelationalException {
         return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Pair.of(ContinuationImpl.BEGIN, 0), options);
     }
@@ -181,14 +241,21 @@ public class UpdateWithContinuationTest {
         return Pair.of(continuation, updatedUpTill);
     }
 
-    private void testUpdateInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)
+    private void testUpdateWithContinuationInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)
             throws SQLException, RelationalException {
-        insertRecords(10);
         var continuationAndNumUpdated = updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue,
                 Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
         verifyUpdates(fieldToUpdate, expectedValue, continuationAndNumUpdated.getRight());
         continuationAndNumUpdated = updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, continuationAndNumUpdated, Options.NONE);
-        Assertions.assertEquals(10, continuationAndNumUpdated.getRight());
+        Assertions.assertThat(continuationAndNumUpdated.getRight()).isEqualTo(10);
         verifyUpdates(fieldToUpdate, expectedValue, 10);
+    }
+
+    private void testUpdateVerifyCacheInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)
+            throws SQLException, RelationalException {
+        updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue);
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+        updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue);
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
     }
 }

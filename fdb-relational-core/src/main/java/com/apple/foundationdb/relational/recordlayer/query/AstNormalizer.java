@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -476,7 +478,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     processLiteral(o);
                 }
             });
-            context.finishStructLiteral(null);
+            final var resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
+            context.finishStructLiteral(resolvedType);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

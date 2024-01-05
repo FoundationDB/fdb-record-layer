@@ -197,7 +197,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             return literals.startStructLiteral();
         }
 
-        public void finishStructLiteral(@Nullable Type.Record type) {
+        public void finishStructLiteral(@Nonnull Type.Record type) {
             literals.finishStructLiteral(type);
         }
 
