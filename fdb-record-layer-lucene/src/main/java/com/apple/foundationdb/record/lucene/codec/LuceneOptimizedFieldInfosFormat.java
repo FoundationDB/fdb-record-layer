@@ -174,7 +174,7 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     }
 
     private Map<String, String> protoToLucene(final List<LuceneFieldInfosProto.Attribute> attributesList) {
-        return attributesList.stream().collect(Collectors.toMap(
+        return attributesList.stream().collect(Collectors.toUnmodifiableMap(
                 LuceneFieldInfosProto.Attribute::getKey,
                 LuceneFieldInfosProto.Attribute::getValue));
     }

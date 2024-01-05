@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -37,6 +39,7 @@ import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.codecs.TermVectorsFormat;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -48,6 +51,8 @@ import org.apache.lucene.util.Bits;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * Wrapper around {@link LuceneOptimizedCodec} to better support tests provided by lucene.
@@ -58,9 +63,10 @@ import java.util.Collection;
  */
 @AutoService(Codec.class)
 public class TestingCodec extends Codec {
-    private LuceneOptimizedCodec underlying;
+    private final LuceneOptimizedCodec underlying;
     private static boolean disableLaziness;
     private static boolean disableLazinessForLiveDocs;
+    private static boolean allowRandomCompoundFiles;
 
     public TestingCodec() {
         super("RLT");
@@ -84,11 +90,21 @@ public class TestingCodec extends Codec {
     }
 
     /**
+     * The tests for the compound format don't necessarily create segments in the way we expect them, so there might
+     * not be a FieldInfos, and the code needs to be updated to handle that; if this is set, we will create our own
+     * {@link LuceneOptimizedCompoundFormat} that doesn't treat the FieldInfos as special.
+     */
+    public static void allowRandomCompoundFiles() {
+        TestingCodec.allowRandomCompoundFiles = true;
+    }
+
+    /**
      * Reset all of the static configs back to the default state.
      */
     public static void reset() {
         disableLaziness = false;
         disableLazinessForLiveDocs = false;
+        allowRandomCompoundFiles = false;
     }
 
     @Override
@@ -192,7 +208,28 @@ public class TestingCodec extends Codec {
 
     @Override
     public CompoundFormat compoundFormat() {
-        return underlying.compoundFormat();
+        if (allowRandomCompoundFiles) {
+            return new LuceneOptimizedCompoundFormat(((LuceneOptimizedCompoundFormat)underlying.compoundFormat()).underlying) {
+                @Override
+                protected void copyFieldInfos(final SegmentInfo si, final Set<String> filesForAfter, final FDBDirectory directory) {
+                    // copy the id, only if it's present
+                    final Optional<String> fieldInfosName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst();
+                    if (fieldInfosName.isPresent()) {
+                        final String fieldInfosFileName = fieldInfosName.orElseThrow();
+                        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
+                        String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+                        directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
+                    }
+                }
+
+                @Override
+                protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
+                    // assume a-ok
+                }
+            };
+        } else {
+            return underlying.compoundFormat();
+        }
     }
 
     @Override
