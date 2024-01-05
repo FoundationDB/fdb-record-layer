@@ -464,7 +464,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         // Construct an alias map for equivalences.
         //
         final var correlatedTos = Streams.stream(toBePulledUpValues)
-                .map(value -> getCorrelatedTo())
+                .map(Correlated::getCorrelatedTo)
                 .collect(ImmutableList.toImmutableList());
 
         final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
