@@ -20,9 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction.POnKeyExpression;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction.POnValues;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -32,6 +38,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +50,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -186,15 +195,26 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * A comparison key function that extracts a comparison key for binary comparison by some set operations which
      * also provides a stable plan hash and hash code.
      */
-    interface ComparisonKeyFunction extends PlanHashable {
+    interface ComparisonKeyFunction extends PlanHashable, PlanSerializable {
 
         @Nonnull
         <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
+
+        @Nonnull
+        PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static ComparisonKeyFunction fromComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                    @Nonnull final PComparisonKeyFunction comparisonKeyFunctionProto) {
+            return (ComparisonKeyFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonKeyFunctionProto);
+        }
 
         /**
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
+        @AutoService(PlanSerializable.class)
+        @ProtoMessage(POnKeyExpression.class)
         class OnKeyExpression implements ComparisonKeyFunction {
             @Nonnull
             private final KeyExpression comparisonKeyExpression;
@@ -246,12 +266,33 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             public int planHash(@Nonnull final PlanHashMode mode) {
                 return comparisonKeyExpression.planHash(mode);
             }
+
+            @Nonnull
+            @Override
+            public POnKeyExpression toProto(@Nonnull final PlanSerializationContext serializationContext) {
+                return POnKeyExpression.newBuilder().setComparisonKeyExpression(comparisonKeyExpression.toKeyExpression()).build();
+            }
+
+            @Nonnull
+            @Override
+            public PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+                return PComparisonKeyFunction.newBuilder().setOnKeyExpression(toProto(serializationContext)).build();
+            }
+
+            @Nonnull
+            @SuppressWarnings("unused")
+            public static OnKeyExpression fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final POnKeyExpression onKeyExpressionProto) {
+                return new OnKeyExpression(KeyExpression.fromProto(onKeyExpressionProto.getComparisonKeyExpression()));
+            }
         }
 
         /**
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
+        @AutoService(PlanSerializable.class)
+        @ProtoMessage(POnValues.class)
         class OnValues implements ComparisonKeyFunction {
             @Nonnull
             private final CorrelationIdentifier baseAlias;
@@ -313,6 +354,33 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             @Override
             public int planHash(@Nonnull final PlanHashMode mode) {
                 return PlanHashable.planHash(mode, comparisonKeyValues);
+            }
+
+            @Nonnull
+            @Override
+            public POnValues toProto(@Nonnull final PlanSerializationContext serializationContext) {
+                final POnValues.Builder builder = POnValues.newBuilder().setBaseAlias(baseAlias.getId());
+                for (final Value comparisonKeyValue : comparisonKeyValues) {
+                    builder.addComparisonKeyValues(comparisonKeyValue.toValueProto(serializationContext));
+                }
+                return builder.build();
+            }
+
+            @Nonnull
+            @Override
+            public PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+                return PComparisonKeyFunction.newBuilder().setOnValues(toProto(serializationContext)).build();
+            }
+
+            @Nonnull
+            public static OnValues fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final POnValues onValuesProto) {
+                final ImmutableList.Builder<Value> comparisonKeyValuesBuilder = ImmutableList.builder();
+                for (int i = 0; i < onValuesProto.getComparisonKeyValuesCount(); i ++) {
+                    comparisonKeyValuesBuilder.add(Value.fromValueProto(serializationContext, onValuesProto.getComparisonKeyValues(i)));
+                }
+                return new OnValues(CorrelationIdentifier.of(Objects.requireNonNull(onValuesProto.getBaseAlias())),
+                        comparisonKeyValuesBuilder.build());
             }
         }
     }

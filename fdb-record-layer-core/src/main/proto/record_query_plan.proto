@@ -1022,20 +1022,24 @@ message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
     PRecordQueryCoveringIndexPlan covering_index_plan = 1;
-    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 2;
-    PRecordQueryFlatMapPlan flat_map_plan = 3;
-    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 4;
-    PRecordQueryIndexPlan record_query_index_plan = 5;
-    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 6;
-    PRecordQueryInsertPlan insert_plan = 7;
-    PRecordQueryInValuesJoinPlan in_values_join_plan = 8;
-    PRecordQueryMapPlan map_plan = 9;
-    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 10;
-    PRecordQueryScanPlan scan_plan = 11;
-    PRecordQueryTypeFilterPlan type_filter_plan = 12;
-    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 13;
-    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 14;
-    PRecordQueryUpdatePlan update_plan = 15;
+    PRecordQueryDeletePlan delete_plan = 2;
+    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 3;
+    PRecordQueryFlatMapPlan flat_map_plan = 4;
+    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 5;
+    PRecordQueryIndexPlan record_query_index_plan = 6;
+    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 7;
+    PRecordQueryInsertPlan insert_plan = 8;
+    PRecordQueryIntersectionOnKeyExpressionPlan intersection_on_key_expression_plan = 9;
+    PRecordQueryIntersectionOnValuesPlan intersection_on_values_plan = 10;
+    PRecordQueryInValuesJoinPlan in_values_join_plan = 11;
+    PRecordQueryMapPlan map_plan = 12;
+    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 13;
+    PRecordQueryScanPlan scan_plan = 14;
+    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 15;
+    PRecordQueryTypeFilterPlan type_filter_plan = 16;
+    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 17;
+    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 18;
+    PRecordQueryUpdatePlan update_plan = 19;
   }
 }
 
@@ -1110,6 +1114,13 @@ message PIndexKeyValueToPartialRecord {
 
   repeated PCopier copiers = 1;
   optional bool is_required = 2;
+}
+
+//
+// PRecordQueryDeletePlan
+//
+message PRecordQueryDeletePlan {
+  optional PPhysicalQuantifier inner = 1;
 }
 
 //
@@ -1285,6 +1296,43 @@ message PRecordQueryInsertPlan {
 }
 
 //
+// PRecordQueryIntersectionPlan
+//
+message PRecordQueryIntersectionPlan {
+  repeated PPhysicalQuantifier quantifiers = 1;
+  optional PComparisonKeyFunction comparison_key_function = 2;
+  optional bool reverse = 3;
+}
+
+message PComparisonKeyFunction {
+  message POnKeyExpression {
+    optional KeyExpression comparison_key_expression = 1;
+  }
+  message POnValues {
+    optional string base_alias = 1;
+    repeated PValue comparison_key_values = 2;
+  }
+  oneof specific_comparison_key_function {
+    POnKeyExpression on_key_expression = 1;
+    POnValues on_values = 2;
+  }
+}
+
+//
+// PRecordQueryIntersectionOnKeyExpressionPlan
+//
+message PRecordQueryIntersectionOnKeyExpressionPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryIntersectionOnValuesPlan
+//
+message PRecordQueryIntersectionOnValuesPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
 // PRecordQueryInValuesJoinPlan
 //
 message PRecordQueryInValuesJoinPlan {
@@ -1318,6 +1366,18 @@ message PRecordQueryScanPlan {
   optional PScanComparisons comparisons = 5;
   optional bool reverse = 6;
   optional bool strictly_sorted = 7;
+}
+
+//
+// PRecordQueryStreamingAggregationPlan
+//
+message PRecordQueryStreamingAggregationPlan {
+    optional PPhysicalQuantifier inner = 1;
+    optional PValue aggregate_value = 2;
+    optional PValue grouping_key_value = 3;
+    optional string grouping_key_alias = 4;
+    optional string aggregate_alias = 5;
+    optional PValue complete_result_value = 6;
 }
 
 //

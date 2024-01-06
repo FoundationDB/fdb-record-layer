@@ -20,9 +20,16 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -33,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
@@ -366,7 +374,10 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * The copier to populate the lucene auto complete suggestion as a value for the field where it is indexed from.
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PLuceneSpellCheckCopier.class)
     public static class LuceneSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Spell-Check-Copier");
         private final int groupingColumnSize;
 
         public LuceneSpellCheckCopier(final int groupingColumnSize) {
@@ -387,6 +398,29 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             String value = (String) keyTuple.get(groupingColumnSize + 1);
             buildPartialRecord(kv.getIndex().getRootExpression(), recordDescriptor, recordBuilder, fieldName, value, groupingKey);
             return true;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, groupingColumnSize);
+        }
+
+        @Nonnull
+        @Override
+        public PLuceneSpellCheckCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return null;
+        }
+
+        @Nonnull
+        @Override
+        public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return null;
+        }
+
+        @Nonnull
+        public static LuceneSpellCheckCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
+            ...
         }
     }
 }

@@ -55,3 +55,11 @@ extend PIndexScanParameters {
   optional PLuceneScanQueryParameters lucene_scan_query_parameters = 5001;
   optional PLuceneScanSpellCheckParameters lucene_scan_spell_check_parameters = 5002;
 }
+
+message PLuceneSpellCheckCopier {
+  optional int32 grouping_column_size = 1;
+}
+
+extend PIndexKeyValueToPartialRecord.PCopier {
+  optional PLuceneSpellCheckCopier lucene_spell_check_copier = 5001;
+}

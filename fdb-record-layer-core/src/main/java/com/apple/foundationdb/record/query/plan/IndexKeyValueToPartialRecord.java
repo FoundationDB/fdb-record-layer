@@ -21,13 +21,26 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PFieldCopier;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PMessageCopier;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PTupleSource;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -46,7 +59,8 @@ import java.util.TreeMap;
  * Construct a record from a covering index.
  */
 @API(API.Status.INTERNAL)
-public class IndexKeyValueToPartialRecord {
+public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializable {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Key-Value-To-Partial-Record");
     @Nonnull
     private final List<Copier> copiers;
     private final boolean isRequired;
@@ -98,6 +112,33 @@ public class IndexKeyValueToPartialRecord {
         return Objects.hash(copiers);
     }
 
+    @Override
+    public int planHash(@Nonnull final PlanHashMode hashMode) {
+        return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, copiers, isRequired);
+    }
+
+    @Nonnull
+    @Override
+    public PIndexKeyValueToPartialRecord toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PIndexKeyValueToPartialRecord.newBuilder();
+        for (final Copier copier : copiers) {
+            builder.addCopiers(copier.toCopierProto(serializationContext));
+        }
+        builder.setIsRequired(isRequired);
+        return builder.build();
+    }
+
+    @Nonnull
+    public static IndexKeyValueToPartialRecord fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PIndexKeyValueToPartialRecord indexKeyValueToPartialRecordProto) {
+        Verify.verify(indexKeyValueToPartialRecordProto.hasIsRequired());
+        final ImmutableList.Builder<Copier> copiersBuilder = ImmutableList.builder();
+        for (int i = 0; i < indexKeyValueToPartialRecordProto.getCopiersCount(); i ++) {
+            copiersBuilder.add(Copier.fromCopierProto(serializationContext, indexKeyValueToPartialRecordProto.getCopiers(i)));
+        }
+        return new IndexKeyValueToPartialRecord(copiersBuilder.build(), indexKeyValueToPartialRecordProto.getIsRequired());
+    }
+
     @SuppressWarnings("UnstableApiUsage")
     @Nullable
     public static Object getForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
@@ -135,19 +176,66 @@ public class IndexKeyValueToPartialRecord {
      * Which side of the {@link IndexEntry} to take a field from.
      */
     public enum TupleSource {
-        KEY, VALUE, OTHER
+        KEY, VALUE, OTHER;
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        PTupleSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            switch (this) {
+                case KEY:
+                    return PTupleSource.KEY;
+                case VALUE:
+                    return PTupleSource.VALUE;
+                case OTHER:
+                    return PTupleSource.OTHER;
+                default:
+                    throw new RecordCoreException("unknown tuple source mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        static TupleSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PTupleSource tupleSourceProto) {
+            switch (tupleSourceProto) {
+                case KEY:
+                    return KEY;
+                case VALUE:
+                    return VALUE;
+                case OTHER:
+                    return OTHER;
+                default:
+                    throw new RecordCoreException("unknown tuple source mapping. did you forget to add it?");
+            }
+        }
     }
 
     /**
      * Copy from an index entry into part of a record.
      */
-    public interface Copier {
+    public interface Copier extends PlanHashable, PlanSerializable {
         boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                      @Nonnull IndexEntry kv);
+
+        @Nonnull
+        PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static Copier fromCopierProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PCopier copierProto) {
+            return (Copier)PlanSerialization.dispatchFromProtoContainer(serializationContext, copierProto);
+        }
     }
 
+    /**
+     * Copier for basic fields.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PFieldCopier.class)
     @SuppressWarnings("UnstableApiUsage")
-    static class FieldCopier implements Copier {
+    public static class FieldCopier implements Copier {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Copier");
+
         @Nonnull
         private final String field;
         @Nonnull
@@ -156,10 +244,8 @@ public class IndexKeyValueToPartialRecord {
         private final AvailableFields.CopyIfPredicate copyIfPredicate;
         @Nonnull
         private final ImmutableIntArray ordinalPath;
-        private final Descriptors.FieldDescriptor fieldDescriptor;
 
-        private FieldCopier(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                            @Nonnull final String field,
+        private FieldCopier(@Nonnull final String field,
                             @Nonnull final TupleSource source,
                             @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
                             @Nonnull final ImmutableIntArray ordinalPath) {
@@ -167,7 +253,6 @@ public class IndexKeyValueToPartialRecord {
             this.source = source;
             this.copyIfPredicate = copyIfPredicate;
             this.ordinalPath = ordinalPath;
-            this.fieldDescriptor = fieldDescriptor;
         }
 
         @Override
@@ -182,11 +267,8 @@ public class IndexKeyValueToPartialRecord {
             if (value == null) {
                 return true;
             }
-            Descriptors.FieldDescriptor mutableFieldDescriptor = this.fieldDescriptor;
-            if (!fieldDescriptor.getContainingType().equals(recordDescriptor)) {
-                mutableFieldDescriptor = recordDescriptor.findFieldByName(field);
-            }
-            switch (mutableFieldDescriptor.getType()) {
+            Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
+            switch (fieldDescriptor.getType()) {
                 case INT32:
                     value = ((Long)value).intValue();
                     break;
@@ -194,15 +276,15 @@ public class IndexKeyValueToPartialRecord {
                     value = ZeroCopyByteString.wrap((byte[])value);
                     break;
                 case MESSAGE:
-                    value = TupleFieldsHelper.toProto(value, mutableFieldDescriptor.getMessageType());
+                    value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
                     break;
                 case ENUM:
-                    value = mutableFieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
                     break;
                 default:
                     break;
             }
-            recordBuilder.setField(mutableFieldDescriptor, value);
+            recordBuilder.setField(fieldDescriptor, value);
             return true;
         }
 
@@ -229,12 +311,55 @@ public class IndexKeyValueToPartialRecord {
         public int hashCode() {
             return Objects.hash(field, source, ordinalPath);
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, field, source, copyIfPredicate, ordinalPath);
+        }
+
+        @Nonnull
+        @Override
+        public PFieldCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PFieldCopier.Builder builder = PFieldCopier.newBuilder()
+                    .setField(field)
+                    .setSource(source.toProto(serializationContext))
+                    .setCopyIfPredicate(copyIfPredicate.toCopyIfPredicateProto(serializationContext));
+            ordinalPath.forEach(builder::addOrdinalPath);
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCopier.newBuilder().setFieldCopier(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static FieldCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PFieldCopier fieldCopierProto) {
+            final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
+            for (int i = 0; i < fieldCopierProto.getOrdinalPath(i); i ++) {
+                ordinalPathBuilder.add(fieldCopierProto.getOrdinalPath(i));
+            }
+
+            return new FieldCopier(Objects.requireNonNull(fieldCopierProto.getField()),
+                    TupleSource.fromProto(serializationContext, Objects.requireNonNull(fieldCopierProto.getSource())),
+                    AvailableFields.CopyIfPredicate.fromCopyIfPredicateProto(serializationContext, Objects.requireNonNull(fieldCopierProto.getCopyIfPredicate())),
+                    ordinalPathBuilder.build());
+        }
     }
 
-    // This might be simpler with Message.Builder.getFieldBuilder(), where the message Builder
-    // itself keeps track of partially built submessages, rather than this class having to. But
-    // DynamicMessage does not support that.
-    static class MessageCopier implements Copier {
+    /**
+     * Copier for nested messages.
+     */
+    @AutoService(PlanSerializable.class)
+    @ProtoMessage(PMessageCopier.class)
+    public static class MessageCopier implements Copier {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Message-Copier");
+
+        // This might be simpler with Message.Builder.getFieldBuilder(), where the message Builder
+        // itself keeps track of partially built submessages, rather than this class having to. But
+        // DynamicMessage does not support that.
         @Nonnull
         private final String field;
         @Nonnull
@@ -289,6 +414,33 @@ public class IndexKeyValueToPartialRecord {
         public int hashCode() {
             return Objects.hash(field, nested);
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, field, nested);
+        }
+
+        @Nonnull
+        @Override
+        public PMessageCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMessageCopier.newBuilder()
+                    .setField(field)
+                    .setNested(nested.toProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCopier.newBuilder().setMessageCopier(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static MessageCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PMessageCopier messageCopierProto) {
+            return new MessageCopier(Objects.requireNonNull(messageCopierProto.getField()),
+                    IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(messageCopierProto.getNested())));
+        }
     }
 
     public static Builder newBuilder(@Nonnull RecordType recordType) {
@@ -340,7 +492,7 @@ public class IndexKeyValueToPartialRecord {
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(fieldDescriptor, field, source, copyIfPredicate, ordinalPath);
+            FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath);
             FieldCopier prev = fields.put(field, copier);
             if (prev != null) {
                 throw new RecordCoreException("setting field more than once: " + field);
