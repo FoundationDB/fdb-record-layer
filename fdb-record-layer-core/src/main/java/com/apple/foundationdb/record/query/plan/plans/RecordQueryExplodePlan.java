@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -42,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,6 +65,8 @@ import java.util.Set;
  * method: Mapping one {@link Value} to another.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryExplodePlan.class)
 public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Explode-Plan");
 
@@ -228,5 +236,25 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                         ImmutableList.of("EXPLODE {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(collectionValue.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryExplodePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryExplodePlan.newBuilder()
+                .setCollectionValue(collectionValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setExplodePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PRecordQueryExplodePlan recordQueryRangePlanProto) {
+        return new RecordQueryExplodePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getCollectionValue())));
     }
 }

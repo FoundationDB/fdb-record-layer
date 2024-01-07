@@ -21,12 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryRangePlan;
 import com.apple.foundationdb.record.cursors.RangeCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -44,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,6 +68,8 @@ import java.util.Set;
  * Semantically, however, {@code explode([1, 2, 3, ..., n - 1])} produces the same result as {@code range(n)}.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryRangePlan.class)
 public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Range-Plan");
 
@@ -116,11 +123,6 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
-    }
-
-    @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
-        return UNKNOWN_MAX_CARDINALITY;
     }
 
     @Override
@@ -238,5 +240,25 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
         return PlannerGraph.fromNodeAndChildGraphs(
                 dataNodeWithInfo,
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryRangePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryRangePlan.newBuilder()
+                .setExclusiveLimitValue(exclusiveLimitValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRangePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+        return new RecordQueryRangePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getExclusiveLimitValue())));
     }
 }

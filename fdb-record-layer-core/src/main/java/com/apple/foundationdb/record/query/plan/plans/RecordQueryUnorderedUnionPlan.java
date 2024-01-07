@@ -21,10 +21,15 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -39,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -46,6 +52,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -56,8 +63,15 @@ import java.util.function.Function;
  * makes no guarantees as to what order it will return results.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryUnorderedUnionPlan.class)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Union-Plan");
+
+    protected RecordQueryUnorderedUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryUnorderedUnionPlanProto.getSuper()));
+    }
 
     private RecordQueryUnorderedUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                           final boolean reverse) {
@@ -153,5 +167,25 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     @Override
     public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryUnorderedUnionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUnorderedUnionPlan.newBuilder()
+                .setSuper(toRecordQueryUnionPlanBaseProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUnorderedUnionPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+        return new RecordQueryUnorderedUnionPlan(serializationContext, recordQueryUnorderedUnionPlanProto);
     }
 }

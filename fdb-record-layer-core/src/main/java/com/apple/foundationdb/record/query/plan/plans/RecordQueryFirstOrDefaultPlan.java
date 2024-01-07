@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -43,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +67,8 @@ import java.util.Set;
  * the first record.
  */
 @API(API.Status.INTERNAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryFirstOrDefaultPlan.class)
 public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-First-Or-Default-Plan");
 
@@ -215,5 +223,27 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                         ImmutableMap.of("inner", Attribute.gml("$" + inner.getAlias()),
                                 "expr", Attribute.gml(onEmptyResultValue.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryFirstOrDefaultPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryFirstOrDefaultPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setOnEmptyResultValue(onEmptyResultValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setFirstOrDefaultPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryFirstOrDefaultPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
+        return new RecordQueryFirstOrDefaultPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getInner())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getOnEmptyResultValue())));
     }
 }

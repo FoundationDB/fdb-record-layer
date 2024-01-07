@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryDamPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -46,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.sorting.MemorySortCursor;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -65,6 +71,8 @@ import java.util.function.Function;
  * input has been consumed already.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryDamPlan.class)
 public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Dam-Plan");
 
@@ -229,4 +237,25 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
                 childGraphs);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryDamPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryDamPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setKey(key.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setDamPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryDamPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryDamPlan recordQueryDamPlan) {
+        return new RecordQueryDamPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getInner())),
+                RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getKey())));
+    }
 }

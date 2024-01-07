@@ -1022,8 +1022,11 @@ message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
     PRecordQueryCoveringIndexPlan covering_index_plan = 1;
+    PRecordQueryDamPlan dam_plan = 31;
     PRecordQueryDeletePlan delete_plan = 2;
+    PRecordQueryExplodePlan explode_plan = 30;
     PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 3;
+    PRecordQueryFirstOrDefaultPlan first_or_default_plan = 41;
     PRecordQueryFlatMapPlan flat_map_plan = 4;
     PRecordQueryInComparandJoinPlan in_comparand_join_plan = 5;
     PRecordQueryIndexPlan record_query_index_plan = 6;
@@ -1034,11 +1037,16 @@ message PRecordQueryPlan {
     PRecordQueryInValuesJoinPlan in_values_join_plan = 11;
     PRecordQueryMapPlan map_plan = 12;
     PRecordQueryPredicatesFilterPlan predicates_filter_plan = 13;
+    PRecordQueryRangePlan range_plan = 345;
     PRecordQueryScanPlan scan_plan = 14;
-    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 15;
-    PRecordQueryTypeFilterPlan type_filter_plan = 16;
-    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 17;
-    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 18;
+    PRecordQuerySortPlan sort_plan = 15;
+    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 16;
+    PRecordQueryTypeFilterPlan type_filter_plan = 17;
+    PRecordQueryUnionOnKeyExpressionPlan union_on_key_expression_plan = 23;
+    PRecordQueryUnionOnValuesPlan union_on_values_plan = 26;
+    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 18;
+    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 25;
+    PRecordQueryUnorderedUnionPlan unordered_union_plan = 24;
     PRecordQueryUpdatePlan update_plan = 19;
   }
 }
@@ -1117,10 +1125,25 @@ message PIndexKeyValueToPartialRecord {
 }
 
 //
+// PRecordQueryDamPlan
+//
+message PRecordQueryDamPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PRecordQuerySortKey key = 2;
+}
+
+//
 // PRecordQueryDeletePlan
 //
 message PRecordQueryDeletePlan {
   optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryExplodePlan
+//
+message PRecordQueryExplodePlan {
+  optional PValue collection_value = 1;
 }
 
 //
@@ -1137,6 +1160,14 @@ message PRecordQueryFetchFromPartialRecordPlan {
 //
 message PRecordQueryFilterPlanBase {
   optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryFirstOrDefaultPlan
+//
+message PRecordQueryFirstOrDefaultPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PValue on_empty_result_value = 2;
 }
 
 //
@@ -1356,6 +1387,26 @@ message PRecordQueryPredicatesFilterPlan {
 }
 
 //
+// PRecordQueryRangePlan
+//
+message PRecordQueryRangePlan {
+  optional PValue exclusive_limit_value = 1;
+}
+
+//
+// PRecordQuerySortPlan
+//
+message PRecordQuerySortPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PRecordQuerySortKey key = 2;
+}
+
+message PRecordQuerySortKey {
+  optional KeyExpression key = 1;
+  optional bool reverse = 2;
+}
+
+//
 // PRecordQueryScanPlan
 //
 message PRecordQueryScanPlan {
@@ -1390,6 +1441,29 @@ message PRecordQueryTypeFilterPlan {
 }
 
 //
+// PRecordQueryUnionOnKeyExpressionPlan
+//
+message PRecordQueryUnionOnKeyExpressionPlan {
+  optional PRecordQueryUnionPlan super = 1;
+}
+
+//
+// PRecordQueryUnionOnValuesPlan
+//
+message PRecordQueryUnionOnValuesPlan {
+  optional PRecordQueryUnionPlan super = 1;
+}
+
+//
+// PRecordQueryUnionPlan
+//
+message PRecordQueryUnionPlan {
+  optional PRecordQueryUnionPlanBase super = 1;
+  optional PComparisonKeyFunction comparison_key_function = 2;
+  optional bool show_comparison_key = 3;
+}
+
+//
 // PRecordQueryUnorderedDistinctPlan
 //
 message PRecordQueryUnorderedDistinctPlan {
@@ -1402,6 +1476,21 @@ message PRecordQueryUnorderedDistinctPlan {
 //
 message PRecordQueryUnorderedPrimaryKeyDistinctPlan {
   optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryUnorderedUnionPlan
+//
+message PRecordQueryUnorderedUnionPlan {
+  optional PRecordQueryUnionPlanBase super = 1;
+}
+
+//
+// PRecordQueryUnionPlanBase
+//
+message PRecordQueryUnionPlanBase {
+  repeated PPhysicalQuantifier quantifiers = 1;
+  optional bool reverse = 2;
 }
 
 //

@@ -21,11 +21,16 @@
 package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQuerySortPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -48,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.sorting.FileSortCursor;
 import com.apple.foundationdb.record.sorting.MemorySortCursor;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -64,6 +70,8 @@ import java.util.function.Function;
  * A query plan implementing sorting in-memory, possibly spilling to disk.
  */
 @API(API.Status.EXPERIMENTAL)
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQuerySortPlan.class)
 public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Plan");
 
@@ -72,11 +80,11 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     @Nonnull
     private final RecordQuerySortKey key;
 
-    public RecordQuerySortPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
+    public RecordQuerySortPlan(@Nonnull final RecordQueryPlan plan, @Nonnull final RecordQuerySortKey key) {
         this(Quantifier.physical(GroupExpressionRef.of(plan)), key);
     }
 
-    private RecordQuerySortPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {
+    private RecordQuerySortPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final RecordQuerySortKey key) {
         this.inner = inner;
         this.key = key;
     }
@@ -221,4 +229,25 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
                 childGraphs);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQuerySortPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQuerySortPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setKey(key.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setSortPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQuerySortPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PRecordQuerySortPlan recordQuerySortPlanProto) {
+        return new RecordQuerySortPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getInner())),
+                RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getKey())));
+    }
 }
