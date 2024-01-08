@@ -613,6 +613,309 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void simpleCrossPartitionQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // this gets indexed into partition 0
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+
+            // this gets indexed into partition 1
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+
+            // query will return results from both partitions
+            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1, 7777L), Tuple.from(1, 6666L), Tuple.from(1, 8888L)),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(3, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            commit(context);
+        }
+    }
+
+    /**
+     * test LIMIT spanning partitions.
+     */
+    @Test
+    void testPartitionedLimit() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // get 50 records (30 from partition 1, and 20 from partition 0)
+            assertEquals(50, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
+                    .getCount().join());
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    /**
+     * test SKIP spanning partitions.
+     */
+    @Test
+    void testPartitionedSkip() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            assertEquals(25, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setSkip(35).build().asScanProperties(false))
+                    .getCount().join());
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    /**
+     * test skip with limit spanning partitions.
+     */
+    @Test
+    void testPartitionedSkipWithLimit() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            assertEquals(25, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(60).setSkip(35).build().asScanProperties(false))
+                    .getCount().join());
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    /**
+     * test limit with continuation spanning partitions.
+     */
+    @Test
+    void testPartitionedLimitWithContinuation() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            long timestamp60DaysAgo = Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli();
+            long timestamp29DaysAgo = Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli();
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    timestamp60DaysAgo,
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    timestamp29DaysAgo,
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 30; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            LuceneContinuationProto.LuceneIndexContinuation continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
+                    .setPartitionId(1)
+                    .setPartitionTimestamp(timestamp29DaysAgo)
+                    .setDoc(16)
+                    .setScore(0.012435136F)
+                    .setShard(0)
+                    .build();
+
+            assertEquals(43, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
+                    .getCount().join());
+
+            continuation = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
+                    .setPartitionId(1)
+                    .setPartitionTimestamp(timestamp60DaysAgo)
+                    .setDoc(16)
+                    .setScore(0.012435136F)
+                    .setShard(0)
+                    .build();
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    /**
+     * test cross partition limit query with multiple scans.
+     */
+    @Test
+    void testPartitionedLimitNeedsMultipleScans() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            long timestamp60DaysAgo = Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli();
+            long timestamp29DaysAgo = Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli();
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    timestamp60DaysAgo,
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    timestamp29DaysAgo,
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 300; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 300; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            assertEquals(451, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(451).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(3, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+            assertEquals(451, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    /**
+     * test cross partition skip over max page size.
+     */
+    @Test
+    void testPartitionedSkipOverMaxPageSize() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+
+            // partition 0 covers 30 days beginning 60 days ago
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 0,
+                    Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli());
+
+            // partition 1 covers the past 29 days till yesterday
+            createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1), 1,
+                    Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli(),
+                    Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli());
+
+            // 30 records in partition 0
+            for (int i = 0; i < 150; i++) {
+                recordStore.saveRecord(createComplexDocument(1111L + i, ENGINEER_JOKE, 1, Instant.now().minus(40, ChronoUnit.DAYS).toEpochMilli()));
+            }
+
+            // 30 records in partition 1
+            for (int i = 0; i < 150; i++) {
+                recordStore.saveRecord(createComplexDocument(2222L + i, ENGINEER_JOKE, 1, Instant.now().minus(20, ChronoUnit.DAYS).toEpochMilli()));
+            }
+            assertEquals(99, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(351).setSkip(201).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(3, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+            assertEquals(300, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
+
+            final Subspace partition0Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(1));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition0Subspace, context, "_0.cfs");
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp) {
+        LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
+                .setCount(0)
+                .setFrom(ByteString.copyFrom(Tuple.from(fromTimestamp).pack()))
+                .setTo(ByteString.copyFrom(Tuple.from(toTimestamp).pack()))
+                .setId(partitionId)
+                .build();
+
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(Tuple.from(groupKey, LucenePartitioner.PARTITION_META_SUBSPACE, fromTimestamp));
+        recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
+    }
+
+    @Test
     void simpleInsertAndSearch() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
@@ -1054,7 +1357,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
-            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
+            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ExecuteProperties.newBuilder().setSkip(10).build().asScanProperties(false))
                     .getCount().join());
 
             validateSegmentAndIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs");

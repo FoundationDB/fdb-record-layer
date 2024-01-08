@@ -38,15 +38,21 @@ message LuceneIndexContinuation {
         }
     }
     repeated Field fields = 4;
+    optional int64 partitionTimestamp = 5;
+    optional int32 partitionId = 6;
 }
 
 message LuceneAutoCompleteIndexContinuation {
     required string key = 1;
     required uint64 value = 2;
     optional bytes payload = 3;
+    optional int64 partitionTimestamp = 4;
+    optional int32 partitionId = 5;
 }
 
 message LuceneSpellCheckIndexContinuation {
     required uint64 location = 1;
     required bytes value = 2;
+    optional int64 partitionTimestamp = 3;
+    optional int32 partitionId = 4;
 }

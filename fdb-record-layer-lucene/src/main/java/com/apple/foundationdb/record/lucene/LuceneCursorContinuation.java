@@ -72,11 +72,18 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
         return false;
     }
 
-    public static LuceneCursorContinuation fromScoreDoc(ScoreDoc scoreDoc) {
+    public static LuceneCursorContinuation fromScoreDoc(ScoreDoc scoreDoc, @Nullable Integer partitionId, @Nullable Long partitionTimestamp) {
         LuceneContinuationProto.LuceneIndexContinuation.Builder builder = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                 .setDoc(scoreDoc.doc)
                 .setShard(scoreDoc.shardIndex)
                 .setScore(scoreDoc.score);
+
+        if (partitionId != null) {
+            builder.setPartitionId(partitionId);
+        }
+        if (partitionTimestamp != null) {
+            builder.setPartitionTimestamp(partitionTimestamp);
+        }
         if (scoreDoc instanceof FieldDoc) {
             for (Object field : ((FieldDoc)scoreDoc).fields) {
                 final LuceneContinuationProto.LuceneIndexContinuation.Field.Builder value = builder.addFieldsBuilder();
