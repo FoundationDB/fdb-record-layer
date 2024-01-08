@@ -782,6 +782,71 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private static class Terrible2MergingIndexMaintainer extends LuceneIndexMaintainer {
+        private final IndexMaintainerState state;
+        private static int pseodoFound = 0;
+
+        protected Terrible2MergingIndexMaintainer(final IndexMaintainerState state) {
+            super(state, state.context.getExecutor());
+            this.state = state;
+        }
+
+        @Override
+        public CompletableFuture<Void> mergeIndex() {
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergesFound(1);
+            mergeControl.setMergesTried(1);
+            final long timeQuota = mergeControl.getTimeQuotaMillis();
+            if (timeQuota <= 0) {
+                mergeControl.setTimeQuotaMillis(1000);
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            if (timeQuota > 10) {
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            return AsyncUtil.DONE;
+        }
+    }
+
+    @AutoService(IndexMaintainerFactory.class)
+    public static class Terrible2MergingIndexMaintainerFactory implements IndexMaintainerFactory {
+        @Nonnull
+        @Override
+        public Iterable<String> getIndexTypes() {
+            return Collections.singletonList("terrible2Merger");
+        }
+
+        @Nonnull
+        @Override
+        public IndexValidator getIndexValidator(Index index) {
+            return new IndexValidator(index);
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            return new Terrible2MergingIndexMaintainer(state);
+        }
+    }
+
+    @Test
+    void luceneOnlineIndexingTestTerrible2Merger() {
+        Index index = new Index("Simple$text_suffixes",
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                "terrible2Merger",
+                ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+        boolean needMerge = populateDataSplitSegments(index, 4, 1);
+        assertTrue(needMerge);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .build()) {
+            indexBuilder.mergeIndex(); // retries under the hood until time quota is under 10 milli
+            assertTrue(recordStore.getIndexDeferredMaintenanceControl().getTimeQuotaMillis() <= 10);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) {
