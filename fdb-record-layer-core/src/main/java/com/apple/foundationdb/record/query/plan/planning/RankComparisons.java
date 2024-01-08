@@ -282,7 +282,7 @@ public class RankComparisons {
                     ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
             final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
             comparisons.add(comparison.getComparison());
-            final Function<Tuple, Object> bindingFunction = BindingFunctions.comparisonBindingFunction(substitute, index, metaData);
+            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(substitute, index, metaData);
             return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
         }
     }

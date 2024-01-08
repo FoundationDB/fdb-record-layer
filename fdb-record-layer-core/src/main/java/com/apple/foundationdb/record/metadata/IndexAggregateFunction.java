@@ -24,8 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexAggregateFunction;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -38,7 +42,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#evaluateAggregateFunction
  */
 @API(API.Status.MAINTAINED)
-public class IndexAggregateFunction implements PlanHashable {
+public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Aggregate-Function");
 
     @Nonnull
@@ -134,5 +138,28 @@ public class IndexAggregateFunction implements PlanHashable {
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public PIndexAggregateFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PIndexAggregateFunction.Builder builder = PIndexAggregateFunction.newBuilder()
+                .setName(name)
+                .setOperand(operand.toKeyExpression());
+        if (index != null) {
+            builder.setIndex(index);
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static IndexAggregateFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PIndexAggregateFunction indexAggregateFunctionProto) {
+        return new IndexAggregateFunction(Objects.requireNonNull(indexAggregateFunctionProto.getName()),
+                KeyExpression.fromProto(Objects.requireNonNull(indexAggregateFunctionProto.getOperand())),
+                PlanSerialization.getFieldOrNull(indexAggregateFunctionProto,
+                        PIndexAggregateFunction::hasIndex,
+                        PIndexAggregateFunction::getIndex));
     }
 }

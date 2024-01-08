@@ -20,22 +20,36 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Union plan that compares using a {@link KeyExpression}.
  */
+@AutoService(PlanSerializable.class)
+@ProtoMessage(PRecordQueryInUnionOnKeyExpressionPlan.class)
 public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPlan {
+    protected RecordQueryInUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryInUnionOnKeyExpressionPlanProto.getSuper()));
+    }
+
     public RecordQueryInUnionOnKeyExpressionPlan(@Nonnull final Quantifier.Physical inner,
                                                  @Nonnull final List<? extends InSource> inSources,
                                                  @Nonnull final KeyExpression comparisonKeyExpression,
@@ -93,5 +107,25 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
                 reverse,
                 maxNumberOfValuesAllowed,
                 internal);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryInUnionOnKeyExpressionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInUnionOnKeyExpressionPlan.newBuilder()
+                .setSuper(toRecordQueryInUnionPlanProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInUnionOnKeyExpressionPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                  @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
+        return new RecordQueryInUnionOnKeyExpressionPlan(serializationContext, recordQueryInUnionOnKeyExpressionPlanProto);
     }
 }

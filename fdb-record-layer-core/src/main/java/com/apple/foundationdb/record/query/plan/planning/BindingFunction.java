@@ -1,5 +1,5 @@
 /*
- * BindingFunctions.java
+ * BindingFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,10 @@
 package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PScoreForRank.PBindingFunction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
@@ -38,9 +41,87 @@ import java.util.function.Function;
 /**
  * Helper methods for manipulating parameter values passed in {@link com.apple.foundationdb.record.Bindings}.
  */
+@SuppressWarnings("RedundantCast")
 @API(API.Status.INTERNAL)
-public class BindingFunctions {
-    private BindingFunctions() {
+public enum BindingFunction {
+    INT(tuple -> {
+        Long value = (Long)tuple.get(0);
+        return value == null ? null : value.intValue();
+    }),
+    LONG(tuple -> (Long)tuple.get(0)),
+    FLOAT(tuple -> {
+        Double value = (Double)tuple.get(0);
+        return value == null ? null : value.floatValue();
+    }),
+    DOUBLE(tuple -> (Double)tuple.get(0)),
+    BOOLEAN(tuple -> (Boolean)tuple.get(0)),
+    STRING(tuple -> (String)tuple.get(0)),
+    BYTE_STRING(tuple -> {
+        byte[] value = (byte[])tuple.get(0);
+        return value == null ? null : ZeroCopyByteString.wrap(value);
+    }),
+    TUPLE(tuple -> tuple.get(0));
+
+    @Nonnull
+    private Function<Tuple, Object> function;
+
+    BindingFunction(@Nonnull final Function<Tuple, Object> function) {
+        this.function = function;
+    }
+
+    @Nullable
+    public Object apply(@Nonnull final Tuple tuple) {
+        return function.apply(tuple);
+    }
+
+    @Nonnull
+    public PBindingFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        switch (this) {
+            case INT:
+                return PBindingFunction.INT;
+            case LONG:
+                return PBindingFunction.LONG;
+            case FLOAT:
+                return PBindingFunction.FLOAT;
+            case DOUBLE:
+                return PBindingFunction.DOUBLE;
+            case BOOLEAN:
+                return PBindingFunction.BOOLEAN;
+            case STRING:
+                return PBindingFunction.STRING;
+            case BYTE_STRING:
+                return PBindingFunction.BYTE_STRING;
+            case TUPLE:
+                return PBindingFunction.TUPLE;
+            default:
+                throw new RecordCoreException("unknown binding function mapping. did you forget to add it?");
+        }
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static BindingFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PBindingFunction bindingFunctionProto) {
+        switch (bindingFunctionProto) {
+            case INT:
+                return INT;
+            case LONG:
+                return LONG;
+            case FLOAT:
+                return FLOAT;
+            case DOUBLE:
+                return DOUBLE;
+            case BOOLEAN:
+                return BOOLEAN;
+            case STRING:
+                return STRING;
+            case BYTE_STRING:
+                return BYTE_STRING;
+            case TUPLE:
+                return TUPLE;
+            default:
+                throw new RecordCoreException("unknown binding function mapping. did you forget to add it?");
+        }
     }
 
     /**
@@ -49,39 +130,30 @@ public class BindingFunctions {
      * be compared with an <code>int32</code> field.
      */
     @Nonnull
-    static Function<Tuple, Object> comparisonBindingFunction(@Nonnull QueryComponent fieldComparison,
-                                                             @Nonnull Index index, @Nonnull RecordMetaData metaData) {
+    static BindingFunction comparisonBindingFunction(@Nonnull final QueryComponent fieldComparison,
+                                                     @Nonnull final Index index, @Nonnull final RecordMetaData metaData) {
         final Descriptors.FieldDescriptor.JavaType javaType = javaComparisonType(fieldComparison, index, metaData);
         if (javaType != null) {
             switch (javaType) {
                 case INT:
-                    return tuple -> {
-                        Long value = (Long)tuple.get(0);
-                        return value == null ? null : value.intValue();
-                    };
+                    return INT;
                 case LONG:
-                    return tuple -> (Long)tuple.get(0);
+                    return LONG;
                 case FLOAT:
-                    return tuple -> {
-                        Double value = (Double)tuple.get(0);
-                        return value == null ? null : value.floatValue();
-                    };
+                    return FLOAT;
                 case DOUBLE:
-                    return tuple -> (Double)tuple.get(0);
+                    return DOUBLE;
                 case BOOLEAN:
-                    return tuple -> (Boolean)tuple.get(0);
+                    return BOOLEAN;
                 case STRING:
-                    return tuple -> (String)tuple.get(0);
+                    return STRING;
                 case BYTE_STRING:
-                    return tuple -> {
-                        byte[] value = (byte[])tuple.get(0);
-                        return value == null ? null : ZeroCopyByteString.wrap(value);
-                    };
+                    return BYTE_STRING;
                 default:
                     break;
             }
         }
-        return t -> t.get(0);
+        return TUPLE;
     }
 
     @Nullable

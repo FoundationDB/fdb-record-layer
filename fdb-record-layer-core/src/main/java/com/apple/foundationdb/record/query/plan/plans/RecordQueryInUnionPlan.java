@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -79,6 +81,27 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     protected final int maxNumberOfValuesAllowed;
     @Nonnull
     protected final Bindings.Internal internal;
+
+    protected RecordQueryInUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PRecordQueryInUnionPlan recordQueryInUnionPlanProto) {
+        Verify.verify(recordQueryInUnionPlanProto.hasReverse());
+        Verify.verify(recordQueryInUnionPlanProto.hasMaxNumberOfValuesAllowed());
+
+        Bindings.Internal internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInternal()));
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
+
+        final ImmutableList.Builder<InSource> inSourcesBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryInUnionPlanProto.getInSourcesCount(); i ++) {
+            inSourcesBuilder.add(InSource.fromInSourceProto(serializationContext, recordQueryInUnionPlanProto.getInSources(i)));
+        }
+
+        this.inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInner()));
+        this.inSources = inSourcesBuilder.build();
+        this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getComparisonKeyFunction()));
+        this.reverse = recordQueryInUnionPlanProto.getReverse();
+        this.maxNumberOfValuesAllowed = recordQueryInUnionPlanProto.getMaxNumberOfValuesAllowed();
+        this.internal = internal;
+    }
 
     protected RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
                                      @Nonnull final List<? extends InSource> inSources,
@@ -316,6 +339,20 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
             parents = children;
         }
         return parents;
+    }
+
+    @Nonnull
+    protected PRecordQueryInUnionPlan toRecordQueryInUnionPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryInUnionPlan.Builder builder = PRecordQueryInUnionPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext));
+        for (final InSource inSource : inSources) {
+            builder.addInSources(inSource.toInSourceProto(serializationContext));
+        }
+        return builder.setComparisonKeyFunction(comparisonKeyFunction.toComparisonKeyFunctionProto(serializationContext))
+                .setReverse(reverse)
+                .setMaxNumberOfValuesAllowed(maxNumberOfValuesAllowed)
+                .setInternal(internal.toProto(serializationContext))
+                .build();
     }
 
     /**

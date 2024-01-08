@@ -1034,11 +1034,14 @@ message PRecordQueryPlan {
     PRecordQueryInsertPlan insert_plan = 8;
     PRecordQueryIntersectionOnKeyExpressionPlan intersection_on_key_expression_plan = 9;
     PRecordQueryIntersectionOnValuesPlan intersection_on_values_plan = 10;
+    PRecordQueryInUnionOnKeyExpressionPlan in_union_on_key_expression_plan = 42;
+    PRecordQueryInUnionOnValuesPlan in_union_on_values_plan = 43;
     PRecordQueryInValuesJoinPlan in_values_join_plan = 11;
     PRecordQueryMapPlan map_plan = 12;
     PRecordQueryPredicatesFilterPlan predicates_filter_plan = 13;
     PRecordQueryRangePlan range_plan = 345;
     PRecordQueryScanPlan scan_plan = 14;
+    PRecordQueryScoreForRankPlan score_for_rank_plan = 44;
     PRecordQuerySortPlan sort_plan = 15;
     PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 16;
     PRecordQueryTypeFilterPlan type_filter_plan = 17;
@@ -1364,6 +1367,32 @@ message PRecordQueryIntersectionOnValuesPlan {
 }
 
 //
+// PRecordQueryInUnionPlan
+//
+message PRecordQueryInUnionPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated PInSource in_sources = 2;
+  optional PComparisonKeyFunction comparison_key_function = 3;
+  optional bool reverse = 4;
+  optional int32 max_number_of_values_allowed = 5;
+  optional PParameterComparison.PBindingKind internal = 6;
+}
+
+//
+// PRecordQueryInUnionOnKeyExpressionPlan
+//
+message PRecordQueryInUnionOnKeyExpressionPlan {
+  optional PRecordQueryInUnionPlan super = 1;
+}
+
+//
+// PRecordQueryInUnionOnValuesPlan
+//
+message PRecordQueryInUnionOnValuesPlan {
+  optional PRecordQueryInUnionPlan super = 1;
+}
+
+//
 // PRecordQueryInValuesJoinPlan
 //
 message PRecordQueryInValuesJoinPlan {
@@ -1417,6 +1446,38 @@ message PRecordQueryScanPlan {
   optional PScanComparisons comparisons = 5;
   optional bool reverse = 6;
   optional bool strictly_sorted = 7;
+}
+
+//
+// PRecordQueryScoreForRankPlan
+//
+message PRecordQueryScoreForRankPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated PScoreForRank ranks = 2;
+}
+
+message PScoreForRank {
+  enum PBindingFunction {
+      INT = 1;
+      LONG = 2;
+      FLOAT = 3;
+      DOUBLE = 4;
+      BOOLEAN = 5;
+      STRING = 6;
+      BYTE_STRING = 7;
+      TUPLE = 8;
+  }
+
+  optional string binding_name = 1;
+  optional PBindingFunction binding_function = 2;
+  optional PIndexAggregateFunction function = 3;
+  repeated PComparison comparisons = 4;
+}
+
+message PIndexAggregateFunction {
+  optional string name = 1;
+  optional KeyExpression operand = 2;
+  optional string index = 3;
 }
 
 //
