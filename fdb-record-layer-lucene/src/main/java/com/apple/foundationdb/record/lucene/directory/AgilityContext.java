@@ -127,7 +127,7 @@ public interface AgilityContext {
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
      */
     class Agile implements AgilityContext {
-
+        static final Logger LOGGER = LoggerFactory.getLogger(AgilityContext.Agile.class);
         private final FDBRecordContextConfig.Builder contextConfigBuilder;
         private final FDBDatabase database;
         private final FDBRecordContext callerContext; // for counters updates only
@@ -228,17 +228,7 @@ public interface AgilityContext {
                         currentContext.commit();
                         currentContext.close();
                     } catch (FDBException ex) {
-                        final Logger logger = LoggerFactory.getLogger(AgilityContext.Agile.class); // will be used only once, and rarely.
-                        if (logger.isTraceEnabled()) {
-                            long nowMilliseconds = now();
-                            final long creationAge = nowMilliseconds - creationTime;
-                            final long  prevCheckAge = nowMilliseconds - prevCommitCheckTime;
-                            logger.trace(KeyValueLogMessage.build("AgilityContext: Commit failed",
-                                    LogMessageKeys.AGILITY_CONTEXT_AGE_MILLISECONDS, creationAge,
-                                    LogMessageKeys.AGILITY_CONTEXT_PREV_CHECK_MILLISECONDS, prevCheckAge
-                            ).toString(), ex);
-                        }
-                        throw ex; // re-throw
+                        reportAndReThrowException(ex);
                     }
                     currentContext = null;
                     currentWriteSize = 0;
@@ -249,6 +239,20 @@ public interface AgilityContext {
             }
         }
 
+        private <T> T reportAndReThrowException(Throwable ex) {
+            if (LOGGER.isDebugEnabled()) {
+                long nowMilliseconds = now();
+                final long creationAge = nowMilliseconds - creationTime;
+                final long  prevCheckAge = nowMilliseconds - prevCommitCheckTime;
+                LOGGER.debug(KeyValueLogMessage.build("AgilityContext: Commit failed",
+                        LogMessageKeys.AGILITY_CONTEXT_AGE_MILLISECONDS, creationAge,
+                        LogMessageKeys.AGILITY_CONTEXT_PREV_CHECK_MILLISECONDS, prevCheckAge,
+                        LogMessageKeys.AGILITY_CONTEXT_WRITE_SIZE_BYTES, currentWriteSize
+                ).toString(), ex);
+            }
+            throw new AssertionError(ex); // re-throw
+        }
+
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             final long stamp = lock.readLock();
@@ -256,6 +260,11 @@ public interface AgilityContext {
             return function.apply(currentContext).thenApply(ret -> {
                 lock.unlock(stamp);
                 commitIfNeeded();
+                return ret;
+            }).handle((ret, ex) -> {
+                if (ex != null) {
+                    reportAndReThrowException(ex);
+                }
                 return ret;
             });
         }

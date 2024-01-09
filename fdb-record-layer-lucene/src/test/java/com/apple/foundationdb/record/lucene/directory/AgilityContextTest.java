@@ -157,7 +157,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp, boolean expectAutoCommit) {
+    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp) {
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
@@ -176,16 +176,17 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 byte[] key = Tuple.from(2023, i).pack();
                 byte[] val = Tuple.from(i, RobertFrost).pack();
                 agilityContext.set(key, val);
+                if (0 == (i % 8)) {
+                    napTime(2); // enforce minimal processing time
+                }
             }
             context.commit();
-            if (expectAutoCommit) {
-                final StoreTimer.Counter byTimeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
-                final int commitsByTime = byTimeCounter == null ? 0 : byTimeCounter.getCount();
-                final StoreTimer.Counter bySizeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
-                final int commitsBySize = bySizeCounter == null ? 0 : bySizeCounter.getCount();
-                // This test should utilize at least one auto-commit in the agility context.
-                assertTrue((commitsByTime + commitsBySize) > 0);
-            }
+            final StoreTimer.Counter byTimeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
+            final int commitsByTime = byTimeCounter == null ? 0 : byTimeCounter.getCount();
+            final StoreTimer.Counter bySizeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+            final int commitsBySize = bySizeCounter == null ? 0 : bySizeCounter.getCount();
+            // This test should utilize at least one auto-commit in the agility context.
+            assertTrue((commitsByTime + commitsBySize) > 0);
         }
         try (FDBRecordContext context = openContext(insertProps)) {
             final AgilityContext agilityContext = getAgilityContext(context, false);
@@ -202,14 +203,14 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @BooleanSource
     void testAgilityContextSizeLimit(boolean useProp) {
-        testAgilityContextOneLongWrite(73, 100, 100000, useProp, true);
+        testAgilityContextOneLongWrite(73, 100, 100000, useProp);
     }
 
     @ParameterizedTest
     @BooleanSource
     void testAgilityContextTimeLimit(boolean useProp) {
         // The 1ms time limit often triggers an auto-commit, that that cannot be guaranteed here.
-        testAgilityContextOneLongWrite(77, 100000, 1, useProp, false);
+        testAgilityContextOneLongWrite(77, 100000, 1, useProp);
     }
 
     void napTime(int napTimeMilliseconds) {
