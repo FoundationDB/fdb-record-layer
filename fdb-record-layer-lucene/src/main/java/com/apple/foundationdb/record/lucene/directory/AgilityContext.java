@@ -20,14 +20,19 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -143,6 +148,7 @@ public interface AgilityContext {
         private final Object createLockSync = new Object();
         private final Object commitLockSync = new Object();
         private boolean committingNow = false;
+        private long prevCommitCheckTime;
 
         Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
@@ -171,6 +177,7 @@ public interface AgilityContext {
                     FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
                     creationTime = now();
+                    prevCommitCheckTime = creationTime;
                     currentWriteSize = 0;
                 }
             }
@@ -205,6 +212,7 @@ public interface AgilityContext {
             if (shouldCommit()) {
                 commitNow();
             }
+            prevCommitCheckTime = now();
         }
 
         public void commitNow() {
@@ -216,8 +224,22 @@ public interface AgilityContext {
                     committingNow = true;
                     final long stamp = lock.writeLock();
 
-                    currentContext.commit();
-                    currentContext.close();
+                    try {
+                        currentContext.commit();
+                        currentContext.close();
+                    } catch (FDBException ex) {
+                        final Logger logger = LoggerFactory.getLogger(AgilityContext.Agile.class); // will be used only once, and rarely.
+                        if (logger.isTraceEnabled()) {
+                            long nowMilliseconds = now();
+                            final long creationAge = nowMilliseconds - creationTime;
+                            final long  prevCheckAge = nowMilliseconds - prevCommitCheckTime;
+                            logger.trace(KeyValueLogMessage.build("AgilityContext: Commit failed",
+                                    LogMessageKeys.AGILITY_CONTEXT_AGE_MILLISECONDS, creationAge,
+                                    LogMessageKeys.AGILITY_CONTEXT_PREV_CHECK_MILLISECONDS, prevCheckAge
+                            ).toString(), ex);
+                        }
+                        throw ex; // re-throw
+                    }
                     currentContext = null;
                     currentWriteSize = 0;
 
