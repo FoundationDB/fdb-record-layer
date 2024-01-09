@@ -43,18 +43,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -320,59 +316,13 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         final var fieldPathOrdinals = fieldPath.getFieldOrdinals();
-        final var fieldPathTypes = fieldPath.getFieldTypes();
         final var potentialPrefixFieldOrdinals = potentialPrefixPath.getFieldOrdinals();
-        final var potentialPrefixFieldTypes = potentialPrefixPath.getFieldTypes();
         for (int i = 0; i < potentialPrefixPath.size(); i++) {
-            if (fieldPathOrdinals.get(i) != potentialPrefixFieldOrdinals.get(i) || !equalIgnoringFieldNames(fieldPathTypes.get(i), potentialPrefixFieldTypes.get(i), new HashSet<>())) {
+            if (fieldPathOrdinals.get(i) != potentialPrefixFieldOrdinals.get(i)) {
                 return Optional.empty();
             }
         }
         return Optional.of(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size()));
-    }
-
-    @SuppressWarnings("PMD.CompareObjectsWithEquals") // Deliberate use of reference equality
-    private static boolean equalIgnoringFieldNames(@Nonnull Type t1, @Nonnull Type t2, @Nonnull Set<Pair<Type, Type>> explored) {
-        if (t1 == t2) {
-            // Short circuit for reference equality
-            return true;
-        }
-        if (t1.isNullable() != t2.isNullable()) {
-            return false;
-        }
-        if (t1.isArray()) {
-            if (!t2.isArray()) {
-                return false;
-            }
-            @Nullable Type t1Element = ((Type.Array)t1).getElementType();
-            @Nullable Type t2Element = ((Type.Array)t2).getElementType();
-            return t1Element != null && t2Element != null && equalIgnoringFieldNames(t1Element, t2Element, explored);
-        }
-        if (t1.isRecord()) {
-            if (!t2.isRecord()) {
-                return false;
-            }
-            // Use the explored set to avoid infinite recursion.
-            Pair<Type, Type> typePair = Pair.of(t1, t2);
-            if (explored.add(typePair)) {
-                List<Field> t1Fields = ((Type.Record)t1).getFields();
-                List<Field> t2Fields = ((Type.Record)t2).getFields();
-                if (t1Fields.size() != t2Fields.size()) {
-                    return false;
-                }
-                Iterator<Field> t1FieldIterator = t1Fields.iterator();
-                Iterator<Field> t2FieldIterator = t2Fields.iterator();
-                while (t1FieldIterator.hasNext() && t2FieldIterator.hasNext()) {
-                    Field t1Field = t1FieldIterator.next();
-                    Field t2Field = t2FieldIterator.next();
-                    if (!equalIgnoringFieldNames(t1Field.getFieldType(), t2Field.getFieldType(), explored)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        return t1.equals(t2);
     }
 
     /**

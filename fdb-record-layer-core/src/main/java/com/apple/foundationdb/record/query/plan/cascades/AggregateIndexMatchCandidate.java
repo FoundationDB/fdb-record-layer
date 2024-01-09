@@ -299,12 +299,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            final var normalizedValue =
-                    /*
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
-                            baseType);
-                     */
-                    deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
             result.add(OrderingPart.of(normalizedValue, isReverse));
         }

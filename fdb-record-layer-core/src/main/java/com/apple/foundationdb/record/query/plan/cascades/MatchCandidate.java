@@ -261,7 +261,6 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    @SuppressWarnings("fallthrough")
     static Iterable<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
                                                         @Nonnull final Index index,
                                                         final boolean isReverse) {

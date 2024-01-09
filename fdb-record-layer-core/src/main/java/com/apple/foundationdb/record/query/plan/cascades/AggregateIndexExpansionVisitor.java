@@ -259,7 +259,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final List<Value> groupingValues = groupingValueReference == null ? Collections.emptyList() : Values.deconstructRecord(groupingValueReference);
         if (groupingValueReference != null) {
             int i = 0;
-            // final int lastGroupingPrefix = groupingValues.size() - columnPermutations;
             for (final var groupingValue : groupingValues) {
                 final var field = (FieldValue)groupingValue;
                 final var placeholder = groupingValue.asPlaceholder(selectWherePlaceholders.get(i++).getParameterAlias());
