@@ -24,13 +24,20 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.carrotsearch.randomizedtesting.annotations.Seed;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.BasePostingsFormatTestCase;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
+import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.RandomPostingsTester;
+import org.apache.lucene.store.MockDirectoryWrapper;
+import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import java.io.IOException;
+import java.util.EnumSet;
 
 /**
  * Test for {@link LuceneOptimizedStoredFieldsFormat} that gets the actual test cases from {@link BaseStoredFieldsFormatTestCase}.
@@ -51,9 +58,21 @@ import java.io.IOException;
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCase {
 
+    private static LuceneOptimizedRandomPostingsTester fdbPostingsTester;
+
     @BeforeClass
     public static void beforeClass() {
         BaseIndexFileFormatTestCaseUtils.beforeClass();
+    }
+
+    @BeforeClass
+    public static void createFdbPostingsTester() throws IOException {
+        fdbPostingsTester = new LuceneOptimizedRandomPostingsTester(random());
+    }
+
+    @AfterClass
+    public static void ResetFdbPostingsTester() throws Exception {
+        fdbPostingsTester = null;
     }
 
     @Override
@@ -76,5 +95,78 @@ public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCas
     @Override
     public void testMultiClose() throws IOException {
         BaseIndexFileFormatTestCaseUtils.testMultiClose(this);
+    }
+
+    @Override
+    public void testDocsOnly() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS, false);
+    }
+
+    @Override
+    public void testDocsAndFreqs() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS_AND_FREQS, false);
+    }
+
+    @Override
+    public void testDocsAndFreqsAndPositions() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS_AND_FREQS_AND_POSITIONS, false);
+    }
+
+    @Override
+    public void testDocsAndFreqsAndPositionsAndPayloads() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS_AND_FREQS_AND_POSITIONS, true);
+    }
+
+    @Override
+    public void testDocsAndFreqsAndPositionsAndOffsets() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, false);
+    }
+
+    @Override
+    public void testDocsAndFreqsAndPositionsAndOffsetsAndPayloads() throws Exception {
+        // Use the fdb postings tester that creates an FDBDirectory when needed
+        fdbPostingsTester.testFull(getCodec(), createTempDir("testPostingsFormat.testExact"), IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, true);
+    }
+
+    /**
+     * A copy of the superclass {@link BasePostingsFormatTestCase#testRandom()} that changes the directory used
+     * See --BEGIN CUSTOM-- and --END CUSTOM-- comments below.
+     * Also, since the PostingTester field is not available here, use the local one instead (fdbPostingsTester)
+     * @throws Exception
+     */
+    @Override
+    public void testRandom() throws Exception {
+        int iters = 5;
+
+        for(int iter = 0; iter < iters; ++iter) {
+            // --BEGIN CUSTOM--
+            MockDirectoryWrapper dir;
+            if (BaseIndexFileFormatTestCaseUtils.isUsingFDBDirectory()) {
+                dir = LuceneTestCase.newMockDirectory();
+            } else {
+                dir = LuceneTestCase.newMockFSDirectory(LuceneTestCase.createTempDir("CFSManySubFiles"));
+            }
+            // --END CUSTOM--
+            boolean indexPayloads = random().nextBoolean();
+            FieldsProducer fieldsProducer = fdbPostingsTester.buildIndex(this.getCodec(), dir, IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, indexPayloads, false);
+            fdbPostingsTester.testFields(fieldsProducer);
+            fdbPostingsTester.testTerms(fieldsProducer, EnumSet.allOf(RandomPostingsTester.Option.class), IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, false);
+            fieldsProducer.close();
+            fieldsProducer = null;
+            dir.close();
+        }
+    }
+
+    /**
+     * This test cannot be reproduced as it accesses package-protected fields
+     * TODO: This can be changed with AccessMnager
+     */
+    @Override
+    public void testPostingsEnumReuse() throws Exception {
     }
 }

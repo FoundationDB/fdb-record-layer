@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.PostingsReaderBase;
+import org.apache.lucene.codecs.lucene84.Lucene84PostingsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.ImpactsEnum;
 import org.apache.lucene.index.IndexOptions;
@@ -37,6 +38,9 @@ import org.apache.lucene.util.Accountable;
 import java.io.IOException;
 import java.util.Collection;
 
+/**
+ * FDB-optimized {@link PostingsReaderBase} modeled after {@link Lucene84PostingsReader}
+ */
 public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     private String segmentName;
@@ -53,7 +57,6 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public BlockTermState newTermState() throws IOException {
-        // TODO: When is this empty constructor called?
         return new LuceneOptimizedBlockTermState();
     }
 
@@ -64,49 +67,25 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
     @Override
     public PostingsEnum postings(final FieldInfo fieldInfo, final BlockTermState state, final PostingsEnum reuse, final int flags) throws IOException {
         final boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
-        final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
-        return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
+        final boolean indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
+        final boolean indexHasPayloads = fieldInfo.hasPayloads();
 
-//        if (hasPositions) {
-//            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
-//                    key.add(fieldInfo.number).add(state.ord))), directory, false, false, false);
-//        } else {
-//            byte[] termDocs = directory.getTermDocuments(
-//                    key.add(fieldInfo.number).add(state.ord));
-//            if (termDocs == null) {
-//                throw new IOException("termDocs Cannot be Null" + " -> " + state.ord + "field?" + fieldInfo.number + " segment" + segmentReadState.segmentInfo.name);
-//            }
-//            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
-//                    key.add(fieldInfo.number).add(state.ord))), directory, true, false, false);
-//        }
+        final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
+        final boolean hasOffsets = indexHasOffsets && PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS);
+        final boolean hasPayloads = indexHasPayloads && PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS);
+
+        return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions, hasOffsets, hasPayloads);
     }
 
     @Override
     public ImpactsEnum impacts(final FieldInfo fieldInfo, final BlockTermState state, final int flags) throws IOException {
-        final boolean indexHasPositions = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
-        final boolean hasPositions = indexHasPositions && PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS);
-        final LuceneOptimizedPostingsEnum postingsEnum = new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions);
-        // TODO: Is this right?
+        PostingsEnum postingsEnum = postings(fieldInfo, state, null, flags);
+        // TODO: This can be improved
         return new SlowImpactsEnum(postingsEnum);
-//        if (hasPositions) {
-//            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
-//                    key.add(fieldInfo.number).add(state.ord))), directory, false, false, false);
-//        }
-
-//        if (indexHasPositions &&
-//            PostingsEnum.featureRequested(flags, PostingsEnum.POSITIONS) &&
-//            (indexHasOffsets == false || PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS) == false) &&
-//            (indexHasPayloads == false || PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS) == false)) {
-//            return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
-//                    key.add(fieldInfo.number).add(state.ord))), directory, true, false, false);
-//        }
-//        return new LuceneOptimizedPostingsEnum(key.add(fieldInfo.number).add(state.ord), LucenePostingsProto.Documents.parseFrom(directory.getTermDocuments(
-//                key.add(fieldInfo.number).add(state.ord))), directory, true, true, true);
     }
 
     @Override
     public void decodeTerm(final DataInput in, final FieldInfo fieldInfo, final BlockTermState state, final boolean absolute) {
-        // TODO?
     }
 
     @Override
@@ -115,11 +94,13 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public long ramBytesUsed() {
+        // TODO
         return 0;
     }
 
     @Override
     public Collection<Accountable> getChildResources() {
+        // TODO
         return super.getChildResources();
     }
 }

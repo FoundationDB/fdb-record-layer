@@ -79,6 +79,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -131,8 +132,8 @@ public class FDBDirectory extends Directory  {
     private static final int FILE_LOCK_SUBSPACE = 7;
     private static final int POSTINGS_FIELD_METADATA_SUBSPACE = 8;
     private static final int POSTINGS_TERMS_SUBSPACE = 9;
-    private static final int POSTINGS_DOCUMENTS_SUBSPACE = 10;
-    private static final int POSTINGS_POSITIONS_SUBSPACE = 11;
+    private static final int POSTINGS_POSITIONS_SUBSPACE = 10;
+    private static final int POSTINGS_PAYLOADS_SUBSPACE = 11;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -144,8 +145,8 @@ public class FDBDirectory extends Directory  {
     private final Subspace fileLockSubspace;
     private final Subspace postingsMetadataSubspace;
     private final Subspace postingsTermsSubspace;
-    private final Subspace postingsDocumentsSubspace;
     private final Subspace postingsPositionsSubspace;
+    private final Subspace postingsPayloadsSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final LockFactory lockFactory;
@@ -219,8 +220,8 @@ public class FDBDirectory extends Directory  {
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.postingsMetadataSubspace = subspace.subspace(Tuple.from(POSTINGS_FIELD_METADATA_SUBSPACE));
         this.postingsTermsSubspace = subspace.subspace(Tuple.from(POSTINGS_TERMS_SUBSPACE));
-        this.postingsDocumentsSubspace = subspace.subspace(Tuple.from(POSTINGS_DOCUMENTS_SUBSPACE));
         this.postingsPositionsSubspace = subspace.subspace(Tuple.from(POSTINGS_POSITIONS_SUBSPACE));
+        this.postingsPayloadsSubspace = subspace.subspace(Tuple.from(POSTINGS_PAYLOADS_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -424,17 +425,17 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    public byte[] getTermDocuments(final String segmentName, final int fieldNumber, final long termOrd) {
-        final byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
-        return asyncToSync(
-                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_DOCUMENTS,
-                agilityContext.get(key));
-    }
-
     public byte[] getTermDocumentPositions(final String segmentName, final int fieldNumber, final long ord, final int docId) {
         final byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, ord, docId));
         return asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_POSITIONS,
+                agilityContext.get(key));
+    }
+
+    public byte[] getTermDocumentPayloads(final String segmentName, final int fieldNumber, final long ord, final int docId) {
+        final byte[] key = postingsPayloadsSubspace.pack(Tuple.from(segmentName, fieldNumber, ord, docId));
+        return asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_PAYLOADS,
                 agilityContext.get(key));
     }
 
@@ -464,18 +465,6 @@ public class FDBDirectory extends Directory  {
         agilityContext.set(key, termData);
     }
 
-    public void writePostingsDocuments(final String segmentName, final int fieldNumber, final long termOrd, final byte[] documents) {
-        byte[] key = postingsDocumentsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd));
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + documents.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_DOCUMENTS);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("Write lucene postings documents",
-                    LuceneLogMessageKeys.DATA_SIZE, documents.length,
-                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, documents.length));
-        }
-        agilityContext.set(key, documents);
-    }
-
     public void writePostingsPositions(final String segmentName, final int fieldNumber, final long termOrd, final int docId, final byte[] positions) {
         byte[] key = postingsPositionsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd, docId));
         agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + positions.length);
@@ -489,7 +478,15 @@ public class FDBDirectory extends Directory  {
     }
 
     public void writePostingsPayloads(final String segmentName, final int fieldNumber, final long termOrd, final int docId, final byte[] payloads) {
-        // TODO
+        byte[] key = postingsPayloadsSubspace.pack(Tuple.from(segmentName, fieldNumber, termOrd, docId));
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + payloads.length);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_PAYLOADS);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(getLogMessage("Write lucene postings payloads",
+                    LuceneLogMessageKeys.DATA_SIZE, payloads.length,
+                    LuceneLogMessageKeys.ENCODED_DATA_SIZE, payloads.length));
+        }
+        agilityContext.set(key, payloads);
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -609,8 +606,8 @@ public class FDBDirectory extends Directory  {
     public void deletePostings(@Nonnull final String segmentName) {
         byte[] metadataKey = postingsMetadataSubspace.pack(Tuple.from(segmentName));
         byte[] termssKey = postingsTermsSubspace.pack(Tuple.from(segmentName));
-        byte[] documentsKey = postingsDocumentsSubspace.pack(Tuple.from(segmentName));
         byte[] positionsKey = postingsPositionsSubspace.pack(Tuple.from(segmentName));
+        byte[] payloadsKey = postingsPayloadsSubspace.pack(Tuple.from(segmentName));
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_POSTINGS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Postings Data",
@@ -618,23 +615,8 @@ public class FDBDirectory extends Directory  {
         }
         agilityContext.clear(Range.startsWith(metadataKey));
         agilityContext.clear(Range.startsWith(termssKey));
-        agilityContext.clear(Range.startsWith(documentsKey));
         agilityContext.clear(Range.startsWith(positionsKey));
-    }
-
-    /**
-     * Reads known data from the directory.
-     * @param resourceDescription Description should be non-null, opaque string describing this resource; used for logging
-     * @param referenceFuture the reference where the data supposedly lives
-     * @param block the block where the data is stored
-     * @return Completable future of the data returned
-     * @throws RecordCoreException if blockCache fails to get the data from the block
-     * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
-     */
-    @API(API.Status.INTERNAL)
-    @Nonnull
-    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) {
-        return referenceFuture.thenCompose(reference -> readBlock(resourceDescription, resourceDescription, reference, block));
+        agilityContext.clear(Range.startsWith(payloadsKey));
     }
 
     /**

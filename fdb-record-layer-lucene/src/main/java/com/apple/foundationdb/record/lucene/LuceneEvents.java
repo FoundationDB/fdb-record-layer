@@ -160,8 +160,8 @@ public class LuceneEvents {
         WAIT_LUCENE_FILE_LOCK("lucene read file lock"),
         WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA("lucene read postings field metadata"),
         WAIT_LUCENE_READ_POSTINGS_TERMS("lucene read all postings terms"),
-        WAIT_LUCENE_READ_POSTINGS_DOCUMENTS("lucene read postings documents"),
-        WAIT_LUCENE_READ_POSTINGS_POSITIONS("lucene read postings positions");
+        WAIT_LUCENE_READ_POSTINGS_POSITIONS("lucene read postings positions"),
+        WAIT_LUCENE_READ_POSTINGS_PAYLOADS("lucene read postings payloads");
 
         private final String title;
         private final String logKey;
@@ -235,8 +235,8 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
         LUCENE_WRITE_POSTINGS_METADATA("lucene write postings metadata", false),
         LUCENE_WRITE_POSTINGS_TERM("lucene write postings term", false),
-        LUCENE_WRITE_POSTINGS_DOCUMENTS("lucene write postings documents", false),
         LUCENE_WRITE_POSTINGS_POSITIONS("lucene write postings positions", false),
+        LUCENE_WRITE_POSTINGS_PAYLOADS("lucene write postings payloads", false),
         LUCENE_DELETE_POSTINGS("lucene delete postings data", false);
 
         private final String title;

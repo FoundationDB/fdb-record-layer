@@ -40,6 +40,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * FDB-optimized {@link FieldsProducer modeled after {@link org.apache.lucene.codecs.blocktree.BlockTreeTermsReader}}
+ */
 public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedPostingsFieldsProducer.class);
 
@@ -76,25 +79,16 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public void close() throws IOException {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("close");
-        }
         IOUtils.close(postingsReader);
     }
 
     @Override
     public Iterator<String> iterator() {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("iterator");
-        }
         return fieldNameSupplier.getUnchecked().iterator();
     }
 
     @Override
     public Terms terms(String field) throws IOException {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("terms");
-        }
         assert field != null;
         FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         // This will fetch metadata for all fields and cache it.
@@ -107,17 +101,11 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public int size() {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("size");
-        }
         return fieldNameSupplier.getUnchecked().size();
     }
 
     @Override
     public long ramBytesUsed() {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("ramBytesUsed");
-        }
         long sizeInBytes = postingsReader.ramBytesUsed();
         // TODO
         return sizeInBytes;
@@ -125,23 +113,16 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public Collection<Accountable> getChildResources() {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("getChildResources");
-        }
         // TODO
         return postingsReader.getChildResources();
     }
 
     @Override
     public void checkIntegrity() throws IOException {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("checkIntegrity");
-        }
     }
 
     @Override
     public String toString() {
-        // TODO: Maybe not a good idea to fetch all fields in toString
-        return getClass().getSimpleName() + "(fields=" + fieldMetadataSupplier.getUnchecked().size() + ",delegate=" + postingsReader + ")";
+        return getClass().getSimpleName() + "(segment=" + segmentName + ")";
     }
 }

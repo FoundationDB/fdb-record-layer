@@ -27,6 +27,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Impact;
 import org.apache.lucene.index.Impacts;
 import org.apache.lucene.index.ImpactsEnum;
+import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
@@ -34,39 +35,39 @@ import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * FDB-optimized {@link PostingsEnum} {@link ImpactsEnum}
+ */
 public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     private final String segmentName;
     private final FieldInfo fieldInfo;
     private final LuceneOptimizedBlockTermState state;
-    // for debugging purposes
-    private final long termOrd;
+    private final TermDocuments termDocuments;
     private FDBDirectory directory;
 
     // current doc ordinal within the term
     private int currentDoc = -1;
     // current position ordinal within the doc
     private int currentPosition = -1;
-    private final LazyOpener<TermDocuments> termDocumentsSupplier;
     private DocumentPositions positions;
+    private DocumentPayloads payloads;
     private boolean hasPositions;
+    private boolean hasOffsets;
+    private boolean hasPayloads;
 
     public LuceneOptimizedPostingsEnum(final String segmentName, final FieldInfo fieldInfo,
                                        final LuceneOptimizedBlockTermState state, final FDBDirectory directory,
-                                       final boolean hasPositions) {
+                                       final boolean hasPositions, final boolean hasOffsets, final boolean hasPayloads) {
         this.segmentName = segmentName;
         this.fieldInfo = fieldInfo;
         this.state = state;
         this.directory = directory;
         this.hasPositions = hasPositions;
-        this.termOrd = state.getOrd();
-        termDocumentsSupplier = LazyOpener.supply(() -> {
-            byte[] docBytes = this.directory.getTermDocuments(this.segmentName, this.fieldInfo.number, this.state.getOrd());
-            if (docBytes == null) {
-                throw new IllegalStateException("docBytes cannot be null for docs provider (TODO better message");
-            }
-            return new TermDocuments(docBytes);
-        });
+        this.hasOffsets = hasOffsets;
+        this.hasPayloads = hasPayloads;
+        // Documents are serialized within the term info (no need to fetch)
+        this.termDocuments = new TermDocuments(state.getTermInfo().getDocuments());
     }
 
     @Override
@@ -74,37 +75,26 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         if (currentDoc == -1 || currentDoc == NO_MORE_DOCS) {
             return currentDoc;
         }
-        final TermDocuments documents = termDocumentsSupplier.getUnchecked();
-        assert currentDoc < documents.getDocIdCount() : "overflow with position=" + currentDoc;
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("docID() [docID {}, position={}]", documents.getDocId(docPosition), docPosition);
-//        }
-        return documents.getDocId(currentDoc);
+        assert currentDoc < termDocuments.getDocIdCount() : "overflow with position=" + currentDoc;
+        return termDocuments.getDocId(currentDoc);
     }
 
     @Override
     public int nextDoc() throws IOException {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("nextDoc called on {}", docPosition);
-//        }
         assert currentDoc != NO_MORE_DOCS: "Should not be called";
         currentDoc++;
         currentPosition = -1;
         positions = null;
-        final TermDocuments documents = termDocumentsSupplier.get();
-        if (documents.getDocIdCount() <= currentDoc) { // Exhausted
-//            if (LOG.isInfoEnabled()) {
-//                LOG.info("nextDoc exhausted on {}", docPosition);
-//            }
-//            Thread.dumpStack();
+        if (termDocuments.getDocIdCount() <= currentDoc) { // Exhausted
             currentDoc = NO_MORE_DOCS;
             return NO_MORE_DOCS;
         }
-        return documents.getDocId(currentDoc);
+        return termDocuments.getDocId(currentDoc);
     }
 
     @Override
     public int advance(final int target) throws IOException {
+        // short circuit the search (this signals jump to end)
         if (target == NO_MORE_DOCS) {
             currentDoc = NO_MORE_DOCS;
             return NO_MORE_DOCS;
@@ -114,7 +104,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public int freq() throws IOException {
-        return termDocumentsSupplier.get().getFreq(currentDoc);
+        return termDocuments.getFreq(currentDoc);
     }
 
     @Override
@@ -122,31 +112,35 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         if (!hasPositions) {
             return -1;
         }
-        if (positions == null) {
-            // TODO: Maybe turn into AtomicReference?
-            // TODO: Maybe read positions for all documents at once?
-            // TODO: Shold this be indexed by the docID or the currentDoc(ordingal)?
-            positions = readTermDocPositions(docID());
-        }
+        ensureTermDocPositions(docID());
         return positions.getPosition(++currentPosition);
     }
 
     @Override
     public int startOffset() throws IOException {
-        // TODO
-        return 0;
+        if (!hasOffsets) {
+            return -1;
+        }
+        ensureTermDocPayloads(docID());
+        return payloads.getStartOffset(currentPosition);
     }
 
     @Override
     public int endOffset() throws IOException {
-        //TODO
-        return 0;
+        if (!hasOffsets) {
+            return -1;
+        }
+        ensureTermDocPayloads(docID());
+        return payloads.getEndOffset(currentPosition);
     }
 
     @Override
     public BytesRef getPayload() throws IOException {
-        // TODO
-        return null;
+        if (!hasPayloads) {
+            return null;
+        }
+        ensureTermDocPayloads(docID());
+        return payloads.getPayload(currentPosition);
     }
 
     // Added methods from ImpactsEnum. There is no easy way to extend the LuceneOptimizedPostingsEnum class so this
@@ -154,27 +148,22 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public void advanceShallow(final int target) throws IOException {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("advanceShallow {}", target);
-//        }
         advance(target);
     }
 
     @Override
     public long cost() {
+        // TODO
         return 0;
     }
 
 
     @Override
     public Impacts getImpacts() throws IOException {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("getImpacts with position {}", docPosition);
-//            Thread.dumpStack();
-//        }
+        // TODO
         return new Impacts() {
             private final List<Impact> impacts = Collections.singletonList(
-                    new Impact(currentDoc == NO_MORE_DOCS ? 0 : termDocumentsSupplier.getUnchecked().getFreq(currentDoc), 1L));
+                    new Impact(currentDoc == NO_MORE_DOCS ? 0 : termDocuments.getFreq(currentDoc), 1L));
 
             @Override
             public int numLevels() {
@@ -194,25 +183,35 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         };
     }
 
-    private DocumentPositions readTermDocPositions(int docId) throws IOException {
-        byte[] posBytes = this.directory.getTermDocumentPositions(segmentName, fieldInfo.number, state.getOrd(), docId);
-        final DocumentPositions positions = new DocumentPositions(posBytes);
-        if (positions.getPositionCount() != freq()) {
-            // TODO: Add log infos (field/term/docid)
-            throw new IOException("Index is Corrupted: number of positions does not match freq");
+    private void ensureTermDocPositions(int docId) throws IOException {
+        if (positions == null) {
+            byte[] posBytes = this.directory.getTermDocumentPositions(segmentName, fieldInfo.number, state.getOrd(), docId);
+            final DocumentPositions result = new DocumentPositions(posBytes);
+            if (result.getPositionCount() != freq()) {
+                throw new IOException("Index is Corrupted: number of positions does not match freq " +
+                        segmentName + ":" + fieldInfo.number + ":" + state.getOrd() + ":" + docId);
+            }
+            this.positions = result;
         }
-        return positions;
+    }
+
+    private void ensureTermDocPayloads(int docId) throws IOException {
+        if (payloads == null) {
+            byte[] payloadBytes = this.directory.getTermDocumentPayloads(segmentName, fieldInfo.number, state.getOrd(), docId);
+            final DocumentPayloads result = new DocumentPayloads(payloadBytes);
+            if (result.getPayloadCount() != freq()) {
+                throw new IOException("Index is Corrupted: number of payloads does not match freq " +
+                        segmentName + ":" + fieldInfo.number + ":" + state.getOrd() + ":" + docId);
+            }
+            this.payloads = result;
+        }
     }
 
     private class TermDocuments {
         private final LucenePostingsProto.Documents documents;
 
-        public TermDocuments(final byte[] docBytes) {
-            try {
-                this.documents = LucenePostingsProto.Documents.parseFrom(docBytes);
-            } catch (InvalidProtocolBufferException e) {
-                throw new UncheckedIOException(e);
-            }
+        public TermDocuments(final LucenePostingsProto.Documents documents) {
+            this.documents = documents;
         }
 
         public int getFreq(final int doc) {
@@ -245,6 +244,34 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
         public int getPositionCount() {
             return positions.getPositionCount();
+        }
+    }
+
+    private class DocumentPayloads {
+        private final LucenePostingsProto.Payloads payloads;
+
+        public DocumentPayloads(final byte[] payloadBytes) {
+            try {
+                this.payloads = LucenePostingsProto.Payloads.parseFrom(payloadBytes);
+            } catch (InvalidProtocolBufferException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        public int getStartOffset(final int position) {
+            return payloads.getStartOffset(position);
+        }
+
+        public BytesRef getPayload(final int position) {
+            return new BytesRef(payloads.getPayload(position).toByteArray());
+        }
+
+        public int getEndOffset(final int position) {
+            return payloads.getEndOffset(position);
+        }
+
+        public int getPayloadCount() {
+            return payloads.getPayloadCount();
         }
     }
 }

@@ -25,8 +25,11 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.codecs.BlockTermState;
+import org.apache.lucene.codecs.CompetitiveImpactAccumulator;
 import org.apache.lucene.codecs.NormsProducer;
+import org.apache.lucene.codecs.PostingsWriterBase;
 import org.apache.lucene.codecs.PushPostingsWriterBase;
+import org.apache.lucene.codecs.lucene84.Lucene84PostingsWriter;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexWriter;
@@ -40,6 +43,9 @@ import org.apache.lucene.util.FixedBitSet;
 
 import java.io.IOException;
 
+/**
+ * FDB-optimized flavor of a {@link PostingsWriterBase}, modeled after {@link Lucene84PostingsWriter}.
+ */
 public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
     private final FDBDirectory directory;
@@ -52,9 +58,12 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     private WriterPositions positions;
     private WriterPayloads payloads;
     private int lastDocID;
+    private int lastStartOffset;
     private int docCount = 0;
-    // TODO
+    // TODO: These are required for the Impacts and scoring, will be completed later
+    private boolean fieldHasNorms;
     private NumericDocValues norms;
+    private final CompetitiveImpactAccumulator competitiveFreqNormAccumulator = new CompetitiveImpactAccumulator();
 
     public LuceneOptimizedPostingsWriter(final SegmentWriteState state) {
         this.directory = FDBDirectoryUtils.getFDBDirectory(state.directory);
@@ -70,11 +79,15 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     public void init(final IndexOutput termsOut, final SegmentWriteState state) throws IOException {
     }
 
-    // Inherit setField(FieldInfo fieldInfo)
+    @Override
+    public void setField(FieldInfo fieldInfo) {
+        super.setField(fieldInfo);
+        fieldHasNorms = fieldInfo.hasNorms();
+    }
 
     /**
      * Delegate to the {@link PushPostingsWriterBase#writeTerm(BytesRef, TermsEnum, FixedBitSet, NormsProducer)} in
-     * order to store the term text locally.
+     * order to store the term text (it is not available from the superclass).
      */
     public BlockTermState writeAndSaveTerm(BytesRef term, TermsEnum termsEnum, FixedBitSet docsSeen, NormsProducer norms) throws IOException {
         currentTermText = term;
@@ -85,9 +98,9 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     public void startTerm(NumericDocValues norms) {
         currentTermOrd++;
         documents = new WriterDocuments();
-        this.norms = norms;
         lastDocID = 0;
-//        competitiveFreqNormAccumulator.clear();
+        this.norms = norms;
+        competitiveFreqNormAccumulator.clear();
     }
 
     @Override
@@ -104,27 +117,27 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             throw new CorruptIndexException("docs out of order (" + docID + " <= " + lastDocID + " )", "docCount");
         }
         lastDocID = docID;
+        lastStartOffset = 0;
         docCount++;
 
-//        long norm;
-//        if (fieldHasNorms) {
-//            boolean found = norms.advanceExact(docID);
-//            if (found == false) {
-//                // This can happen if indexing hits a problem after adding a doc to the
-//                // postings but before buffering the norm. Such documents are written
-//                // deleted and will go away on the first merge.
-//                norm = 1L;
-//            } else {
-//                norm = norms.longValue();
-//                assert norm != 0 : docID;
-//            }
-//        } else {
-//            norm = 1L;
-//        }
-//
-//        competitiveFreqNormAccumulator.add(writeFreqs ? termDocFreq : 1, norm);
-    }
+        long norm;
+        if (fieldHasNorms) {
+            boolean found = norms.advanceExact(docID);
+            if (found == false) {
+                // This can happen if indexing hits a problem after adding a doc to the
+                // postings but before buffering the norm. Such documents are written
+                // deleted and will go away on the first merge.
+                norm = 1L;
+            } else {
+                norm = norms.longValue();
+                assert norm != 0 : docID;
+            }
+        } else {
+            norm = 1L;
+        }
 
+        competitiveFreqNormAccumulator.add(writeFreqs ? termDocFreq : 1, norm);
+    }
 
     @Override
     public void addPosition(int position, BytesRef payload, int startOffset, int endOffset) throws IOException {
@@ -138,26 +151,27 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         positions.addPosition(position);
         if (writePayloads) {
             if (payload == null || payload.length == 0) {
-                // This adds an empty payload. TODO: Seems like necessary - or maybe not - looks like it may be ignored in finishTerm
+                // necessary to keep the number of positions and payloads the same
                 payloads.addEmptyPayload();
             } else {
                 payloads.addPayload(payload);
             }
         }
         if (writeOffsets) {
+            assert startOffset >= lastStartOffset;
             assert endOffset >= startOffset;
-            // TODO: Check if > -1?
             payloads.addOffset(startOffset, endOffset);
+            lastStartOffset = startOffset;
         }
     }
 
     @Override
     public void finishDoc() throws IOException {
         if (positions != null) {
-            directory.writePostingsPositions(segmentName, fieldInfo.number, currentTermOrd, documents.getLastDocId(), positions.asBytes());
+            directory.writePostingsPositions(segmentName, fieldInfo.number, currentTermOrd, documents.getLastDocId(), positions.asProto().toByteArray());
         }
         if (payloads != null) {
-            directory.writePostingsPayloads(segmentName, fieldInfo.number, currentTermOrd, documents.getLastDocId(), payloads.asBytes());
+            directory.writePostingsPayloads(segmentName, fieldInfo.number, currentTermOrd, documents.getLastDocId(), payloads.asProto().toByteArray());
         }
         // reset the positions and payloads so that we are in consistent state to continue or end the iterations
         positions = null;
@@ -166,7 +180,6 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
     /**
      * Called when we are done adding docs to this term.
-     * The term (text and info) will be stored once the method returns.
      */
     @Override
     public void finishTerm(BlockTermState _state) throws IOException {
@@ -174,15 +187,16 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         assert state.docFreq > 0;
         assert state.docFreq == docCount : state.docFreq + " vs " + docCount;
 
-        directory.writePostingsDocuments(segmentName, fieldInfo.number, currentTermOrd, documents.asBytes());
-        documents = null;
-
         // Complement the contents of the state
         state.ord = currentTermOrd;
         // Create a term info from the individual fields
-        LucenePostingsProto.TermInfo termInfo = createTermInfo(state);
+        LucenePostingsProto.TermInfo termInfo = createTermInfo(state, documents);
         // Copy the info back to the state (so now it has the protobufs)
         state.copyFrom(currentTermText, termInfo);
+
+        directory.writePostingsTerm(segmentName, fieldInfo.number, currentTermText, termInfo.toByteArray());
+
+        documents = null;
         docCount = 0;
     }
 
@@ -194,12 +208,13 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     public void close() throws IOException {
     }
 
-    private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state) {
+    private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state, WriterDocuments documents) {
         return LucenePostingsProto.TermInfo.newBuilder()
                 // Use the public variables since the state does not have the protobufs yet
                 .setDocFreq(state.docFreq)
                 .setTotalTermFreq(state.totalTermFreq)
                 .setOrd(state.ord)
+                .setDocuments(documents.asProto())
                 .build();
     }
 
@@ -217,8 +232,8 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             lastDocId = docId;
         }
 
-        public byte[] asBytes() {
-            return builder.build().toByteArray();
+        public LucenePostingsProto.Documents asProto() {
+            return builder.build();
         }
 
         public int getLastDocId() {
@@ -237,8 +252,8 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             builder.addPosition(porition);
         }
 
-        public byte[] asBytes() {
-            return builder.build().toByteArray();
+        public LucenePostingsProto.Positions asProto() {
+            return builder.build();
         }
 
         @Override
@@ -260,6 +275,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         }
 
         public void addPayload(final BytesRef payload) {
+            // This saves the portion of the BytesRef that is relevant, losing the offset and length
             builder.addPayload(ByteString.copyFrom(payload.bytes, payload.offset, payload.length));
         }
 
@@ -268,8 +284,8 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             builder.addEndOffset(endOffset);
         }
 
-        public byte[] asBytes() {
-            return builder.build().toByteArray();
+        public LucenePostingsProto.Payloads asProto() {
+            return builder.build();
         }
 
         @Override

@@ -38,6 +38,9 @@ import org.apache.lucene.util.FixedBitSet;
 
 import java.io.IOException;
 
+/**
+ * FDB-optimized flavor of a {@link FieldsConsumer}, modeled after {@link org.apache.lucene.codecs.blocktree.BlockTreeTermsWriter}.
+ */
 public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
     private final LuceneOptimizedPostingsWriter postingsWriter;
     private final FDBDirectory directory;
@@ -65,22 +68,18 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
             }
 
             TermsEnum termsEnum = terms.iterator();
-            LuceneOptimizedPostingsFieldsConsumer.TermsWriter termsWriter = new LuceneOptimizedPostingsFieldsConsumer.TermsWriter(fieldInfos.fieldInfo(field));
+            TermsWriter termsWriter = new TermsWriter(fieldInfos.fieldInfo(field));
             while (true) {
                 BytesRef term = termsEnum.next();
-                //if (DEBUG) System.out.println("BTTW: next term " + term);
 
                 if (term == null) {
                     break;
                 }
 
-                //if (DEBUG) System.out.println("write field=" + fieldInfo.name + " term=" + brToString(term));
                 termsWriter.write(term, termsEnum, norms);
             }
 
             termsWriter.finish();
-
-            //if (DEBUG) System.out.println("\nBTTW.write done seg=" + segment + " field=" + field);
         }
     }
 
@@ -105,12 +104,10 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
         }
 
         public void write(final BytesRef text, final TermsEnum termsEnum, final NormsProducer norms) throws IOException {
-            // TODO: return narrow type
             LuceneOptimizedBlockTermState state = (LuceneOptimizedBlockTermState)postingsWriter.writeAndSaveTerm(text, termsEnum, docsSeen, norms);
             if (state != null) {
                 assert state.getDocFreq() != 0;
                 assert fieldInfo.getIndexOptions() == IndexOptions.DOCS || state.getTotalTermFreq() >= state.getDocFreq() : "postingsWriter=" + postingsWriter;
-                directory.writePostingsTerm(segmentName, fieldInfo.number, text, state.getTermInfo().toByteArray());
 
                 sumDocFreq += state.getDocFreq();
                 sumTotalTermFreq += state.getTotalTermFreq();

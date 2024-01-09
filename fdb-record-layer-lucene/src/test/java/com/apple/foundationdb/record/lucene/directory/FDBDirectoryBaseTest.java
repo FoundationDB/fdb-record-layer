@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.BeforeEach;
 
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -59,7 +61,7 @@ public abstract class FDBDirectoryBaseTest {
             return null;
         });
         FDBRecordContext context = fdb.openContext(getContextConfig());
-        directory = new FDBDirectory(subspace, context, null);
+        directory = new FDBDirectory(subspace, context, Map.of(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, "true"));
     }
 
     private FDBRecordContextConfig getContextConfig() {

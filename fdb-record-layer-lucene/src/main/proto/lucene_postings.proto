@@ -43,16 +43,15 @@ message TermInfo {
   required int64 ord = 1;
   optional int32 docFreq = 2;
   optional int64 totalTermFreq = 3;
+  optional Documents documents = 4;
 }
 
 /*
  * Info about the documents for each term.
- * Key: POSTINGS_DOCUMENTS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal
- * TODO: Can this be combined into the TermInfo? Cardinality is the same
+ * Embedded within the TermInfo
  */
 message Documents {
   // TODO: Make one repeated message
-  // TODO: How large can this get?
   repeated int32 docId = 1;
   repeated int32 freq = 2;
 }
@@ -68,10 +67,11 @@ message Positions {
 /*
  * Info about the payloads for each document in a term.
  * Key: POSTINGS_PAYLOADS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
+ * These values have the same cardinality as the positions, if they are written
+ * They are not included in the Positions message for the cases where we don't need to read them
  */
 message Payloads {
   repeated bytes payload = 1;
-  // TODO: Separate from payloads?
   // TODO: Make into one repeated message
   repeated int32 startOffset = 2;
   repeated int32 endOffset = 3;

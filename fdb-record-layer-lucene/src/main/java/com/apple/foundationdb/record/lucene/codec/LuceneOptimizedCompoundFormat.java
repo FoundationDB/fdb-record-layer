@@ -104,12 +104,12 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             }
         }
 
-        validateFileCounts(files, fieldInfos, storedFields);
+        validateFileCounts(files, fieldInfos, storedFields, postings);
 
         return filteredFiles;
     }
 
-    protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
+    protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields, int postings) {
         if (fieldInfos != 1) {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
@@ -119,11 +119,9 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             throw new RecordCoreException("Segment has wrong number of StoredFields")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
         }
-        if (postings != 1) {
-//            throw new RecordCoreException("Segment has wrong number of Postings")
-//                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
+        if (postings > 1) {
+            throw new RecordCoreException("Segment has wrong number of Postings")
+                    .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
         }
-
-        return filteredFiles;
     }
 }

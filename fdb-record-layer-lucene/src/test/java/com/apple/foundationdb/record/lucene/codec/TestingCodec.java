@@ -223,7 +223,7 @@ public class TestingCodec extends Codec {
                 }
 
                 @Override
-                protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
+                protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields, int postings) {
                     // assume a-ok
                 }
             };

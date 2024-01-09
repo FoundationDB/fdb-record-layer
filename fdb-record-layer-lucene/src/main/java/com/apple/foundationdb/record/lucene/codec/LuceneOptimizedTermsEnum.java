@@ -33,7 +33,9 @@ import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
 
-// TODO: extends BaseTermsEnum???
+/**
+ * FDB-optimized {@link TermsEnum} modeled after SegmentTermsEnum
+ */
 public class LuceneOptimizedTermsEnum extends TermsEnum {
     private final String segmentName;
     private final FieldInfo fieldInfo;
@@ -54,9 +56,6 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
     public boolean seekExact(final BytesRef text) throws IOException {
         byte[] termData = directory.getPostingsTerm(segmentName, fieldInfo.number, text);
         if (termData != null) {
-            // TODO: This leaves the same instance in place - why is this necessary?
-            // TODO: If null, should we reset the current state?
-            // currentTermState.copyFrom(text, termData);
             currentTermState = new LuceneOptimizedBlockTermState(text, termData);
         }
         return termData != null;
@@ -75,7 +74,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
                 return SeekStatus.NOT_FOUND;
             }
         } else {
-            // or set the state to null?
+            // not found. reset state
             currentTermState = new LuceneOptimizedBlockTermState();
             return SeekStatus.END;
         }
@@ -102,7 +101,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
             nextTermData = directory.getFirstPostingsTerm(segmentName, fieldInfo.number);
         }
         if (nextTermData == null) {
-            // TODO: Is this right? Should we return to the beginning?
+            // no more data, reset state
             currentTermState = null;
             return null;
         } else {
@@ -113,7 +112,8 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public BytesRef term() throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
+        assert currentTermState.getTerm() != null;
         return currentTermState.getTerm();
     }
 
@@ -124,40 +124,39 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public TermState termState() throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
         return currentTermState;
     }
 
 
     @Override
     public int docFreq() throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
+        assert currentTermState.getTermInfo() != null;
         return currentTermState.getDocFreq();
     }
 
     @Override
     public long totalTermFreq() throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
+        assert currentTermState.getTermInfo() != null;
         return currentTermState.getTotalTermFreq();
     }
 
     @Override
     public PostingsEnum postings(final PostingsEnum reuse, final int flags) throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
         return postingsReader.postings(fieldInfo, currentTermState, reuse, flags);
     }
 
     @Override
     public ImpactsEnum impacts(final int flags) throws IOException {
-        // TODO: ensure valid state
+        assert currentTermState != null;
         return postingsReader.impacts(fieldInfo, currentTermState, flags);
     }
 
     @Override
     public AttributeSource attributes() {
-//        if (LOG.isInfoEnabled()) {
-//            LOG.info("attributes");
-//        }
         if (atts == null) {
             atts = new AttributeSource();
         }

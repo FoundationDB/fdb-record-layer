@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.PostingsReaderBase;
+import org.apache.lucene.codecs.blocktree.FieldReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.Terms;
@@ -34,6 +35,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 
+/**
+ * FDB-optimized {@link Terms} modeled after {@link FieldReader }
+ */
 public class LuceneOptimizedTerms extends Terms implements Accountable {
     private final String segmentName;
     private final FieldInfo fieldInfo;
@@ -110,8 +114,6 @@ public class LuceneOptimizedTerms extends Terms implements Accountable {
 
     @Override
     public int getDocCount() {
-        // TODO: Should this be calculated as well?
-        //        return segmentInfo.maxDocdoc();
         return metadata.getCardinality();
     }
 
