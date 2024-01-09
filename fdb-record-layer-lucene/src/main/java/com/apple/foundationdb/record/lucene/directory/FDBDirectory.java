@@ -359,7 +359,6 @@ public class FDBDirectory extends Directory  {
     }
 
     public Stream<Pair<Long, byte[]>> getAllPostingFieldMetadataStream(String segmentName) {
-        // TODO: Need to close the stream once done?
         final Subspace fieldSub = postingsMetadataSubspace.subspace(Tuple.from(segmentName));
         return asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_FIELD_METADATA,
@@ -442,7 +441,7 @@ public class FDBDirectory extends Directory  {
     public void writePostingsTermMetadata(final String segmentName, final int fieldNumber, final byte[] metadata) {
         byte[] key = postingsMetadataSubspace.pack(Tuple.from(segmentName, fieldNumber));
         agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + metadata.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_METADATA);
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_POSTINGS_FIELD_METADATA);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene postings metadata",
                     LuceneLogMessageKeys.DATA_SIZE, metadata.length,

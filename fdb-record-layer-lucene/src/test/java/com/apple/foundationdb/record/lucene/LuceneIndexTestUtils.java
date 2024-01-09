@@ -70,7 +70,8 @@ public class LuceneIndexTestUtils {
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                     // Common index in Lucene tests, set the option to TRUE to be used in tests
                     LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true",
-                    LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, "true"));
+                    // Set to FALSE for now, can set to TRUE once transaction size issue is resolved
+                    LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, "false"));
 
     public static final Index TEXT_AND_STORED = new Index(
             "Simple$test_stored",
