@@ -71,7 +71,7 @@ public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCas
     }
 
     @AfterClass
-    public static void ResetFdbPostingsTester() throws Exception {
+    public static void resetFdbPostingsTester() throws Exception {
         fdbPostingsTester = null;
     }
 
@@ -137,13 +137,13 @@ public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCas
      * A copy of the superclass {@link BasePostingsFormatTestCase#testRandom()} that changes the directory used
      * See --BEGIN CUSTOM-- and --END CUSTOM-- comments below.
      * Also, since the PostingTester field is not available here, use the local one instead (fdbPostingsTester)
-     * @throws Exception
+     * @throws Exception in case of error
      */
     @Override
     public void testRandom() throws Exception {
         int iters = 5;
 
-        for(int iter = 0; iter < iters; ++iter) {
+        for (int iter = 0; iter < iters; ++iter) {
             // --BEGIN CUSTOM--
             MockDirectoryWrapper dir;
             if (BaseIndexFileFormatTestCaseUtils.isUsingFDBDirectory()) {
@@ -163,8 +163,8 @@ public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCas
     }
 
     /**
-     * This test cannot be reproduced as it accesses package-protected fields
-     * TODO: This can be changed with AccessMnager
+     * This test cannot be reproduced as it accesses package-protected fields.
+     * TODO: This can be changed with AccessManager
      */
     @Override
     public void testPostingsEnumReuse() throws Exception {

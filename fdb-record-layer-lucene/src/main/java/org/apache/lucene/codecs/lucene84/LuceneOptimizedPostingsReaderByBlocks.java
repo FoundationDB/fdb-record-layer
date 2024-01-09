@@ -1,4 +1,24 @@
 /*
+ * LuceneOptimizedPostingsReaderByBlocks.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -52,7 +72,7 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_C
 import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_START;
 
 /**
- * Concrete class that reads docId(maybe frq,pos,offset,payloads) list
+ * Concrete class that reads docId(maybe frq,pos,offset,payloads) list.
  * with postings format.
  *
  * Borrowed from Lucene.
@@ -62,7 +82,7 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_S
  */
 @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.TooManyStaticImports", "PMD.FormalParameterNamingConventions", "PMD.UnnecessaryFullyQualifiedName"})
 @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
-public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase {
+public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderBase {
 
     private static final long BASE_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(Lucene84PostingsReader.class);
 
@@ -78,7 +98,7 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
      * @param state state
      * @throws IOException exception
      */
-    public LuceneOptimizedPostingsReader_OLD(SegmentReadState state) throws IOException {
+    public LuceneOptimizedPostingsReaderByBlocks(SegmentReadState state) throws IOException {
 
         // NOTE: these data files are too costly to verify checksum against all the bytes on open,
         // but for now we at least verify proper structure of the checksum footer: which looks
@@ -333,7 +353,7 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
         private int singletonDocID; // docid when there is a single pulsed posting, otherwise -1
 
         public BlockDocsEnum(FieldInfo fieldInfo) throws IOException {
-            this.startDocIn = LuceneOptimizedPostingsReader_OLD.this.docIn.get();
+            this.startDocIn = LuceneOptimizedPostingsReaderByBlocks.this.docIn.get();
             this.docIn = null;
             indexHasFreq = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0;
             indexHasPos = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
@@ -623,11 +643,11 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
             indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.startDocIn = LuceneOptimizedPostingsReader_OLD.this.docIn.get();
+            this.startDocIn = LuceneOptimizedPostingsReaderByBlocks.this.docIn.get();
             this.docIn = null;
-            this.posIn = LuceneOptimizedPostingsReader_OLD.this.posIn.get().clone();
+            this.posIn = LuceneOptimizedPostingsReaderByBlocks.this.posIn.get().clone();
             if (indexHasOffsets || indexHasPayloads) {
-                this.payIn = LuceneOptimizedPostingsReader_OLD.this.payIn.get().clone();
+                this.payIn = LuceneOptimizedPostingsReaderByBlocks.this.payIn.get().clone();
             } else {
                 this.payIn = null;
             }
@@ -1047,7 +1067,7 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
             final boolean indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             final boolean indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.docIn = LuceneOptimizedPostingsReader_OLD.this.docIn.get().clone();
+            this.docIn = LuceneOptimizedPostingsReaderByBlocks.this.docIn.get().clone();
 
             docFreq = termState.docFreq;
             docIn.seek(termState.docStartFP);
@@ -1255,9 +1275,9 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
             indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
             indexHasPayloads = fieldInfo.hasPayloads();
 
-            this.docIn = LuceneOptimizedPostingsReader_OLD.this.docIn.get().clone();
+            this.docIn = LuceneOptimizedPostingsReaderByBlocks.this.docIn.get().clone();
 
-            this.posIn = LuceneOptimizedPostingsReader_OLD.this.posIn.get().clone();
+            this.posIn = LuceneOptimizedPostingsReaderByBlocks.this.posIn.get().clone();
 
             docFreq = termState.docFreq;
             docTermStartFP = termState.docStartFP;
@@ -1574,16 +1594,16 @@ public final class LuceneOptimizedPostingsReader_OLD extends PostingsReaderBase 
             needsOffsets = PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS);
             needsPayloads = PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS);
 
-            this.docIn = LuceneOptimizedPostingsReader_OLD.this.docIn.get().clone();
+            this.docIn = LuceneOptimizedPostingsReaderByBlocks.this.docIn.get().clone();
 
             if (indexHasPos && needsPositions) {
-                this.posIn = LuceneOptimizedPostingsReader_OLD.this.posIn.get().clone();
+                this.posIn = LuceneOptimizedPostingsReaderByBlocks.this.posIn.get().clone();
             } else {
                 this.posIn = null;
             }
 
             if ((indexHasOffsets && needsOffsets) || (indexHasPayloads && needsPayloads)) {
-                this.payIn = LuceneOptimizedPostingsReader_OLD.this.payIn.get().clone();
+                this.payIn = LuceneOptimizedPostingsReaderByBlocks.this.payIn.get().clone();
             } else {
                 this.payIn = null;
             }

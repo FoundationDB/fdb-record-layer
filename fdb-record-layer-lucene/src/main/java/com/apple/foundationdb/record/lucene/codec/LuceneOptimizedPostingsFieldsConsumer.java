@@ -56,6 +56,7 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
         this.segmentName = state.segmentInfo.name;
     }
 
+    @Override
     public void write(Fields fields, NormsProducer norms) throws IOException {
         String lastField = null;
         for (String field : fields) {
@@ -83,6 +84,7 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
         }
     }
 
+    @Override
     public void close() throws IOException {
         // close the file output, postings writer?
     }

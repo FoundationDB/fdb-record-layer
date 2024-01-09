@@ -36,7 +36,7 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 
 /**
- * FDB-optimized {@link Terms} modeled after {@link FieldReader }
+ * FDB-optimized {@link Terms} modeled after {@link FieldReader}.
  */
 public class LuceneOptimizedTerms extends Terms implements Accountable {
     private final String segmentName;
@@ -61,15 +61,6 @@ public class LuceneOptimizedTerms extends Terms implements Accountable {
     @Override
     public BytesRef getMax() throws IOException {
         return metadata.getMaxTerm();
-    }
-
-    /**
-     * For debugging -- used by CheckIndex too
-     */
-    @Override
-    public Object getStats() throws IOException {
-        // TODO
-        return super.getStats();
     }
 
     @Override

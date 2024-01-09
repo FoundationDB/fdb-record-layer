@@ -30,7 +30,7 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
-import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader_OLD;
+import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReaderByBlocks;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
@@ -63,8 +63,9 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public FieldsConsumer fieldsConsumer(final SegmentWriteState state) throws IOException {
-        FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
+        final FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
 
         // Use FALSE as the default OPTIMIZED_POSTINGS_FORMAT_ENABLED option, for backwards compatibility
         if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
@@ -82,7 +83,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
-        FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
+        final FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
 
         if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
             LuceneOptimizedPostingsReader postingsReader = new LuceneOptimizedPostingsReader(state);
@@ -98,7 +99,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         private LazyFieldsProducer(final SegmentReadState state) {
             fieldsProducer = LazyCloseable.supply(() -> {
-                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader_OLD(state);
+                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReaderByBlocks(state);
                 return new BlockTreeTermsReader(postingsReader, state);
             });
         }

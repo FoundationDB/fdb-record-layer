@@ -20,9 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.index.TermState;
@@ -32,7 +30,10 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-//TODO: Do we need to extend BlockTermState?
+/**
+ * A representation of the enumeration state for a term. This state is maintained throughout the enumeration, keeping
+ * track of the current term and its info.
+ */
 public class LuceneOptimizedBlockTermState extends BlockTermState {
     private BytesRef term;
     // TODO: This can be auto-generated from the rest of the data.
@@ -51,8 +52,8 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
         try {
             this.term = term;
             this.termInfo = LucenePostingsProto.TermInfo.parseFrom(termInfo);
-            assert term != null: "Term Cannot Be Null";
-            assert termInfo != null: "TermInfo Cannot Be Null";
+            assert term != null : "Term Cannot Be Null";
+            assert termInfo != null : "TermInfo Cannot Be Null";
             this.docFreq = this.termInfo.getDocFreq();
             this.totalTermFreq = this.termInfo.getTotalTermFreq();
             this.ord = this.termInfo.getOrd();
@@ -83,8 +84,8 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
     public void copyFrom(final TermState other) {
         this.term = ((LuceneOptimizedBlockTermState)other).term;
         this.termInfo = ((LuceneOptimizedBlockTermState)other).termInfo;
-        assert term != null: "Term Cannot Be Null";
-        assert termInfo != null: "TermInfo Cannot Be Null";
+        assert term != null : "Term Cannot Be Null";
+        assert termInfo != null : "TermInfo Cannot Be Null";
         this.docFreq = termInfo.getDocFreq();
         this.totalTermFreq = termInfo.getTotalTermFreq();
         this.ord = termInfo.getOrd();

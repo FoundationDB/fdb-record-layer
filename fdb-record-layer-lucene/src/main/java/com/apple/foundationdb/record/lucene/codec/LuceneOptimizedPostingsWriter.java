@@ -88,6 +88,12 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     /**
      * Delegate to the {@link PushPostingsWriterBase#writeTerm(BytesRef, TermsEnum, FixedBitSet, NormsProducer)} in
      * order to store the term text (it is not available from the superclass).
+     * @param term the term to write
+     * @param termsEnum the term enumeration
+     * @param docsSeen the enumeration of the docs seen
+     * @param norms the norms (impact) accumulator
+     * @return the current term state that accumulates the saved term's info
+     * @throws IOException in case the delegate throws one
      */
     public BlockTermState writeAndSaveTerm(BytesRef term, TermsEnum termsEnum, FixedBitSet docsSeen, NormsProducer norms) throws IOException {
         currentTermText = term;
@@ -182,8 +188,9 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
      * Called when we are done adding docs to this term.
      */
     @Override
-    public void finishTerm(BlockTermState _state) throws IOException {
-        LuceneOptimizedBlockTermState state = (LuceneOptimizedBlockTermState)_state;
+    public void finishTerm(BlockTermState termState) throws IOException {
+        assert (termState instanceof LuceneOptimizedBlockTermState) : "Unexpected state type: " + termState.getClass().getSimpleName();
+        LuceneOptimizedBlockTermState state = (LuceneOptimizedBlockTermState)termState;
         assert state.docFreq > 0;
         assert state.docFreq == docCount : state.docFreq + " vs " + docCount;
 
@@ -201,7 +208,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     }
 
     @Override
-    public void encodeTerm(DataOutput out, FieldInfo fieldInfo, BlockTermState _state, boolean absolute) throws IOException {
+    public void encodeTerm(DataOutput out, FieldInfo fieldInfo, BlockTermState termState, boolean absolute) throws IOException {
     }
 
     @Override
@@ -218,7 +225,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
                 .build();
     }
 
-    private class WriterDocuments {
+    private static class WriterDocuments {
         private LucenePostingsProto.Documents.Builder builder;
         private int lastDocId = -1;
 
@@ -241,7 +248,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         }
     }
 
-    private class WriterPositions {
+    private static class WriterPositions {
         LucenePostingsProto.Positions.Builder builder;
 
         public WriterPositions() {
@@ -262,7 +269,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
         }
     }
 
-    private class WriterPayloads {
+    private static class WriterPayloads {
         LucenePostingsProto.Payloads.Builder builder;
 
         public WriterPayloads() {

@@ -391,15 +391,19 @@ public class FDBDirectory extends Directory  {
                 agilityContext.get(key));
     }
 
-    public enum RangeType {INCLUSIVE, EXCLUSIVE};
+    /**
+     * Whether to use inclusive or exclusive range scan for {@link #getNextPostingsTerm(String, int, BytesRef, RangeType)}.
+     */
+    public enum RangeType { INCLUSIVE, EXCLUSIVE }
 
     /**
      * Scan for the next term element: Either the one matching the given parameters or the one immediately following.
-     * @param segmentName
-     * @param fieldNumber
-     * @param term
-     * @param rangeStartType
-     * @return
+     * This will scan for a range (open-ended) of terms starting with the given term (either inclusive or exclusive).
+     * @param segmentName the segment name
+     * @param fieldNumber the field number (FieldInfo.number)
+     * @param term the term for the start of the scan range
+     * @param rangeStartType INCLUSIVE to include the given term in the range, EXCLUSIVE to start the scan immediately following the given term
+     * @return the Pair(Term, Info) for the given term, or null if no term was found
      */
     @Nullable
     public Pair<byte[], byte[]> getNextPostingsTerm(final String segmentName, final int fieldNumber, final BytesRef term, RangeType rangeStartType) {
@@ -603,19 +607,15 @@ public class FDBDirectory extends Directory  {
     }
 
     public void deletePostings(@Nonnull final String segmentName) {
-        byte[] metadataKey = postingsMetadataSubspace.pack(Tuple.from(segmentName));
-        byte[] termssKey = postingsTermsSubspace.pack(Tuple.from(segmentName));
-        byte[] positionsKey = postingsPositionsSubspace.pack(Tuple.from(segmentName));
-        byte[] payloadsKey = postingsPayloadsSubspace.pack(Tuple.from(segmentName));
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_POSTINGS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Postings Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
-        agilityContext.clear(Range.startsWith(metadataKey));
-        agilityContext.clear(Range.startsWith(termssKey));
-        agilityContext.clear(Range.startsWith(positionsKey));
-        agilityContext.clear(Range.startsWith(payloadsKey));
+        agilityContext.clear(Range.startsWith(postingsMetadataSubspace.pack(Tuple.from(segmentName))));
+        agilityContext.clear(Range.startsWith(postingsTermsSubspace.pack(Tuple.from(segmentName))));
+        agilityContext.clear(Range.startsWith(postingsPositionsSubspace.pack(Tuple.from(segmentName))));
+        agilityContext.clear(Range.startsWith(postingsPayloadsSubspace.pack(Tuple.from(segmentName))));
     }
 
     /**
@@ -1209,11 +1209,11 @@ public class FDBDirectory extends Directory  {
     }
 
     /**
-     * Utility to return the actual bytes from a BytesRef (produce a copy of the slice of the original)
-     * @param bytesRef
-     * @return
+     * Utility to return the actual bytes from a {@link BytesRef} (produce a copy of the slice of the original).
+     * @param bytesRef the given BytesRef
+     * @return a copy of the bytes referenced
      */
     private byte[] copyFrom(BytesRef bytesRef) {
-        return Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset+bytesRef.length);
+        return Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);
     }
 }

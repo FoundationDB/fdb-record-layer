@@ -39,7 +39,7 @@ import java.io.IOException;
 import java.util.Collection;
 
 /**
- * FDB-optimized {@link PostingsReaderBase} modeled after {@link Lucene84PostingsReader}
+ * FDB-optimized {@link PostingsReaderBase} modeled after {@link Lucene84PostingsReader}.
  */
 public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
@@ -74,7 +74,11 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
         final boolean hasOffsets = indexHasOffsets && PostingsEnum.featureRequested(flags, PostingsEnum.OFFSETS);
         final boolean hasPayloads = indexHasPayloads && PostingsEnum.featureRequested(flags, PostingsEnum.PAYLOADS);
 
-        return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions, hasOffsets, hasPayloads);
+        if (state instanceof LuceneOptimizedBlockTermState) {
+            return new LuceneOptimizedPostingsEnum(segmentName, fieldInfo, (LuceneOptimizedBlockTermState)state, directory, hasPositions, hasOffsets, hasPayloads);
+        } else {
+            throw new IllegalStateException("Unexpected state type: " + state.getClass().getSimpleName());
+        }
     }
 
     @Override

@@ -34,7 +34,7 @@ import org.apache.lucene.util.BytesRef;
 import java.io.IOException;
 
 /**
- * FDB-optimized {@link TermsEnum} modeled after SegmentTermsEnum
+ * FDB-optimized {@link TermsEnum} modeled after {@code SegmentTermsEnum}.
  */
 public class LuceneOptimizedTermsEnum extends TermsEnum {
     private final String segmentName;
@@ -62,6 +62,17 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
     }
 
     @Override
+    public void seekExact(final long ord) throws IOException {
+        // TODO: Can be implemented using the "slow way"
+        throw new UnsupportedOperationException("seekExact(long) Not Supported");
+    }
+
+    @Override
+    public void seekExact(final BytesRef term, final TermState state) throws IOException {
+        currentTermState = ((LuceneOptimizedBlockTermState) state);
+    }
+
+    @Override
     public SeekStatus seekCeil(final BytesRef text) throws IOException {
         // Scan from the given term inclusive of the first element
         Pair<byte[], byte[]> term = directory.getNextPostingsTerm(segmentName, fieldInfo.number, text, FDBDirectory.RangeType.INCLUSIVE);
@@ -78,17 +89,6 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
             currentTermState = new LuceneOptimizedBlockTermState();
             return SeekStatus.END;
         }
-    }
-
-    @Override
-    public void seekExact(final long ord) throws IOException {
-        // TODO: Should we implement the slow way?
-        throw new UnsupportedOperationException("seekExact(long) Not Supported");
-    }
-
-    @Override
-    public void seekExact(final BytesRef term, final TermState state) throws IOException {
-         currentTermState = ((LuceneOptimizedBlockTermState) state);
     }
 
     @Override

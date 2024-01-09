@@ -34,6 +34,9 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Random;
 
+/**
+ * A subclass of {@link RandomPostingsTester} that overrides and modifies properties that are required for FDB-style testing.
+ */
 public class LuceneOptimizedRandomPostingsTester extends RandomPostingsTester {
 
     public LuceneOptimizedRandomPostingsTester(final Random random) throws IOException {

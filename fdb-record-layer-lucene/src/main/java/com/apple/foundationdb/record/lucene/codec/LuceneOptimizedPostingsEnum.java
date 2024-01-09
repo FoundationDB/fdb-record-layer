@@ -36,7 +36,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * FDB-optimized {@link PostingsEnum} {@link ImpactsEnum}
+ * FDB-optimized {@link PostingsEnum} {@link ImpactsEnum}.
  */
 public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
@@ -81,7 +81,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public int nextDoc() throws IOException {
-        assert currentDoc != NO_MORE_DOCS: "Should not be called";
+        assert currentDoc != NO_MORE_DOCS : "Should not be called";
         currentDoc++;
         currentPosition = -1;
         positions = null;
@@ -207,7 +207,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         }
     }
 
-    private class TermDocuments {
+    private static class TermDocuments {
         private final LucenePostingsProto.Documents documents;
 
         public TermDocuments(final LucenePostingsProto.Documents documents) {
@@ -227,7 +227,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         }
     }
 
-    private class DocumentPositions {
+    private static class DocumentPositions {
         private final LucenePostingsProto.Positions positions;
 
         public DocumentPositions(final byte[] posBytes) {
@@ -247,7 +247,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         }
     }
 
-    private class DocumentPayloads {
+    private static class DocumentPayloads {
         private final LucenePostingsProto.Payloads payloads;
 
         public DocumentPayloads(final byte[] payloadBytes) {

@@ -26,6 +26,10 @@ import org.apache.lucene.util.BytesRef;
 
 import java.io.UncheckedIOException;
 
+/**
+ * Metadata about each field (accumulates metadata for all terms in the field).
+ * Wrapper around the protobuf that gets stored and retrieved.
+ */
 public class PostingsFieldMetadata {
     private final BytesRef minTerm;
     private final BytesRef maxTerm;

@@ -30,8 +30,6 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -41,11 +39,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * FDB-optimized {@link FieldsProducer modeled after {@link org.apache.lucene.codecs.blocktree.BlockTreeTermsReader}}
+ * FDB-optimized {@link FieldsProducer modeled after {@link org.apache.lucene.codecs.blocktree.BlockTreeTermsReader}}.
  */
 public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
-    private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedPostingsFieldsProducer.class);
-
     private final PostingsReaderBase postingsReader;
     private final FDBDirectory directory;
     private final String segmentName;
@@ -106,9 +102,8 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public long ramBytesUsed() {
-        long sizeInBytes = postingsReader.ramBytesUsed();
         // TODO
-        return sizeInBytes;
+        return postingsReader.ramBytesUsed();
     }
 
     @Override
