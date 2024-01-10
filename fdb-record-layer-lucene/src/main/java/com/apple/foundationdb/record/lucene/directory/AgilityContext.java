@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -227,8 +226,8 @@ public interface AgilityContext {
                     try {
                         currentContext.commit();
                         currentContext.close();
-                    } catch (FDBException ex) {
-                        reportException(ex);
+                    } catch (RuntimeException ex) {
+                        reportFdbException(ex);
                         throw ex;
                     }
                     currentContext = null;
@@ -240,7 +239,7 @@ public interface AgilityContext {
             }
         }
 
-        private void reportException(Throwable ex) {
+        private void reportFdbException(Throwable ex) {
             if (LOGGER.isDebugEnabled()) {
                 long nowMilliseconds = now();
                 final long creationAge = nowMilliseconds - creationTime;
@@ -263,7 +262,7 @@ public interface AgilityContext {
                 return ret;
             }).whenComplete((ret, ex) -> {
                 if (ex != null) {
-                    reportException(ex);
+                    reportFdbException(ex);
                 }
             });
         }
