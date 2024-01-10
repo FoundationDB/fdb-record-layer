@@ -692,10 +692,6 @@ public class FDBDirectory extends Directory  {
         return rawBytes;
     }
 
-    public AsyncIterator<KeyValue> scanAllPostingsTermsAsync(final String segmentName, final int number) {
-        return null;
-    }
-
     /**
      * Lists all file names in the subspace. Puts all references in the cache.
      * Logs the count of references, and the total size of the data.

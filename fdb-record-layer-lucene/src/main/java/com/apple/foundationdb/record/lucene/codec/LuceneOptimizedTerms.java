@@ -34,6 +34,7 @@ import org.apache.lucene.util.automaton.CompiledAutomaton;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.Collections;
 
 /**
  * FDB-optimized {@link Terms} modeled after {@link FieldReader}.
@@ -123,7 +124,7 @@ public class LuceneOptimizedTerms extends Terms implements Accountable {
     @Override
     public Collection<Accountable> getChildResources() {
         // TODO
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
