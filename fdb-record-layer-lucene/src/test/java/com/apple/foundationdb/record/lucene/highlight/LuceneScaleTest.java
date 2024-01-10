@@ -492,18 +492,18 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         void prep() {
             switch (Config.INDEX_MAINTENANCE) {
-            case Disable:
-                disableIndex();
-                break;
-            case Rebuild:
-                disableIndex();
-                buildIndex();
-                break;
-            case Build:
-                buildIndex();
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown enum: " + Config.INDEX_MAINTENANCE);
+                case Disable:
+                    disableIndex();
+                    break;
+                case Rebuild:
+                    disableIndex();
+                    buildIndex();
+                    break;
+                case Build:
+                    buildIndex();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown enum: " + Config.INDEX_MAINTENANCE);
             }
             if (maxDocId > 0) {
                 updateSearchWords();
