@@ -228,7 +228,8 @@ public interface AgilityContext {
                         currentContext.commit();
                         currentContext.close();
                     } catch (FDBException ex) {
-                        reportAndReThrowException(ex);
+                        reportException(ex);
+                        throw ex;
                     }
                     currentContext = null;
                     currentWriteSize = 0;
@@ -239,7 +240,7 @@ public interface AgilityContext {
             }
         }
 
-        private <T> T reportAndReThrowException(Throwable ex) {
+        private void reportException(Throwable ex) {
             if (LOGGER.isDebugEnabled()) {
                 long nowMilliseconds = now();
                 final long creationAge = nowMilliseconds - creationTime;
@@ -250,7 +251,6 @@ public interface AgilityContext {
                         LogMessageKeys.AGILITY_CONTEXT_WRITE_SIZE_BYTES, currentWriteSize
                 ).toString(), ex);
             }
-            throw new AssertionError(ex); // re-throw
         }
 
         @Override
@@ -261,11 +261,10 @@ public interface AgilityContext {
                 lock.unlock(stamp);
                 commitIfNeeded();
                 return ret;
-            }).handle((ret, ex) -> {
+            }).whenComplete((ret, ex) -> {
                 if (ex != null) {
-                    reportAndReThrowException(ex);
+                    reportException(ex);
                 }
-                return ret;
             });
         }
 
