@@ -114,6 +114,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public void checkIntegrity() throws IOException {
+        // Not needed for FDB
     }
 
     @Override

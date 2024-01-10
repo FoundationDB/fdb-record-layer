@@ -53,6 +53,7 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void init(final IndexInput termsIn, final SegmentReadState segmentReadState) {
+        // nothing to do
     }
 
     @Override
@@ -62,6 +63,7 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void close() throws IOException {
+        // nothing to do
     }
 
     @Override
@@ -90,10 +92,12 @@ public class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void decodeTerm(final DataInput in, final FieldInfo fieldInfo, final BlockTermState state, final boolean absolute) {
+        // nothing to do
     }
 
     @Override
     public void checkIntegrity() throws IOException {
+        // nothing to do
     }
 
     @Override

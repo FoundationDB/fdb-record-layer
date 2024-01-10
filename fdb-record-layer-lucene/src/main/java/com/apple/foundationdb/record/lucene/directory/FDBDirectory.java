@@ -856,13 +856,7 @@ public class FDBDirectory extends Directory  {
         String segmentName = IndexFileNames.parseSegmentName(name);
         if (deferDeleteToCompoundFile) {
             if (isCompoundFile(name)) {
-                // delete all K/V content, only if the optimized stored fields format is in use
-                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
-                    deleteStoredFields(segmentName);
-                }
-                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
-                    deletePostings(segmentName);
-                }
+                deleteAllKvData(segmentName);
             }
         } else {
             if (isStoredFieldsFile(name)) {
@@ -875,6 +869,16 @@ public class FDBDirectory extends Directory  {
             }
         }
         return true;
+    }
+
+    private void deleteAllKvData(final String segmentName) {
+        // delete all K/V content, only if the optimized stored fields format is in use
+        if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+            deleteStoredFields(segmentName);
+        }
+        if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
+            deletePostings(segmentName);
+        }
     }
 
     /**

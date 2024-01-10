@@ -80,7 +80,7 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_S
  * query.
  *
  */
-@SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.TooManyStaticImports", "PMD.FormalParameterNamingConventions", "PMD.UnnecessaryFullyQualifiedName"})
+@SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.TooManyStaticImports", "PMD.FormalParameterNamingConventions", "PMD.UnnecessaryFullyQualifiedName", "java:S3776"})
 @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
 public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderBase {
 

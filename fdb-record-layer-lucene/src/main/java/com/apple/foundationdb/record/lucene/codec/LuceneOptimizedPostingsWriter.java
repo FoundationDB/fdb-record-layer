@@ -77,6 +77,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
     @Override
     public void init(final IndexOutput termsOut, final SegmentWriteState state) throws IOException {
+        // nothing to do
     }
 
     @Override
@@ -207,10 +208,12 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
     @Override
     public void encodeTerm(DataOutput out, FieldInfo fieldInfo, BlockTermState termState, boolean absolute) throws IOException {
+        // nothing to do
     }
 
     @Override
     public void close() throws IOException {
+        // nothing to do
     }
 
     private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state) {
