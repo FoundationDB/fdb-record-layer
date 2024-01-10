@@ -342,6 +342,13 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Override
+    public FDBRecordContext openContext() {
+        final RecordLayerPropertyStorage.Builder props = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, Config.LUCENE_MERGE_MAX_SIZE);
+        return super.openContext(props);
+    }
+
     private void mergeIndexes(final Set<Index> indexesRequireMerge, @Nullable final PrintStream mergeCsv,
                               final long testStartMillis, final DataModel dataModel) {
         if (indexesRequireMerge == null) {
@@ -350,12 +357,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         if (ThreadLocalRandom.current().nextInt(1000) < (1000 - Config.MERGE_PROBABLITY_OF_1000)) {
             return;
         }
-        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, Config.LUCENE_MERGE_MAX_SIZE);
 
         long startMillis;
         FDBStoreTimer mergeTimer = new FDBStoreTimer();
-        try (FDBRecordContext context = openContext(insertProps)) {
+        try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, recordStore.getRecordMetaData());
             startMillis = System.currentTimeMillis();
 
