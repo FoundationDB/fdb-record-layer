@@ -88,6 +88,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Low level scale test that does a variety of operations against lucene, generating a csv that shows various
@@ -474,8 +475,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private int lastSearchWordsUpdate = -10000;
 
         private DataModel() {
-            if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
+            if (!maintainSearchWords()) {
                 // this is set to immutable so that if anything tries to change it the test will fail, rather than
                 // quietly doing weird things
                 searchWords = List.of();
@@ -545,9 +545,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         private void updateSearchWords() {
             // Update does not use the searchWords
-            if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.Insert) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
+            if (!maintainSearchWords()) {
                 return;
             }
             if (Math.floor(lastSearchWordsUpdate / 1000.0) >= Math.floor(maxDocId / 1000.0)) {
@@ -566,6 +564,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 }
             }
             lastSearchWordsUpdate = maxDocId;
+        }
+
+        private boolean maintainSearchWords() {
+            return Config.COMMANDS_TO_RUN.contains(Command.Search);
         }
 
         private String getRandomWord(final String text) {
@@ -601,13 +603,15 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                                 .setGroup(1)
                                 .build());
                 maxDocId++;
-                if (searchWords.size() < SEARCH_WORD_COUNT) {
-                    final String messageWord = getRandomWord(text);
-                    searchWords.add(messageWord);
-                } else {
-                    if (random.nextInt(100) == 0) {
+                if (maintainSearchWords()) {
+                    if (searchWords.size() < SEARCH_WORD_COUNT) {
                         final String messageWord = getRandomWord(text);
-                        searchWords.set(random.nextInt(SEARCH_WORD_COUNT), messageWord);
+                        searchWords.add(messageWord);
+                    } else {
+                        if (random.nextInt(100) == 0) {
+                            final String messageWord = getRandomWord(text);
+                            searchWords.set(random.nextInt(SEARCH_WORD_COUNT), messageWord);
+                        }
                     }
                 }
                 context.commit();
@@ -640,6 +644,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             useCascadesPlanner = false;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
+                assertTrue(maintainSearchWords());
                 final String searchWord = searchWords.get(random.nextInt(searchWords.size()));
                 QueryComponent filter = new LuceneQueryComponent("text:" + searchWord, List.of("text"));
                 RecordQuery query = RecordQuery.newBuilder()
