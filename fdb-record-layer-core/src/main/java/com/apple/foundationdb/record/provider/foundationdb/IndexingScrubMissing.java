@@ -175,7 +175,7 @@ public class IndexingScrubMissing extends IndexingBase {
                                         return false;
                                     }
                                 }
-                                return !allRangesExhausted(cont, rangeEnd);
+                                return notAllRangesExhausted(cont, rangeEnd);
                             }));
         });
     }

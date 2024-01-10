@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -34,10 +36,12 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for AgilityContext.
@@ -47,6 +51,21 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     int loopCount = 20;
     int threadCount = 5; // if exceeds a certain size, may cause an execution pool deadlock
     final String prefix = ByteString.copyFrom(RandomUtils.nextBytes(100)).toString();
+
+    private AgilityContext getAgilityContextAgileProp(FDBRecordContext callerContext) {
+        final long timeQuotaMillis =
+                Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA),
+                        4000);
+        final long sizeQuotaBytes =
+                Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA),
+                        900_000);
+        return AgilityContext.agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
+    }
+
+    private AgilityContext getAgilityContext(FDBRecordContext callerContext, boolean useAgileContext) {
+        return useAgileContext ?
+               getAgilityContextAgileProp(callerContext) : AgilityContext.nonAgile(callerContext);
+    }
 
     void testAgilityContextConcurrentSingleObject(final AgilityContext agilityContext, boolean doFlush) throws ExecutionException, InterruptedException {
         agilityContextTestSingleThread(1, 0, agilityContext, doFlush);
@@ -86,7 +105,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     private void assertLoopThreadsValues() {
         try (FDBRecordContext context = fdb.openContext()) {
             for (int loop = 0; loop < loopCount; loop++) {
-                final AgilityContext agilityContext = AgilityContext.factory(context, false);
+                final AgilityContext agilityContext = getAgilityContext(context, false);
                 for (int i = 0; i < threadCount; i++) {
                     byte[] key = Tuple.from(500, loop, i).pack();
                     final byte[] bytes = agilityContext.get(key).join();
@@ -103,7 +122,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testAgilityContextConcurrent(boolean useAgile)  throws ExecutionException, InterruptedException {
         try (FDBRecordContext context = fdb.openContext()) {
-            final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
+            final AgilityContext agilityContext = getAgilityContext(context, useAgile);
             testAgilityContextConcurrentSingleObject(agilityContext, true);
             context.commit();
         }
@@ -118,7 +137,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
 
             try (FDBRecordContext context = openContext(insertProps)) {
-                final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
+                final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                 testAgilityContextConcurrentSingleObject(agilityContext, false);
                 context.commit();
             }
@@ -126,7 +145,19 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit) {
+    @Test
+    void testAgilityContextConcurrentNonExplicitCommitsExplicitParams() throws ExecutionException, InterruptedException {
+        for (int sizeQuota : new int[] {1, 2, 7, 21, 100, 10000}) {
+            try (FDBRecordContext context = openContext()) {
+                final AgilityContext agilityContext = AgilityContext.agile(context, 10000, sizeQuota);
+                testAgilityContextConcurrentSingleObject(agilityContext, false);
+                context.commit();
+            }
+        }
+        assertLoopThreadsValues();
+    }
+
+    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp) {
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
@@ -138,17 +169,27 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                         "And looked down one as far as I could\n" +
                         "To where it bent in the undergrowth;" ;
 
-        try (FDBRecordContext context = openContext(insertProps)) {
-            final AgilityContext agilityContext = AgilityContext.factory(context, true);
+        try (FDBRecordContext context = useProp ? openContext(insertProps) : openContext()) {
+            final AgilityContext agilityContext =
+                    useProp ? getAgilityContextAgileProp(context) : AgilityContext.agile(context, timeLimit, sizeLimit);
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = Tuple.from(2023, i).pack();
                 byte[] val = Tuple.from(i, RobertFrost).pack();
                 agilityContext.set(key, val);
+                if (0 == (i % 8)) {
+                    napTime(2); // enforce minimal processing time
+                }
             }
             context.commit();
+            final StoreTimer.Counter byTimeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
+            final int commitsByTime = byTimeCounter == null ? 0 : byTimeCounter.getCount();
+            final StoreTimer.Counter bySizeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+            final int commitsBySize = bySizeCounter == null ? 0 : bySizeCounter.getCount();
+            // This test should utilize at least one auto-commit in the agility context.
+            assertTrue((commitsByTime + commitsBySize) > 0);
         }
         try (FDBRecordContext context = openContext(insertProps)) {
-            final AgilityContext agilityContext = AgilityContext.factory(context, false);
+            final AgilityContext agilityContext = getAgilityContext(context, false);
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = Tuple.from(2023, i).pack();
                 final byte[] bytes = agilityContext.get(key).join();
@@ -159,14 +200,17 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testAgilityContextSizeLimit() {
-        testAgilityContextOneLongWrite(73, 100, 100000);
+    @ParameterizedTest
+    @BooleanSource
+    void testAgilityContextSizeLimit(boolean useProp) {
+        testAgilityContextOneLongWrite(73, 100, 100000, useProp);
     }
 
-    @Test
-    void testAgilityContextTimeLimit() {
-        testAgilityContextOneLongWrite(77, 100000, 10);
+    @ParameterizedTest
+    @BooleanSource
+    void testAgilityContextTimeLimit(boolean useProp) {
+        // The 1ms time limit often triggers an auto-commit, that that cannot be guaranteed here.
+        testAgilityContextOneLongWrite(77, 100000, 1, useProp);
     }
 
     void napTime(int napTimeMilliseconds) {
@@ -187,7 +231,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
             IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
                 try (FDBRecordContext context = openContext(insertProps)) {
-                    final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
+                    final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                     for (int i = 1700; i < 1900; i += 17) {
                         final long iFinal = i;
                         // occasionally, we wish to have multiple writers
@@ -235,7 +279,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 int numWriters = 1; // in this test, two writes may conflict each other
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
-                        final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
+                        final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                         agilityContext.accept(aContext -> {
                             for (int j = 0; j < 5; j++) {
                                 final Transaction tr = aContext.ensureActive();
@@ -250,7 +294,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 } else {
                     napTime(3);
                     try (FDBRecordContext context = openContext()) {
-                        final AgilityContext agilityContext = AgilityContext.factory(context, useAgile);
+                        final AgilityContext agilityContext = getAgilityContext(context, useAgile);
                         agilityContext.accept(aContext -> {
                             long[] values = new long[5];
                             final Transaction tr = aContext.ensureActive();

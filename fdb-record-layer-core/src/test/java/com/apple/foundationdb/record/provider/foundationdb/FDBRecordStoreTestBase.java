@@ -128,7 +128,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        final FDBRecordContextConfig config = contextConfig(props).build();
+        final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
         return fdb.openContext(config);
     }
 

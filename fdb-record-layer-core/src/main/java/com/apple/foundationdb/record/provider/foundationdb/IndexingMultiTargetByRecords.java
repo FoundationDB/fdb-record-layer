@@ -189,7 +189,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
                     .thenCompose(cont -> insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
-                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
+                                .thenApply(ignore -> notAllRangesExhausted(cont, rangeEnd)));
         });
     }
 
