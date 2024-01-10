@@ -1021,6 +1021,7 @@ message PPlanReference {
 message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
+    PRecordQueryAggregateIndexPlan aggregate_index_plan = 57;
     PRecordQueryCoveringIndexPlan covering_index_plan = 1;
     PRecordQueryDamPlan dam_plan = 31;
     PRecordQueryDeletePlan delete_plan = 2;
@@ -1069,6 +1070,17 @@ message PRecordQueryAbstractDataModificationPlan {
   optional PCoercionTrieNode coercion_trie = 5;
   optional PValue computation_value = 6;
   optional string current_modified_record_alias = 7;
+}
+
+//
+// PRecordQueryAggregateIndexPlan
+//
+message PRecordQueryAggregateIndexPlan {
+  optional PRecordQueryIndexPlan index_plan = 1;
+  optional string record_type_name = 2;
+  optional PIndexKeyValueToPartialRecord to_record = 3;
+  optional PValue result_value = 4;
+  optional PQueryPlanConstraint constraint = 5;
 }
 
 //

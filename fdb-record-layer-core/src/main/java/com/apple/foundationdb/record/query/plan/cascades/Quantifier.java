@@ -402,10 +402,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         public boolean structuralEquals(@Nullable final Object other) {
+            return structuralEquals(other, AliasMap.emptyMap());
+        }
+
+        public boolean structuralEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
             if (!(other instanceof Physical)) {
                 return false;
             }
-            return getRangesOverPlan().structuralEquals(((Physical)other).getRangesOverPlan());
+            return getRangesOverPlan().structuralEquals(((Physical)other).getRangesOverPlan(), equivalenceMap);
         }
 
         public int structuralHashCode() {

@@ -338,7 +338,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         public static FieldCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final PFieldCopier fieldCopierProto) {
             final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
-            for (int i = 0; i < fieldCopierProto.getOrdinalPath(i); i ++) {
+            for (int i = 0; i < fieldCopierProto.getOrdinalPathCount(); i ++) {
                 ordinalPathBuilder.add(fieldCopierProto.getOrdinalPath(i));
             }
 

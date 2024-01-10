@@ -22,11 +22,14 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
@@ -44,15 +47,19 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -501,6 +508,35 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 .asBuilder()
                 .setOptimizeForIndexFilters(shouldOptimizeForIndexFilters)
                 .build());
+    }
+
+    /**
+     * For the cascades planner, plan the query, serialize the plan to bytes, parse those bytes and reconstruct the plan.
+     * @param query the query
+     * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
+     */
+    protected RecordQueryPlan planQuery(@Nonnull final RecordQuery query) {
+        final RecordQueryPlan plannedPlan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            return plannedPlan;
+        }
+        Assertions.assertTrue(planner instanceof CascadesPlanner);
+        PlanSerializationContext serializationContext = new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final RecordQueryPlanProto.PRecordQueryPlan planProto = plannedPlan.toRecordQueryPlanProto(serializationContext);
+        final byte[] serializedPlan = planProto.toByteArray();
+        final RecordQueryPlanProto.PRecordQueryPlan parsedPlanProto;
+        try {
+            parsedPlanProto = RecordQueryPlanProto.PRecordQueryPlan.parseFrom(serializedPlan);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
+        }
+
+        serializationContext = new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+        final RecordQueryPlan deserializedPlan =
+                RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, parsedPlanProto);
+        Assertions.assertEquals(plannedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertTrue(plannedPlan.structuralEquals(deserializedPlan));
+        return deserializedPlan;
     }
 
     @Nonnull

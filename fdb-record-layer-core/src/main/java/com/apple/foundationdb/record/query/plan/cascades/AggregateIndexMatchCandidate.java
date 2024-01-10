@@ -337,7 +337,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
-                messageDescriptor,
                 groupByResultValue,
                 constraintMaybe.orElse(QueryPlanConstraint.tautology()));
     }

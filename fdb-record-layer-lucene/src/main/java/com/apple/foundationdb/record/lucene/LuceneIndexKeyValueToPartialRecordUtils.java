@@ -23,12 +23,13 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneSpellCheckCopier;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.auto.service.AutoService;
@@ -408,19 +410,26 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         @Nonnull
         @Override
         public PLuceneSpellCheckCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return null;
+            return PLuceneSpellCheckCopier.newBuilder()
+                    .setGroupingColumnSize(groupingColumnSize)
+                    .build();
         }
 
         @Nonnull
         @Override
         public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return null;
+            return PCopier.newBuilder()
+                    .setExtension(LuceneRecordQueryPlanProto.luceneSpellCheckCopier, toProto(serializationContext))
+                    .build();
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public static LuceneSpellCheckCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                        @Nonnull final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
-            ...
+            return new LuceneSpellCheckCopier(PlanSerialization.getFieldOrThrow(luceneSpellCheckCopierProto,
+                    PLuceneSpellCheckCopier::hasGroupingColumnSize,
+                    PLuceneSpellCheckCopier::getGroupingColumnSize));
         }
     }
 }

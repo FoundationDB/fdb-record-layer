@@ -264,16 +264,14 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                     break;
                 }
 
-                if (!quantifier.structuralEquals(otherQuantifier)) {
+                if (!quantifier.structuralEquals(otherQuantifier, boundCorrelatedToMap)) {
                     break;
                 }
 
-                if (canCorrelate()) {
-                    boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
-                }
+                boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
             }
 
-            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToMap))) {
+            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToBuilder.build()))) {
                 return true;
             }
         }
