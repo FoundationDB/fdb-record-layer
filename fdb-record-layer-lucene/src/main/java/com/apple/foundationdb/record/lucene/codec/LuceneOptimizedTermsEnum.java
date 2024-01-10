@@ -69,7 +69,11 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public void seekExact(final BytesRef term, final TermState state) throws IOException {
-        currentTermState = ((LuceneOptimizedBlockTermState) state);
+        if (state instanceof LuceneOptimizedBlockTermState) {
+            currentTermState = ((LuceneOptimizedBlockTermState)state);
+        } else {
+            throw new IllegalStateException("Unexpected state type: " + state.getClass().getSimpleName());
+        }
     }
 
     @Override
@@ -78,7 +82,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
         Pair<byte[], byte[]> term = directory.getNextPostingsTerm(segmentName, fieldInfo.number, text, FDBDirectory.RangeType.INCLUSIVE);
 
         if (term != null) {
-            currentTermState = new LuceneOptimizedBlockTermState(term.getKey(), term.getValue());
+            currentTermState = new LuceneOptimizedBlockTermState(new BytesRef(term.getKey()), term.getValue());
             if (currentTermState.compareTermTo(text) == 0) {
                 return SeekStatus.FOUND;
             } else {
@@ -105,7 +109,7 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
             currentTermState = null;
             return null;
         } else {
-            currentTermState = new LuceneOptimizedBlockTermState(nextTermData.getKey(), nextTermData.getValue());
+            currentTermState = new LuceneOptimizedBlockTermState(new BytesRef(nextTermData.getKey()), nextTermData.getValue());
             return currentTermState.getTerm();
         }
     }
@@ -132,14 +136,12 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
     @Override
     public int docFreq() throws IOException {
         assert currentTermState != null;
-        assert currentTermState.getTermInfo() != null;
         return currentTermState.getDocFreq();
     }
 
     @Override
     public long totalTermFreq() throws IOException {
         assert currentTermState != null;
-        assert currentTermState.getTermInfo() != null;
         return currentTermState.getTotalTermFreq();
     }
 

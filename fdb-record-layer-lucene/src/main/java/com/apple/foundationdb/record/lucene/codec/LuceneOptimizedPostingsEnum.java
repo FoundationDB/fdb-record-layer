@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Impact;
 import org.apache.lucene.index.Impacts;
@@ -31,7 +30,6 @@ import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,19 +37,18 @@ import java.util.List;
  * FDB-optimized {@link PostingsEnum} {@link ImpactsEnum}.
  */
 public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
-
     private final String segmentName;
     private final FieldInfo fieldInfo;
     private final LuceneOptimizedBlockTermState state;
-    private final TermDocuments termDocuments;
+    private final LucenePostingsProto.Documents documents;
     private FDBDirectory directory;
 
     // current doc ordinal within the term
     private int currentDoc = -1;
     // current position ordinal within the doc
     private int currentPosition = -1;
-    private DocumentPositions positions;
-    private DocumentPayloads payloads;
+    private LucenePostingsProto.Positions positions;
+    private LucenePostingsProto.Payloads payloads;
     private boolean hasPositions;
     private boolean hasOffsets;
     private boolean hasPayloads;
@@ -67,7 +64,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         this.hasOffsets = hasOffsets;
         this.hasPayloads = hasPayloads;
         // Documents are serialized within the term info (no need to fetch)
-        this.termDocuments = new TermDocuments(state.getTermInfo().getDocuments());
+        this.documents = state.getDocuments();
     }
 
     @Override
@@ -75,8 +72,8 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         if (currentDoc == -1 || currentDoc == NO_MORE_DOCS) {
             return currentDoc;
         }
-        assert currentDoc < termDocuments.getDocIdCount() : "overflow with position=" + currentDoc;
-        return termDocuments.getDocId(currentDoc);
+        assert currentDoc < documents.getDocIdCount() : "overflow with position=" + currentDoc;
+        return documents.getDocId(currentDoc);
     }
 
     @Override
@@ -85,11 +82,11 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         currentDoc++;
         currentPosition = -1;
         positions = null;
-        if (termDocuments.getDocIdCount() <= currentDoc) { // Exhausted
+        if (documents.getDocIdCount() <= currentDoc) { // Exhausted
             currentDoc = NO_MORE_DOCS;
             return NO_MORE_DOCS;
         }
-        return termDocuments.getDocId(currentDoc);
+        return documents.getDocId(currentDoc);
     }
 
     @Override
@@ -104,7 +101,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public int freq() throws IOException {
-        return termDocuments.getFreq(currentDoc);
+        return documents.getFreq(currentDoc);
     }
 
     @Override
@@ -140,7 +137,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
             return null;
         }
         ensureTermDocPayloads(docID());
-        return payloads.getPayload(currentPosition);
+        return new BytesRef(payloads.getPayload(currentPosition).toByteArray());
     }
 
     // Added methods from ImpactsEnum. There is no easy way to extend the LuceneOptimizedPostingsEnum class so this
@@ -163,7 +160,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         // TODO
         return new Impacts() {
             private final List<Impact> impacts = Collections.singletonList(
-                    new Impact(currentDoc == NO_MORE_DOCS ? 0 : termDocuments.getFreq(currentDoc), 1L));
+                    new Impact(currentDoc == NO_MORE_DOCS ? 0 : documents.getFreq(currentDoc), 1L));
 
             @Override
             public int numLevels() {
@@ -186,7 +183,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
     private void ensureTermDocPositions(int docId) throws IOException {
         if (positions == null) {
             byte[] posBytes = this.directory.getTermDocumentPositions(segmentName, fieldInfo.number, state.getOrd(), docId);
-            final DocumentPositions result = new DocumentPositions(posBytes);
+            final LucenePostingsProto.Positions result = LucenePostingsProto.Positions.parseFrom(posBytes);
             if (result.getPositionCount() != freq()) {
                 throw new IOException("Index is Corrupted: number of positions does not match freq " +
                         segmentName + ":" + fieldInfo.number + ":" + state.getOrd() + ":" + docId);
@@ -198,80 +195,12 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
     private void ensureTermDocPayloads(int docId) throws IOException {
         if (payloads == null) {
             byte[] payloadBytes = this.directory.getTermDocumentPayloads(segmentName, fieldInfo.number, state.getOrd(), docId);
-            final DocumentPayloads result = new DocumentPayloads(payloadBytes);
+            final LucenePostingsProto.Payloads result = LucenePostingsProto.Payloads.parseFrom(payloadBytes);
             if (result.getPayloadCount() != freq()) {
                 throw new IOException("Index is Corrupted: number of payloads does not match freq " +
                         segmentName + ":" + fieldInfo.number + ":" + state.getOrd() + ":" + docId);
             }
             this.payloads = result;
-        }
-    }
-
-    private static class TermDocuments {
-        private final LucenePostingsProto.Documents documents;
-
-        public TermDocuments(final LucenePostingsProto.Documents documents) {
-            this.documents = documents;
-        }
-
-        public int getFreq(final int doc) {
-            return documents.getFreq(doc);
-        }
-
-        public int getDocIdCount() {
-            return documents.getDocIdCount();
-        }
-
-        public int getDocId(final int doc) {
-            return documents.getDocId(doc);
-        }
-    }
-
-    private static class DocumentPositions {
-        private final LucenePostingsProto.Positions positions;
-
-        public DocumentPositions(final byte[] posBytes) {
-            try {
-                this.positions = LucenePostingsProto.Positions.parseFrom(posBytes);
-            } catch (InvalidProtocolBufferException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        public int getPosition(final int position) {
-            return positions.getPosition(position);
-        }
-
-        public int getPositionCount() {
-            return positions.getPositionCount();
-        }
-    }
-
-    private static class DocumentPayloads {
-        private final LucenePostingsProto.Payloads payloads;
-
-        public DocumentPayloads(final byte[] payloadBytes) {
-            try {
-                this.payloads = LucenePostingsProto.Payloads.parseFrom(payloadBytes);
-            } catch (InvalidProtocolBufferException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        public int getStartOffset(final int position) {
-            return payloads.getStartOffset(position);
-        }
-
-        public BytesRef getPayload(final int position) {
-            return new BytesRef(payloads.getPayload(position).toByteArray());
-        }
-
-        public int getEndOffset(final int position) {
-            return payloads.getEndOffset(position);
-        }
-
-        public int getPayloadCount() {
-            return payloads.getPayloadCount();
         }
     }
 }

@@ -196,13 +196,11 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
 
         // Complement the contents of the state
         state.ord = currentTermOrd;
-        // Create a term info from the individual fields
-        LucenePostingsProto.TermInfo termInfo = createTermInfo(state, documents);
-        // Copy the info back to the state (so now it has the protobufs)
-        state.copyFrom(currentTermText, termInfo);
-
+        state.setDocuments(documents.asProto());
+        // Save the term info
+        LucenePostingsProto.TermInfo termInfo = createTermInfo(state);
         directory.writePostingsTerm(segmentName, fieldInfo.number, currentTermText, termInfo.toByteArray());
-
+        // reset
         documents = null;
         docCount = 0;
     }
@@ -215,13 +213,12 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
     public void close() throws IOException {
     }
 
-    private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state, WriterDocuments documents) {
+    private LucenePostingsProto.TermInfo createTermInfo(final LuceneOptimizedBlockTermState state) {
         return LucenePostingsProto.TermInfo.newBuilder()
-                // Use the public variables since the state does not have the protobufs yet
-                .setDocFreq(state.docFreq)
-                .setTotalTermFreq(state.totalTermFreq)
-                .setOrd(state.ord)
-                .setDocuments(documents.asProto())
+                .setDocFreq(state.getDocFreq())
+                .setTotalTermFreq(state.getTotalTermFreq())
+                .setOrd(state.getOrd())
+                .setDocuments(state.getDocuments())
                 .build();
     }
 
@@ -276,7 +273,6 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             builder = LucenePostingsProto.Payloads.newBuilder();
         }
 
-        // TODO: Not sure if this is necessary
         public void addEmptyPayload() {
             builder.addPayload(ByteString.EMPTY);
         }

@@ -27,68 +27,50 @@ import org.apache.lucene.index.TermState;
 import org.apache.lucene.util.BytesRef;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
 import java.io.UncheckedIOException;
 
 /**
  * A representation of the enumeration state for a term. This state is maintained throughout the enumeration, keeping
- * track of the current term and its info.
+ * track of the current term and its aggregated metrics.
  */
 public class LuceneOptimizedBlockTermState extends BlockTermState {
+    // The term text for the state
     private BytesRef term;
-    // TODO: This can be auto-generated from the rest of the data.
-    private LucenePostingsProto.TermInfo termInfo;
+    // Caching of the documents aggregate for the term
+    private LucenePostingsProto.Documents documents;
 
     public LuceneOptimizedBlockTermState() {
         // Empty constructor, to be used by newTermState(). This instance will be populated by data
         // later, via calls to copyFrom()
     }
 
-    public LuceneOptimizedBlockTermState(@Nonnull final byte[] term, @Nonnull final byte[] termInfo) {
-        this(new BytesRef(term), termInfo);
-    }
-
+    /**
+     * Create a state from data read from FDB.
+     * @param term the term text
+     * @param termInfo a serialized {@link LucenePostingsProto.TermInfo}
+     */
     public LuceneOptimizedBlockTermState(@Nonnull final BytesRef term, @Nonnull final byte[] termInfo) {
         try {
             this.term = term;
-            this.termInfo = LucenePostingsProto.TermInfo.parseFrom(termInfo);
-            assert term != null : "Term Cannot Be Null";
-            assert termInfo != null : "TermInfo Cannot Be Null";
-            this.docFreq = this.termInfo.getDocFreq();
-            this.totalTermFreq = this.termInfo.getTotalTermFreq();
-            this.ord = this.termInfo.getOrd();
+            LucenePostingsProto.TermInfo info = LucenePostingsProto.TermInfo.parseFrom(termInfo);
+            this.docFreq = info.getDocFreq();
+            this.totalTermFreq = info.getTotalTermFreq();
+            this.ord = info.getOrd();
+            this.documents = info.getDocuments();
         } catch (InvalidProtocolBufferException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    // TODO: @Nonull params?
-    public void copyFrom(final BytesRef term, byte[] termBytes) throws IOException {
-        final LucenePostingsProto.TermInfo termInfo = LucenePostingsProto.TermInfo.parseFrom(termBytes);
-        this.term = term;
-        this.termInfo = termInfo;
-        this.docFreq = termInfo.getDocFreq();
-        this.totalTermFreq = termInfo.getTotalTermFreq();
-        this.ord = termInfo.getOrd();
-    }
-
-    public void copyFrom(final BytesRef term, LucenePostingsProto.TermInfo termInfo) throws IOException {
-        this.term = term;
-        this.termInfo = termInfo;
-        this.docFreq = termInfo.getDocFreq();
-        this.totalTermFreq = termInfo.getTotalTermFreq();
-        this.ord = termInfo.getOrd();
-    }
-
     @Override
     public void copyFrom(final TermState other) {
-        this.term = ((LuceneOptimizedBlockTermState)other).term;
-        this.termInfo = ((LuceneOptimizedBlockTermState)other).termInfo;
-        assert term != null : "Term Cannot Be Null";
-        assert termInfo != null : "TermInfo Cannot Be Null";
-        this.docFreq = termInfo.getDocFreq();
-        this.totalTermFreq = termInfo.getTotalTermFreq();
-        this.ord = termInfo.getOrd();
+        final LuceneOptimizedBlockTermState otherState = (LuceneOptimizedBlockTermState)other;
+        assert otherState.term != null : "Term Cannot Be Null";
+        this.term = otherState.term;
+        this.docFreq = otherState.getDocFreq();
+        this.totalTermFreq = otherState.getTotalTermFreq();
+        this.ord = otherState.getOrd();
+        this.documents = otherState.documents;
     }
 
     public int compareTermTo(BytesRef text) {
@@ -99,19 +81,23 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
         return term;
     }
 
-    public LucenePostingsProto.TermInfo getTermInfo() {
-        return termInfo;
-    }
-
     public int getDocFreq() {
-        return termInfo.getDocFreq();
+        return docFreq;
     }
 
     public long getTotalTermFreq() {
-        return termInfo.getTotalTermFreq();
+        return totalTermFreq;
     }
 
     public long getOrd() {
         return ord;
+    }
+
+    public LucenePostingsProto.Documents getDocuments() {
+        return documents;
+    }
+
+    public void setDocuments(final LucenePostingsProto.Documents documents) {
+        this.documents = documents;
     }
 }
