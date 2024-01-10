@@ -176,7 +176,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest6() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 17);
+        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 20);
     }
 
     private String randomText(Random rn) {
