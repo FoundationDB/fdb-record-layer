@@ -531,8 +531,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 continuing = maxDocId > 0;
                 if (!store.isIndexReadable(INDEX.getName())) {
                     indexBuilder = OnlineIndexer.newBuilder()
-                            .setRecordStoreBuilder(store.asBuilder())
-                            .setTargetIndexesByName(List.of(INDEX.getName()))
+                            .setRecordStore(store)
+                            .addTargetIndex(INDEX.getName())
                             .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                                     .setDeferMergeDuringIndexing(true)
                                     .build());
