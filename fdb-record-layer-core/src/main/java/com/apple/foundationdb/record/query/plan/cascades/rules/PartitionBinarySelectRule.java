@@ -166,6 +166,6 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
 
         final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
 
-        call.yield(newSelectExpression);
+        call.yieldExpression(newSelectExpression);
     }
 }

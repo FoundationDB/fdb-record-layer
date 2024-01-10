@@ -101,7 +101,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                 }
             }
         }
-        call.yield(fieldValue, newMatchedValuesMap);
+        call.yieldValue(fieldValue, newMatchedValuesMap);
     }
 
     /**

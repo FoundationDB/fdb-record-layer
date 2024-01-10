@@ -80,7 +80,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final var sortValues = sortExpression.getSortValues();
         if (sortValues.isEmpty()) {
-            call.yield(innerPlanPartition.getPlans());
+            call.yieldExpression(innerPlanPartition.getPlans());
             return;
         }
 
@@ -116,7 +116,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                                 .stream()
                                 .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yield(strictlySortedInnerPlans);
+                call.yieldExpression(strictlySortedInnerPlans);
             }
         }
 
@@ -134,7 +134,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             }
         }
 
-        call.yield(resultExpressions);
+        call.yieldExpression(resultExpressions);
     }
 
     private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {

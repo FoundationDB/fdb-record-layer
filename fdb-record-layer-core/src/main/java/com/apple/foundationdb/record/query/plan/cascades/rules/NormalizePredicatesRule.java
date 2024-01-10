@@ -78,7 +78,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
 
         cnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yield(new SelectExpression(selectExpression.getResultValue(),
+                        call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 AndPredicate.conjuncts(cnfPredicate))));
     }

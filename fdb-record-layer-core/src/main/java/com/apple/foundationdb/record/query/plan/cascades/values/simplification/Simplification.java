@@ -386,7 +386,7 @@ public class Simplification {
 
     /**
      * Functional interface to create a specific rule call object.
-     * @param <RESULT> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yield(Object)}
+     * @param <RESULT> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yieldExpression(Object)}
      * @param <CALL> the type parameter extending {@link AbstractValueRuleCall}
      * @param <BASE> the type of entity the rule matches
      */

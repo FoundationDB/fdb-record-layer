@@ -277,7 +277,7 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
             unionReferenceBuilder = call.memoizeExpressionBuilder(new SelectExpression(resultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
         }
 
-        call.yield(unionReferenceBuilder.members());
+        call.yieldExpression(unionReferenceBuilder.members());
     }
 
     @SuppressWarnings("unchecked")

@@ -213,7 +213,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
 
         if (residualPredicates.isEmpty()) {
             // case 2
-            call.yield(newFetchPlan);
+            call.yieldExpression(newFetchPlan);
         } else {
             // case 3
             // create yet another physical quantifier on top of the fetch
@@ -226,7 +226,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                     .map(residualPredicate -> residualPredicate.rebase(translationMap))
                     .collect(ImmutableList.toImmutableList());
 
-            call.yield(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
+            call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
         }
     }
 

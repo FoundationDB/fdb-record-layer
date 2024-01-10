@@ -67,7 +67,7 @@ public class AnnulmentOrRule extends QueryPredicateComputationRule<EvaluationCon
         final var orTerms = bindings.getAll(orTermMatcher);
 
         if (orTerms.stream().anyMatch(QueryPredicate::isTautology)) {
-            call.yield(new ConstantPredicate(true), ImmutableList.of());
+            call.yieldPredicate(new ConstantPredicate(true), ImmutableList.of());
         }
     }
 }

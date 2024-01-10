@@ -84,6 +84,6 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yield(updateExpression.toPlan(physicalQuantifier));
+        call.yieldExpression(updateExpression.toPlan(physicalQuantifier));
     }
 }

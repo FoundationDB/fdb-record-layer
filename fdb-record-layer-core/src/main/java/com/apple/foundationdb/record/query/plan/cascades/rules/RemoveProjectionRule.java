@@ -57,6 +57,6 @@ public class RemoveProjectionRule extends CascadesRule<LogicalProjectionExpressi
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
         // just remove the projection
-        call.yield(innerPlan);
+        call.yieldExpression(innerPlan);
     }
 }
