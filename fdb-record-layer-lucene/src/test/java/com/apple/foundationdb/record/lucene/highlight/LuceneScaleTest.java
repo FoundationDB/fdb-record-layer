@@ -152,7 +152,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
          *     disabled, and then building the index than saving the records with the index enabled.
          * </p>
          */
-        static final boolean DISABLE_INDEX = false;
+        static final IndexMaintenance INDEX_MAINTENANCE = IndexMaintenance.Build;
         /**
          * The set of commands to run when running {@link #runPerfTest()}.
          */
@@ -183,15 +183,22 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         Search
     }
 
+    private enum IndexMaintenance {
+        Disable,
+        Rebuild,
+        Build
+    }
+
     private static final String RECORD_COUNT_COLUMN = "recordCount";
     private static final String OPERATION_MILLIS = "operationMillis";
     private static final String TOTAL_TEST_MILLIS = "totalTestMillis";
-    private static final String INDEX_ENABLED = "indexEnabled";
+    private static final String INDEX_MAINTENANCE = "indexEnabled";
     static final List<String> CSV_COLUMNS = List.of(RECORD_COUNT_COLUMN, OPERATION_MILLIS, TOTAL_TEST_MILLIS,
-            INDEX_ENABLED, "bytes_deleted_count",
+            INDEX_MAINTENANCE, "bytes_deleted_count",
             "bytes_fetched_count", "bytes_read_count", "bytes_written_count", "commit_count", "commit_micros",
             "commit_read_only_count", "commit_read_only_micros", "commits_count", "commits_micros", "deletes_count",
-            "empty_scans_count", "fetches_count", "get_read_version_count", "get_record_range_raw_first_chunk_count",
+            "empty_scans_count", "fetches_count", "fetches_micros", "get_read_version_count", "get_read_version_micros",
+            "get_record_range_raw_first_chunk_count",
             "get_scan_range_raw_first_chunk_count", "jni_calls_count", "lucene_delete_file_count",
             "lucene_fdb_read_block_count", "lucene_get_file_length_count", "lucene_get_increment_calls_count",
             "lucene_list_all_count", "lucene_load_file_cache_count", "lucene_merge_count", "lucene_read_block_count",
@@ -383,8 +390,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 csvPrintStream.print(System.currentTimeMillis() - startMillis);
             } else if (Objects.equals(key, TOTAL_TEST_MILLIS)) {
                 csvPrintStream.print(System.currentTimeMillis() - testStartMillis);
-            } else if (Objects.equals(key, INDEX_ENABLED)) {
-                csvPrintStream.print(Config.DISABLE_INDEX ? "NO" : "YES");
+            } else if (Objects.equals(key, INDEX_MAINTENANCE)) {
+                csvPrintStream.print(Config.INDEX_MAINTENANCE);
             } else {
                 csvPrintStream.print(keysAndValues.get(key));
             }
@@ -404,7 +411,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             printJsonPair(out, "title", title);
             printJsonPair(out, RECORD_COUNT_COLUMN, dataModel.maxDocId);
             printJsonPair(out, OPERATION_MILLIS, System.currentTimeMillis() - startMillis);
-            printJsonPair(out, INDEX_ENABLED, Config.DISABLE_INDEX ? "NO" : "YES");
+            printJsonPair(out, INDEX_MAINTENANCE, Config.INDEX_MAINTENANCE.name());
             extraKeysAndValues.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
                 printJsonPair(out, entry.getKey(), entry.getValue());
             });
@@ -479,21 +486,51 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
 
         void prep() {
+            switch (Config.INDEX_MAINTENANCE) {
+            case Disable:
+                disableIndex();
+                break;
+            case Rebuild:
+                disableIndex();
+                buildIndex();
+                break;
+            case Build:
+                buildIndex();
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown enum: " + Config.INDEX_MAINTENANCE);
+            }
+            if (maxDocId > 0) {
+                updateSearchWords();
+            }
+        }
+
+        private void disableIndex() {
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore store = openStore(context);
+                maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
+                continuing = maxDocId > 0;
+                logger.info("Disabling index");
+                store.markIndexDisabled(INDEX.getName());
+                context.commit();
+            }
+        }
+
+        private void buildIndex() {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
                 maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
                         store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
                 continuing = maxDocId > 0;
-                if (Config.DISABLE_INDEX) {
-                    logger.info("Disabling index");
-                    store.markIndexDisabled(INDEX.getName());
-                } else {
-                    if (!store.isIndexReadable(INDEX.getName())) {
-                        indexBuilder = OnlineIndexer.newBuilder()
-                                .setRecordStoreBuilder(store.asBuilder())
-                                .setTargetIndexesByName(List.of(INDEX.getName()));
-                    }
+                if (!store.isIndexReadable(INDEX.getName())) {
+                    indexBuilder = OnlineIndexer.newBuilder()
+                            .setRecordStoreBuilder(store.asBuilder())
+                            .setTargetIndexesByName(List.of(INDEX.getName()))
+                            .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                    .setDeferMergeDuringIndexing(true)
+                                    .build());
                 }
                 context.commit();
             }
@@ -503,9 +540,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     indexer.buildIndex();
                 }
                 logger.info("Done Building index");
-            }
-            if (maxDocId > 0) {
-                updateSearchWords();
             }
         }
 
