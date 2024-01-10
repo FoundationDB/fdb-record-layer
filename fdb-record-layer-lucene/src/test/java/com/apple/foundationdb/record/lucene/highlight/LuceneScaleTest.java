@@ -300,6 +300,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 var mergeCsv = createCsv("merges", dataModel.continuing)) {
 
             for (int i = 0; i < Config.LOOP_COUNT; i++) {
+                logger.info("Running loop " + i + " with " + dataModel.maxDocId + " records so far");
                 long startMillis;
                 if (Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
                     for (int i1 = 0; i1 < 90; i1++) {
@@ -419,9 +420,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             printJsonPair(out, RECORD_COUNT_COLUMN, dataModel.maxDocId);
             printJsonPair(out, OPERATION_MILLIS, System.currentTimeMillis() - startMillis);
             printJsonPair(out, INDEX_MAINTENANCE, Config.INDEX_MAINTENANCE.name());
-            extraKeysAndValues.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
-                printJsonPair(out, entry.getKey(), entry.getValue());
-            });
+            extraKeysAndValues.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> printJsonPair(out, entry.getKey(), entry.getValue()));
             final Comparator<Map.Entry<String, Number>> sortByMetricType = Comparator.comparing(e -> {
                 final String[] split = e.getKey().split("_");
                 return split[split.length - 1];
@@ -430,9 +430,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             final Comparator<Map.Entry<String, Number>> sortByName = Map.Entry.comparingByKey();
             timer.getKeysAndValues().entrySet().stream()
                     .sorted(sortByName)
-                    .forEach(entry -> {
-                        printJsonPair(out, entry.getKey(), entry.getValue());
-                    });
+                    .forEach(entry -> printJsonPair(out, entry.getKey(), entry.getValue()));
             out.println("\"foo\": 0"); // to not add the last comma
             out.println("}");
         }
