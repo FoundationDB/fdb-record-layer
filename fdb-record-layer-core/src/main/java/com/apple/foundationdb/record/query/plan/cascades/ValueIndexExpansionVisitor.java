@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -53,12 +54,28 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
  */
 public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
+    private static final Set<String> SUPPORTED_INDEX_TYPES = Set.of(
+            IndexTypes.VALUE,
+            IndexTypes.VERSION,
+            IndexTypes.RANK,
+            IndexTypes.PERMUTED_MAX,
+            IndexTypes.PERMUTED_MIN
+    );
+
+    @Nonnull
+    private static final Set<String> GROUPED_INDEX_TYPES = Set.of(
+            IndexTypes.RANK,
+            IndexTypes.PERMUTED_MAX,
+            IndexTypes.PERMUTED_MIN
+    );
+
+    @Nonnull
     private final Index index;
     @Nonnull
     private final List<RecordType> queriedRecordTypes;
 
     public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
-        Preconditions.checkArgument(IndexTypes.VALUE.equals(index.getType()) || IndexTypes.VERSION.equals(index.getType()) || IndexTypes.RANK.equals(index.getType()));
+        Preconditions.checkArgument(SUPPORTED_INDEX_TYPES.contains(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
@@ -80,7 +97,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         var rootExpression = index.getRootExpression();
 
         if (rootExpression instanceof GroupingKeyExpression) {
-            if (IndexTypes.RANK.equals(index.getType())) {
+            if (GROUPED_INDEX_TYPES.contains(index.getType())) {
                 rootExpression = ((GroupingKeyExpression)rootExpression).getWholeKey();
             } else {
                 throw new UnsupportedOperationException("cannot create match candidate on grouping expression for unknown index type");
