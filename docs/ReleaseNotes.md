@@ -25,12 +25,11 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Permuted min and max indexes are now available during planning and aggregate function execution [(Issue #2418)](https://github.com/FoundationDB/fdb-record-layer/issues/2418)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add implementations of all sub-classes of `BaseIndexFileFormatTestCase` [(Issue #2421)](https://github.com/FoundationDB/fdb-record-layer/issues/2421)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Lucene merge with agility context: allow retry with diminished quotas upon failures [(Issue #2429)](https://github.com/FoundationDB/fdb-record-layer/issues/2429)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +38,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+### 3.3.444.0
+
+* **Feature** Permuted min and max indexes are now available during planning and aggregate function execution [(Issue #2418)](https://github.com/FoundationDB/fdb-record-layer/issues/2418)
+* **Feature** Add implementations of all sub-classes of `BaseIndexFileFormatTestCase` [(Issue #2421)](https://github.com/FoundationDB/fdb-record-layer/issues/2421)
+* **Feature** Lucene merge with agility context: allow retry with diminished quotas upon failures [(Issue #2429)](https://github.com/FoundationDB/fdb-record-layer/issues/2429)
 
 ### 3.3.443.0
 
