@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -58,6 +57,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -802,6 +802,59 @@ public class PreparedStatementTests {
                             .hasNextRow().hasColumn("name", null)
                             .hasNoNextRow();
                 }
+            }
+        }
+    }
+
+    static Stream<Object> emptyParametersProvider() {
+        return Stream.of(
+                Arguments.of("BIGINT", "a1", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("BIGINT", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("DOUBLE", "a2", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("DOUBLE", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("STRING", "a3", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("STRING", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+//                enable once TODO (Make createArrayOf support custom types) is fixed.
+//                Arguments.of("STRUCT", "a4", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+//                    try {
+//                        preparedStatement.setArray(1, connection.createArrayOf("STRUCT", new Object[]{}));
+//                    } catch (SQLException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }),
+                Arguments.of("BINARY", "a5", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("BINARY", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }));
+    }
+
+    @ParameterizedTest(name = "Test empty list of {0}")
+    @MethodSource("emptyParametersProvider")
+    void emptyParametersInTheInList(String ignored, String column, BiConsumer<PreparedStatement, Connection> consumer) throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
+                " CREATE TABLE T1(pk bigint, a1 bigint, a2 double, a3 string, a4 nested, a5 bytes, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where " + column + " in ?")) {
+                consumer.accept(statement, ddl.getConnection());
+                statement.execute();
             }
         }
     }

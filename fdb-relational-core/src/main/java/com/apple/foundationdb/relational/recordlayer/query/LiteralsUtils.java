@@ -94,8 +94,10 @@ public class LiteralsUtils {
         } catch (SQLException e) {
             throw new RelationalException(e).toUncheckedWrappedException();
         }
-        Assert.thatUnchecked(resolvedType.equals(resolveArrayTypeFromObjectsList(arrayElements)),
-                "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
+        if (!arrayElements.isEmpty()) {
+            Assert.thatUnchecked(resolvedType.equals(resolveArrayTypeFromObjectsList(arrayElements)),
+                    "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
+        }
         for (final Object o : arrayElements) {
             processPreparedStatementParameter(o, resolvedType.getElementType(), context);
         }
