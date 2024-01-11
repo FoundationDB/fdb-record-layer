@@ -26,7 +26,6 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
