@@ -192,6 +192,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final AliasMap aliasMap = AliasMap.of(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
+        // Compute the ordering for this index by collecting the result values of the selectHaving statement
+        // associated with each sortParameterId. Note that for most aggregate indexes, the aggregate value is
+        // in the FDB value, and so it does not contribute to the ordering of the index, so there is no sortParameterId
+        // corresponding to it. For the PERMUTED_MIN and PERMUTED_MAX indexes, the aggregate _does_ have a corresponding
+        // sortParameterId. Its position is determined by the permutedSize option, handled below by adjusting the
+        // sortParameterId's index before looking it up in the original key expression
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
@@ -214,16 +220,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 }
             }
 
-            //
-            // Compute a Value for this normalized key.
-            //
+            // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
-            /*
-            final var value =
-                    new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
-                            baseType);
-             */
-
             builder.add(
                     MatchedOrderingPart.of(value,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
