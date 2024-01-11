@@ -80,7 +80,8 @@ import static org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat.VERSION_S
  * query.
  *
  */
-@SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.TooManyStaticImports", "PMD.FormalParameterNamingConventions", "PMD.UnnecessaryFullyQualifiedName", "java:S3776", "common-java:DuplicatedBlocks", "java:S4274"})
+@SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.TooManyStaticImports", "PMD.FormalParameterNamingConventions", "PMD.UnnecessaryFullyQualifiedName",
+        "java:S3776", "common-java:DuplicatedBlocks", "java:S4274", "java:S1117", "java:S125", "java:S1121", "java:S1130", "java:S2589", "java:S1066"})
 @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
 public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderBase {
 
