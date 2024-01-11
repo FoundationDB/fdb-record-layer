@@ -87,7 +87,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[0],[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
         assertEquals(1869980849, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(876021686, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -138,7 +138,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                             Query.version().lessThan(highBoundary)
                     ))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertThat(plan, indexScan(allOf(indexName(versionIndex.getName()), bounds(hasTupleString("([" + lowBoundary.toVersionstamp() + "],[" + highBoundary.toVersionstamp() + "])")))));
             // NOTE: the plan hash is not validated here as that can change between executions as it includes the current read version
 
@@ -175,7 +175,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         filter))
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         // Index(multi_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], rec_no: KEY[2], str_value_indexed: KEY[0]])
         final Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]"))));
         if (planner instanceof RecordQueryPlanner) {
@@ -230,7 +230,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [EQUALS $str, [GREATER_THAN_OR_EQUALS 3 && GREATER_THAN 0 && LESS_THAN_OR_EQUALS 4]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         List<String> bounds = Arrays.asList("GREATER_THAN_OR_EQUALS 3", "LESS_THAN_OR_EQUALS 4", "GREATER_THAN 0");
         Collection<List<String>> combinations = Collections2.permutations(bounds);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),

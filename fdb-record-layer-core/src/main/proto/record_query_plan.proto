@@ -420,7 +420,7 @@ message PLikeOperatorValue {
 
 message PLiteralValue {
   optional PType result_type = 1;
-  optional Value value = 2;
+  optional PComparableObject value = 2;
 }
 
 message PNotValue {
@@ -884,7 +884,25 @@ message PComparison {
 
 message PSimpleComparison {
   optional PComparison.PComparisonType type = 1;
-  optional Value object = 2;
+  optional PComparableObject object = 2;
+}
+
+message PComparableObject {
+  oneof specific_object {
+    Value primitive_object = 1;
+    PEnumLightValue enum_object = 2;
+    PUUID uuid = 3;
+  }
+}
+
+message PEnumLightValue {
+  optional string name = 1;
+  optional int32 number = 2;
+}
+
+message PUUID {
+  optional uint64 mostSigBits = 1;
+  optional uint64 leastSigBits = 2;
 }
 
 message PParameterComparison {
@@ -907,7 +925,7 @@ message PValueComparison {
 
 message PListComparison {
   optional PComparison.PComparisonType type = 1;
-  repeated Value comparand = 2;
+  repeated PComparableObject comparand = 2;
 }
 
 message PNullComparison {
@@ -1319,7 +1337,7 @@ message PSortedInParameterSource {
 
 message PInValuesSource {
   optional PInSource.Super super = 1;
-  repeated Value values = 2;
+  repeated PComparableObject values = 2;
 }
 
 message PSortedInValuesSource {

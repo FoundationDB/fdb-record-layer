@@ -24,14 +24,18 @@ import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparableObject;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PEnumLightValue;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -53,6 +57,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -180,13 +185,34 @@ public class PlanSerialization {
     }
 
     @Nonnull
-    public static RecordMetaDataProto.Value valueObjectToProto(@Nullable final Object object) {
-        return LiteralKeyExpression.toProtoValue(object);
+    public static PComparableObject valueObjectToProto(@Nullable final Object object) {
+        final PComparableObject.Builder builder = PComparableObject.newBuilder();
+        if (object instanceof Internal.EnumLite) {
+            builder.setEnumObject(PEnumLightValue.newBuilder()
+                            .setName(object.toString()).setNumber(((Internal.EnumLite)object).getNumber()));
+        } else if (object instanceof UUID) {
+            final UUID uuid = (UUID)object;
+            builder.setUuid(RecordQueryPlanProto.PUUID.newBuilder()
+                    .setMostSigBits(uuid.getMostSignificantBits())
+                    .setLeastSigBits(uuid.getLeastSignificantBits()))
+                    .build();
+        } else  {
+            builder.setPrimitiveObject(LiteralKeyExpression.toProtoValue(object));
+        }
+        return builder.build();
     }
 
     @Nullable
-    public static Object protoObjectToValue(@Nonnull final RecordMetaDataProto.Value proto) {
-        return LiteralKeyExpression.fromProtoValue(proto);
+    public static Object protoObjectToValue(@Nonnull final PComparableObject proto) {
+        if (proto.hasEnumObject()) {
+            final PEnumLightValue enumProto = proto.getEnumObject();
+            Verify.verify(enumProto.hasNumber());
+            return new ProtoUtils.DynamicEnum(enumProto.getNumber(), Objects.requireNonNull(enumProto.getName()));
+        } else if (proto.hasUuid()) {
+            final RecordQueryPlanProto.PUUID uuidProto = proto.getUuid();
+            return new UUID(uuidProto.getMostSigBits(), uuidProto.getLeastSigBits());
+        }
+        return LiteralKeyExpression.fromProtoValue(Objects.requireNonNull(proto.getPrimitiveObject()));
     }
 
     @Nonnull

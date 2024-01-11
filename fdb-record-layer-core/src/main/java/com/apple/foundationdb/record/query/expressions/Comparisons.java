@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -60,7 +61,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValu
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -190,6 +190,8 @@ public class Comparisons {
         } else if (obj instanceof UUID) {
             UUID uuid = (UUID)obj;
             return new UnsignedUUID(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        } else if (obj instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return (Comparable) obj;
         } else {
@@ -205,6 +207,8 @@ public class Comparisons {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
+        } else if (obj instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return obj;
         } else if (obj instanceof List) {
@@ -919,8 +923,12 @@ public class Comparisons {
                 case STRING:
                     return comparand instanceof String;
                 case ENUM:
-                    return comparand instanceof ProtocolMessageEnum &&
-                          fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum) comparand).getDescriptorForType());
+                    final boolean isValid = comparand instanceof ProtocolMessageEnum &&
+                            fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum) comparand).getDescriptorForType());
+                    if (isValid) {
+                        return true;
+                    }
+                    return comparand instanceof Internal.EnumLite;
                 case MESSAGE:
                     final Descriptors.Descriptor descriptor = fieldDescriptor.getMessageType();
                     if (!TupleFieldsHelper.isTupleField(descriptor)) {
@@ -983,12 +991,12 @@ public class Comparisons {
             }
             SimpleComparison that = (SimpleComparison) o;
             return type == that.type &&
-                    Objects.equals(comparand, that.comparand);
+                    Objects.equals(toClassWithRealEquals(comparand), toClassWithRealEquals(that.comparand));
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, comparand);
+            return Objects.hash(type, toClassWithRealEquals(comparand));
         }
 
         @Override

@@ -117,7 +117,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$num_value_unique ([990],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")))));
@@ -167,7 +167,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         "PushDistinctThroughFetchRule",
                         "PushSetOperationThroughFetchRule",
                         "MergeProjectionAndFetchRule"), PlannerRuleSet.DEFAULT).build());
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     coveringIndexPlan()
@@ -216,7 +216,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$num_value_3_indexed <,>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(unbounded()))));
@@ -243,7 +243,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique ([990],> REVERSE)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertTrue(plan.isReverse());
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -275,7 +275,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(unbounded()));
@@ -309,7 +309,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) | num_value_2 LESS_THAN 2
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     filterPlan(
@@ -350,7 +350,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index ([null],[1])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 2
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     filterPlan(
@@ -392,7 +392,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Fetch(Covering(Index(multi [[abc],[abc]]) -> [str_value: KEY[0], header: [num: KEY[2], path: KEY[1], rec_no: KEY[3]]]) | header/{num EQUALS 1})
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             if (planner instanceof RecordQueryPlanner) {
                 final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                         fetchFromPartialRecordPlan(
@@ -441,7 +441,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index ([990],>) -> [num_value_2: KEY[1], num_value_unique: KEY[0], rec_no: KEY[2]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("([990],>")))));
@@ -494,7 +494,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index_value ([990],>) -> [num_value_2: VALUE[0], num_value_unique: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("multi_index_value")).and(scanComparisons(range("([990],>")))));
@@ -544,7 +544,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: VALUE[0], rec_no: KEY[1]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")))));
@@ -577,7 +577,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[leopard],[leopard]]) -> [str_value: KEY[0], header: [num: VALUE[1], path: VALUE[0], rec_no: KEY[1]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[leopard],[leopard]]")))));
@@ -619,7 +619,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")))));
@@ -649,7 +649,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value {[l],[l]}) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
-        plan = planner.plan(query);
+        plan = planQuery(query);
         planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("{[l],[l]}")))));
@@ -694,7 +694,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$2+3 ([0],[10])) -> [num_value_2: KEY[0], num_value_3_indexed: KEY[1], rec_no: KEY[2]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$2+3")).and(scanComparisons(range("([0],[10])")))));
@@ -745,7 +745,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MyRecord$str_value [[lion],[lion]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")));
         assertMatchesExactly(plan, planMatcher);
@@ -826,7 +826,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRemoveDuplicates(false)
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("splitCoveringIndex")).and(scanComparisons(range("([0],>")))));
@@ -852,7 +852,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         field("num_value_unique"),
                         field("num_value_2")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[1],[1]]")))));
@@ -872,7 +872,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("rec_no").greaterThanOrEquals(1000L))
                 .setRequiredResults(List.of(field("num_value_2")))
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName(primaryKeyIndex.getName())).and(scanComparisons(range("[[1000],>")))));
@@ -895,7 +895,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").greaterThanOrEquals(1))
                 .setRequiredResults(List.of(field("num_value_2")))
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 coveringIndexPlan()
                         .where(indexPlanOf(indexPlan().where(indexName(nonFlattenedIndex.getName())).and(scanComparisons(range("[[1],>")))));

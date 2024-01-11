@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Internal;
 import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
@@ -155,11 +156,8 @@ class TupleTypeUtil {
             return ((ByteString) obj).toByteArray();
         } else if (obj instanceof List) {
             return toTupleAppropriateList((List<?>) obj);
-        // Following two are both Internal.EnumLite, so could use that, too.
-        } else if (obj instanceof ProtocolMessageEnum) {
-            return ((ProtocolMessageEnum) obj).getNumber();
-        } else if (obj instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) obj).getNumber();
+        } else if (obj instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite) obj).getNumber();
         } else if (obj instanceof FDBRecordVersion) {
             return ((FDBRecordVersion) obj).toVersionstamp(false);
         } else {

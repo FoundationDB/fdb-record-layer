@@ -50,8 +50,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.ProtocolMessageEnum;
+import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -327,10 +326,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         if (item instanceof ByteString) {
             return ((ByteString) item).toByteArray();
         // Following two are both Internal.EnumLite, so could use that, too.
-        } else if (item instanceof ProtocolMessageEnum) {
-            return ((ProtocolMessageEnum) item).getNumber();
-        } else if (item instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) item).getNumber();
+        } else if (item instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite) item).getNumber();
         } else if (item instanceof FDBRecordVersion) {
             return ((FDBRecordVersion) item).toVersionstamp();
         } else {

@@ -253,7 +253,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                                                       @Nonnull final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
         final Quantifier.Physical q =
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryTypeFilterPlanProto.getInner()));
-        final ImmutableList.Builder<String> recordTypesBuilder = ImmutableList.builder();
+        final ImmutableSet.Builder<String> recordTypesBuilder = ImmutableSet.builder();
         for (int i = 0; i < recordQueryTypeFilterPlanProto.getRecordTypesCount(); i ++) {
             recordTypesBuilder.add(recordQueryTypeFilterPlanProto.getRecordTypes(i));
         }

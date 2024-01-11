@@ -1351,7 +1351,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             for (final EnumValue enumValue : Objects.requireNonNull(enumValues)) {
                 enumTypeProtoBuilder.addEnumValues(enumValue.toProto(serializationContext));
             }
-            enumTypeProtoBuilder.setName(Objects.requireNonNull(name));
+            if (name != null) {
+                enumTypeProtoBuilder.setName(name);
+            }
             return enumTypeProtoBuilder.build();
         }
 
@@ -1371,7 +1373,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
             final ImmutableList<EnumValue> enumValues = enumValuesBuilder.build();
             Verify.verify(!enumValues.isEmpty());
-            return new Enum(enumTypeProto.getIsNullable(), enumValues, Objects.requireNonNull(enumTypeProto.getName()));
+            return new Enum(enumTypeProto.getIsNullable(), enumValues,
+                    PlanSerialization.getFieldOrNull(enumTypeProto, PEnumType::hasName, PEnumType::getName));
         }
 
         /**
