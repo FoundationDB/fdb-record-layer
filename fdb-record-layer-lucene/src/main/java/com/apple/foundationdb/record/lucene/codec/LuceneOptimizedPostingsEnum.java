@@ -34,7 +34,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * FDB-optimized {@link PostingsEnum} {@link ImpactsEnum}.
+ * FDB-optimized {@link PostingsEnum} and {@link ImpactsEnum}.
  */
 public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
     private final String segmentName;
@@ -96,6 +96,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
             currentDoc = NO_MORE_DOCS;
             return NO_MORE_DOCS;
         }
+        // Slow advance to target. TODO: Can/should we try to optimize?
         return slowAdvance(target);
     }
 
@@ -145,6 +146,7 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
 
     @Override
     public void advanceShallow(final int target) throws IOException {
+        // TODO
         advance(target);
     }
 

@@ -371,7 +371,7 @@ public class FDBDirectory extends Directory  {
         final Subspace termsSub = postingsTermsSubspace.subspace(Tuple.from(segmentName, fieldNumber));
         final List<KeyValue> list = asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_POSTINGS_TERMS,
-                // Scan for the term matching the termBytes or the one immediately following
+                // Scan for the key in the range
                 agilityContext.apply(context -> context.ensureActive().getRange(termsSub.range(), 1).asList()));
         if ((list == null) || list.isEmpty()) {
             return null;

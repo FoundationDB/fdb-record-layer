@@ -35,6 +35,7 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.util.IOUtils;
 
 import java.io.IOException;
 
@@ -86,7 +87,7 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
 
     @Override
     public void close() throws IOException {
-        // close the file output, postings writer?
+        IOUtils.close(postingsWriter);
     }
 
     private class TermsWriter {
