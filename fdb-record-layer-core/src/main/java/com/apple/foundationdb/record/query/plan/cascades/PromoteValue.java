@@ -68,17 +68,6 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
                     .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.ARRAY), (descriptor, in) -> null)
                     .put(Pair.of(Type.TypeCode.NULL, Type.TypeCode.RECORD), (descriptor, in) -> null)
                     .put(Pair.of(Type.TypeCode.NONE, Type.TypeCode.ARRAY), (descriptor, in) -> in)
-
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.DOUBLE), (descriptor, in) -> (Double) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.FLOAT), (descriptor, in) -> (Float) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.LONG), (descriptor, in) -> (Long) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.INT), (descriptor, in) -> (Integer) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN), (descriptor, in) -> (Boolean) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.STRING), (descriptor, in) -> (String) in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.ARRAY), (descriptor, in) -> in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.RECORD), (descriptor, in) -> in)
-                    .put(Pair.of(Type.TypeCode.UNKNOWN, Type.TypeCode.NONE), (descriptor, in) -> in)
-
                     .build();
     /**
      * The hash value of this expression.
@@ -274,6 +263,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     }
 
     public static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+        if (promoteToType.getTypeCode() == Type.TypeCode.ANY) {
+            return false;
+        }
         if (inType.getTypeCode() == Type.TypeCode.NULL) {
             return true;
         }
@@ -286,7 +278,6 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             SemanticException.check(!inArray.isErased() && !promoteToArray.isErased(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
         }
-        // todo: if this is an array, recurse and check, needs to be smarter.
         SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }

@@ -121,9 +121,6 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var obj = context.dereferenceConstant(alias, ordinal);
-        if (getResultType().isUnresolved()) {
-            return obj;
-        }
         if (obj == null) {
             SemanticException.check(resultType.isNullable(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return obj;
