@@ -274,17 +274,15 @@ public class LucenePartitioner {
                 updatedPartition.toByteArray());
     }
 
-    @Nullable
-    LucenePartitionInfoProto.LucenePartitionInfo findPartitionInfo(@Nonnull Tuple groupKey, long timestamp) {
+    @Nonnull
+    CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> findPartitionInfo(@Nonnull Tuple groupKey, long timestamp) {
         Range range = new Range(state.indexSubspace.subspace(Tuple.from(groupKey, PARTITION_META_SUBSPACE)).pack(),
                 state.indexSubspace.subspace(Tuple.from(groupKey, PARTITION_META_SUBSPACE, timestamp)).pack());
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
-        CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfoFuture = AsyncUtil.collect(rangeIterable)
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor())
                 .thenApply(targetPartition -> targetPartition.isEmpty() ? null : partitionInfoFromKV(targetPartition.get(0)));
-
-        return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, partitionInfoFuture);
     }
 
     /**

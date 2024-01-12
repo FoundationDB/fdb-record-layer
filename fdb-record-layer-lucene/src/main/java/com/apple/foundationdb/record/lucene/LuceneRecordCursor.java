@@ -71,6 +71,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+
 /**
  * This class is a Record Cursor implementation for Lucene queries.
  *
@@ -254,39 +256,37 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private CompletableFuture<RecordCursorResult<IndexEntry>> switchToNextOlderPartitionAndContinue(RecordCursorResult<IndexEntry> recordCursorResult) {
-        if (
-                recordCursorResult.hasNext() ||
+        if (recordCursorResult.hasNext() ||
                 partitionTimestamp == null ||
-                (nextResult != null && (nextResult.getNoNextReason().isOutOfBand() || nextResult.getNoNextReason().isLimitReached()))
-        ) {
+                recordCursorResult.getNoNextReason() != SOURCE_EXHAUSTED) {
             return CompletableFuture.completedFuture(recordCursorResult);
         }
 
         // see if there's a next older partition by looking for the partition covering the timestamp equal to the `from` value of the
         // current partition minus a millisecond (lowest resolution of timestamp)
-        LucenePartitionInfoProto.LucenePartitionInfo previousPartition =
-                partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1);
 
-        if (previousPartition != null) {
-            // reset scan params/state
-            exhausted = false;
-            this.partitionTimestamp = LucenePartitioner.getFrom(previousPartition);
-            this.partitionId = previousPartition.getId();
-            searchAfter = null;
-            currentPosition = 0;
-            if (skip > 0) {
-                skip = leftToSkip;
+        return partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1).thenCompose(previousPartition -> {
+            if (previousPartition != null) {
+                // reset scan params/state
+                exhausted = false;
+                this.partitionTimestamp = LucenePartitioner.getFrom(previousPartition);
+                this.partitionId = previousPartition.getId();
+                searchAfter = null;
+                currentPosition = 0;
+                if (skip > 0) {
+                    skip = leftToSkip;
+                }
+                try {
+                    maybePerformScan();
+                    return lookupResults.onNext();
+                } catch (IOException ioException) {
+                    throw new RecordCoreException(ioException)
+                            .addLogInfo(LogMessageKeys.QUERY, query);
+                }
+            } else {
+                return CompletableFuture.completedFuture(nextResult);
             }
-            try {
-                maybePerformScan();
-                return lookupResults.onNext();
-            } catch (IOException ioException) {
-                throw new RecordCoreException(ioException)
-                        .addLogInfo(LogMessageKeys.QUERY, query);
-            }
-        } else {
-            return CompletableFuture.completedFuture(nextResult);
-        }
+        });
     }
 
     @Override
