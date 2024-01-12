@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -81,8 +80,6 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
                     .orElse(ImmutableSet.of());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
-        } else if (expression instanceof PrimaryScanExpression) {
-            return ((PrimaryScanExpression)expression).getRecordTypes();
         } else if (childResults.isEmpty()) {
             // try to see if the leaf expression is correlated and follow up the correlations
             final Set<String> recordTypes = Sets.newHashSet();

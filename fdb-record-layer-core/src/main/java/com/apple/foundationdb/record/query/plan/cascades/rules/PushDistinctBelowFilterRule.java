@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -76,7 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * where pred' is rebased along the translation from qun to newQun.
  */
-public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements PhysicalOptimizationRule {
     @Nonnull
     private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull

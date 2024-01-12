@@ -62,6 +62,7 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
     private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> unionLegReferenceMatcher =
             planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
                     rollUp(any(unionLegPlanPartitionsMatcher))));
+                    //rollUpTo(all(unionLegPlanPartitionsMatcher), allAttributesExcept(DISTINCT_RECORDS))));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

@@ -150,6 +150,16 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
         return new NotPredicate(getChild(), isAtomic);
     }
 
+    @Override
+    public boolean isTautology() {
+        return child.isContradiction();
+    }
+
+    @Override
+    public boolean isContradiction() {
+        return child.isTautology();
+    }
+
     @Nonnull
     public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
         return of(predicate, false);

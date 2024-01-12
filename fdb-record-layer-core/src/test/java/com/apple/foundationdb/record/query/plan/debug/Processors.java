@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMatchEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
@@ -31,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Optimize
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformRuleCallEvent;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
@@ -226,7 +226,7 @@ public class Processors {
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
             } else {
-                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+                plannerRepl.printKeyValue("bindable", bindable + "; ");
             }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
@@ -264,7 +264,8 @@ public class Processors {
 
             if (event.getLocation() == Debugger.Location.END) {
                 plannerRepl.printlnKeyValue("yield", "");
-                for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
+                final var newExpressions = CascadesRuleCall.newExpressions(ruleCall);
+                for (final RelationalExpression newExpression : newExpressions) {
                     plannerRepl.printlnExpression(newExpression, "    ");
                     plannerRepl.println();
                 }
@@ -282,7 +283,7 @@ public class Processors {
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
             } else {
-                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+                plannerRepl.printKeyValue("bindable", bindable + "; ");
             }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }

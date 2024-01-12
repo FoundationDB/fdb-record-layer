@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A property for collecting all {@link ScanComparisons} for the sub tree the property is evaluated on.
+ * A property for collecting all {@link ScanComparisons} for the subtree the property is evaluated on.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.Comparison>>, RelationalExpressionVisitorWithDefaults<Set<Comparisons.Comparison>> {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -30,6 +31,9 @@ import java.util.Optional;
  * Interface to represent a candidate that uses a primary key to identify a record.
  */
 public interface WithPrimaryKeyMatchCandidate extends MatchCandidate {
+    @Nonnull
+    Optional<KeyExpression> getPrimaryKeyMaybe();
+
     @Nonnull
     Optional<List<Value>> getPrimaryKeyValuesMaybe();
 

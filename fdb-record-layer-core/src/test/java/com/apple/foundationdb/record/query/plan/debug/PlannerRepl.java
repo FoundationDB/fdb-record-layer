@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
+import com.apple.foundationdb.record.query.plan.cascades.CascadesExplorationRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesOptimizationRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -507,7 +509,7 @@ public class PlannerRepl implements Debugger {
             for (final Quantifier quantifier : expression.getQuantifiers()) {
                 printKeyValue(prefix + "  name", nameForObjectOrNotInCache(quantifier) + "; ");
                 printKeyValue("kind", quantifier.getShorthand() + "; ");
-                printKeyValue("alias", quantifier.getAlias().toString() + "; ");
+                printKeyValue("alias", quantifier.getAlias() + "; ");
                 final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
                 printKeyValue("ranges over", nameForObjectOrNotInCache(rangesOver));
                 println();
@@ -837,11 +839,21 @@ public class PlannerRepl implements Debugger {
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
-                return transformRuleCallEvent.getRuleCall()
-                        .getNewExpressions()
-                        .stream()
-                        .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))
-                        .anyMatch(nameOptional -> nameOptional.isPresent() && expressionName.equals(nameOptional.get()));
+                final var ruleCall = transformRuleCallEvent.getRuleCall();
+                if (ruleCall instanceof CascadesExplorationRuleCall) {
+                    return ((CascadesExplorationRuleCall)ruleCall)
+                            .getNewExpressions()
+                            .stream()
+                            .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))
+                            .anyMatch(nameOptional -> nameOptional.isPresent() && expressionName.equals(nameOptional.get()));
+                } else if (ruleCall instanceof CascadesOptimizationRuleCall) {
+                    final var newExpression = ((CascadesOptimizationRuleCall)ruleCall).getNewExpression();
+                    if (newExpression == null) {
+                        return false;
+                    }
+                    final var nameOptional = Optional.ofNullable(plannerRepl.nameForObject(newExpression));
+                    return nameOptional.isPresent() && expressionName.equals(nameOptional.get());
+                }
             }
             return false;
         }
@@ -891,10 +903,13 @@ public class PlannerRepl implements Debugger {
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
-                return transformRuleCallEvent.getRuleCall()
-                        .getNewPartialMatches()
-                        .stream()
-                        .anyMatch(partialMatch -> candidateName.equals(partialMatch.getMatchCandidate().getName()));
+                final var ruleCall = transformRuleCallEvent.getRuleCall();
+                if (ruleCall instanceof CascadesExplorationRuleCall) {
+                    return ((CascadesExplorationRuleCall)ruleCall)
+                            .getNewPartialMatches()
+                            .stream()
+                            .anyMatch(partialMatch -> candidateName.equals(partialMatch.getMatchCandidate().getName()));
+                }
             }
             return false;
         }

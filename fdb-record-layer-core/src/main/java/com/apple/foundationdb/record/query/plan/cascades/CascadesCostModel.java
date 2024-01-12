@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.FindExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedScanPredicateProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
@@ -53,6 +54,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PartialRecordsRatioProperty.PARTIAL_RECORDS_RATIO;
 
 /**
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
@@ -118,10 +120,16 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             }
         }
 
-        int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
+        int scanFilterCompare = Long.compare(NormalizedScanPredicateProperty.countNormalizedConjuncts(b),
+                NormalizedScanPredicateProperty.countNormalizedConjuncts(a));
+        if (scanFilterCompare != 0) {
+            return scanFilterCompare;
+        }
+
+        int normalizedResidualPredicateCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
                 NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
-        if (unsatisfiedFilterCompare != 0) {
-            return unsatisfiedFilterCompare;
+        if (normalizedResidualPredicateCompare != 0) {
+            return normalizedResidualPredicateCompare;
         }
 
         final int numDataAccessA =
@@ -179,14 +187,10 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         if (count(planOpsMapA, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0 &&
                 count(planOpsMapB, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class) > 0) {
             // both plans are index scans
-
-            // how many fetches are there, regular index scans fetch when they scan
-            int numFetchesA = count(planOpsMapA, RecordQueryPlanWithIndex.class, RecordQueryFetchFromPartialRecordPlan.class);
-            int numFetchesB = count(planOpsMapB, RecordQueryPlanWithIndex.class, RecordQueryFetchFromPartialRecordPlan.class);
-
-            final int numFetchesCompare = Integer.compare(numFetchesA, numFetchesB);
-            if (numFetchesCompare != 0) {
-                return numFetchesCompare;
+            double partialRecordsRatioA = PARTIAL_RECORDS_RATIO.evaluate(a);
+            double partialRecordsRatioB = PARTIAL_RECORDS_RATIO.evaluate(b);
+            if (partialRecordsRatioA != partialRecordsRatioB) {
+                return Double.compare(partialRecordsRatioA, partialRecordsRatioB);
             }
 
             final int fetchDepthB = RelationalExpressionDepthProperty.FETCH_DEPTH.evaluate(b);

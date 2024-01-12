@@ -108,4 +108,16 @@ public abstract class CascadesRule<T> implements PlannerRule<ExpressionRef<? ext
     public String toString() {
         return getClass().getSimpleName();
     }
+
+    /**
+     * Marker interface for rules that run in pre-order.
+     */
+    public interface PreOrderRule {
+    }
+
+    /**
+     * Marker interface for rules that perform destructive physical optimization transformations.
+     */
+    public interface PhysicalOptimizationRule {
+    }
 }

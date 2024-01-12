@@ -144,6 +144,12 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
+    public Optional<KeyExpression> getPrimaryKeyMaybe() {
+        return Optional.of(primaryKey);
+    }
+
+    @Nonnull
+    @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesSupplier.get();
     }

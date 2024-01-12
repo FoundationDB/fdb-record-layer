@@ -69,7 +69,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
         final List<? extends Value> projectedValues = projectionExpression.getProjectedValues();
         final boolean allPushable = projectedValues
                 .stream()
-                .allMatch(value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias).isPresent());
+                .allMatch(value -> fetchPlan.pushValueMaybe(value, oldInnerAlias, newInnerAlias).isPresent());
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch

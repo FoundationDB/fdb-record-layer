@@ -22,21 +22,23 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesRule.PhysicalOptimizationRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.plans.RecordPlanWithFetch;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.withAnyFetchPlan;
 
 /**
  * A rule that pushes a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan} <em>through</em> a
@@ -71,12 +73,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements PhysicalOptimizationRule {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
-    private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
-            fetchFromPartialRecordPlan(innerPlanMatcher);
+    private static final BindingMatcher<RecordPlanWithFetch> fetchPlanMatcher = withAnyFetchPlan();
     @Nonnull
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
             unorderedPrimaryKeyDistinctPlan(fetchPlanMatcher);
@@ -89,8 +88,12 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
-        final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
-        final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
+        final RecordPlanWithFetch fetchPlan = bindings.get(fetchPlanMatcher);
+        final Optional<RecordQueryPlan> innerPlanOptional = fetchPlan.removeFetchMaybe();
+        if (innerPlanOptional.isEmpty()) {
+            return;
+        }
+        final RecordQueryPlan innerPlan = innerPlanOptional.get();
 
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         

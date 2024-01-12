@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.Map;
 import java.util.Objects;
@@ -151,7 +152,7 @@ public class DebuggerWithSymbolTables implements Debugger {
             if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
-                final var newExpressions = ruleCall.getNewExpressions();
+                final Collection<RelationalExpression> newExpressions = CascadesRuleCall.newExpressions(ruleCall);
                 if (!newExpressions.isEmpty()) {
                     final var logMessage = KeyValueLogMessage.build("rule yielded new expression(s)",
                             "rule", transformRuleCallEvent.getRule().getClass().getSimpleName());
