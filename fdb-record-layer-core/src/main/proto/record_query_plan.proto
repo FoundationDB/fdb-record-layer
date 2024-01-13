@@ -896,6 +896,7 @@ message PComparableObject {
     Value primitive_object = 1;
     PEnumLightValue enum_object = 2;
     PUUID uuid = 3;
+    PFDBRecordVersion fdb_record_version = 4;
   }
 }
 
@@ -907,6 +908,10 @@ message PEnumLightValue {
 message PUUID {
   optional uint64 mostSigBits = 1;
   optional uint64 leastSigBits = 2;
+}
+
+message PFDBRecordVersion {
+  optional bytes raw_bytes = 1;
 }
 
 message PParameterComparison {

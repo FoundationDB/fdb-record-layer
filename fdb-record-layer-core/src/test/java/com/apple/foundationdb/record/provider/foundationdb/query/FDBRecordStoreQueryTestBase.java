@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -517,6 +518,16 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
     protected RecordQueryPlan planQuery(@Nonnull final RecordQuery query) {
+        return planQuery(this.planner, query);
+    }
+
+    /**
+     * For the cascades planner, plan the query, serialize the plan to bytes, parse those bytes and reconstruct the plan.
+     * @param planner the planner to use
+     * @param query the query
+     * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
+     */
+    protected static RecordQueryPlan planQuery(@Nonnull QueryPlanner planner, @Nonnull final RecordQuery query) {
         final RecordQueryPlan plannedPlan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             return plannedPlan;

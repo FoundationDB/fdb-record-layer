@@ -184,7 +184,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected List<String> executeQuery(@Nonnull RecordQuery query) {
-        return recordStore.executeQuery(planner.plan(query))
+        return recordStore.executeQuery(planQuery(query))
                 .map(r -> r.getPrimaryKey().getString(0))
                 .asList().join();
     }
@@ -566,7 +566,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fbytes").equalsValue(ByteString.copyFrom(" ", "UTF-8"))));
 
             {
-                final RecordQueryPlan coveringPlan = planner.plan(RecordQuery.newBuilder()
+                final RecordQueryPlan coveringPlan = planQuery(RecordQuery.newBuilder()
                         .setRecordType("MyFieldsRecord")
                         .setFilter(Query.field("fint64").greaterThan(0L))
                         .setRequiredResults(Stream.of("uuid", "fint64").map(Key.Expressions::field).collect(Collectors.toList()))
@@ -585,7 +585,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected Set<UUID> fieldsRecordQuery(@Nonnull FDBRecordContext context, @Nonnull QueryComponent filter) {
-        final RecordQueryPlan plan = planner.plan(RecordQuery.newBuilder().setRecordType("MyFieldsRecord").setFilter(filter).build());
+        final RecordQueryPlan plan = planQuery(RecordQuery.newBuilder().setRecordType("MyFieldsRecord").setFilter(filter).build());
         return new HashSet<>(recordStore.executeQuery(plan).map(this::fieldsRecordId).asList().join());
     }
 

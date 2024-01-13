@@ -319,7 +319,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
             Set<Long> primaryKeys = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey)
                     .map(t -> t.getLong(0)).asStream().collect(Collectors.toSet());
@@ -444,7 +444,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI civil blood makes civil hands unclean")))));
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertThat(plan, matcher);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 List<FDBQueriedRecord<Message>> queriedRecordList = cursor.asList().get();
@@ -473,7 +473,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             try (RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan)) {
                 RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
                 List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
@@ -496,7 +496,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             Matcher<RecordQueryPlan> matcher = typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)), scan(bounds(hasTupleString("[[1],[1]]"))));
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertThat(plan, matcher);
             try (final RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = cursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -518,7 +518,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.or(filter1, Query.field("doc_id").lessThan(10000L)))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(
                     unorderedUnion(
                             indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
@@ -554,7 +554,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("group"), true)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 assertEquals(List.of(5L, 2L, 4L), primaryKeys);
@@ -613,7 +613,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.or(filter1, filter2))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             final Matcher<RecordQueryPlan> scan1 = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI (\"civil blood makes civil hands unclean\")")))));
@@ -673,7 +673,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.and(filter1, filter2))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" AND MULTI grudge")))));
@@ -719,7 +719,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI (the continuance AND grudge)")))));
@@ -752,7 +752,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI \"the continuance\" OR grudge")))));
@@ -782,7 +782,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()), indexScanType(LuceneScanTypes.BY_LUCENE), scanParams(query(hasToString("MULTI doesNotExist")))));
             assertThat(plan, matcher);
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
@@ -835,7 +835,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         .setFilter(filter1)
                         .build();
                 setDeferFetchAfterUnionAndIntersection(false);
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                     @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
                             .map(FDBQueriedRecord::getPrimaryKey)
@@ -877,7 +877,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                             Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a"))))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
 
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -905,7 +905,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(new LuceneQueryComponent("entry_value:king", Lists.newArrayList("entry")))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexScan("MapField$values"),
@@ -931,7 +931,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("king")))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexScan("MapField$values"),
@@ -962,7 +962,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
@@ -991,7 +991,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
@@ -1022,7 +1022,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("doc_id").greaterThan(1L))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(MAP_AND_FIELD_ON_LUCENE_INDEX.getName()),
@@ -1048,7 +1048,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .setRequiredResults(List.of(field("group")))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = coveringIndexScan(indexScan(allOf(
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(TEXT_AND_GROUP.getName()),
@@ -1078,7 +1078,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(MAP_DOC)
                     .setFilter(groupFilter)
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = filter(groupFilter, typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.MAP_DOC)), scan(unbounded())));
             assertThat(plan, matcher);
         }
@@ -1096,7 +1096,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(MAP_DOC)
                     .setFilter(groupFilter)
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = filter(groupFilter, typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.MAP_DOC)), scan(unbounded())));
             assertThat(plan, matcher);
         }
@@ -1113,7 +1113,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(Query.and(filter1, Query.not(filter2)))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("MULTI Verona AND NOT MULTI traffic")))));
@@ -1137,7 +1137,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(Query.not(filter))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("NOT MULTI Verona")))));
@@ -1162,7 +1162,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(Query.not(Query.or(filter1, filter2)))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan(SIMPLE_TEXT_SUFFIXES.getName()),
                     indexScanType(LuceneScanTypes.BY_LUCENE),
                     scanParams(query(hasToString("NOT MULTI Verona AND NOT MULTI traffic")))));
@@ -1193,7 +1193,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .setSort(field("doc_id"), true)
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 assertEquals(List.of(5L, 4L, 2L), primaryKeys);
@@ -1216,7 +1216,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.and(Query.field("group").equalsValue(0L), filter1))
                     .setSort(field("doc_id"), true)
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(1)).asList().get();
                 assertEquals(List.of(2L, 0L), primaryKeys);
@@ -1238,7 +1238,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             if (sorted) {
                 query.setSort(field("doc_id"));
             }
-            RecordQueryPlan plan = planner.plan(query.build());
+            RecordQueryPlan plan = planQuery(query.build());
             Matcher<RecordQueryPlan> matcher1 = indexScan(allOf(indexScanType(LuceneScanTypes.BY_LUCENE),
                     indexName(SIMPLE_TEXT_SUFFIXES.getName()),
                     scanParams(query(hasToString("MULTI parents")))));
@@ -1274,7 +1274,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             if (sorted) {
                 query.setSort(field("doc_id"));
             }
-            RecordQueryPlan plan = planner.plan(query.build());
+            RecordQueryPlan plan = planQuery(query.build());
             ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(2).build();
             List<Long> primaryKeys = new ArrayList<>();
             byte[] continuation = null;

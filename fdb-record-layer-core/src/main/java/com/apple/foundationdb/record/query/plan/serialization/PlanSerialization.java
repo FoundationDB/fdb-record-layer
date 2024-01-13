@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PComparableObject;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PEnumLightValue;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -62,7 +64,10 @@ public class PlanSerialization {
                     .setMostSigBits(uuid.getMostSignificantBits())
                     .setLeastSigBits(uuid.getLeastSignificantBits()))
                     .build();
-        } else  {
+        } else if (object instanceof FDBRecordVersion) {
+            builder.setFdbRecordVersion(RecordQueryPlanProto.PFDBRecordVersion.newBuilder()
+                    .setRawBytes(ByteString.copyFrom(((FDBRecordVersion)object).toBytes(false))).build());
+        } else {
             builder.setPrimitiveObject(LiteralKeyExpression.toProtoValue(object));
         }
         return builder.build();
@@ -71,12 +76,16 @@ public class PlanSerialization {
     @Nullable
     public static Object protoObjectToValue(@Nonnull final PComparableObject proto) {
         if (proto.hasEnumObject()) {
-            final PEnumLightValue enumProto = proto.getEnumObject();
+            final PEnumLightValue enumProto = Objects.requireNonNull(proto.getEnumObject());
             Verify.verify(enumProto.hasNumber());
             return new ProtoUtils.DynamicEnum(enumProto.getNumber(), Objects.requireNonNull(enumProto.getName()));
         } else if (proto.hasUuid()) {
-            final RecordQueryPlanProto.PUUID uuidProto = proto.getUuid();
+            final RecordQueryPlanProto.PUUID uuidProto = Objects.requireNonNull(proto.getUuid());
             return new UUID(uuidProto.getMostSigBits(), uuidProto.getLeastSigBits());
+        } else if (proto.hasFdbRecordVersion()) {
+            final RecordQueryPlanProto.PFDBRecordVersion fdbRecordVersion = Objects.requireNonNull(proto.getFdbRecordVersion());
+            return FDBRecordVersion.fromBytes(fdbRecordVersion
+                    .getRawBytes().toByteArray(), false);
         }
         return LiteralKeyExpression.fromProtoValue(Objects.requireNonNull(proto.getPrimitiveObject()));
     }

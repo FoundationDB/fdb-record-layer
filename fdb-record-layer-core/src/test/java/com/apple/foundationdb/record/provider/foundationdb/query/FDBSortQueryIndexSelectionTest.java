@@ -164,7 +164,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertEquals(-1130465929, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-491910604, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -201,7 +201,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
         setupPlanner(indexTypes);
 
         // Index(MySimpleRecord$num_value_3_indexed [[2],>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],>")))));
         assertEquals(1008857205, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-2059045225, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -237,7 +237,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
         setupPlanner(indexTypes);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed <,>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) | num_value_3_indexed NOT_EQUALS 1)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, fetch(filter(filter,
                 coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))))));
         assertEquals(-1303978120, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -275,7 +275,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
         setupPlanner(indexTypes);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed <,>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) | num_value_3_indexed NOT_EQUALS 1) | num_value_2 EQUALS 0
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan,
                 filter(Query.field("num_value_2").equalsValue(0),
                         fetch(
@@ -311,7 +311,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setSort(field("rec_no"), reverse)
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
 
         AtomicLong lastId = new AtomicLong(reverse ? 99L : 0L);
@@ -333,7 +333,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setSort(field("rec_no"), reverse)
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat("unexpected plan for filter: " + filter, plan, planMatcher);
         assertEquals(planHash, plan.planHash(PlanHashable.CURRENT_LEGACY), "unexpected plan hash for filter: " + filter);
 
@@ -475,7 +475,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertEquals(-1130465929, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-491910604, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -510,7 +510,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique <,> REVERSE)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), unbounded())));
         assertTrue(plan.isReverse(), "plan should have reversal");
         assertEquals(-1130465928, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -547,7 +547,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setSort(field("num_value_3_indexed"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, filter(filter,
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         if (planner instanceof RecordQueryPlanner) {
@@ -588,7 +588,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed <,> REVERSE)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded())));
         assertTrue(plan.isReverse(), "plan is reversed");
         assertEquals(324762955, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -643,7 +643,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Index(MyRecord$header_num <,>)
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), unbounded())));
                 assertEquals(-1173952475, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(1008825832, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -668,7 +668,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Index(MyRecord$header_num ([null],[50]))
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
 
                 assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])")))));
                 if (planner instanceof RecordQueryPlanner) {
@@ -699,7 +699,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Index(MyRecord$header_num [[1],[1]])
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("[[1],[1]]")))));
                 assertEquals(878861315, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(653879397, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -727,7 +727,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Index(MyRecord$header_num ([null, middle],[null]])
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null, middle],[null]]")))));
                 assertEquals(1553479768, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(1072001836, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -741,7 +741,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Fetch(Covering(Index(MyRecord$header_num <,>) -> [str_value: KEY[1], header: [num: KEY[0], path: KEY[2], rec_no: KEY[3]]]) | header/{rec_no GREATER_THAN 0})
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 assertThat(plan, fetch(filter(filter,
                         coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))))));
 
@@ -780,7 +780,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .build();
 
                 // Fetch(Covering(Index(MyRecord$header_num ([null],[50])) -> [str_value: KEY[1], header: [num: KEY[0], path: KEY[2], rec_no: KEY[3]]]) | header/{rec_no GREATER_THAN 10})
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("rec_no").greaterThan(10L)),
                         coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))))));
                 if (planner instanceof RecordQueryPlanner) {
@@ -825,7 +825,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .setSort(field("element", FanType.FanOut))
                         .setRemoveDuplicates(true)
                         .build();
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planQuery(query);
                 System.out.println("Uncommon key plan: " + plan);
             }
         });
@@ -846,7 +846,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         .setSort(field("element", FanType.FanOut))
                         .setRemoveDuplicates(false)
                         .build();
-                planner.plan(query);
+                planner.planQuery(query);
             }
         });
     }
@@ -868,7 +868,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(schoolNameEmail [[Human University],[Human University]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("schoolNameEmail"), bounds(hasTupleString("[[Human University],[Human University]]")))));
         assertEquals(387659205, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1202542055, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -915,7 +915,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique [[20],>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[[20],>")))));
 
         if (planner instanceof RecordQueryPlanner) {
@@ -976,7 +976,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
 
         if (mode == SortWithoutIndexMode.DISALLOWED) {
             assertThrows(RecordCoreException.class, () -> {
-                planner.plan(query);
+                planQuery(query);
             });
             return;
         }
@@ -984,7 +984,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
         ((RecordQueryPlanner)planner).setConfiguration(((RecordQueryPlanner)planner).getConfiguration().asBuilder().setAllowNonIndexSort(true).build());
 
         // Index(MySimpleRecord$num_value_3_indexed [[2],>) ORDER BY num_value_2 DESC
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, sort(allOf(hasProperty("reverse", equalTo(true))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],>"))))));
         assertEquals(256365917, plan.planHash(PlanHashable.CURRENT_LEGACY));

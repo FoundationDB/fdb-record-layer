@@ -23,9 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
-import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -116,10 +114,8 @@ class TupleTypeUtil {
             } else {
                 return bigInt;
             }
-        } else if (obj instanceof ProtocolMessageEnum) {
-            return (long)((ProtocolMessageEnum)obj).getNumber();
-        } else if (obj instanceof Descriptors.EnumValueDescriptor) {
-            return (long)((Descriptors.EnumValueDescriptor)obj).getNumber();
+        } else if (obj instanceof Internal.EnumLite) {
+            return (long)((Internal.EnumLite)obj).getNumber();
         } else if (obj instanceof FDBRecordVersion) {
             return ((FDBRecordVersion)obj).toVersionstamp(false);
         } else {
