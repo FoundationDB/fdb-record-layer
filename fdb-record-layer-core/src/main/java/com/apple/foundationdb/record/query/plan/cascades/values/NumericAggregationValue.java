@@ -102,104 +102,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
     }
 
-    /**
-     * Sum aggregation {@code Value}.
-     */
-    public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-
-        public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexName() {
-            return IndexTypes.SUM;
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Sum(operator, newChild);
-        }
-    }
-
-    /**
-     * Average aggregation {@code Value}.
-     */
-    public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Avg(operator, newChild);
-        }
-    }
-
-    /**
-     * Min aggregation {@code Value}.
-     */
-    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Min(operator, newChild);
-        }
-    }
-
-    /**
-     * Max aggregation {@code Value}.
-     */
-    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Max(operator, newChild);
-        }
-    }
-
     @Nullable
     @Override
     public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
@@ -404,7 +306,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      */
     @AutoService(PlanSerializable.class)
     @ProtoMessage(PMin.class)
-    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
 
         public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
@@ -413,6 +315,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         protected Min(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final PMin minProto) {
             super(serializationContext, Objects.requireNonNull(minProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.PERMUTED_MIN;
         }
 
         @Nonnull
@@ -451,7 +359,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      */
     @AutoService(PlanSerializable.class)
     @ProtoMessage(PMax.class)
-    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
 
         public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
@@ -460,6 +368,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         protected Max(@Nonnull final PlanSerializationContext serializationContext,
                       @Nonnull final PMax maxProto) {
             super(serializationContext, Objects.requireNonNull(maxProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.PERMUTED_MAX;
         }
 
         @Nonnull

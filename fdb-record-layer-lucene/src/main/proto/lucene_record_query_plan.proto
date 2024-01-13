@@ -32,10 +32,6 @@ message PLuceneIndexQueryPlan {
   repeated KeyExpression stored_fields = 3;
 }
 
-extend PRecordQueryPlan {
-  optional PLuceneIndexQueryPlan lucene_index_query_plan = 5001;
-}
-
 message PLuceneScanParameters {
   optional PIndexScanType scan_type = 1;
   optional PScanComparisons group_comparisons = 2;

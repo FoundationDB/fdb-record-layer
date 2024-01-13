@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexFetchMethod;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithStoredFields;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -279,7 +279,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Override
     public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
         return RecordQueryPlanProto.PRecordQueryPlan.newBuilder()
-                .setExtension(LuceneRecordQueryPlanProto.luceneIndexQueryPlan, toLuceneIndexPlanProto(serializationContext))
+                .setAdditionalPlans(PlanSerialization.protoObjectToAny(serializationContext,
+                        toLuceneIndexPlanProto(serializationContext)))
                 .build();
     }
 

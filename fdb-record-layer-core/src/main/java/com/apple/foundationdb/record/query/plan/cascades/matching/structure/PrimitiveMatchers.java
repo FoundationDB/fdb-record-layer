@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,6 +48,17 @@ public class PrimitiveMatchers {
      */
     @Nonnull
     public static <T> BindingMatcher<T> equalsObject(@Nonnull final T object) {
+        return testObject(object, Object::equals);
+    }
+
+    /**
+     * Matcher that matches if the object passed in and the object being matched satisfy a predicate.
+     * @param object some object to match against
+     * @param <T> type of the object
+     * @return a new matcher
+     */
+    @Nonnull
+    public static <T> BindingMatcher<T> testObject(@Nonnull final T object, @Nonnull BiPredicate<Object, T> testBiPredicate) {
         return new BindingMatcher<>() {
             @Nonnull
             @Override
@@ -72,7 +84,7 @@ public class PrimitiveMatchers {
                 return
                         Stream.of(PlannerBindings.from(this, object))
                                 .flatMap(bindings -> {
-                                    if (in.equals(object)) {
+                                    if (testBiPredicate.test(in, object)) {
                                         return Stream.of(bindings);
                                     } else {
                                         return Stream.empty();
@@ -82,7 +94,7 @@ public class PrimitiveMatchers {
 
             @Override
             public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-                return "match " + boundId + " { case " + object + " => success }";
+                return "match " + boundId + " { case test(" + object + ") => success }";
             }
         };
     }

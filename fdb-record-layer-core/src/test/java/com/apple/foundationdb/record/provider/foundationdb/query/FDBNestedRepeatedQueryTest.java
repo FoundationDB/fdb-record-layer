@@ -400,7 +400,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("map").matches(Query.field("entry").oneOfThem().matches(Query.field("key").equalsParameter(keyParam))))
                     .setRequiredResults(List.of(onEntry(() -> field("value"))))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertEquals(expectedIndexes, plan.getUsedIndexes());
 
             for (String key : keys) {
@@ -502,7 +502,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(oneEntryEquals(keyParam, valueParam))
                     .setRequiredResults(List.of(onEntry(() -> concatenateFields("key", "value"))))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, planMatcher);
 
 
@@ -599,7 +599,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("entry").matches(Query.field("key").equalsParameter(keyParam)))
                     .setRequiredResults(List.of(field("entry").nest("value")))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, planMatcher);
 
             final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");
@@ -705,7 +705,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                             Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParam))))
                     .setRequiredResults(List.of(field("entry").nest("value")))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, planMatcher);
 
             final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");
@@ -801,7 +801,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                             field("e2").nest("value")
                     ))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, planMatcher);
 
             final KeyExpression recIdExpr = field(PARENT_CONSTITUENT).nest("rec_id");

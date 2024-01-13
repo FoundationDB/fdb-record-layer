@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.POfTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.DynamicMessage;
 import com.apple.foundationdb.annotation.ProtoMessage;
@@ -99,8 +98,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         if (!promotionNeeded) {
             return true;
         }
-        final var promotionFunction = PromoteValue.resolvePromotionFunction(type, expectedType);
-        return promotionFunction != null;
+        return PromoteValue.resolvePhysicalOperator(type, expectedType) != null;
     }
 
     @Override

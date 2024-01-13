@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesPro
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.Verify;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -521,7 +522,8 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             return plannedPlan;
         }
         Assertions.assertTrue(planner instanceof CascadesPlanner);
-        PlanSerializationContext serializationContext = new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+        PlanSerializationContext serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
+                PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlanProto.PRecordQueryPlan planProto = plannedPlan.toRecordQueryPlanProto(serializationContext);
         final byte[] serializedPlan = planProto.toByteArray();
         final RecordQueryPlanProto.PRecordQueryPlan parsedPlanProto;
@@ -531,7 +533,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             throw new RuntimeException(e);
         }
 
-        serializationContext = new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+        serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
                 RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, parsedPlanProto);
         Assertions.assertEquals(plannedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));

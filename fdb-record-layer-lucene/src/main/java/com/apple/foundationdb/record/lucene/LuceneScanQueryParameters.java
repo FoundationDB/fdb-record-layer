@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanQueryParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
-import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -246,7 +246,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     @Override
     public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
         return RecordQueryPlanProto.PIndexScanParameters.newBuilder()
-                .setExtension(LuceneRecordQueryPlanProto.luceneScanQueryParameters, toProto(serializationContext))
+                .setAdditionalIndexScanParameters(PlanSerialization.protoObjectToAny(serializationContext, toProto(serializationContext)))
                 .build();
     }
 

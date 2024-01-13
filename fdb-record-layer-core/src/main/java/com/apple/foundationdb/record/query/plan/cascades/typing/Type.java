@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.annotation.ProtoMessage;
@@ -798,6 +798,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return PTypeCode.ARRAY;
                 case RELATION:
                     return PTypeCode.RELATION;
+                case NONE:
+                    return PTypeCode.NONE;
                 default:
                     throw new RecordCoreException("unable to find type code mapping. did you forgot to add it here?");
             }
@@ -837,6 +839,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return ARRAY;
                 case RELATION:
                     return RELATION;
+                case NONE:
+                    return NONE;
                 default:
                     throw new RecordCoreException("unable to find type code proto mapping");
             }

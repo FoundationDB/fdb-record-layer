@@ -21,6 +21,7 @@ syntax = "proto2";
 
 package com.apple.foundationdb.record;
 import "google/protobuf/descriptor.proto";
+import "google/protobuf/any.proto";
 import "record_metadata.proto";
 
 option java_outer_classname = "RecordQueryPlanProto";
@@ -48,6 +49,7 @@ message PType {
     RECORD = 13;
     ARRAY = 14;
     RELATION = 15;
+    NONE = 16;
   }
 
   message PPrimitiveType {
@@ -127,8 +129,9 @@ message PCoercionTrieNode {
 message PCoercionBiFunction {
   extensions 5000 to max;
   oneof specific_function {
-    PPrimitiveCoercionBiFunction primitive_coercion_bi_function = 1;
-    PArrayCoercionBiFunction array_coercion_bi_function = 2;
+    google.protobuf.Any additional_coercion_bi_functions = 1;
+    PPrimitiveCoercionBiFunction primitive_coercion_bi_function = 2;
+    PArrayCoercionBiFunction array_coercion_bi_function = 3;
   }
 }
 
@@ -148,6 +151,7 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_STRING = 12;
     NULL_TO_ARRAY = 13;
     NULL_TO_RECORD = 14;
+    NONE_TO_ARRAY = 15;
   }
   optional PPhysicalOperator operator = 1;
 }
@@ -173,45 +177,45 @@ message PTransformationTrieNode {
 //
 message PValue {
   extensions 5000 to max;
-
   oneof specific_value {
-    PLightArrayConstructorValue light_array_constructor_value = 1;
-    PAndOrValue and_or_value = 2;
-    PArithmeticValue arithmetic_value = 3;
-    PConditionSelectorValue condition_selector_value = 4;
-    PConstantObjectValue constant_object_value = 5;
-    PConstantValue constant_value = 6;
-    PCountValue count_value = 7;
-    PDerivedValue derived_value = 8;
-    PEmptyValue empty_value = 9;
-    PExistsValue exists_value = 10;
-    PFieldValue field_value = 11;
-    PIndexedValue indexed_value = 12;
-    PMaxEverLongValue max_ever_long_value = 13;
-    PMinEverLongValue min_ever_long_value = 14;
-    PInOpValue in_op_value = 15;
-    PLikeOperatorValue like_operator_value = 16;
-    PLiteralValue literal_value = 17;
-    PNotValue not_value = 18;
-    PNullValue null_value = 19;
-    PNumericAggregationValue.PSum numeric_aggregation_value_sum = 20;
-    PNumericAggregationValue.PAvg numeric_aggregation_value_avg = 21;
-    PNumericAggregationValue.PMin numeric_aggregation_value_min = 22;
-    PNumericAggregationValue.PMax numeric_aggregation_value_max = 23;
-    PObjectValue object_value = 24;
-    POfTypeValue of_type_value = 25;
-    PPatternForLikeValue pattern_for_like_value = 26;
-    PPickValue pick_value = 27;
-    PPromoteValue promote_value = 28;
-    PQuantifiedObjectValue quantified_object_value = 29;
-    PQueriedValue queried_value = 30;
-    PRankValue rank_value = 31;
-    PRecordConstructorValue record_constructor_value = 32;
-    PRecordTypeValue record_type_value = 33;
-    PBinaryRelOpValue binary_rel_op_value = 34;
-    PUnaryRelOpValue unary_rel_op_value = 35;
-    PVariadicFunctionValue variadic_function_value = 36;
-    PVersionValue version_value = 37;
+    google.protobuf.Any additional_values = 1;
+    PLightArrayConstructorValue light_array_constructor_value = 2;
+    PAndOrValue and_or_value = 3;
+    PArithmeticValue arithmetic_value = 4;
+    PConditionSelectorValue condition_selector_value = 5;
+    PConstantObjectValue constant_object_value = 6;
+    PConstantValue constant_value = 7;
+    PCountValue count_value = 8;
+    PDerivedValue derived_value = 9;
+    PEmptyValue empty_value = 10;
+    PExistsValue exists_value = 11;
+    PFieldValue field_value = 12;
+    PIndexedValue indexed_value = 13;
+    PMaxEverLongValue max_ever_long_value = 14;
+    PMinEverLongValue min_ever_long_value = 15;
+    PInOpValue in_op_value = 16;
+    PLikeOperatorValue like_operator_value = 17;
+    PLiteralValue literal_value = 18;
+    PNotValue not_value = 19;
+    PNullValue null_value = 20;
+    PNumericAggregationValue.PSum numeric_aggregation_value_sum = 21;
+    PNumericAggregationValue.PAvg numeric_aggregation_value_avg = 22;
+    PNumericAggregationValue.PMin numeric_aggregation_value_min = 23;
+    PNumericAggregationValue.PMax numeric_aggregation_value_max = 24;
+    PObjectValue object_value = 25;
+    POfTypeValue of_type_value = 26;
+    PPatternForLikeValue pattern_for_like_value = 27;
+    PPickValue pick_value = 28;
+    PPromoteValue promote_value = 29;
+    PQuantifiedObjectValue quantified_object_value = 30;
+    PQueriedValue queried_value = 31;
+    PRankValue rank_value = 32;
+    PRecordConstructorValue record_constructor_value = 33;
+    PRecordTypeValue record_type_value = 34;
+    PBinaryRelOpValue binary_rel_op_value = 35;
+    PUnaryRelOpValue unary_rel_op_value = 36;
+    PVariadicFunctionValue variadic_function_value = 37;
+    PVersionValue version_value = 38;
   }
 }
 
@@ -852,8 +856,6 @@ message PWindowedValue {
 // Comparisons
 //
 message PComparison {
-  extensions 5000 to max;
-
   enum PComparisonType {
     EQUALS = 1;
     NOT_EQUALS = 2;
@@ -869,16 +871,18 @@ message PComparison {
     LIKE = 12;
   }
 
+  extensions 5000 to max;
   oneof specific_comparison {
-    PSimpleComparison simple_comparison = 1;
-    PParameterComparison parameter_comparison = 2;
-    PValueComparison value_comparison = 3;
-    PListComparison list_comparison = 4;
-    PNullComparison null_comparison = 5;
-    POpaqueEqualityComparison opaque_equality_comparison = 6;
-    PMultiColumnComparison multi_column_comparison = 7;
-    PInvertedFunctionComparison inverted_function_comparison = 8;
-    PRecordTypeKeyComparison record_type_key_comparison = 9;
+    google.protobuf.Any additional_comparisons = 1;
+    PSimpleComparison simple_comparison = 2;
+    PParameterComparison parameter_comparison = 3;
+    PValueComparison value_comparison = 4;
+    PListComparison list_comparison = 5;
+    PNullComparison null_comparison = 6;
+    POpaqueEqualityComparison opaque_equality_comparison = 7;
+    PMultiColumnComparison multi_column_comparison = 8;
+    PInvertedFunctionComparison inverted_function_comparison = 9;
+    PRecordTypeKeyComparison record_type_key_comparison = 10;
   }
 }
 
@@ -955,15 +959,15 @@ message PRecordTypeKeyComparison {
 //
 message PQueryPredicate {
   extensions 5000 to max;
-
   oneof specific_predicate {
-      PAndPredicate and_predicate = 1;
-      PConstantPredicate constant_predicate = 2;
-      PExistsPredicate exists_predicate = 3;
-      PNotPredicate not_predicate = 4;
-      POrPredicate or_predicate = 5;
-      PPredicateWithValueAndRanges predicate_with_value_and_ranges = 6;
-      PValuePredicate value_predicate = 7;
+      google.protobuf.Any additional_query_predicates = 1;
+      PAndPredicate and_predicate = 2;
+      PConstantPredicate constant_predicate = 3;
+      PExistsPredicate exists_predicate = 4;
+      PNotPredicate not_predicate = 5;
+      POrPredicate or_predicate = 6;
+      PPredicateWithValueAndRanges predicate_with_value_and_ranges = 7;
+      PValuePredicate value_predicate = 8;
   }
 }
 
@@ -1039,37 +1043,38 @@ message PPlanReference {
 message PRecordQueryPlan {
   extensions 5000 to max;
   oneof specific_plan {
-    PRecordQueryAggregateIndexPlan aggregate_index_plan = 57;
-    PRecordQueryCoveringIndexPlan covering_index_plan = 1;
-    PRecordQueryDamPlan dam_plan = 31;
-    PRecordQueryDeletePlan delete_plan = 2;
-    PRecordQueryExplodePlan explode_plan = 30;
-    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 3;
-    PRecordQueryFirstOrDefaultPlan first_or_default_plan = 41;
-    PRecordQueryFlatMapPlan flat_map_plan = 4;
-    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 5;
-    PRecordQueryIndexPlan record_query_index_plan = 6;
-    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 7;
-    PRecordQueryInsertPlan insert_plan = 8;
-    PRecordQueryIntersectionOnKeyExpressionPlan intersection_on_key_expression_plan = 9;
-    PRecordQueryIntersectionOnValuesPlan intersection_on_values_plan = 10;
-    PRecordQueryInUnionOnKeyExpressionPlan in_union_on_key_expression_plan = 42;
-    PRecordQueryInUnionOnValuesPlan in_union_on_values_plan = 43;
-    PRecordQueryInValuesJoinPlan in_values_join_plan = 11;
-    PRecordQueryMapPlan map_plan = 12;
-    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 13;
-    PRecordQueryRangePlan range_plan = 345;
-    PRecordQueryScanPlan scan_plan = 14;
-    PRecordQueryScoreForRankPlan score_for_rank_plan = 44;
-    PRecordQuerySortPlan sort_plan = 15;
-    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 16;
-    PRecordQueryTypeFilterPlan type_filter_plan = 17;
-    PRecordQueryUnionOnKeyExpressionPlan union_on_key_expression_plan = 23;
-    PRecordQueryUnionOnValuesPlan union_on_values_plan = 26;
-    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 18;
-    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 25;
-    PRecordQueryUnorderedUnionPlan unordered_union_plan = 24;
-    PRecordQueryUpdatePlan update_plan = 19;
+    google.protobuf.Any additional_plans = 1;
+    PRecordQueryAggregateIndexPlan aggregate_index_plan = 2;
+    PRecordQueryCoveringIndexPlan covering_index_plan = 3;
+    PRecordQueryDamPlan dam_plan = 4;
+    PRecordQueryDeletePlan delete_plan = 5;
+    PRecordQueryExplodePlan explode_plan = 6;
+    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 7;
+    PRecordQueryFirstOrDefaultPlan first_or_default_plan = 8;
+    PRecordQueryFlatMapPlan flat_map_plan = 9;
+    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 10;
+    PRecordQueryIndexPlan record_query_index_plan = 11;
+    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 12;
+    PRecordQueryInsertPlan insert_plan = 13;
+    PRecordQueryIntersectionOnKeyExpressionPlan intersection_on_key_expression_plan = 14;
+    PRecordQueryIntersectionOnValuesPlan intersection_on_values_plan = 15;
+    PRecordQueryInUnionOnKeyExpressionPlan in_union_on_key_expression_plan = 16;
+    PRecordQueryInUnionOnValuesPlan in_union_on_values_plan = 17;
+    PRecordQueryInValuesJoinPlan in_values_join_plan = 18;
+    PRecordQueryMapPlan map_plan = 19;
+    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 20;
+    PRecordQueryRangePlan range_plan = 21;
+    PRecordQueryScanPlan scan_plan = 22;
+    PRecordQueryScoreForRankPlan score_for_rank_plan = 23;
+    PRecordQuerySortPlan sort_plan = 24;
+    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 25;
+    PRecordQueryTypeFilterPlan type_filter_plan = 26;
+    PRecordQueryUnionOnKeyExpressionPlan union_on_key_expression_plan = 27;
+    PRecordQueryUnionOnValuesPlan union_on_values_plan = 28;
+    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 29;
+    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
+    PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
+    PRecordQueryUpdatePlan update_plan = 32;
   }
 }
 
@@ -1112,11 +1117,12 @@ message PRecordQueryCoveringIndexPlan {
 
 message PIndexKeyValueToPartialRecord {
   message PCopier {
-      extensions 5000 to max;
-      oneof specific_copier {
-        PFieldCopier field_copier = 1;
-        PMessageCopier message_copier = 2;
-      }
+    extensions 5000 to max;
+    oneof specific_copier {
+      google.protobuf.Any additional_copiers = 1;
+      PFieldCopier field_copier = 2;
+      PMessageCopier message_copier = 3;
+    }
   }
 
   message PFieldCopier {
@@ -1143,7 +1149,8 @@ message PIndexKeyValueToPartialRecord {
 
     extensions 5000 to max;
     oneof specific_copy_if_predicate {
-       PTruePredicate true_predicate = 1;
+      google.protobuf.Any additional_copy_if_predicate = 101;
+      PTruePredicate true_predicate = 1;
        PConditionalUponPathPredicate conditional_upon_path_predicate = 2;
     }
   }
@@ -1231,9 +1238,10 @@ message PRecordQueryIndexPlan {
 message PIndexScanParameters {
   extensions 5000 to max;
   oneof specific_index_scan_parameters {
-    PIndexScanComparisons index_scan_comparisons = 1;
-    PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 2;
-    PTimeWindowScanComparisons time_window_scan_comparisons = 3;
+    google.protobuf.Any additional_index_scan_parameters = 1;
+    PIndexScanComparisons index_scan_comparisons = 2;
+    PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
+    PTimeWindowScanComparisons time_window_scan_comparisons = 4;
   }
 }
 

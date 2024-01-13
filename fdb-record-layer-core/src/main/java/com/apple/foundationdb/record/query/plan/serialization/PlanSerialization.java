@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -30,160 +28,28 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PEnumLightValue;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
+import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
-import java.util.Enumeration;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
  * Class to facilitate serialization and deserialization of
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s.
  */
 public class PlanSerialization {
-    private static final Logger logger = LoggerFactory.getLogger(PlanSerialization.class);
-
-    private static final String PREFIX = "META-INF/services/";
-
-    private static final Map<Class<? extends Message>, Method> fromProtoMapMethodMap =
-            loadFromProtoMethodMap();
-
-    /**
-     * Parse a single line from the given configuration file, adding the
-     * name on the line to set of names if not already seen.
-     */
-    private static int parseLine(BufferedReader r, int lc, Set<String> namesAlreadySeen, Set<String> names)
-            throws IOException
-    {
-        String ln = r.readLine();
-        if (ln == null) {
-            return -1;
-        }
-        int ci = ln.indexOf('#');
-        if (ci >= 0) {
-            ln = ln.substring(0, ci);
-        }
-        ln = ln.trim();
-        int n = ln.length();
-        if (n != 0) {
-            if ((ln.indexOf(' ') >= 0) || (ln.indexOf('\t') >= 0)) {
-                throw new RecordCoreException("Illegal configuration-file syntax");
-            }
-            int cp = ln.codePointAt(0);
-            if (!Character.isJavaIdentifierStart(cp)) {
-                throw new RecordCoreException("Illegal provider-class name: " + ln);
-            }
-            int start = Character.charCount(cp);
-            for (int i = start; i < n; i += Character.charCount(cp)) {
-                cp = ln.codePointAt(i);
-                if (!Character.isJavaIdentifierPart(cp) && (cp != '.')) {
-                    throw new RecordCoreException("Illegal provider-class name: " + ln);
-                }
-            }
-            if (namesAlreadySeen.add(ln)) {
-                names.add(ln);
-            }
-        }
-        return lc + 1;
-    }
-
-    /**
-     * Parse the content of the given URL as a provider-configuration file.
-     */
-    @SuppressWarnings("StatementWithEmptyBody")
-    private static Stream<String> parse(final URL u, final Set<String> namesAlreadySeen) {
-        Set<String> names = new LinkedHashSet<>(); // preserve insertion order
-        try {
-            URLConnection uc = u.openConnection();
-            uc.setUseCaches(false);
-            try (InputStream in = uc.getInputStream();
-                     BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)))
-            {
-                int lc = 1;
-                while ((lc = parseLine(r, lc, namesAlreadySeen, names)) >= 0) {
-                    // nothing
-                }
-            }
-        } catch (IOException x) {
-            throw new RecordCoreException("Error accessing configuration file", x);
-        }
-        return names.stream();
-    }
-
-    @SuppressWarnings({"UnstableApiUsage", "unchecked"})
-    private static Map<Class<? extends Message>, Method> loadFromProtoMethodMap() {
-        Enumeration<URL> configs;
-        final ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        //if (configs == null) {
-        try {
-            String fullName = PREFIX + PlanSerializable.class.getName();
-            if (loader == null) {
-                configs = ClassLoader.getSystemResources(fullName);
-            } else {
-                configs = loader.getResources(fullName);
-            }
-        } catch (IOException x) {
-            throw new RecordCoreException("Error locating configuration files", x);
-        }
-        //}
-
-        Set<String> namesAlreadySeen = Sets.newHashSet();
-
-        return Streams.stream(configs.asIterator())
-                .flatMap(config -> parse(config, namesAlreadySeen))
-                .flatMap(className -> {
-                    try {
-                        return Stream.of(Class.forName(className));
-                    } catch (ClassNotFoundException e) {
-                        logger.warn("unable to find class for class name {}", className);
-                    }
-                    return Stream.empty();
-                })
-                .flatMap(clazz -> {
-                    try {
-                        if (!clazz.isAnnotationPresent(ProtoMessage.class)) {
-                            return Stream.empty();
-                        }
-                        final ProtoMessage annotation = Objects.requireNonNull(clazz.getAnnotation(ProtoMessage.class));
-                        if (!Message.class.isAssignableFrom(annotation.value())) {
-                            throw new RecordCoreException("unsupported serialization class");
-                        }
-                        return Stream.of(Pair.of((Class<? extends Message>)annotation.value(),
-                                clazz.getMethod("fromProto", PlanSerializationContext.class, annotation.value())));
-                    } catch (final NoSuchMethodException e) {
-                        logger.warn("unable to find static method {}.fromProto(...)", clazz.getSimpleName());
-                    }
-                    return Stream.empty();
-                })
-                .collect(ImmutableMap.toImmutableMap(p -> Objects.requireNonNull(p).getKey(), p -> Objects.requireNonNull(p).getValue()));
-    }
-
     @Nonnull
     public static PComparableObject valueObjectToProto(@Nullable final Object object) {
         final PComparableObject.Builder builder = PComparableObject.newBuilder();
@@ -216,6 +82,11 @@ public class PlanSerialization {
     }
 
     @Nonnull
+    public static Any protoObjectToAny(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final Message proto) {
+        return Any.pack(proto, serializationContext.getRegistry().getTypeUrlPrefix());
+    }
+
+    @Nonnull
     public static Object dispatchFromProtoContainer(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
         final Map<Descriptors.FieldDescriptor, Object> allFields = message.getAllFields();
         Verify.verify(allFields.size() == 1);
@@ -224,11 +95,19 @@ public class PlanSerialization {
     }
 
     @Nonnull
-    public static Object dispatchFromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
-        final Method fromProtoMethod = fromProtoMapMethodMap.get(message.getClass());
-        if (fromProtoMethod == null) {
-            throw new RecordCoreException("unable to dispatch for message of class " + message.getClass());
+    public static Object dispatchFromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull Message message) {
+        final PlanSerializationRegistry registry = serializationContext.getRegistry();
+        if (message instanceof Any) {
+            final Any any = (Any)message;
+            final Class<? extends Message> messageClass = registry.lookUpMessageClass(any.getTypeUrl());
+            try {
+                message = any.unpack(messageClass);
+            } catch (InvalidProtocolBufferException e) {
+                throw new RecordCoreException("corrupt any field", e);
+            }
         }
+        final Method fromProtoMethod = registry.lookUpFromProto(message.getClass());
+
         try {
             return Objects.requireNonNull(fromProtoMethod.invoke(null, serializationContext, message));
         } catch (IllegalAccessException | InvocationTargetException e) {

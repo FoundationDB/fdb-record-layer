@@ -30,9 +30,11 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInValuesSource;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
@@ -40,6 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Helper class which represents a specialized {@link InSource} whose input is a list of literal values.
@@ -56,6 +59,10 @@ public class InValuesSource extends InSource {
 
     @Nonnull
     private final List<Object> values;
+
+    @Nonnull
+    private final Supplier<List<Object>> valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(getValues(),
+            Comparisons::toClassWithRealEquals));
 
     protected InValuesSource(@Nonnull final PlanSerializationContext serializationContext,
                              @Nonnull final PInValuesSource inValuesSourceProto) {
@@ -77,10 +84,16 @@ public class InValuesSource extends InSource {
         return values;
     }
 
+
     @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         return values;
+    }
+
+    @Nonnull
+    public List<Object> getValuesWithRealEquals() {
+        return valuesWithRealEqualsSupplier.get();
     }
 
     @Override
@@ -134,12 +147,12 @@ public class InValuesSource extends InSource {
         if (!getBindingName().equals(inValuesSource.getBindingName())) {
             return false;
         }
-        return values.equals(inValuesSource.values);
+        return getValuesWithRealEquals().equals(inValuesSource.getValuesWithRealEquals());
     }
 
     @Override
     public int hashCode() {
-        return values.hashCode();
+        return getValuesWithRealEquals().hashCode();
     }
 
     @Nonnull

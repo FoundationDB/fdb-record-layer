@@ -96,10 +96,10 @@ public class Column<V extends Value> implements PlanHashable, PlanSerializable {
     @Nonnull
     @Override
     public PColumn toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        PColumn.Builder builder = PColumn.newBuilder();
-        builder.setField(field.toProto(serializationContext));
-        builder.setValue(value.toValueProto(serializationContext));
-        return builder.build();
+        return PColumn.newBuilder()
+                .setField(field.toProto(serializationContext))
+                .setValue(value.toValueProto(serializationContext))
+                .build();
     }
 
     @Nonnull

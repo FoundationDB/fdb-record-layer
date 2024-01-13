@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
@@ -35,12 +35,11 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFu
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFunction.PPhysicalOperator;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPromoteValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
@@ -64,9 +63,11 @@ import java.util.function.BiFunction;
 @AutoService(PlanSerializable.class)
 @ProtoMessage(PPromoteValue.class)
 public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
-    // This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
-    // applied to our data model
-    private enum PhysicalOperator {
+    /**
+     * This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
+     * applied to our data model.
+     */
+    enum PhysicalOperator {
         INT_TO_LONG(Type.TypeCode.INT, Type.TypeCode.LONG, (descriptor, in) -> Long.valueOf((Integer)in)),
         INT_TO_FLOAT(Type.TypeCode.INT, Type.TypeCode.FLOAT, (descriptor, in) -> Float.valueOf((Integer)in)),
         INT_TO_DOUBLE(Type.TypeCode.INT, Type.TypeCode.DOUBLE, (descriptor, in) -> Double.valueOf((Integer)in)),
@@ -80,7 +81,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         NULL_TO_BOOLEAN(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (descriptor, in) -> (Boolean) null),
         NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> (String) null),
         NULL_TO_ARRAY(Type.TypeCode.NULL, Type.TypeCode.ARRAY, (descriptor, in) -> null),
-        NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null);
+        NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
+        NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in);
 
         PhysicalOperator(@Nonnull final Type.TypeCode from, @Nonnull final Type.TypeCode to,
                          @Nonnull final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction) {
@@ -109,6 +111,10 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         @Nonnull
         public BiFunction<Descriptors.Descriptor, Object, Object> getPromotionFunction() {
             return promotionFunction;
+        }
+
+        public Object apply(@Nullable final Descriptors.Descriptor descriptor, @Nullable Object in) {
+            return promotionFunction.apply(descriptor, in);
         }
 
         @Nonnull
@@ -143,6 +149,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
                     return PPhysicalOperator.NULL_TO_ARRAY;
                 case NULL_TO_RECORD:
                     return PPhysicalOperator.NULL_TO_RECORD;
+                case NONE_TO_ARRAY:
+                    return PPhysicalOperator.NONE_TO_ARRAY;
                 default:
                     throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
             }
@@ -181,6 +189,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
                     return NULL_TO_ARRAY;
                 case NULL_TO_RECORD:
                     return NULL_TO_RECORD;
+                case NONE_TO_ARRAY:
+                    return NONE_TO_ARRAY;
                 default:
                     throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
             }
@@ -194,9 +204,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         for (final var operator : PhysicalOperator.values()) {
             mapBuilder.put(Pair.of(operator.getFrom(), operator.getTo()), operator);
         }
-        PROMOTION_MAP = mapBuilder.put(Pair.of(Type.TypeCode.NONE, Type.TypeCode.ARRAY), (descriptor, in) -> in)
-                    .build();
+        PROMOTION_MAP = mapBuilder.build();
     }
+
     /**
      * The hash value of this expression.
      */
@@ -417,7 +427,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     }
 
     @Nullable
-    private static PhysicalOperator resolvePhysicalOperator(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    static PhysicalOperator resolvePhysicalOperator(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
         return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 
@@ -456,7 +466,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
         @Override
         public Object apply(final Descriptors.Descriptor targetDescriptor, final Object current) {
-            return operator.getPromotionFunction().apply(targetDescriptor, current);
+            return operator.apply(targetDescriptor, current);
         }
 
         @Override

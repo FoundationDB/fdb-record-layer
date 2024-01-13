@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPlanReference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -33,19 +35,31 @@ import java.util.Objects;
  * TBD.
  */
 public class PlanSerializationContext {
+
+    @Nonnull
+    private final PlanSerializationRegistry registry;
     @Nonnull
     private final PlanHashMode mode;
 
     @Nonnull
     private final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap;
 
-    public PlanSerializationContext(@Nonnull final PlanHashMode mode) {
-        this(mode, IdentityBiMap.create());
+    public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
+                                    @Nonnull final PlanHashMode mode) {
+        this(registry, mode, IdentityBiMap.create());
     }
 
-    public PlanSerializationContext(@Nonnull final PlanHashMode mode, @Nonnull final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap) {
+    public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
+                                    @Nonnull final PlanHashMode mode,
+                                    @Nonnull final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap) {
+        this.registry = registry;
         this.mode = mode;
         this.knownPlansMap = knownPlansMap;
+    }
+
+    @Nonnull
+    public PlanSerializationRegistry getRegistry() {
+        return registry;
     }
 
     @Nonnull
@@ -55,7 +69,12 @@ public class PlanSerializationContext {
 
     @Nonnull
     public static PlanSerializationContext newForCurrentMode() {
-        return new PlanSerializationContext(PlanHashable.CURRENT_FOR_CONTINUATION);
+        return newForCurrentMode(new DefaultPlanSerializationRegistry());
+    }
+
+    @Nonnull
+    public static PlanSerializationContext newForCurrentMode(@Nonnull final PlanSerializationRegistry registry) {
+        return new PlanSerializationContext(registry, PlanHashable.CURRENT_FOR_CONTINUATION);
     }
 
     @Nonnull

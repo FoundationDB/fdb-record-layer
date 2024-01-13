@@ -149,7 +149,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
                 .asBuilder()
                 .setIndexFetchMethod(useIndexPrefetch)
                 .build());
-        return planner.plan(query);
+        return planQuery(query);
     }
 
     protected byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier,

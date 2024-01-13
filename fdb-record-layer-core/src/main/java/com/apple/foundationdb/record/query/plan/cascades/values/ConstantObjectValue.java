@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.annotation.ProtoMessage;
@@ -143,9 +142,9 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         if (!promotionNeeded) {
             return obj;
         }
-        final var promotionFunction = PromoteValue.resolvePromotionFunction(objType, getResultType());
-        SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        return promotionFunction.apply(null, obj);
+        final var promotionOperator = PromoteValue.resolvePhysicalOperator(objType, getResultType());
+        SemanticException.check(promotionOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        return promotionOperator.apply(null, obj);
     }
 
     @Override

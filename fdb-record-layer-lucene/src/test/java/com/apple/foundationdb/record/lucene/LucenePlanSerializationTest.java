@@ -1,5 +1,5 @@
 /*
- * PlanSerializationTest.java
+ * LucenePlanSerializationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,7 +41,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 /**
  * Tests around plan serialization.
  */
-public class PlanSerializationTest {
+public class LucenePlanSerializationTest {
 
     private static final List<KeyExpression> COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS =
             List.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
@@ -65,7 +65,7 @@ public class PlanSerializationTest {
         final RecordQueryPlanProto.PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
         final RecordQueryPlanProto.PPlanReference parsedProto =
-                RecordQueryPlanProto.PPlanReference.parseFrom(bytes, LucenePlanSerialization.getExtensionRegistry());
+                RecordQueryPlanProto.PPlanReference.parseFrom(bytes);
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof LuceneIndexQueryPlan);

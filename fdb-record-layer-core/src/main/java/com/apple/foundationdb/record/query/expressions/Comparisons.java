@@ -200,7 +200,7 @@ public class Comparisons {
     }
 
     @SuppressWarnings("rawtypes")
-    private static Object toClassWithRealEquals(@Nullable Object obj) {
+    public static Object toClassWithRealEquals(@Nullable Object obj) {
         if (obj == null) {
             return null;
         } else if (obj instanceof ByteString) {
@@ -276,14 +276,26 @@ public class Comparisons {
         return LikeOperatorValue.likeOperation((String)value, (String)pattern);
     }
 
-    private static Boolean compareListStartsWith(@Nullable Object value, @Nullable List<?> comparand) {
+    public static Boolean compareListEquals(@Nullable Object value, @Nonnull List<?> comparand) {
+        if (value instanceof List<?>) {
+            List<?> list = (List<?>) value;
+            if (list.size() != comparand.size()) {
+                return false;
+            }
+            return compareListStartsWith(value, comparand);
+        } else {
+            throw new RecordCoreException("value from record did not match comparand");
+        }
+    }
+
+    private static Boolean compareListStartsWith(@Nullable Object value, @Nonnull List<?> comparand) {
         if (value instanceof List<?>) {
             List<?> list = (List<?>) value;
             for (int i = 0; i < comparand.size(); i++) {
                 if (i > list.size()) {
                     return false;
                 }
-                if (!comparand.get(i).equals(list.get(i))) {
+                if (!toClassWithRealEquals(comparand.get(i)).equals(toClassWithRealEquals(list.get(i)))) {
                     return false;
                 }
             }
@@ -646,6 +658,12 @@ public class Comparisons {
                     return PComparisonType.NOT_NULL;
                 case IS_NULL:
                     return PComparisonType.IS_NULL;
+                case IN:
+                    return PComparisonType.IN;
+                case SORT:
+                    return PComparisonType.SORT;
+                case LIKE:
+                    return PComparisonType.LIKE;
                 default:
                     throw new RecordCoreException("unknown comparison type mapping. did you forget to add it here?");
             }
@@ -674,6 +692,12 @@ public class Comparisons {
                     return NOT_NULL;
                 case IS_NULL:
                     return IS_NULL;
+                case IN:
+                    return IN;
+                case SORT:
+                    return SORT;
+                case LIKE:
+                    return LIKE;
                 default:
                     throw new RecordCoreException("unknown proto comparison type. did you forget to add it here?");
             }
@@ -743,13 +767,13 @@ public class Comparisons {
         }
         switch (type) {
             case EQUALS:
-                return value.equals(comparand);
+                return compareListEquals(value, Objects.requireNonNull(comparand));
             case NOT_EQUALS:
-                return !value.equals(comparand);
+                return !compareListEquals(value, Objects.requireNonNull(comparand));
             case STARTS_WITH:
-                return compareListStartsWith(value, comparand);
+                return compareListStartsWith(value, Objects.requireNonNull(comparand));
             case IN:
-                return compareIn(value, comparand);
+                return compareIn(value, Objects.requireNonNull(comparand));
             default:
                 throw new RecordCoreException("Only equals/not equals/starts with are supported for lists");
         }
@@ -1577,6 +1601,10 @@ public class Comparisons {
         @Nullable
         private final Descriptors.FieldDescriptor.JavaType javaType;
 
+        @Nonnull
+        @SuppressWarnings("rawtypes")
+        private final Supplier<List> comparandListWithEqualsSupplier;
+
         @SuppressWarnings({"rawtypes", "unchecked"})
         public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
             this.type = type;
@@ -1604,6 +1632,7 @@ public class Comparisons {
                 }
             }
             this.comparand = comparand;
+            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, Comparisons::toClassWithRealEquals));
         }
 
         private static Descriptors.FieldDescriptor.JavaType getJavaType(@Nonnull Object o) {
@@ -1650,6 +1679,12 @@ public class Comparisons {
         @SuppressWarnings("rawtypes")
         public List getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
+        }
+
+        @Nonnull
+        @SuppressWarnings("rawtypes")
+        public List getComparandWithRealEquals() {
+            return comparandListWithEqualsSupplier.get();
         }
 
         @Nonnull
@@ -1700,13 +1735,13 @@ public class Comparisons {
             }
             ListComparison that = (ListComparison) o;
             return type == that.type &&
-                    Objects.equals(comparand, that.comparand) &&
+                    Objects.equals(getComparandWithRealEquals(), that.getComparandWithRealEquals()) &&
                     javaType == that.javaType;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, comparand, javaType);
+            return Objects.hash(type, getComparandWithRealEquals(), javaType);
         }
 
         @Override

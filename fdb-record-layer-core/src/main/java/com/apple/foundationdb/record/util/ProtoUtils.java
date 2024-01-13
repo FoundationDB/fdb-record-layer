@@ -100,7 +100,7 @@ public class ProtoUtils {
 
         @Override
         public String toString() {
-            return String.valueOf(number);
+            return getName();
         }
     }
 }
