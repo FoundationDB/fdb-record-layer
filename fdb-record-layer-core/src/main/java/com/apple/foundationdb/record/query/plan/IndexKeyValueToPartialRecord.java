@@ -218,7 +218,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                      @Nonnull IndexEntry kv);
 
         @Nonnull
-        PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext);
+        PCopier toCopierProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static Copier fromCopierProto(@Nonnull final PlanSerializationContext serializationContext,

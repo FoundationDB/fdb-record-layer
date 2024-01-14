@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.EnumBiMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -36,6 +38,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -142,5 +145,25 @@ public class PlanSerialization {
             return fieldExtractor.apply(message);
         }
         return null;
+    }
+
+    @Nonnull
+    public static <E1 extends Enum<E1>, E2 extends Enum<E2> & ProtocolMessageEnum> BiMap<E1, E2> protoEnumBiMap(@Nonnull final Class<E1> javaEnumClass,
+                                                                                                                @Nonnull final Class<E2> protoEnumClass) {
+        Verify.verify(javaEnumClass.isEnum());
+        Verify.verify(protoEnumClass.isEnum());
+        final E1[] javaEnumConstants = javaEnumClass.getEnumConstants();
+        final E2[] protoEnumConstants = protoEnumClass.getEnumConstants();
+        Verify.verify(javaEnumConstants.length == protoEnumConstants.length);
+
+        final EnumBiMap<E1, E2> enumBiMap = EnumBiMap.create(javaEnumClass, protoEnumClass);
+        for (int i = 0; i < javaEnumConstants.length; i ++) {
+            final E1 e1 = javaEnumConstants[i];
+            final E2 e2 = protoEnumConstants[i];
+            Verify.verify(e1.ordinal() == e2.ordinal());
+            Verify.verify(e1.name().equals(e2.name()));
+            enumBiMap.put(e1, e2);
+        }
+        return enumBiMap;
     }
 }

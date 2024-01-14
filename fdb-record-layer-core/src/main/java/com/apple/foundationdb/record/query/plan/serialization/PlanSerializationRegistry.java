@@ -35,8 +35,8 @@ public interface PlanSerializationRegistry {
     String getTypeUrlPrefix();
 
     @Nonnull
-    Method lookUpFromProto(@Nonnull final Class<? extends Message> messageClass);
+    Method lookUpFromProto(@Nonnull Class<? extends Message> messageClass);
 
     @Nonnull
-    Class<? extends Message> lookUpMessageClass(@Nonnull final String typeUrl);
+    Class<? extends Message> lookUpMessageClass(@Nonnull String typeUrl);
 }

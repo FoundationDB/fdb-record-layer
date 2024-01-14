@@ -517,6 +517,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
+    @Nonnull
     protected RecordQueryPlan planQuery(@Nonnull final RecordQuery query) {
         return planQuery(this.planner, query);
     }
@@ -527,15 +528,27 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
-    protected static RecordQueryPlan planQuery(@Nonnull QueryPlanner planner, @Nonnull final RecordQuery query) {
+    @Nonnull
+    protected static RecordQueryPlan planQuery(@Nonnull final QueryPlanner planner, @Nonnull final RecordQuery query) {
         final RecordQueryPlan plannedPlan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             return plannedPlan;
         }
         Assertions.assertTrue(planner instanceof CascadesPlanner);
+        return verifySerialization(plannedPlan);
+    }
+
+    /**
+     * Serialize the plan to bytes, parse those bytes, reconstruct, and compare the deserialized plan against the
+     * original plan.
+     * @param plan the original plan
+     * @return the deserialized and verified plan
+     */
+    @Nonnull
+    protected static RecordQueryPlan verifySerialization(@Nonnull final RecordQueryPlan plan) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RecordQueryPlanProto.PRecordQueryPlan planProto = plannedPlan.toRecordQueryPlanProto(serializationContext);
+        final RecordQueryPlanProto.PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
         final byte[] serializedPlan = planProto.toByteArray();
         final RecordQueryPlanProto.PRecordQueryPlan parsedPlanProto;
         try {
@@ -547,8 +560,8 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
                 RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, parsedPlanProto);
-        Assertions.assertEquals(plannedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        Assertions.assertTrue(plannedPlan.structuralEquals(deserializedPlan));
+        Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertTrue(plan.structuralEquals(deserializedPlan));
         return deserializedPlan;
     }
 

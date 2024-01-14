@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PArrayCoercionBiFunction;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
@@ -41,9 +41,10 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 /**
  * A value that promotes an object of a type to an object of another type. Promotions in general agree with
@@ -84,12 +86,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in);
 
-        PhysicalOperator(@Nonnull final Type.TypeCode from, @Nonnull final Type.TypeCode to,
-                         @Nonnull final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction) {
-            this.from = from;
-            this.to = to;
-            this.promotionFunction = promotionFunction;
-        }
+        @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
 
         @Nonnull
         private final Type.TypeCode from;
@@ -97,6 +96,13 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         private final Type.TypeCode to;
         @Nonnull
         private final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction;
+
+        PhysicalOperator(@Nonnull final Type.TypeCode from, @Nonnull final Type.TypeCode to,
+                         @Nonnull final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction) {
+            this.from = from;
+            this.to = to;
+            this.promotionFunction = promotionFunction;
+        }
 
         @Nonnull
         public Type.TypeCode getFrom() {
@@ -120,80 +126,19 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         @Nonnull
         @SuppressWarnings("unused")
         public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            switch (this) {
-                case INT_TO_LONG:
-                    return PPhysicalOperator.INT_TO_LONG;
-                case INT_TO_FLOAT:
-                    return PPhysicalOperator.INT_TO_FLOAT;
-                case INT_TO_DOUBLE:
-                    return PPhysicalOperator.INT_TO_DOUBLE;
-                case LONG_TO_FLOAT:
-                    return PPhysicalOperator.LONG_TO_FLOAT;
-                case LONG_TO_DOUBLE:
-                    return PPhysicalOperator.LONG_TO_DOUBLE;
-                case FLOAT_TO_DOUBLE:
-                    return PPhysicalOperator.FLOAT_TO_DOUBLE;
-                case NULL_TO_INT:
-                    return PPhysicalOperator.NULL_TO_INT;
-                case NULL_TO_LONG:
-                    return PPhysicalOperator.NULL_TO_LONG;
-                case NULL_TO_FLOAT:
-                    return PPhysicalOperator.NULL_TO_FLOAT;
-                case NULL_TO_DOUBLE:
-                    return PPhysicalOperator.NULL_TO_DOUBLE;
-                case NULL_TO_BOOLEAN:
-                    return PPhysicalOperator.NULL_TO_BOOLEAN;
-                case NULL_TO_STRING:
-                    return PPhysicalOperator.NULL_TO_STRING;
-                case NULL_TO_ARRAY:
-                    return PPhysicalOperator.NULL_TO_ARRAY;
-                case NULL_TO_RECORD:
-                    return PPhysicalOperator.NULL_TO_RECORD;
-                case NONE_TO_ARRAY:
-                    return PPhysicalOperator.NONE_TO_ARRAY;
-                default:
-                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
-            }
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PPhysicalOperator operatorProto) {
-            switch (operatorProto) {
-                case INT_TO_LONG:
-                    return INT_TO_LONG;
-                case INT_TO_FLOAT:
-                    return INT_TO_FLOAT;
-                case INT_TO_DOUBLE:
-                    return INT_TO_DOUBLE;
-                case LONG_TO_FLOAT:
-                    return LONG_TO_FLOAT;
-                case LONG_TO_DOUBLE:
-                    return LONG_TO_DOUBLE;
-                case FLOAT_TO_DOUBLE:
-                    return FLOAT_TO_DOUBLE;
-                case NULL_TO_INT:
-                    return NULL_TO_INT;
-                case NULL_TO_LONG:
-                    return NULL_TO_LONG;
-                case NULL_TO_FLOAT:
-                    return NULL_TO_FLOAT;
-                case NULL_TO_DOUBLE:
-                    return NULL_TO_DOUBLE;
-                case NULL_TO_BOOLEAN:
-                    return NULL_TO_BOOLEAN;
-                case NULL_TO_STRING:
-                    return NULL_TO_STRING;
-                case NULL_TO_ARRAY:
-                    return NULL_TO_ARRAY;
-                case NULL_TO_RECORD:
-                    return NULL_TO_RECORD;
-                case NONE_TO_ARRAY:
-                    return NONE_TO_ARRAY;
-                default:
-                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
-            }
+                                                 @Nonnull PPhysicalOperator physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 
@@ -470,8 +415,25 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(operator.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof PrimitiveCoercionBiFunction)) {
+                return false;
+            }
+            final PrimitiveCoercionBiFunction that = (PrimitiveCoercionBiFunction)o;
+            return operator == that.operator;
+        }
+
+        @Override
         public int planHash(@Nonnull final PlanHashMode hashMode) {
-            return PlanHashable.objectsPlanHash(hashMode, operator.name());
+            return PlanHashable.objectsPlanHash(hashMode, operator);
         }
 
         @Nonnull
@@ -499,7 +461,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     /**
      * Coercion function for arrays.
      */
-    @AutoService(PlanSerialization.class)
+    @AutoService(PlanSerializable.class)
     @ProtoMessage(PArrayCoercionBiFunction.class)
     public static class ArrayCoercionBiFunction implements MessageHelpers.CoercionBiFunction {
         @Nonnull
@@ -520,6 +482,25 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         @Override
         public Object apply(final Descriptors.Descriptor targetDescriptor, final Object current) {
             return MessageHelpers.coerceArray(toArrayType, fromArrayType, targetDescriptor, elementsTrie, current);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(fromArrayType, toArrayType, elementsTrie);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ArrayCoercionBiFunction)) {
+                return false;
+            }
+            final ArrayCoercionBiFunction that = (ArrayCoercionBiFunction)o;
+            return Objects.equals(fromArrayType, that.fromArrayType) &&
+                    Objects.equals(toArrayType, that.toArrayType) &&
+                    Objects.equals(elementsTrie, that.elementsTrie);
         }
 
         @Override

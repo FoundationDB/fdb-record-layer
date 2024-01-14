@@ -54,6 +54,8 @@ import java.util.stream.Stream;
  * Default implementation of a plan serialization registry.
  */
 public class DefaultPlanSerializationRegistry implements PlanSerializationRegistry {
+    public static final PlanSerializationRegistry INSTANCE = new DefaultPlanSerializationRegistry();
+
     private static final Logger logger = LoggerFactory.getLogger(DefaultPlanSerializationRegistry.class);
 
     private static final String PREFIX = "META-INF/services/";
@@ -135,7 +137,6 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
      * Parse the content of the given URL as a provider-configuration file.
      */
     @Nonnull
-    @SuppressWarnings("StatementWithEmptyBody")
     private static Stream<String> parse(final URL u, final Set<String> namesAlreadySeen) {
         Set<String> names = new LinkedHashSet<>(); // preserve insertion order
         try {
@@ -145,9 +146,9 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
                     BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)))
             {
                 int lc = 1;
-                while ((lc = parseLine(r, lc, namesAlreadySeen, names)) >= 0) {
-                    // nothing
-                }
+                do {
+                    lc = parseLine(r, lc, namesAlreadySeen, names);
+                } while (lc > 0);
             }
         } catch (IOException x) {
             throw new RecordCoreException("Error accessing configuration file", x);
@@ -182,7 +183,9 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
                     try {
                         return Stream.of(Class.forName(className));
                     } catch (ClassNotFoundException e) {
-                        logger.warn("unable to find class for class name {}", className);
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("unable to find class for class name {}", className);
+                        }
                     }
                     return Stream.empty();
                 })
@@ -199,7 +202,9 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
                         fromProtoMethod =
                                 clazz.getMethod("fromProto", PlanSerializationContext.class, annotation.value());
                     } catch (final NoSuchMethodException e) {
-                        logger.warn("unable to find static method {}.fromProto(...)", clazz.getSimpleName());
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("unable to find static method {}.fromProto(...)", clazz.getSimpleName());
+                        }
                         return;
                     }
 
@@ -210,14 +215,14 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
                     try {
                         getDescriptorMethod = protoMessageClass.getMethod("getDescriptor");
                     } catch (final NoSuchMethodException e) {
-                        throw new RecordCoreException("unable to find getDescriptor() method");
+                        throw new RecordCoreException("unable to find getDescriptor() method", e);
                     }
 
                     final Descriptors.Descriptor protoMessageDescriptor;
                     try {
                         protoMessageDescriptor = (Descriptors.Descriptor)getDescriptorMethod.invoke(null);
                     } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RecordCoreException("unable to invoke getDescriptor Method");
+                        throw new RecordCoreException("unable to invoke getDescriptor Method", e);
                     }
                     fromProtoTypeUrlClassMapBuilder.put(getTypeUrl(protoMessageDescriptor), protoMessageClass);
                 });

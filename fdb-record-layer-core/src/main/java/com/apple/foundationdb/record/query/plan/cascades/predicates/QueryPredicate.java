@@ -386,7 +386,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext);
+    RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static QueryPredicate fromQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext,

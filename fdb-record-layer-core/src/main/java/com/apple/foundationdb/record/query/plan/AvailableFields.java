@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -265,6 +266,7 @@ public class AvailableFields {
     }
 
     @Nonnull
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private static FieldData constrainFieldData(@Nonnull final RecordType recordType,
                                                 @Nonnull final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
                                                 @Nonnull final KeyExpression keyField,
@@ -283,7 +285,7 @@ public class AvailableFields {
         }
 
         if ((constituentName != null) && constituentNameToPathMap.containsKey(constituentName)) {
-            final ImmutableIntArray conditionalPath = constituentNameToPathMap.get(constituentName);
+            final ImmutableIntArray conditionalPath = Objects.requireNonNull(constituentNameToPathMap.get(constituentName));
             return FieldData.ofConditional(IndexKeyValueToPartialRecord.TupleSource.KEY, path, conditionalPath);
         } else {
             return FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, path);
@@ -392,10 +394,15 @@ public class AvailableFields {
         }
     }
 
+    /**
+     * A predicate that tests whether a copy in
+     * {@link com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.Copier} is necessary. In addition,
+     * this predicate is also {@link PlanHashable} and {@link PlanSerializable}.
+     */
     @API(API.Status.INTERNAL)
     public interface CopyIfPredicate extends Predicate<Tuple>, PlanHashable, PlanSerializable {
         @Nonnull
-        PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext);
+        PCopyIfPredicate toCopyIfPredicateProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static CopyIfPredicate fromCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
@@ -404,6 +411,9 @@ public class AvailableFields {
         }
     }
 
+    /**
+     * A copy-if-predicate that always returns {@code true}.
+     */
     @AutoService(PlanSerializable.class)
     @ProtoMessage(PTruePredicate.class)
     public static class TruePredicate implements CopyIfPredicate {
@@ -438,6 +448,9 @@ public class AvailableFields {
         }
     }
 
+    /**
+     * A copy-if-predicate that returns {@code true} if a particula ordinal path already exists in the tuple.
+     */
     @AutoService(PlanSerializable.class)
     @ProtoMessage(PConditionalUponPathPredicate.class)
     public static class ConditionalUponPathPredicate implements CopyIfPredicate {

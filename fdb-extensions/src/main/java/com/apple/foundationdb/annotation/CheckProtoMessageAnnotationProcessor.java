@@ -74,9 +74,7 @@ public class CheckProtoMessageAnnotationProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         final var elementUtils = processingEnv.getElementUtils();
-        final var typeUtils = processingEnv.getTypeUtils();
         final var messager = processingEnv.getMessager();
-        final var filer = processingEnv.getFiler();
 
 
         for (final Element annotatedElement : roundEnv.getElementsAnnotatedWith(ProtoMessage.class)) {
@@ -117,7 +115,7 @@ public class CheckProtoMessageAnnotationProcessor extends AbstractProcessor {
             final var protoMessageAnnotationMirror = Iterables.getOnlyElement(protoMessageAnnotationMirrors);
             final var valueMaybe = protoMessageAnnotationMirror.getElementValues().entrySet()
                     .stream()
-                    .filter(entry -> entry.getKey().getSimpleName().contentEquals(value))
+                    .filter(entry -> value.contentEquals(entry.getKey().getSimpleName()))
                     .map(Map.Entry::getValue)
                     .map(AnnotationValue::getValue)
                     .findFirst();
@@ -134,7 +132,7 @@ public class CheckProtoMessageAnnotationProcessor extends AbstractProcessor {
             final var methodsIn = ElementFilter.methodsIn(rootTypeElement.getEnclosedElements());
 
             final var fromProtoMethods = methodsIn.stream()
-                    .filter(method -> method.getSimpleName().contentEquals(fromProto))
+                    .filter(method -> fromProto.contentEquals(method.getSimpleName()))
                     .filter(fromProtoMethod -> fromProtoMethod.getReceiverType() == null)  // static method
                     .filter(fromProtoMethod -> {
                         final List<? extends VariableElement> parameters = fromProtoMethod.getParameters();

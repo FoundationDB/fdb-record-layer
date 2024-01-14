@@ -599,7 +599,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     @Nonnull
-    RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext);
+    RecordQueryPlanProto.PType toTypeProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static Type fromTypeProto(@Nonnull final PlanSerializationContext serializationContext,
@@ -2029,6 +2029,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             @Nonnull
+            @Override
             public PRecordType.PField toProto(@Nonnull final PlanSerializationContext serializationContext) {
                 final PRecordType.PField.Builder fieldProtoBuilder = PRecordType.PField.newBuilder();
                 fieldProtoBuilder.setFieldType(fieldType.toTypeProto(serializationContext));

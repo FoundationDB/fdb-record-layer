@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -54,7 +55,7 @@ public class PlanSerializationTest {
         final RecordQueryPlanProto.PValue parsedValueProto = RecordQueryPlanProto.PValue.parseFrom(valueBytes);
         final Value parsedValue = Value.fromValueProto(PlanSerializationContext.newForCurrentMode(), parsedValueProto);
         Verify.verify(parsedValue instanceof FieldValue);
-        System.out.println(parsedValue);
+        Assertions.assertEquals(fieldValue, parsedValue);
     }
 
     @Test
@@ -78,6 +79,6 @@ public class PlanSerializationTest {
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof RecordQueryIndexPlan);
-        System.out.println(parsedPlan);
+        Assertions.assertTrue(plan.semanticEquals(parsedPlan));
     }
 }

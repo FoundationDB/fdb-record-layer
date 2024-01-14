@@ -93,7 +93,7 @@ public abstract class InSource implements PlanHashable, PlanSerializable {
     }
 
     @Nonnull
-    protected abstract PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext);
+    protected abstract PInSource toInSourceProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     protected static InSource fromInSourceProto(@Nonnull final PlanSerializationContext serializationContext,

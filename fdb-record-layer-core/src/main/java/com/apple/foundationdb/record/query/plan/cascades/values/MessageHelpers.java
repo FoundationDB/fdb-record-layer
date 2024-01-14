@@ -693,7 +693,7 @@ public class MessageHelpers {
     public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
         @Nonnull
         @SuppressWarnings("unused")
-        PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext);
+        PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext,

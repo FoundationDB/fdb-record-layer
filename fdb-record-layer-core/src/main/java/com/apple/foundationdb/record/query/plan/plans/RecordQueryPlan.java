@@ -251,7 +251,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
             final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.derived();
 
-            AliasMap boundCorrelatedToMap = AliasMap.emptyMap();
+            AliasMap boundCorrelatedToMap;
 
             int i;
             for (i = 0; i < quantifiers.size(); i++) {
@@ -281,10 +281,10 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
     @Nonnull
     @Override
-    Message toProto(@Nonnull final PlanSerializationContext serializationContext);
+    Message toProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
-    RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext);
+    RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,

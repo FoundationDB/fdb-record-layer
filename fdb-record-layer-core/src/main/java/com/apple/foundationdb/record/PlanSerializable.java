@@ -26,14 +26,14 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 
 /**
- * Plan serialization.
+ * Base interface to indicate that a java class is reachable through a
+ * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} and therefore needs o be capable of
+ * serialization/deserialization. In addition to the {@link #toProto(PlanSerializationContext)} defined here
+ * each implementor also needs to provide a {@code public static fromProto(PlanSerializationContext, PClass)}
+ * method that we can dynamically dispatch to when deserializing a proto message.
  */
 @API(API.Status.UNSTABLE)
 public interface PlanSerializable {
-    //    @Nonnull
-    //    default Message toProto(@Nonnull final PlanHashable.PlanHashKind kind) {
-    //        throw new RecordCoreException("method not implemented for this object");
-    //    }
     @Nonnull
-    Message toProto(@Nonnull final PlanSerializationContext serializationContext);
+    Message toProto(@Nonnull PlanSerializationContext serializationContext);
 }

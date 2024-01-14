@@ -201,7 +201,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
 
         @Nonnull
-        PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext);
+        PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static ComparisonKeyFunction fromComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext,

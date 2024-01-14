@@ -69,6 +69,6 @@ public class LucenePlanSerializationTest {
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof LuceneIndexQueryPlan);
-        System.out.println(parsedPlan);
+        // TODO proper verification as we currently do not properly round-trip;
     }
 }

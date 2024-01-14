@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue.PPhysicalOperator;
@@ -39,11 +39,12 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -383,6 +384,10 @@ public class VariadicFunctionValue extends AbstractValue {
         COALESCE_ARRAY(ComparisonFunction.COALESCE, TypeCode.ARRAY, PhysicalOperator::coalesce);
 
         @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
+
+        @Nonnull
         private final ComparisonFunction comparisonFunction;
 
         @Nonnull
@@ -417,99 +422,19 @@ public class VariadicFunctionValue extends AbstractValue {
         @Nonnull
         @SuppressWarnings("unused")
         public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            switch (this) {
-                case GREATEST_INT:
-                    return PPhysicalOperator.GREATEST_INT;
-                case GREATEST_LONG:
-                    return PPhysicalOperator.GREATEST_LONG;
-                case GREATEST_BOOLEAN:
-                    return PPhysicalOperator.GREATEST_BOOLEAN;
-                case GREATEST_STRING:
-                    return PPhysicalOperator.GREATEST_STRING;
-                case GREATEST_FLOAT:
-                    return PPhysicalOperator.GREATEST_FLOAT;
-                case GREATEST_DOUBLE:
-                    return PPhysicalOperator.GREATEST_DOUBLE;
-                case LEAST_INT:
-                    return PPhysicalOperator.LEAST_INT;
-                case LEAST_LONG:
-                    return PPhysicalOperator.LEAST_LONG;
-                case LEAST_BOOLEAN:
-                    return PPhysicalOperator.LEAST_BOOLEAN;
-                case LEAST_STRING:
-                    return PPhysicalOperator.LEAST_STRING;
-                case LEAST_FLOAT:
-                    return PPhysicalOperator.LEAST_FLOAT;
-                case LEAST_DOUBLE:
-                    return PPhysicalOperator.LEAST_DOUBLE;
-                case COALESCE_INT:
-                    return PPhysicalOperator.COALESCE_INT;
-                case COALESCE_LONG:
-                    return PPhysicalOperator.COALESCE_LONG;
-                case COALESCE_BOOLEAN:
-                    return PPhysicalOperator.COALESCE_BOOLEAN;
-                case COALESCE_STRING:
-                    return PPhysicalOperator.COALESCE_STRING;
-                case COALESCE_FLOAT:
-                    return PPhysicalOperator.COALESCE_FLOAT;
-                case COALESCE_DOUBLE:
-                    return PPhysicalOperator.COALESCE_DOUBLE;
-                case COALESCE_RECORD:
-                    return PPhysicalOperator.COALESCE_RECORD;
-                case COALESCE_ARRAY:
-                    return PPhysicalOperator.COALESCE_ARRAY;
-                default:
-                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
-            }
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
         @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PPhysicalOperator physicalOperatorProto) {
-            switch (physicalOperatorProto) {
-                case GREATEST_INT:
-                    return GREATEST_INT;
-                case GREATEST_LONG:
-                    return GREATEST_LONG;
-                case GREATEST_BOOLEAN:
-                    return GREATEST_BOOLEAN;
-                case GREATEST_STRING:
-                    return GREATEST_STRING;
-                case GREATEST_FLOAT:
-                    return GREATEST_FLOAT;
-                case GREATEST_DOUBLE:
-                    return GREATEST_DOUBLE;
-                case LEAST_INT:
-                    return LEAST_INT;
-                case LEAST_LONG:
-                    return LEAST_LONG;
-                case LEAST_BOOLEAN:
-                    return LEAST_BOOLEAN;
-                case LEAST_STRING:
-                    return LEAST_STRING;
-                case LEAST_FLOAT:
-                    return LEAST_FLOAT;
-                case LEAST_DOUBLE:
-                    return LEAST_DOUBLE;
-                case COALESCE_INT:
-                    return COALESCE_INT;
-                case COALESCE_LONG:
-                    return COALESCE_LONG;
-                case COALESCE_BOOLEAN:
-                    return COALESCE_BOOLEAN;
-                case COALESCE_STRING:
-                    return COALESCE_STRING;
-                case COALESCE_FLOAT:
-                    return COALESCE_FLOAT;
-                case COALESCE_DOUBLE:
-                    return COALESCE_DOUBLE;
-                case COALESCE_RECORD:
-                    return COALESCE_RECORD;
-                case COALESCE_ARRAY:
-                    return COALESCE_ARRAY;
-                default:
-                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
-            }
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
 
         private static Object coalesce(final List<Object> args) {

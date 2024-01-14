@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -92,6 +94,8 @@ import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
@@ -289,6 +293,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
 
+    @Nonnull
+    private final PlanSerializationRegistry planSerializationRegistry;
+
     @SuppressWarnings("squid:S00107")
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
                              @Nonnull SubspaceProvider subspaceProvider,
@@ -300,7 +307,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
                              @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
-                             @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
+                             @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker,
+                             @Nonnull PlanSerializationRegistry planSerializationRegistry) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
@@ -313,6 +321,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.userVersionChecker = userVersionChecker;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
+        this.planSerializationRegistry = planSerializationRegistry;
     }
 
     @Override
@@ -419,6 +428,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public IndexMaintenanceFilter getIndexMaintenanceFilter() {
         return indexMaintenanceFilter;
+    }
+
+    /**
+     * Method to return the {@link PlanSerializationRegistry} in use.
+     * @return the current {@link PlanSerializationRegistry}
+     */
+    @Nonnull
+    public PlanSerializationRegistry getPlanSerializationRegistry() {
+        return planSerializationRegistry;
     }
 
     /**
@@ -875,6 +893,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
         return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
+    }
+
+    @Nonnull
+    public PlanSerializationContext newPlanSerializationContext(@Nonnull final PlanHashable.PlanHashMode mode) {
+        return new PlanSerializationContext(planSerializationRegistry, mode);
     }
 
     public int getKeySizeLimit() {
@@ -4848,6 +4871,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         private StateCacheabilityOnOpen stateCacheabilityOnOpen = StateCacheabilityOnOpen.DEFAULT;
 
+        @Nonnull
+        private PlanSerializationRegistry planSerializationRegistry = DefaultPlanSerializationRegistry.INSTANCE;
+
         protected Builder() {
         }
 
@@ -4876,6 +4902,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.pipelineSizer = other.pipelineSizer;
             this.storeStateCache = other.storeStateCache;
             this.stateCacheabilityOnOpen = other.stateCacheabilityOnOpen;
+            this.planSerializationRegistry = other.planSerializationRegistry;
         }
 
         /**
@@ -4894,6 +4921,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.pipelineSizer = store.pipelineSizer;
             this.storeStateCache = store.storeStateCache;
             this.stateCacheabilityOnOpen = store.stateCacheabilityOnOpen;
+            this.planSerializationRegistry = store.planSerializationRegistry;
         }
 
         @Override
@@ -5072,6 +5100,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return this;
         }
 
+        @Nonnull
+        public PlanSerializationRegistry getPlanSerializationRegistry() {
+            return planSerializationRegistry;
+        }
+
+        public void setPlanSerializationRegistry(@Nonnull final PlanSerializationRegistry planSerializationRegistry) {
+            this.planSerializationRegistry = planSerializationRegistry;
+        }
+
         @Override
         @Nonnull
         public Builder copyBuilder() {
@@ -5094,7 +5131,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
                     serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache, stateCacheabilityOnOpen,
-                    userVersionChecker);
+                    userVersionChecker, planSerializationRegistry);
         }
 
         @Override

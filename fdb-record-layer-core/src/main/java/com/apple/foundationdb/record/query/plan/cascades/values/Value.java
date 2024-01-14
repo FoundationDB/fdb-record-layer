@@ -365,7 +365,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext);
+    RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,

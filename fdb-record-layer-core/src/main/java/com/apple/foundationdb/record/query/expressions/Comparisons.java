@@ -67,6 +67,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -612,6 +613,10 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         LIKE;
 
+        @Nonnull
+        private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(Type.class, PComparisonType.class));
+
         private final boolean isEquality;
         private final boolean isUnary;
 
@@ -639,68 +644,19 @@ public class Comparisons {
         @Nonnull
         @SuppressWarnings("unused")
         public PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            switch (this) {
-                case EQUALS:
-                    return PComparisonType.EQUALS;
-                case NOT_EQUALS:
-                    return PComparisonType.NOT_EQUALS;
-                case LESS_THAN:
-                    return PComparisonType.LESS_THAN;
-                case LESS_THAN_OR_EQUALS:
-                    return PComparisonType.LESS_THAN_OR_EQUALS;
-                case GREATER_THAN:
-                    return PComparisonType.GREATER_THAN;
-                case GREATER_THAN_OR_EQUALS:
-                    return PComparisonType.GREATER_THAN_OR_EQUALS;
-                case STARTS_WITH:
-                    return PComparisonType.STARTS_WITH;
-                case NOT_NULL:
-                    return PComparisonType.NOT_NULL;
-                case IS_NULL:
-                    return PComparisonType.IS_NULL;
-                case IN:
-                    return PComparisonType.IN;
-                case SORT:
-                    return PComparisonType.SORT;
-                case LIKE:
-                    return PComparisonType.LIKE;
-                default:
-                    throw new RecordCoreException("unknown comparison type mapping. did you forget to add it here?");
-            }
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PComparisonType comparisonTypeProto) {
-            switch (comparisonTypeProto) {
-                case EQUALS:
-                    return EQUALS;
-                case NOT_EQUALS:
-                    return NOT_EQUALS;
-                case LESS_THAN:
-                    return LESS_THAN;
-                case LESS_THAN_OR_EQUALS:
-                    return LESS_THAN_OR_EQUALS;
-                case GREATER_THAN:
-                    return GREATER_THAN;
-                case GREATER_THAN_OR_EQUALS:
-                    return GREATER_THAN_OR_EQUALS;
-                case STARTS_WITH:
-                    return STARTS_WITH;
-                case NOT_NULL:
-                    return NOT_NULL;
-                case IS_NULL:
-                    return IS_NULL;
-                case IN:
-                    return IN;
-                case SORT:
-                    return SORT;
-                case LIKE:
-                    return LIKE;
-                default:
-                    throw new RecordCoreException("unknown proto comparison type. did you forget to add it here?");
-            }
+                                     @Nonnull final PComparisonType physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<Type, PComparisonType> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 
@@ -877,7 +833,7 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext);
+        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,

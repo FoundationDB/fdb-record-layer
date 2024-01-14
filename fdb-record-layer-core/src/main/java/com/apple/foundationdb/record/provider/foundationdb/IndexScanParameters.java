@@ -88,7 +88,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
     IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap);
 
     @Nonnull
-    PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext);
+    PIndexScanParameters toIndexScanParametersProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static IndexScanParameters fromIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext,

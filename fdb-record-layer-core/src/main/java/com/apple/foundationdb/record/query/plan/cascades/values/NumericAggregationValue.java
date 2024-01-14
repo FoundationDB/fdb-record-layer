@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMax;
@@ -44,11 +44,12 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
@@ -523,6 +524,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
 
         @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
+
+        @Nonnull
         private final LogicalOperator logicalOperator;
 
         @Nonnull
@@ -619,84 +624,19 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("unused")
         public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            switch (this) {
-                case SUM_I:
-                    return PPhysicalOperator.SUM_I;
-                case SUM_L:
-                    return PPhysicalOperator.SUM_L;
-                case SUM_F:
-                    return PPhysicalOperator.SUM_F;
-                case SUM_D:
-                    return PPhysicalOperator.SUM_D;
-                case AVG_I:
-                    return PPhysicalOperator.AVG_I;
-                case AVG_L:
-                    return PPhysicalOperator.AVG_L;
-                case AVG_F:
-                    return PPhysicalOperator.AVG_F;
-                case AVG_D:
-                    return PPhysicalOperator.AVG_D;
-                case MIN_I:
-                    return PPhysicalOperator.MIN_I;
-                case MIN_L:
-                    return PPhysicalOperator.MIN_L;
-                case MIN_F:
-                    return PPhysicalOperator.MIN_F;
-                case MIN_D:
-                    return PPhysicalOperator.MIN_D;
-                case MAX_I:
-                    return PPhysicalOperator.MAX_I;
-                case MAX_L:
-                    return PPhysicalOperator.MAX_L;
-                case MAX_F:
-                    return PPhysicalOperator.MAX_F;
-                case MAX_D:
-                    return PPhysicalOperator.MAX_D;
-                default:
-                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
-            }
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PPhysicalOperator physicalOperatorProto) {
-            switch (physicalOperatorProto) {
-                case SUM_I:
-                    return SUM_I;
-                case SUM_L:
-                    return SUM_L;
-                case SUM_F:
-                    return SUM_F;
-                case SUM_D:
-                    return SUM_D;
-                case AVG_I:
-                    return AVG_I;
-                case AVG_L:
-                    return AVG_L;
-                case AVG_F:
-                    return AVG_F;
-                case AVG_D:
-                    return AVG_D;
-                case MIN_I:
-                    return MIN_I;
-                case MIN_L:
-                    return MIN_L;
-                case MIN_F:
-                    return MIN_F;
-                case MIN_D:
-                    return MIN_D;
-                case MAX_I:
-                    return MAX_I;
-                case MAX_L:
-                    return MAX_L;
-                case MAX_F:
-                    return MAX_F;
-                case MAX_D:
-                    return MAX_D;
-                default:
-                    throw new RecordCoreException("unknown physical operator. did you forget to add it here?");
-            }
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 
