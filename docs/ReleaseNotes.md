@@ -39,6 +39,9 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 // end next release
 -->
 
+### 3.3.446.0
+
+
 ### 3.3.445.0
 
 * **Bug fix** `OfTypeValue` does not work correctly with array types [(Issue #2440)](https://github.com/FoundationDB/fdb-record-layer/issues/2440)
