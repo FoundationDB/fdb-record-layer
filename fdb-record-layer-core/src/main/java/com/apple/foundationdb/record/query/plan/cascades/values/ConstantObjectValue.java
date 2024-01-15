@@ -122,11 +122,11 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var obj = context.dereferenceConstant(alias, ordinal);
         if (obj == null) {
-            SemanticException.check(resultType.isNullable(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            Verify.verify(getResultType().isNullable());
             return obj;
         }
         if (obj instanceof DynamicMessage) {
-            SemanticException.check(resultType.isRecord(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            // TODO: run coercion for proper promotion, and if that fails then bailout.
             return obj;
         }
         final var objType = Type.fromObject(obj);
