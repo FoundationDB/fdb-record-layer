@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -66,8 +65,6 @@ import java.util.Set;
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryUnorderedPrimaryKeyDistinctPlan.class)
 public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Primary-Key-Distinct-Plan");
 
@@ -231,5 +228,24 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     public static RecordQueryUnorderedPrimaryKeyDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                        @Nonnull final PRecordQueryUnorderedPrimaryKeyDistinctPlan recordQueryUnorderedPrimaryKeyDistinctPlanProto) {
         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryUnorderedPrimaryKeyDistinctPlanProto.getInner())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedPrimaryKeyDistinctPlan, RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnorderedPrimaryKeyDistinctPlan> getProtoMessageClass() {
+            return PRecordQueryUnorderedPrimaryKeyDistinctPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnorderedPrimaryKeyDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                    @Nonnull final PRecordQueryUnorderedPrimaryKeyDistinctPlan recordQueryUnorderedPrimaryKeyDistinctPlanProto) {
+            return RecordQueryUnorderedPrimaryKeyDistinctPlan.fromProto(serializationContext, recordQueryUnorderedPrimaryKeyDistinctPlanProto);
+        }
     }
 }

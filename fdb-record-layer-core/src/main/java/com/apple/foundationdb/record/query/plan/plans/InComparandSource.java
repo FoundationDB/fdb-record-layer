@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInComparandSource;
@@ -49,8 +48,6 @@ import java.util.Objects;
  * implementations with this one.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PInComparandSource.class)
 public class InComparandSource extends InSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_COMPARAND_SOURCE = new ObjectPlanHash("In-Comparand");
@@ -165,5 +162,24 @@ public class InComparandSource extends InSource {
     public static InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                               @Nonnull final PInComparandSource inComparandSourceProto) {
         return new InComparandSource(serializationContext, inComparandSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInComparandSource, InComparandSource> {
+        @Nonnull
+        @Override
+        public Class<PInComparandSource> getProtoMessageClass() {
+            return PInComparandSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PInComparandSource inComparandSourceProto) {
+            return InComparandSource.fromProto(serializationContext, inComparandSourceProto);
+        }
     }
 }

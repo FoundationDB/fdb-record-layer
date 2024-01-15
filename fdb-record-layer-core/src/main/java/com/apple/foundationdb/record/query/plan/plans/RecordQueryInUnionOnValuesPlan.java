@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -48,8 +47,6 @@ import java.util.Set;
 /**
  * Union plan that compares using a {@link Value}.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInUnionOnValuesPlan.class)
 @SuppressWarnings("java:S2160")
 public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
@@ -166,5 +163,24 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 reverse,
                 maxNumberOfValuesAllowed,
                 internal);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInUnionOnValuesPlan, RecordQueryInUnionOnValuesPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInUnionOnValuesPlan> getProtoMessageClass() {
+            return PRecordQueryInUnionOnValuesPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+            return RecordQueryInUnionOnValuesPlan.fromProto(serializationContext, recordQueryInUnionOnValuesPlanProto);
+        }
     }
 }

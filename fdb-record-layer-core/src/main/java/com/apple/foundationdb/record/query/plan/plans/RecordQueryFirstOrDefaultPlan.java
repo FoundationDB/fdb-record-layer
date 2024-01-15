@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -67,8 +66,6 @@ import java.util.Set;
  * the first record.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryFirstOrDefaultPlan.class)
 public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-First-Or-Default-Plan");
 
@@ -245,5 +242,24 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
                                                           @Nonnull final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
         return new RecordQueryFirstOrDefaultPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getInner())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getOnEmptyResultValue())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryFirstOrDefaultPlan, RecordQueryFirstOrDefaultPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryFirstOrDefaultPlan> getProtoMessageClass() {
+            return PRecordQueryFirstOrDefaultPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryFirstOrDefaultPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
+            return RecordQueryFirstOrDefaultPlan.fromProto(serializationContext, recordQueryFirstOrDefaultPlanProto);
+        }
     }
 }

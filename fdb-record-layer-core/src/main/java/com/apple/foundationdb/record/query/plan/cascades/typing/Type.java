@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.typing;
 
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -40,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
@@ -850,8 +850,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A primitive type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PPrimitiveType.class)
     class Primitive implements Type {
         private final boolean isNullable;
         @Nonnull
@@ -951,6 +949,25 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return new Primitive(primitiveTypeProto.getIsNullable(),
                     TypeCode.fromProto(serializationContext, Objects.requireNonNull(primitiveTypeProto.getTypeCode())));
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PPrimitiveType, Primitive> {
+            @Nonnull
+            @Override
+            public Class<PPrimitiveType> getProtoMessageClass() {
+                return PPrimitiveType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Primitive fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PPrimitiveType primitiveTypeProto) {
+                return Primitive.fromProto(serializationContext, primitiveTypeProto);
+            }
+        }
     }
 
     /**
@@ -963,8 +980,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * subtype of every other type in a sense that the substitution principle holds, e.g. {@code null} can be substituted
      * for any value of type {@code int}, or {@code string}, etc...
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PNullType.class)
     class Null implements Type {
         @Override
         public TypeCode getTypeCode() {
@@ -1016,6 +1031,25 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                      @Nonnull final PNullType nullTypeProto) {
             return NULL;
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PNullType, Null> {
+            @Nonnull
+            @Override
+            public Class<PNullType> getProtoMessageClass() {
+                return PNullType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Null fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PNullType nullTypeProto) {
+                return Null.fromProto(serializationContext, nullTypeProto);
+            }
+        }
     }
 
     /**
@@ -1028,8 +1062,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * subtype of every other type in a sense that the substitution principle holds, e.g. {@code none} can be substituted
      * for any value of an array type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PNoneType.class)
     class None implements Type {
         @Override
         public TypeCode getTypeCode() {
@@ -1081,13 +1113,30 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                      @Nonnull final PNoneType noneTypeProto) {
             return NONE;
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PNoneType, None> {
+            @Nonnull
+            @Override
+            public Class<PNoneType> getProtoMessageClass() {
+                return PNoneType.class;
+            }
+
+            @Nonnull
+            @Override
+            public None fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PNoneType noneTypeProto) {
+                return None.fromProto(serializationContext, noneTypeProto);
+            }
+        }
     }
 
     /**
      * Special {@link Type} that is undefined.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PAnyType.class)
     class Any implements Type {
         /**
          * Memoized hash function.
@@ -1184,6 +1233,25 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                     @Nonnull final PAnyType anyTypeProto) {
             return any();
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PAnyType, Any> {
+            @Nonnull
+            @Override
+            public Class<PAnyType> getProtoMessageClass() {
+                return PAnyType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Any fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PAnyType anyTypeProto) {
+                return Any.fromProto(serializationContext, anyTypeProto);
+            }
+        }
     }
 
     @Nonnull
@@ -1194,8 +1262,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * An enumeration type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PEnumType.class)
     class Enum implements Type {
         final boolean isNullable;
         @Nullable
@@ -1382,9 +1448,28 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PEnumType, Enum> {
+            @Nonnull
+            @Override
+            public Class<PEnumType> getProtoMessageClass() {
+                return PEnumType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Enum fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PEnumType enumTypeProto) {
+                return Enum.fromProto(serializationContext, enumTypeProto);
+            }
+        }
+
+        /**
          * A member value of an enumeration.
          */
-        public static class EnumValue {
+        public static class EnumValue implements PlanSerializable {
             @Nonnull
             final String name;
             final int number;
@@ -1421,7 +1506,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             @Nonnull
-            @SuppressWarnings("unused")
+            @Override
             public PEnumType.PEnumValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
                 return PEnumType.PEnumValue.newBuilder().setName(name).setNumber(number).build();
             }
@@ -1438,8 +1523,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PRecordType.class)
     class Record implements Type {
         @Nullable
         private final String name;
@@ -2082,13 +2165,30 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return fieldName.startsWith("_") && StringUtils.isNumeric(fieldName.substring(1));
             }
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PRecordType, Record> {
+            @Nonnull
+            @Override
+            public Class<PRecordType> getProtoMessageClass() {
+                return PRecordType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Record fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordType recordTypeProto) {
+                return Record.fromProto(serializationContext, recordTypeProto);
+            }
+        }
     }
 
     /**
      * Represents a relational type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PRelationType.class)
     class Relation implements Type {
         /**
          * The type of the stream values.
@@ -2236,13 +2336,30 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             Verify.verify(relationType.getTypeCode() == TypeCode.RELATION && relationType instanceof Relation);
             return ((Relation)relationType).getInnerType();
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PRelationType, Relation> {
+            @Nonnull
+            @Override
+            public Class<PRelationType> getProtoMessageClass() {
+                return PRelationType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Relation fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PRelationType relationTypeProto) {
+                return Relation.fromProto(serializationContext, relationTypeProto);
+            }
+        }
     }
 
     /**
      * A type representing an array of elements sharing the same type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PArrayType.class)
     class Array implements Type {
         /**
          * Whether the array is nullable or not.
@@ -2431,6 +2548,25 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                       @Nonnull final PArrayType arrayTypeProto) {
             Verify.verify(arrayTypeProto.hasIsNullable());
             return new Array(arrayTypeProto.getIsNullable(), Type.fromTypeProto(serializationContext, arrayTypeProto.getElementType()));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PArrayType, Array> {
+            @Nonnull
+            @Override
+            public Class<PArrayType> getProtoMessageClass() {
+                return PArrayType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Array fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PArrayType arrayTypeProto) {
+                return Array.fromProto(serializationContext, arrayTypeProto);
+            }
         }
     }
 }

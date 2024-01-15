@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInsertPlan;
@@ -33,13 +32,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -61,8 +60,6 @@ import java.util.concurrent.CompletableFuture;
  * actual record type of the record.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInsertPlan.class)
 public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Insert-Plan");
 
@@ -199,5 +196,24 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 targetType,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInsertPlan, RecordQueryInsertPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInsertPlan> getProtoMessageClass() {
+            return PRecordQueryInsertPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+            return RecordQueryInsertPlan.fromProto(serializationContext, recordQueryInsertPlanProto);
+        }
     }
 }

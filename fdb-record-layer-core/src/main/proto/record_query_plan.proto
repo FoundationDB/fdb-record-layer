@@ -836,7 +836,7 @@ message PComparison {
     POpaqueEqualityComparison opaque_equality_comparison = 7;
     PMultiColumnComparison multi_column_comparison = 8;
     PInvertedFunctionComparison inverted_function_comparison = 9;
-    PRecordTypeKeyComparison record_type_key_comparison = 10;
+    PRecordTypeComparison record_type_comparison = 10;
   }
 }
 
@@ -909,7 +909,7 @@ message PInvertedFunctionComparison {
   optional PComparison.PComparisonType type = 3;
 }
 
-message PRecordTypeKeyComparison {
+message PRecordTypeComparison {
   optional string record_type_name = 1;
 }
 

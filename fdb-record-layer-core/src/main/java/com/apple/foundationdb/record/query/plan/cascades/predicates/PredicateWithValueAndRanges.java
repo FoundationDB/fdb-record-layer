@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -83,10 +82,7 @@ import java.util.stream.Collectors;
  * If the attribute, however, is not indexed, then we use an instance of {@code this} class as a restriction on that
  * particular attribute.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PPredicateWithValueAndRanges.class)
 public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue {
 
     /**
@@ -509,5 +505,24 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     public static PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                         @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
         return new PredicateWithValueAndRanges(serializationContext, predicateWithValueAndRangesProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PPredicateWithValueAndRanges, PredicateWithValueAndRanges> {
+        @Nonnull
+        @Override
+        public Class<PPredicateWithValueAndRanges> getProtoMessageClass() {
+            return PPredicateWithValueAndRanges.class;
+        }
+
+        @Nonnull
+        @Override
+        public PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+            return PredicateWithValueAndRanges.fromProto(serializationContext, predicateWithValueAndRangesProto);
+        }
     }
 }

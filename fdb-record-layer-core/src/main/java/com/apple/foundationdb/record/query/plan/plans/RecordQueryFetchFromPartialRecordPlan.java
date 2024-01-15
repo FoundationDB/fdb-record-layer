@@ -21,14 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -75,8 +74,6 @@ import java.util.function.Supplier;
  * into full records by fetching the records by primary key.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryFetchFromPartialRecordPlan.class)
 public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Fetch-From-Partial-Record-Plan");
 
@@ -362,6 +359,25 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
             <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull FDBRecordStoreBase<M> store,
                                                                                     @Nonnull RecordCursor<IndexEntry> entryRecordCursor,
                                                                                     @Nonnull ExecuteProperties executeProperties);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<RecordQueryPlanProto.PRecordQueryFetchFromPartialRecordPlan, RecordQueryFetchFromPartialRecordPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryFetchFromPartialRecordPlan> getProtoMessageClass() {
+            return PRecordQueryFetchFromPartialRecordPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryFetchFromPartialRecordPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                               @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
+            return RecordQueryFetchFromPartialRecordPlan.fromProto(serializationContext, recordQueryFetchFromPartialRecordPlanProto);
         }
     }
 }

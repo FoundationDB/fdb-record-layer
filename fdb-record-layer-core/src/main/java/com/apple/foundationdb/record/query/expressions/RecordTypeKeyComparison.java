@@ -23,12 +23,12 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeKeyComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
@@ -154,8 +153,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     /**
      * Equality comparison to check for records of a particular record type.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PRecordTypeKeyComparison.class)
     public static class RecordTypeComparison implements Comparisons.Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Comparison");
 
@@ -259,21 +256,40 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nonnull
         @Override
-        public PRecordTypeKeyComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PRecordTypeKeyComparison.newBuilder().setRecordTypeName(recordTypeName).build();
+        public PRecordTypeComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PRecordTypeComparison.newBuilder().setRecordTypeName(recordTypeName).build();
         }
 
         @Nonnull
         @Override
         public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setRecordTypeKeyComparison(toProto(serializationContext)).build();
+            return RecordQueryPlanProto.PComparison.newBuilder().setRecordTypeComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         public static RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PRecordTypeKeyComparison recordTypeKeyComparisonProto) {
-            return new RecordTypeComparison(Objects.requireNonNull(recordTypeKeyComparisonProto.getRecordTypeName()));
+                                                     @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+            return new RecordTypeComparison(Objects.requireNonNull(recordTypeComparisonProto.getRecordTypeName()));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PRecordTypeComparison, RecordTypeComparison> {
+            @Nonnull
+            @Override
+            public Class<PRecordTypeComparison> getProtoMessageClass() {
+                return PRecordTypeComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+                return RecordTypeComparison.fromProto(serializationContext, recordTypeComparisonProto);
+            }
         }
     }
 }

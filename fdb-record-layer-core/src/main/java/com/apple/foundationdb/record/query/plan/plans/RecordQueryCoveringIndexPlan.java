@@ -21,14 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -70,8 +69,6 @@ import java.util.function.Function;
  * A query plan that reconstructs records from the entries in a covering index.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryCoveringIndexPlan.class)
 public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
 
@@ -333,5 +330,24 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     public static RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                          @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
         return new RecordQueryCoveringIndexPlan(serializationContext, recordQueryCoveringIndexPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryCoveringIndexPlan, RecordQueryCoveringIndexPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryCoveringIndexPlan> getProtoMessageClass() {
+            return PRecordQueryCoveringIndexPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
+            return RecordQueryCoveringIndexPlan.fromProto(serializationContext, recordQueryCoveringIndexPlanProto);
+        }
     }
 }

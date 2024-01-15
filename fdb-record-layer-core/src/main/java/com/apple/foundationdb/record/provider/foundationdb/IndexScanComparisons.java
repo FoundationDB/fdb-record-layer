@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexScanComparisons;
@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,8 +49,6 @@ import java.util.Set;
  * {@link ScanComparisons} for use in an index scan.
  */
 @API(API.Status.MAINTAINED)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PIndexScanComparisons.class)
 public class IndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final IndexScanType scanType;
@@ -233,5 +230,24 @@ public class IndexScanComparisons implements IndexScanParameters {
     public static IndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
         return new IndexScanComparisons(serializationContext, indexScanComparisonsProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PIndexScanComparisons, IndexScanComparisons> {
+        @Nonnull
+        @Override
+        public Class<PIndexScanComparisons> getProtoMessageClass() {
+            return PIndexScanComparisons.class;
+        }
+
+        @Nonnull
+        @Override
+        public IndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+            return IndexScanComparisons.fromProto(serializationContext, indexScanComparisonsProto);
+        }
     }
 }

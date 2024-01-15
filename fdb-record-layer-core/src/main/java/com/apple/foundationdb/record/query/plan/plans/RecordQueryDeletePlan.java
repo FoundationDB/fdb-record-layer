@@ -21,13 +21,12 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -73,8 +72,6 @@ import java.util.function.Supplier;
  * Not that we hold on to a target record type in this plan operator only for debugging purposes at the moment.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryDeletePlan.class)
 public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Delete-Plan");
 
@@ -276,5 +273,24 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     public static RecordQueryDeletePlan deletePlan(@Nonnull final Quantifier.Physical inner) {
         return new RecordQueryDeletePlan(inner);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryDeletePlan, RecordQueryDeletePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryDeletePlan> getProtoMessageClass() {
+            return PRecordQueryDeletePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryDeletePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
+            return RecordQueryDeletePlan.fromProto(serializationContext, recordQueryDeletePlanProto);
+        }
     }
 }

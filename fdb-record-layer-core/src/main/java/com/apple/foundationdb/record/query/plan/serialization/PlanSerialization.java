@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -42,8 +43,6 @@ import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -107,7 +106,8 @@ public class PlanSerialization {
     }
 
     @Nonnull
-    public static Object dispatchFromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull Message message) {
+    public static Object dispatchFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull Message message) {
         final PlanSerializationRegistry registry = serializationContext.getRegistry();
         if (message instanceof Any) {
             final Any any = (Any)message;
@@ -118,13 +118,15 @@ public class PlanSerialization {
                 throw new RecordCoreException("corrupt any field", e);
             }
         }
-        final Method fromProtoMethod = registry.lookUpFromProto(message.getClass());
+        return invokeDeserializer(serializationContext, message);
+    }
 
-        try {
-            return Objects.requireNonNull(fromProtoMethod.invoke(null, serializationContext, message));
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RecordCoreException("unable to invoke fromProto method", e);
-        }
+    @SuppressWarnings("unchecked")
+    private static <M extends Message> Object invokeDeserializer(@Nonnull final PlanSerializationContext serializationContext,
+                                                                 @Nonnull final M message) {
+        final PlanDeserializer<M, ?> deserializer =
+                serializationContext.getRegistry().lookUpFromProto((Class<M>)message.getClass());
+        return deserializer.fromProto(serializationContext, message);
     }
 
     @Nonnull

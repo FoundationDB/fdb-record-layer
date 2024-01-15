@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PMultidimensionalIndexScanComparisons;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,8 +53,6 @@ import java.util.stream.Collectors;
  * {@link ScanComparisons} for use in a multidimensional index scan.
  */
 @API(API.Status.MAINTAINED)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PMultidimensionalIndexScanComparisons.class)
 public class MultidimensionalIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final ScanComparisons prefixScanComparisons;
@@ -322,5 +319,24 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         }
 
         return new MultidimensionalIndexScanComparisons(prefixScanComparisons, dimensionsComparisonRanges, suffixKeyScanComparisons);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PMultidimensionalIndexScanComparisons, MultidimensionalIndexScanComparisons> {
+        @Nonnull
+        @Override
+        public Class<PMultidimensionalIndexScanComparisons> getProtoMessageClass() {
+            return PMultidimensionalIndexScanComparisons.class;
+        }
+
+        @Nonnull
+        @Override
+        public MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                              @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
+            return MultidimensionalIndexScanComparisons.fromProto(serializationContext, multidimensionalIndexScanComparisonsProto);
+        }
     }
 }

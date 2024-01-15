@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue;
@@ -794,8 +793,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     /**
      * Binary rel ops.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PBinaryRelOpValue.class)
     public static class BinaryRelOpValue extends RelOpValue {
         @Nonnull
         private final BinaryPhysicalOperator operator;
@@ -882,13 +879,30 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                                                  @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
             return new BinaryRelOpValue(serializationContext, binaryRelOpValueProto);
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PBinaryRelOpValue, BinaryRelOpValue> {
+            @Nonnull
+            @Override
+            public Class<PBinaryRelOpValue> getProtoMessageClass() {
+                return PBinaryRelOpValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+                return BinaryRelOpValue.fromProto(serializationContext, binaryRelOpValueProto);
+            }
+        }
     }
 
     /**
      * Unary rel ops.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PUnaryRelOpValue.class)
     public static class UnaryRelOpValue extends RelOpValue {
         @Nonnull
         private final UnaryPhysicalOperator operator;
@@ -974,6 +988,25 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
             return new UnaryRelOpValue(serializationContext, unaryRelOpValueProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PUnaryRelOpValue, UnaryRelOpValue> {
+            @Nonnull
+            @Override
+            public Class<PUnaryRelOpValue> getProtoMessageClass() {
+                return PUnaryRelOpValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+                return UnaryRelOpValue.fromProto(serializationContext, unaryRelOpValueProto);
+            }
         }
     }
 }

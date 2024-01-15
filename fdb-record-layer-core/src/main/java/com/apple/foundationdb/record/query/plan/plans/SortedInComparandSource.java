@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInComparandSource;
@@ -42,8 +41,6 @@ import java.util.Objects;
  * Variation of {@link InComparandSource} where the values should be returned in a sorted order.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PSortedInComparandSource.class)
 public class SortedInComparandSource extends InComparandSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE = new ObjectPlanHash("Sorted-In-Comparand");
@@ -130,5 +127,24 @@ public class SortedInComparandSource extends InComparandSource {
     public static SortedInComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
         return new SortedInComparandSource(serializationContext, sortedInComparandSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PSortedInComparandSource, SortedInComparandSource> {
+        @Nonnull
+        @Override
+        public Class<PSortedInComparandSource> getProtoMessageClass() {
+            return PSortedInComparandSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public SortedInComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+            return SortedInComparandSource.fromProto(serializationContext, sortedInComparandSourceProto);
+        }
     }
 }

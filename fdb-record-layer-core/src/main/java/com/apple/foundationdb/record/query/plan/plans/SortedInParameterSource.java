@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInParameterSource;
@@ -46,8 +45,6 @@ import java.util.Objects;
  * an explicit comparison key.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PSortedInParameterSource.class)
 public class SortedInParameterSource extends InParameterSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE = new ObjectPlanHash("Sorted-In-Parameter");
@@ -141,5 +138,24 @@ public class SortedInParameterSource extends InParameterSource {
     public static SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
         return new SortedInParameterSource(serializationContext, sortedInParameterSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PSortedInParameterSource, SortedInParameterSource> {
+        @Nonnull
+        @Override
+        public Class<PSortedInParameterSource> getProtoMessageClass() {
+            return PSortedInParameterSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+            return SortedInParameterSource.fromProto(serializationContext, sortedInParameterSourceProto);
+        }
     }
 }

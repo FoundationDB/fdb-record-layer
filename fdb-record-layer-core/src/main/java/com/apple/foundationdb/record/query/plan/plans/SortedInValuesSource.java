@@ -21,10 +21,9 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInValuesSource;
@@ -43,8 +42,6 @@ import java.util.Objects;
  * an explicit comparison key.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PSortedInValuesSource.class)
 public class SortedInValuesSource extends InValuesSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("Sorted-In-Values");
@@ -124,5 +121,24 @@ public class SortedInValuesSource extends InValuesSource {
     public static SortedInValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PSortedInValuesSource sortedInValuesSourceProto) {
         return new SortedInValuesSource(serializationContext, sortedInValuesSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PSortedInValuesSource, SortedInValuesSource> {
+        @Nonnull
+        @Override
+        public Class<PSortedInValuesSource> getProtoMessageClass() {
+            return PSortedInValuesSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public SortedInValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PSortedInValuesSource sortedInValuesSourceProto) {
+            return SortedInValuesSource.fromProto(serializationContext, sortedInValuesSourceProto);
+        }
     }
 }

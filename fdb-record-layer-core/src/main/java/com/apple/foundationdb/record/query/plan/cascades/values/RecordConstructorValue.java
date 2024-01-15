@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue;
@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -68,8 +67,6 @@ import java.util.stream.StreamSupport;
  * {@link Type.Record} type.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordConstructorValue.class)
 public class RecordConstructorValue extends AbstractValue implements AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
@@ -458,6 +455,25 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                             .map(Column::unnamedOf)
                             .collect(ImmutableList.toImmutableList());
             return ofColumns(namedArguments);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordConstructorValue, RecordConstructorValue> {
+        @Nonnull
+        @Override
+        public Class<PRecordConstructorValue> getProtoMessageClass() {
+            return PRecordConstructorValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
+            return RecordConstructorValue.fromProto(serializationContext, recordConstructorValueProto);
         }
     }
 }

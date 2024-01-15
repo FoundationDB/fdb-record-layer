@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
@@ -205,10 +204,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * Sum aggregation {@code Value}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PSum.class)
     public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-
         public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
@@ -253,15 +249,31 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         public static Sum fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PSum sumProto) {
             return new Sum(serializationContext, sumProto);
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PSum, Sum> {
+            @Nonnull
+            @Override
+            public Class<PSum> getProtoMessageClass() {
+                return PSum.class;
+            }
+
+            @Nonnull
+            @Override
+            public Sum fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PSum sumProto) {
+                return Sum.fromProto(serializationContext, sumProto);
+            }
+        }
     }
 
     /**
      * Average aggregation {@code Value}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PAvg.class)
     public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
-
         public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
@@ -300,15 +312,31 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         public static Avg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PAvg avgProto) {
             return new Avg(serializationContext, avgProto);
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PAvg, Avg> {
+            @Nonnull
+            @Override
+            public Class<PAvg> getProtoMessageClass() {
+                return PAvg.class;
+            }
+
+            @Nonnull
+            @Override
+            public Avg fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PAvg avgProto) {
+                return Avg.fromProto(serializationContext, avgProto);
+            }
+        }
     }
 
     /**
      * Min aggregation {@code Value}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PMin.class)
     public static class Min extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-
         public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
@@ -353,15 +381,31 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         public static Min fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMin minProto) {
             return new Min(serializationContext, minProto);
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMin, Min> {
+            @Nonnull
+            @Override
+            public Class<PMin> getProtoMessageClass() {
+                return PMin.class;
+            }
+
+            @Nonnull
+            @Override
+            public Min fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PMin minProto) {
+                return Min.fromProto(serializationContext, minProto);
+            }
+        }
     }
 
     /**
      * Max aggregation {@code Value}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PMax.class)
     public static class Max extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-
         public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
             super(operator, child);
         }
@@ -405,6 +449,25 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         public static Max fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMax maxProto) {
             return new Max(serializationContext, maxProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMax, Max> {
+            @Nonnull
+            @Override
+            public Class<PMax> getProtoMessageClass() {
+                return PMax.class;
+            }
+
+            @Nonnull
+            @Override
+            public Max fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PMax maxProto) {
+                return Max.fromProto(serializationContext, maxProto);
+            }
         }
     }
 

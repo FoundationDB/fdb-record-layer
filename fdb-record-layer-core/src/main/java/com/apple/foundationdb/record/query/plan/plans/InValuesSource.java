@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInValuesSource;
@@ -51,8 +50,6 @@ import java.util.function.Supplier;
  * This source is used by {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PInValuesSource.class)
 public class InValuesSource extends InSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("In-Values");
@@ -182,5 +179,24 @@ public class InValuesSource extends InSource {
     public static InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                            @Nonnull final PInValuesSource inValuesSource) {
         return new InValuesSource(serializationContext, inValuesSource);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInValuesSource, InValuesSource> {
+        @Nonnull
+        @Override
+        public Class<PInValuesSource> getProtoMessageClass() {
+            return PInValuesSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PInValuesSource inValuesSourceProto) {
+            return InValuesSource.fromProto(serializationContext, inValuesSourceProto);
+        }
     }
 }

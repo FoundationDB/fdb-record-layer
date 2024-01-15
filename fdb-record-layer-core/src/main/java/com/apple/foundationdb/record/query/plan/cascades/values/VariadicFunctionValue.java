@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
@@ -65,8 +64,6 @@ import java.util.stream.Collectors;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PVariadicFunctionValue.class)
 public class VariadicFunctionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Variadic-Function-Value");
 
@@ -444,6 +441,25 @@ public class VariadicFunctionValue extends AbstractValue {
                 }
             }
             return null;
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PVariadicFunctionValue, VariadicFunctionValue> {
+        @Nonnull
+        @Override
+        public Class<PVariadicFunctionValue> getProtoMessageClass() {
+            return PVariadicFunctionValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+            return VariadicFunctionValue.fromProto(serializationContext, variadicFunctionValueProto);
         }
     }
 }

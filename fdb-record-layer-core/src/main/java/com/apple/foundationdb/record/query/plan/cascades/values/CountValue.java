@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -59,8 +58,6 @@ import java.util.function.UnaryOperator;
  * A counting aggregate value.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PCountValue.class)
 public class CountValue extends AbstractValue implements AggregateValue, StreamableAggregateValue, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Count-Value");
 
@@ -205,7 +202,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     }
 
     @Nonnull
-    public CountValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCountValue countValueProto) {
+    public static CountValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCountValue countValueProto) {
         final Value child;
         if (countValueProto.hasChild()) {
             child = Value.fromValueProto(serializationContext, countValueProto.getChild());
@@ -350,6 +347,25 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
         @Override
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PCountValue, CountValue> {
+        @Nonnull
+        @Override
+        public Class<PCountValue> getProtoMessageClass() {
+            return PCountValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public CountValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PCountValue countValueProto) {
+            return CountValue.fromProto(serializationContext, countValueProto);
         }
     }
 }

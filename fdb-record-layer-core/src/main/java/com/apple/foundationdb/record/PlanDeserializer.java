@@ -1,9 +1,10 @@
+
 /*
- * PlanSerializationRegistry.java
+ * PlanSerializable.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +19,23 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.serialization;
+package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
 /**
- * Plugin interface to be used by the plan serialization framework to dispatch serialization/deserialiation
- * invocations properly.
+ * Interface that needs to be implemented separately for every class that is {@link PlanSerializable}.
+ * @param <M> the message that serializes {@code T}
+ * @param <T> the object that is serialized by an instance of {@code M}
  */
-public interface PlanSerializationRegistry {
+@API(API.Status.UNSTABLE)
+public interface PlanDeserializer<M extends Message, T> {
+    @Nonnull
+    Class<M> getProtoMessageClass();
 
     @Nonnull
-    String getTypeUrlPrefix();
-
-    @Nonnull
-    <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(@Nonnull Class<M> messageClass);
-
-    @Nonnull
-    Class<? extends Message> lookUpMessageClass(@Nonnull String typeUrl);
+    T fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull M message);
 }

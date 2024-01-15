@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnionOnKeyExpressionPlan;
@@ -42,8 +41,6 @@ import java.util.Set;
 /**
  * Union plan that compares using a {@link KeyExpression}.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryUnionOnKeyExpressionPlan.class)
 public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     protected RecordQueryUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -117,5 +114,24 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
     public static RecordQueryUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                 @Nonnull final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
         return new RecordQueryUnionOnKeyExpressionPlan(serializationContext, recordQueryUnionOnKeyExpressionPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnionOnKeyExpressionPlan, RecordQueryUnionOnKeyExpressionPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnionOnKeyExpressionPlan> getProtoMessageClass() {
+            return PRecordQueryUnionOnKeyExpressionPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
+            return RecordQueryUnionOnKeyExpressionPlan.fromProto(serializationContext, recordQueryUnionOnKeyExpressionPlanProto);
+        }
     }
 }

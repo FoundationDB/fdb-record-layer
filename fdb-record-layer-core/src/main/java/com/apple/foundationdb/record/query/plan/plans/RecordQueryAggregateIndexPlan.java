@@ -21,13 +21,12 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -74,8 +73,6 @@ import java.util.stream.StreamSupport;
  * A query plan that reconstructs records from the entries in an aggregate index.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryAggregateIndexPlan.class)
 public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithConstraint, RecordQueryPlanWithComparisons {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
@@ -381,5 +378,24 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                 IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
                 QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryAggregateIndexPlan, RecordQueryAggregateIndexPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryAggregateIndexPlan> getProtoMessageClass() {
+            return PRecordQueryAggregateIndexPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
+            return RecordQueryAggregateIndexPlan.fromProto(serializationContext, recordQueryAggregateIndexPlanProto);
+        }
     }
 }

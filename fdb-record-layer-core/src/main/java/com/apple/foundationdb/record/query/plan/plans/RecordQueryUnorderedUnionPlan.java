@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -63,8 +62,6 @@ import java.util.function.Function;
  * makes no guarantees as to what order it will return results.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryUnorderedUnionPlan.class)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Union-Plan");
 
@@ -187,5 +184,24 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     public static RecordQueryUnorderedUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                           @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
         return new RecordQueryUnorderedUnionPlan(serializationContext, recordQueryUnorderedUnionPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedUnionPlan, RecordQueryUnorderedUnionPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnorderedUnionPlan> getProtoMessageClass() {
+            return PRecordQueryUnorderedUnionPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnorderedUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+            return RecordQueryUnorderedUnionPlan.fromProto(serializationContext, recordQueryUnorderedUnionPlanProto);
+        }
     }
 }

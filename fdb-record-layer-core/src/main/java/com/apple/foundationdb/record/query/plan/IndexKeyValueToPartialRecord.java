@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -230,8 +230,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
     /**
      * Copier for basic fields.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PFieldCopier.class)
     @SuppressWarnings("UnstableApiUsage")
     public static class FieldCopier implements Copier {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Copier");
@@ -347,13 +345,30 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                     AvailableFields.CopyIfPredicate.fromCopyIfPredicateProto(serializationContext, Objects.requireNonNull(fieldCopierProto.getCopyIfPredicate())),
                     ordinalPathBuilder.build());
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PFieldCopier, FieldCopier> {
+            @Nonnull
+            @Override
+            public Class<PFieldCopier> getProtoMessageClass() {
+                return PFieldCopier.class;
+            }
+
+            @Nonnull
+            @Override
+            public FieldCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PFieldCopier fieldCopierProto) {
+                return FieldCopier.fromProto(serializationContext, fieldCopierProto);
+            }
+        }
     }
 
     /**
      * Copier for nested messages.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PMessageCopier.class)
     public static class MessageCopier implements Copier {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Message-Copier");
 
@@ -440,6 +455,25 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                                               @Nonnull final PMessageCopier messageCopierProto) {
             return new MessageCopier(Objects.requireNonNull(messageCopierProto.getField()),
                     IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(messageCopierProto.getNested())));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMessageCopier, MessageCopier> {
+            @Nonnull
+            @Override
+            public Class<PMessageCopier> getProtoMessageClass() {
+                return PMessageCopier.class;
+            }
+
+            @Nonnull
+            @Override
+            public MessageCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PMessageCopier messageCopierProto) {
+                return MessageCopier.fromProto(serializationContext, messageCopierProto);
+            }
         }
     }
 

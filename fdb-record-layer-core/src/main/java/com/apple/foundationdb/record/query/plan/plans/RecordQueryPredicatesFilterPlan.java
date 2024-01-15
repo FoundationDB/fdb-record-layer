@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryPredicatesFilterPlan;
@@ -65,8 +64,6 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryPredicatesFilterPlan.class)
 public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
 
@@ -250,5 +247,24 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     public static RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                             @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
         return new RecordQueryPredicatesFilterPlan(serializationContext, recordQueryPredicatesFilterPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryPredicatesFilterPlan, RecordQueryPredicatesFilterPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryPredicatesFilterPlan> getProtoMessageClass() {
+            return PRecordQueryPredicatesFilterPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+            return RecordQueryPredicatesFilterPlan.fromProto(serializationContext, recordQueryPredicatesFilterPlanProto);
+        }
     }
 }

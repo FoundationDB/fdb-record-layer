@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -51,8 +50,6 @@ import java.util.stream.Collectors;
  * Intersection plan that compares using a {@link Value}.
  */
 @SuppressWarnings("java:S2160")
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryIntersectionOnValuesPlan.class)
 public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersectionPlan implements RecordQueryPlanWithComparisonKeyValues {
 
     protected RecordQueryIntersectionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -154,5 +151,24 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
         return new RecordQueryIntersectionOnValuesPlan(quantifiers,
                 comparisonKeyValues,
                 reverse);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryIntersectionOnValuesPlan, RecordQueryIntersectionOnValuesPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryIntersectionOnValuesPlan> getProtoMessageClass() {
+            return PRecordQueryIntersectionOnValuesPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
+            return RecordQueryIntersectionOnValuesPlan.fromProto(serializationContext, recordQueryIntersectionOnValuesPlanProto);
+        }
     }
 }

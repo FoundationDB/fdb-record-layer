@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PArrayCoercionBiFunction;
@@ -62,8 +61,6 @@ import java.util.function.Supplier;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PPromoteValue.class)
 public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
     /**
      * This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
@@ -399,8 +396,6 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     /**
      * A coercion function for primitive types.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PPrimitiveCoercionBiFunction.class)
     public static class PrimitiveCoercionBiFunction implements MessageHelpers.CoercionBiFunction {
         @Nonnull
         private final PhysicalOperator operator;
@@ -456,13 +451,30 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             return new PrimitiveCoercionBiFunction(PhysicalOperator.fromProto(serializationContext,
                     Objects.requireNonNull(primitiveCoercionBiFunctionProto.getOperator())));
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PPrimitiveCoercionBiFunction, PrimitiveCoercionBiFunction> {
+            @Nonnull
+            @Override
+            public Class<PPrimitiveCoercionBiFunction> getProtoMessageClass() {
+                return PPrimitiveCoercionBiFunction.class;
+            }
+
+            @Nonnull
+            @Override
+            public PrimitiveCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
+                return PrimitiveCoercionBiFunction.fromProto(serializationContext, primitiveCoercionBiFunctionProto);
+            }
+        }
     }
 
     /**
      * Coercion function for arrays.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PArrayCoercionBiFunction.class)
     public static class ArrayCoercionBiFunction implements MessageHelpers.CoercionBiFunction {
         @Nonnull
         private final Type.Array fromArrayType;
@@ -539,6 +551,44 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             return new ArrayCoercionBiFunction((Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
                     (Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
                     elementsTrie);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PArrayCoercionBiFunction, ArrayCoercionBiFunction> {
+            @Nonnull
+            @Override
+            public Class<PArrayCoercionBiFunction> getProtoMessageClass() {
+                return PArrayCoercionBiFunction.class;
+            }
+
+            @Nonnull
+            @Override
+            public ArrayCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
+                return ArrayCoercionBiFunction.fromProto(serializationContext, arrayCoercionBiFunctionProto);
+            }
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PPromoteValue, PromoteValue> {
+        @Nonnull
+        @Override
+        public Class<PPromoteValue> getProtoMessageClass() {
+            return PPromoteValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public PromoteValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PPromoteValue promoteValueProto) {
+            return PromoteValue.fromProto(serializationContext, promoteValueProto);
         }
     }
 }

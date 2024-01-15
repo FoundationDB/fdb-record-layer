@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -414,8 +414,6 @@ public class AvailableFields {
     /**
      * A copy-if-predicate that always returns {@code true}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PTruePredicate.class)
     public static class TruePredicate implements CopyIfPredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("True-Predicate");
 
@@ -446,13 +444,30 @@ public class AvailableFields {
                                               @Nonnull final PTruePredicate truePredicateProto) {
             return new TruePredicate();
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PTruePredicate, TruePredicate> {
+            @Nonnull
+            @Override
+            public Class<PTruePredicate> getProtoMessageClass() {
+                return PTruePredicate.class;
+            }
+
+            @Nonnull
+            @Override
+            public TruePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PTruePredicate truePredicateProto) {
+                return TruePredicate.fromProto(serializationContext, truePredicateProto);
+            }
+        }
     }
 
     /**
      * A copy-if-predicate that returns {@code true} if a particula ordinal path already exists in the tuple.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PConditionalUponPathPredicate.class)
     public static class ConditionalUponPathPredicate implements CopyIfPredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Conditional-Upon-Predicate");
 
@@ -495,6 +510,25 @@ public class AvailableFields {
                 ordinalPathBuilder.add(i);
             }
             return new ConditionalUponPathPredicate(ordinalPathBuilder.build());
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PConditionalUponPathPredicate, ConditionalUponPathPredicate> {
+            @Nonnull
+            @Override
+            public Class<PConditionalUponPathPredicate> getProtoMessageClass() {
+                return PConditionalUponPathPredicate.class;
+            }
+
+            @Nonnull
+            @Override
+            public ConditionalUponPathPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PConditionalUponPathPredicate conditionalUponPathPredicateProto) {
+                return ConditionalUponPathPredicate.fromProto(serializationContext, conditionalUponPathPredicateProto);
+            }
         }
     }
 }

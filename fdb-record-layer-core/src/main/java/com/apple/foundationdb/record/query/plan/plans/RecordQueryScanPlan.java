@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -78,8 +77,6 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryScanPlan.class)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable, RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
 
@@ -476,5 +473,24 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 recordQueryScanPlanProto.getReverse(),
                 recordQueryScanPlanProto.getStrictlySorted(),
                 Optional.empty());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryScanPlan, RecordQueryScanPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryScanPlan> getProtoMessageClass() {
+            return PRecordQueryScanPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PRecordQueryScanPlan recordQueryScanPlanProto) {
+            return RecordQueryScanPlan.fromProto(serializationContext, recordQueryScanPlanProto);
+        }
     }
 }

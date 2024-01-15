@@ -21,13 +21,12 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInParameterSource;
@@ -48,8 +47,6 @@ import java.util.Objects;
  * This source is used by {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PInParameterSource.class)
 public class InParameterSource extends InSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE = new ObjectPlanHash("In-Parameter");
@@ -170,5 +167,24 @@ public class InParameterSource extends InSource {
     public static InParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                               @Nonnull final PInParameterSource inParameterSourceProto) {
         return new InParameterSource(serializationContext, inParameterSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInParameterSource, InParameterSource> {
+        @Nonnull
+        @Override
+        public Class<PInParameterSource> getProtoMessageClass() {
+            return PInParameterSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public InParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PInParameterSource inParameterSourceProto) {
+            return InParameterSource.fromProto(serializationContext, inParameterSourceProto);
+        }
     }
 }

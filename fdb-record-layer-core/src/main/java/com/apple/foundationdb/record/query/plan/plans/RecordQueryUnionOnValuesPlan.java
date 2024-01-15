@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -49,8 +48,6 @@ import java.util.Set;
  * Union plan that compares using a {@link Value}.
  */
 @SuppressWarnings("java:S2160")
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryUnionOnValuesPlan.class)
 public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implements RecordQueryPlanWithComparisonKeyValues {
 
     protected RecordQueryUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -148,5 +145,24 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                                                      final boolean reverse,
                                                      final boolean showComparisonKey) {
         return new RecordQueryUnionOnValuesPlan(quantifiers, comparisonKeyValues, reverse, showComparisonKey);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnionOnValuesPlan, RecordQueryUnionOnValuesPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnionOnValuesPlan> getProtoMessageClass() {
+            return PRecordQueryUnionOnValuesPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
+            return RecordQueryUnionOnValuesPlan.fromProto(serializationContext, recordQueryUnionOnValuesPlanProto);
+        }
     }
 }

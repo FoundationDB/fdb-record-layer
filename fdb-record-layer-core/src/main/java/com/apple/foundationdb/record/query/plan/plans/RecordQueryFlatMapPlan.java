@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -66,8 +65,6 @@ import java.util.function.Supplier;
  * method: Mapping one {@link Value} to another.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryFlatMapPlan.class)
 public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Flat-Map-Plan");
 
@@ -303,4 +300,22 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                 recordQueryFlatMapPlanProto.getInheritOuterRecordProperties());
     }
 
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryFlatMapPlan, RecordQueryFlatMapPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryFlatMapPlan> getProtoMessageClass() {
+            return PRecordQueryFlatMapPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryFlatMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
+            return RecordQueryFlatMapPlan.fromProto(serializationContext, recordQueryFlatMapPlanProto);
+        }
+    }
 }

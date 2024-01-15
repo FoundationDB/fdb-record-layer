@@ -21,10 +21,9 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInComparandJoinPlan;
@@ -59,8 +58,6 @@ import java.util.Set;
  * comparand.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInComparandJoinPlan.class)
 public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Comparand-Join-Plan");
 
@@ -183,5 +180,24 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     public static RecordQueryInComparandJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                            @Nonnull final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
         return new RecordQueryInComparandJoinPlan(serializationContext, recordQueryInComparandJoinPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInComparandJoinPlan, RecordQueryInComparandJoinPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInComparandJoinPlan> getProtoMessageClass() {
+            return PRecordQueryInComparandJoinPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInComparandJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
+            return RecordQueryInComparandJoinPlan.fromProto(serializationContext, recordQueryInComparandJoinPlanProto);
+        }
     }
 }

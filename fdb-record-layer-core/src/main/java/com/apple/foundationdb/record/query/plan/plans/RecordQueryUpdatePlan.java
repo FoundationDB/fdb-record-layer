@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -34,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -45,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -71,8 +70,6 @@ import java.util.concurrent.CompletableFuture;
  * {@link FDBRecordStoreBase#saveRecord(Message)}.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryUpdatePlan.class)
 public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Update-Plan");
 
@@ -314,5 +311,24 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         }
 
         return new TransformationTrieNode(null, childrenMapBuilder.build());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUpdatePlan, RecordQueryUpdatePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUpdatePlan> getProtoMessageClass() {
+            return PRecordQueryUpdatePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+            return RecordQueryUpdatePlan.fromProto(serializationContext, recordQueryUpdatePlanProto);
+        }
     }
 }

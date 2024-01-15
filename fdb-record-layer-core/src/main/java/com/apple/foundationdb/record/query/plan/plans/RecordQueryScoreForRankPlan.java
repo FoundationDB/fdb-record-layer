@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -78,8 +78,6 @@ import java.util.stream.Collectors;
  * A query plan that converts ranks to scores and executes a child plan with the conversion results bound in named parameters.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryScoreForRankPlan.class)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Score-For-Rank-Plan");
 
@@ -406,6 +404,25 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                     BindingFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getBindingFunction())),
                     IndexAggregateFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getFunction())),
                     comparisonsBuilder.build());
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryScoreForRankPlan, RecordQueryScoreForRankPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryScoreForRankPlan> getProtoMessageClass() {
+            return PRecordQueryScoreForRankPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+            return RecordQueryScoreForRankPlan.fromProto(serializationContext, recordQueryScoreForRankPlanProto);
         }
     }
 }

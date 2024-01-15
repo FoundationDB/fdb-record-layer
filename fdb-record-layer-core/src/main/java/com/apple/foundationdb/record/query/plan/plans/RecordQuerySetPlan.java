@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -213,8 +213,6 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
-        @AutoService(PlanSerializable.class)
-        @ProtoMessage(POnKeyExpression.class)
         class OnKeyExpression implements ComparisonKeyFunction {
             @Nonnull
             private final KeyExpression comparisonKeyExpression;
@@ -285,14 +283,31 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                                                     @Nonnull final POnKeyExpression onKeyExpressionProto) {
                 return new OnKeyExpression(KeyExpression.fromProto(onKeyExpressionProto.getComparisonKeyExpression()));
             }
+
+            /**
+             * Deserializer.
+             */
+            @AutoService(PlanDeserializer.class)
+            public static class Deserializer implements PlanDeserializer<POnKeyExpression, OnKeyExpression> {
+                @Nonnull
+                @Override
+                public Class<POnKeyExpression> getProtoMessageClass() {
+                    return POnKeyExpression.class;
+                }
+
+                @Nonnull
+                @Override
+                public OnKeyExpression fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final POnKeyExpression onKeyExpressionProto) {
+                    return OnKeyExpression.fromProto(serializationContext, onKeyExpressionProto);
+                }
+            }
         }
 
         /**
          * Class to encapsulate the functionality of extracting a comparison key from a {@link QueryResult} while
          * also providing comparability and the ability to compute a stable plan hash.
          */
-        @AutoService(PlanSerializable.class)
-        @ProtoMessage(POnValues.class)
         class OnValues implements ComparisonKeyFunction {
             @Nonnull
             private final CorrelationIdentifier baseAlias;
@@ -381,6 +396,25 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 }
                 return new OnValues(CorrelationIdentifier.of(Objects.requireNonNull(onValuesProto.getBaseAlias())),
                         comparisonKeyValuesBuilder.build());
+            }
+
+            /**
+             * Deserializer.
+             */
+            @AutoService(PlanDeserializer.class)
+            public static class Deserializer implements PlanDeserializer<POnValues, OnValues> {
+                @Nonnull
+                @Override
+                public Class<POnValues> getProtoMessageClass() {
+                    return POnValues.class;
+                }
+
+                @Nonnull
+                @Override
+                public OnValues fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final POnValues onValuesProto) {
+                    return OnValues.fromProto(serializationContext, onValuesProto);
+                }
             }
         }
     }

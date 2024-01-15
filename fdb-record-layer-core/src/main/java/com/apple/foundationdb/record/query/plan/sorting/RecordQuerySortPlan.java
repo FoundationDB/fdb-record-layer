@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -70,8 +69,6 @@ import java.util.function.Function;
  * A query plan implementing sorting in-memory, possibly spilling to disk.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQuerySortPlan.class)
 public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Plan");
 
@@ -249,5 +246,24 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
                                                 @Nonnull final PRecordQuerySortPlan recordQuerySortPlanProto) {
         return new RecordQuerySortPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getInner())),
                 RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getKey())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQuerySortPlan, RecordQuerySortPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQuerySortPlan> getProtoMessageClass() {
+            return PRecordQuerySortPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQuerySortPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PRecordQuerySortPlan recordQuerySortPlanProto) {
+            return RecordQuerySortPlan.fromProto(serializationContext, recordQuerySortPlanProto);
+        }
     }
 }

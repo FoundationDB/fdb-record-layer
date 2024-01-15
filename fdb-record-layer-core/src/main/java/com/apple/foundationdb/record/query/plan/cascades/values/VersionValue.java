@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PVersionValue;
@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
@@ -49,8 +48,6 @@ import java.util.Set;
  * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PVersionValue.class)
 public class VersionValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
@@ -164,5 +161,24 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     public static VersionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PVersionValue versionValueProto) {
         return new VersionValue(CorrelationIdentifier.of(Objects.requireNonNull(versionValueProto.getBaseAlias())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PVersionValue, VersionValue> {
+        @Nonnull
+        @Override
+        public Class<PVersionValue> getProtoMessageClass() {
+            return PVersionValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public VersionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PVersionValue versionValueProto) {
+            return VersionValue.fromProto(serializationContext, versionValueProto);
+        }
     }
 }

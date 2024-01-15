@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -80,7 +80,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
@@ -131,8 +130,6 @@ import java.util.function.Supplier;
  * </p>
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryIndexPlan.class)
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                              RecordQueryPlanWithComparisons,
@@ -839,5 +836,24 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             i++;
         }
         return Arrays.copyOfRange(lowBytes, 0, i);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryIndexPlan, RecordQueryIndexPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryIndexPlan> getProtoMessageClass() {
+            return PRecordQueryIndexPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+            return RecordQueryIndexPlan.fromProto(serializationContext, recordQueryIndexPlanProto);
+        }
     }
 }

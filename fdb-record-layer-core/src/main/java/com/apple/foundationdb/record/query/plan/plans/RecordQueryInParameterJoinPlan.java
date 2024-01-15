@@ -21,10 +21,9 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInParameterJoinPlan;
@@ -52,8 +51,6 @@ import java.util.Objects;
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInParameterJoinPlan.class)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Parameter-Join-Plan");
@@ -196,5 +193,24 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     public static RecordQueryInParameterJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                            @Nonnull final PRecordQueryInParameterJoinPlan recordQueryInParameterJoinPlanProto) {
         return new RecordQueryInParameterJoinPlan(serializationContext, recordQueryInParameterJoinPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInParameterJoinPlan, RecordQueryInParameterJoinPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInParameterJoinPlan> getProtoMessageClass() {
+            return PRecordQueryInParameterJoinPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInParameterJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryInParameterJoinPlan recordQueryInParameterJoinPlanProto) {
+            return RecordQueryInParameterJoinPlan.fromProto(serializationContext, recordQueryInParameterJoinPlanProto);
+        }
     }
 }

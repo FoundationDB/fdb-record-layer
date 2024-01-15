@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryIntersectionOnKeyExpressionPlan;
@@ -44,8 +43,6 @@ import java.util.stream.Collectors;
 /**
  * Intersection plan that compares using a {@link KeyExpression}.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryIntersectionOnKeyExpressionPlan.class)
 public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryIntersectionPlan {
 
     protected RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -122,5 +119,24 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
     public static RecordQueryIntersectionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                        @Nonnull final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(serializationContext, recordQueryIntersectionOnKeyExpressionPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryIntersectionOnKeyExpressionPlan, RecordQueryIntersectionOnKeyExpressionPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryIntersectionOnKeyExpressionPlan> getProtoMessageClass() {
+            return PRecordQueryIntersectionOnKeyExpressionPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryIntersectionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                    @Nonnull final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
+            return RecordQueryIntersectionOnKeyExpressionPlan.fromProto(serializationContext, recordQueryIntersectionOnKeyExpressionPlanProto);
+        }
     }
 }

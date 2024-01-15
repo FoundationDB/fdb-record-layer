@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -40,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -67,8 +67,6 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PFieldValue.class)
 public class FieldValue extends AbstractValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
@@ -360,8 +358,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     /**
      * A list of fields forming a path.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PFieldPath.class)
     public static class FieldPath implements PlanSerializable {
         private static final FieldPath EMPTY = new FieldPath(ImmutableList.of());
 
@@ -622,8 +618,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     /**
      * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PResolvedAccessor.class)
     public static class ResolvedAccessor implements PlanSerializable {
         @Nullable
         final String name;
@@ -696,6 +690,25 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
             Preconditions.checkArgument(ordinalFieldNumber >= 0);
             return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PFieldValue, FieldValue> {
+        @Nonnull
+        @Override
+        public Class<PFieldValue> getProtoMessageClass() {
+            return PFieldValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public FieldValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PFieldValue fieldValueProto) {
+            return FieldValue.fromProto(serializationContext, fieldValueProto);
         }
     }
 }

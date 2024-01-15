@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
@@ -66,8 +65,6 @@ import java.util.function.Supplier;
  * A {@link Value} that applies an arithmetic operation on its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PArithmeticValue.class)
 public class ArithmeticValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
@@ -481,6 +478,25 @@ public class ArithmeticValue extends AbstractValue {
         @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PArithmeticValue, ArithmeticValue> {
+        @Nonnull
+        @Override
+        public Class<PArithmeticValue> getProtoMessageClass() {
+            return PArithmeticValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PArithmeticValue arithmeticValueProto) {
+            return ArithmeticValue.fromProto(serializationContext, arithmeticValueProto);
         }
     }
 }

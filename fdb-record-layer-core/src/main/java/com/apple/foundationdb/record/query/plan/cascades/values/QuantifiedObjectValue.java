@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PQuantifiedObjectValue;
@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -50,8 +49,6 @@ import java.util.Set;
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PQuantifiedObjectValue.class)
 public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
@@ -185,5 +182,24 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Nonnull
     public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         return new QuantifiedObjectValue(alias, resultType);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PQuantifiedObjectValue, QuantifiedObjectValue> {
+        @Nonnull
+        @Override
+        public Class<PQuantifiedObjectValue> getProtoMessageClass() {
+            return PQuantifiedObjectValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public QuantifiedObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PQuantifiedObjectValue quantifiedObjectValueProto) {
+            return QuantifiedObjectValue.fromProto(serializationContext, quantifiedObjectValueProto);
+        }
     }
 }

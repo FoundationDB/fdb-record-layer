@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionOnKeyExpressionPlan;
@@ -42,8 +41,6 @@ import java.util.Set;
 /**
  * Union plan that compares using a {@link KeyExpression}.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInUnionOnKeyExpressionPlan.class)
 public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPlan {
     protected RecordQueryInUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
@@ -127,5 +124,24 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
     public static RecordQueryInUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                   @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
         return new RecordQueryInUnionOnKeyExpressionPlan(serializationContext, recordQueryInUnionOnKeyExpressionPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInUnionOnKeyExpressionPlan, RecordQueryInUnionOnKeyExpressionPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInUnionOnKeyExpressionPlan> getProtoMessageClass() {
+            return PRecordQueryInUnionOnKeyExpressionPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                               @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
+            return RecordQueryInUnionOnKeyExpressionPlan.fromProto(serializationContext, recordQueryInUnionOnKeyExpressionPlanProto);
+        }
     }
 }

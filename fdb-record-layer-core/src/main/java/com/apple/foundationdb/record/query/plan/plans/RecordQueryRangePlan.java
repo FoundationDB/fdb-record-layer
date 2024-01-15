@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -68,8 +67,6 @@ import java.util.Set;
  * Semantically, however, {@code explode([1, 2, 3, ..., n - 1])} produces the same result as {@code range(n)}.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryRangePlan.class)
 public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Range-Plan");
 
@@ -260,5 +257,24 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     public static RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
         return new RecordQueryRangePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getExclusiveLimitValue())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryRangePlan, RecordQueryRangePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryRangePlan> getProtoMessageClass() {
+            return PRecordQueryRangePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+            return RecordQueryRangePlan.fromProto(serializationContext, recordQueryRangePlanProto);
+        }
     }
 }

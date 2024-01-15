@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -70,8 +69,6 @@ import java.util.Set;
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryTypeFilterPlan.class)
 public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Type-Filter-Plan");
 
@@ -268,5 +265,24 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         }
         hashes.sort(Comparator.naturalOrder());
         return PlanHashable.combineHashes(hashes);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryTypeFilterPlan, RecordQueryTypeFilterPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryTypeFilterPlan> getProtoMessageClass() {
+            return PRecordQueryTypeFilterPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryTypeFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
+            return RecordQueryTypeFilterPlan.fromProto(serializationContext, recordQueryTypeFilterPlanProto);
+        }
     }
 }

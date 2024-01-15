@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -61,8 +60,6 @@ import java.util.Set;
  * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PExistsPredicate.class)
 public class ExistsPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Predicate");
 
@@ -229,5 +226,24 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
     public static ExistsPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final PExistsPredicate existsPredicateProto) {
         return new ExistsPredicate(serializationContext, existsPredicateProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PExistsPredicate, ExistsPredicate> {
+        @Nonnull
+        @Override
+        public Class<PExistsPredicate> getProtoMessageClass() {
+            return PExistsPredicate.class;
+        }
+
+        @Nonnull
+        @Override
+        public ExistsPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PExistsPredicate existsPredicateProto) {
+            return ExistsPredicate.fromProto(serializationContext, existsPredicateProto);
+        }
     }
 }

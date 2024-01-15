@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInValuesJoinPlan;
@@ -54,8 +53,6 @@ import java.util.Objects;
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
 @API(API.Status.INTERNAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRecordQueryInValuesJoinPlan.class)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Values-Join-Plan");
@@ -208,5 +205,24 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public static RecordQueryInValuesJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                         @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
         return new RecordQueryInValuesJoinPlan(serializationContext, recordQueryInValuesJoinPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInValuesJoinPlan, RecordQueryInValuesJoinPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInValuesJoinPlan> getProtoMessageClass() {
+            return PRecordQueryInValuesJoinPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInValuesJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+            return RecordQueryInValuesJoinPlan.fromProto(serializationContext, recordQueryInValuesJoinPlanProto);
+        }
     }
 }
