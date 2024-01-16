@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -806,25 +807,46 @@ public class PreparedStatementTests {
         }
     }
 
-    static Stream<Object> emptyParametersProvider() {
+    static Stream<Object> listParameterProvider() {
         return Stream.of(
-                Arguments.of("BIGINT", "a1", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                Arguments.of("empty bigint list", "a1", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
                     try {
                         preparedStatement.setArray(1, connection.createArrayOf("BIGINT", new Object[]{}));
                     } catch (SQLException e) {
                         throw new RuntimeException(e);
                     }
                 }),
-                Arguments.of("DOUBLE", "a2", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                Arguments.of("bigint list containing three elements", "a1", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("BIGINT", new Object[]{1L, 2L, 3L}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("empty double list", "a2", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
                     try {
                         preparedStatement.setArray(1, connection.createArrayOf("DOUBLE", new Object[]{}));
                     } catch (SQLException e) {
                         throw new RuntimeException(e);
                     }
                 }),
-                Arguments.of("STRING", "a3", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                Arguments.of("double list containing three elements", "a2", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("DOUBLE", new Object[]{1.0d, 2.0d, 3.0d}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("empty string list", "a3", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
                     try {
                         preparedStatement.setArray(1, connection.createArrayOf("STRING", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("string list containing three elements", "a3", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        preparedStatement.setArray(1, connection.createArrayOf("STRING", new Object[]{"a", "b", "c"}));
                     } catch (SQLException e) {
                         throw new RuntimeException(e);
                     }
@@ -837,17 +859,25 @@ public class PreparedStatementTests {
 //                        throw new RuntimeException(e);
 //                    }
 //                }),
-                Arguments.of("BINARY", "a5", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                Arguments.of("empty binary list", "a5", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
                     try {
                         preparedStatement.setArray(1, connection.createArrayOf("BINARY", new Object[]{}));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }),
+                Arguments.of("binary list containing two elements", "a5", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                    try {
+                        final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});
+                        preparedStatement.setArray(1, connection.createArrayOf("BINARY", array.stream().map(t -> Arrays.copyOf(t, t.length)).toArray()));
                     } catch (SQLException e) {
                         throw new RuntimeException(e);
                     }
                 }));
     }
 
-    @ParameterizedTest(name = "Test empty list of {0}")
-    @MethodSource("emptyParametersProvider")
+    @ParameterizedTest(name = "Test prepared {0}")
+    @MethodSource("listParameterProvider")
     void emptyParametersInTheInList(String ignored, String column, BiConsumer<PreparedStatement, Connection> consumer) throws Exception {
         final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
                 " CREATE TABLE T1(pk bigint, a1 bigint, a2 double, a3 string, a4 nested, a5 bytes, PRIMARY KEY(pk))";
@@ -856,6 +886,57 @@ public class PreparedStatementTests {
                 consumer.accept(statement, ddl.getConnection());
                 statement.execute();
             }
+        }
+    }
+
+    @ParameterizedTest(name = "Test plan cache with {0}")
+    @MethodSource("listParameterProvider")
+    void cachingQueryWithEmptyList(String ignored, String column, BiConsumer<PreparedStatement, Connection> consumer) throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
+                " CREATE TABLE T1(pk bigint, a1 bigint, a2 double, a3 string, a4 nested, a5 bytes, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where " + column + " in ? OPTIONS(LOG QUERY)")) {
+                consumer.accept(statement, ddl.getConnection());
+                statement.execute();
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where " + column + " in ? OPTIONS(LOG QUERY)")) {
+                consumer.accept(statement, ddl.getConnection());
+                statement.execute();
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where " + column + " in ? OPTIONS(LOG QUERY)")) {
+                consumer.accept(statement, ddl.getConnection());
+                statement.execute();
+            }
+
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
+    void cacheWithPromotion() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
+                " CREATE TABLE T1(pk bigint, a1 bigint, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
+                statement.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{}));
+                statement.execute();
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
+                statement.setArray(1, ddl.getConnection().createArrayOf("INTEGER", new Object[]{1, 2, 3}));
+                statement.execute();
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
+                statement.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{1L, 2L, 3L}));
+                statement.execute();
+            }
+
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
         }
     }
 }

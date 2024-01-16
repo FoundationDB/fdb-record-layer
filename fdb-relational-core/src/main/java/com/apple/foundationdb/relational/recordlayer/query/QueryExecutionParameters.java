@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -76,7 +77,11 @@ public interface QueryExecutionParameters {
         }
 
         int addLiteral(@Nullable Object literal) {
-            current.peek().add(literal);
+            if (literal instanceof byte[]) {
+                current.peek().add(ByteString.copyFrom(((byte[])literal)));
+            } else {
+                current.peek().add(literal);
+            }
             return current.peek().size() - 1;
         }
 

@@ -901,6 +901,21 @@ public class StandardQueryTests {
     }
 
     @Test
+    void selectWithEmptyListAsPredicate() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'bla')");
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a in ?")) {
+                statement.setArray(1, ddl.getConnection().createArrayOf("STRING", new Object[]{}));
+                statement.execute();
+                statement.execute();
+            }
+        }
+    }
+
+    @Test
     void selectNestedStarWorks() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {

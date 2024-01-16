@@ -51,6 +51,7 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -605,6 +606,7 @@ public class IndexTest {
         indexIs(stmt, version(), IndexTypes.VERSION);
     }
 
+    @Disabled // until REL-628 is in.
     @ParameterizedTest
     @ValueSource(strings = {"MIN", "MAX"})
     void createAggregateIndexOnMinMaxIsNotSupport(String index) throws Exception {

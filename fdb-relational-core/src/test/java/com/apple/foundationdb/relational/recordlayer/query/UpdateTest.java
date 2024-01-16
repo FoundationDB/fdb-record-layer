@@ -45,7 +45,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -150,7 +149,6 @@ public class UpdateTest {
     }
 
     @Test
-    @Disabled // Owing to TODO (Bytes type parameter plans are not getting retrieved from cache correctly)
     void updateArrayFieldVerifyCacheTest() throws Exception {
         final var fieldToUpdate = "secrets";
         final var array = List.of(new byte[]{1, 2, 3, 4}, new byte[]{5, 6, 7, 8});

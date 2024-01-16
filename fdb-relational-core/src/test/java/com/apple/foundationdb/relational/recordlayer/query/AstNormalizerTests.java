@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -426,14 +427,14 @@ public class AstNormalizerTests {
     void stripHexadecimalLiteral() throws RelationalException {
         validate("select X'0A0B' from t1",
                 "select ? from \"T1\" ",
-                List.of(Hex.decodeHex("0a0b")));
+                List.of(ByteString.copyFrom(Hex.decodeHex("0a0b"))));
     }
 
     @Test
     void stripBase64Literal() throws RelationalException {
         validate("select B64'yv4=' from t1",
                 "select ? from \"T1\" ",
-                List.of(Hex.decodeHex("cafe")));
+                List.of(ByteString.copyFrom(Hex.decodeHex("cafe"))));
     }
 
     @Test
@@ -746,7 +747,7 @@ public class AstNormalizerTests {
         validate("select X'0A0B', ?, ?param from t1",
                 PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
                 "select ? , ? , ?param from \"T1\" ",
-                List.of(Hex.decodeHex("0A0B"), Hex.decodeHex("0A0C"), Hex.decodeHex("0B0C")));
+                List.of(ByteString.copyFrom(Hex.decodeHex("0A0B")), ByteString.copyFrom(Hex.decodeHex("0A0C")), ByteString.copyFrom(Hex.decodeHex("0B0C"))));
     }
 
     @Test
@@ -754,7 +755,7 @@ public class AstNormalizerTests {
         validate("select B64'yv4=', ?, ?param from t1",
                 PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
                 "select ? , ? , ?param from \"T1\" ",
-                List.of(Hex.decodeHex("cafe"), Hex.decodeHex("0A0C"), Hex.decodeHex("0B0C")));
+                List.of(ByteString.copyFrom(Hex.decodeHex("cafe")), ByteString.copyFrom(Hex.decodeHex("0A0C")), ByteString.copyFrom(Hex.decodeHex("0B0C"))));
     }
 
     @Test
