@@ -20,14 +20,13 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneSpellCheckCopier;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
@@ -376,8 +375,6 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * The copier to populate the lucene auto complete suggestion as a value for the field where it is indexed from.
      * So the suggestion can be returned as a {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} for query.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PLuceneSpellCheckCopier.class)
     public static class LuceneSpellCheckCopier implements IndexKeyValueToPartialRecord.Copier {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Spell-Check-Copier");
         private final int groupingColumnSize;
@@ -430,6 +427,25 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             return new LuceneSpellCheckCopier(PlanSerialization.getFieldOrThrow(luceneSpellCheckCopierProto,
                     PLuceneSpellCheckCopier::hasGroupingColumnSize,
                     PLuceneSpellCheckCopier::getGroupingColumnSize));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PLuceneSpellCheckCopier, LuceneSpellCheckCopier> {
+            @Nonnull
+            @Override
+            public Class<PLuceneSpellCheckCopier> getProtoMessageClass() {
+                return PLuceneSpellCheckCopier.class;
+            }
+
+            @Nonnull
+            @Override
+            public LuceneSpellCheckCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
+                return LuceneSpellCheckCopier.fromProto(serializationContext, luceneSpellCheckCopierProto);
+            }
         }
     }
 }

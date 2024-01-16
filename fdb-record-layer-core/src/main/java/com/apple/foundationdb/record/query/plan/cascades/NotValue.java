@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNotValue;
@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +55,6 @@ import java.util.Optional;
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PNotValue.class)
 public class NotValue extends AbstractValue implements BooleanValue {
     /**
      * The hash value of this expression.
@@ -187,6 +184,25 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             return new NotValue((Value)arguments.get(0));
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PNotValue, NotValue> {
+        @Nonnull
+        @Override
+        public Class<PNotValue> getProtoMessageClass() {
+            return PNotValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PNotValue notValueProto) {
+            return NotValue.fromProto(serializationContext, notValueProto);
         }
     }
 }

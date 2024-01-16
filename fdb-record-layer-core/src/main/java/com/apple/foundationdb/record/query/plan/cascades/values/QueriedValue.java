@@ -23,15 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PQueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
@@ -41,8 +40,6 @@ import java.util.Objects;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PQueriedValue.class)
 public class QueriedValue extends AbstractValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
@@ -125,5 +122,24 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
     public static QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PQueriedValue queriedValueProto) {
         return new QueriedValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(queriedValueProto.getResultType())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PQueriedValue, QueriedValue> {
+        @Nonnull
+        @Override
+        public Class<PQueriedValue> getProtoMessageClass() {
+            return PQueriedValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PQueriedValue queriedValueProto) {
+            return QueriedValue.fromProto(serializationContext, queriedValueProto);
+        }
     }
 }

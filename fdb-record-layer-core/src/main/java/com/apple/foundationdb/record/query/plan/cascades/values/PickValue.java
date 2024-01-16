@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPickValue;
@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -63,8 +62,6 @@ import java.util.Objects;
  * of their {@link Value}s
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PPickValue.class)
 public class PickValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Pick-Value");
     @Nonnull
@@ -196,5 +193,24 @@ public class PickValue extends AbstractValue {
             }
         }
         return Verify.verifyNotNull(commonType).withNullability(true); // throws if there are no alternatives
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PPickValue, PickValue> {
+        @Nonnull
+        @Override
+        public Class<PPickValue> getProtoMessageClass() {
+            return PPickValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PPickValue pickValueProto) {
+            return PickValue.fromProto(serializationContext, pickValueProto);
+        }
     }
 }

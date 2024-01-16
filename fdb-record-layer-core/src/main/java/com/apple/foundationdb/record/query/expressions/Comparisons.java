@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
@@ -901,12 +902,10 @@ public class Comparisons {
                 case STRING:
                     return comparand instanceof String;
                 case ENUM:
-                    final boolean isValid = comparand instanceof ProtocolMessageEnum &&
-                            fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum) comparand).getDescriptorForType());
-                    if (isValid) {
-                        return true;
+                    if (comparand instanceof ProtocolMessageEnum) {
+                        return fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum)comparand).getDescriptorForType());
                     }
-                    return comparand instanceof Internal.EnumLite;
+                    return comparand instanceof ProtoUtils.DynamicEnum; // returns false for descriptors
                 case MESSAGE:
                     final Descriptors.Descriptor descriptor = fieldDescriptor.getMessageType();
                     if (!TupleFieldsHelper.isTupleField(descriptor)) {
@@ -1026,7 +1025,7 @@ public class Comparisons {
         public static SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PSimpleComparison simpleComparisonProto) {
             return new SimpleComparison(Type.fromProto(serializationContext, Objects.requireNonNull(simpleComparisonProto.getType())),
-                    Objects.requireNonNull(PlanSerialization.protoObjectToValue(Objects.requireNonNull(simpleComparisonProto.getObject()))));
+                    Objects.requireNonNull(PlanSerialization.protoToValueObject(Objects.requireNonNull(simpleComparisonProto.getObject()))));
         }
 
         /**
@@ -1796,7 +1795,7 @@ public class Comparisons {
                                                @Nonnull final PListComparison listComparisonProto) {
             List<Object> comparand = Lists.newArrayList();
             for (int i = 0; i < listComparisonProto.getComparandCount(); i ++) {
-                comparand.add(PlanSerialization.protoObjectToValue(listComparisonProto.getComparand(i)));
+                comparand.add(PlanSerialization.protoToValueObject(listComparisonProto.getComparand(i)));
             }
             return new ListComparison(Type.fromProto(serializationContext, Objects.requireNonNull(listComparisonProto.getType())),
                     comparand);

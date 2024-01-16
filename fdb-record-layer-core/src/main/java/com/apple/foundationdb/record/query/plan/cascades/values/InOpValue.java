@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PInOpValue;
@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -60,8 +59,6 @@ import java.util.Optional;
  * A {@link Value} that checks if the left child is in the list of values.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PInOpValue.class)
 public class InOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Op-Value");
 
@@ -239,6 +236,25 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                 }
             }
             return new InOpValue((Value)arg0, (Value)arg1);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInOpValue, InOpValue> {
+        @Nonnull
+        @Override
+        public Class<PInOpValue> getProtoMessageClass() {
+            return PInOpValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PInOpValue inOpValueProto) {
+            return InOpValue.fromProto(serializationContext, inOpValueProto);
         }
     }
 }

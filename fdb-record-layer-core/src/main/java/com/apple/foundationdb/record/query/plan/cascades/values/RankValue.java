@@ -22,12 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRankValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
@@ -38,8 +37,6 @@ import java.util.Objects;
  * defining a window.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PRankValue.class)
 public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     private static final String NAME = "RANK";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
@@ -94,5 +91,24 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     public static RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PRankValue rankValueProto) {
         return new RankValue(serializationContext, rankValueProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRankValue, RankValue> {
+        @Nonnull
+        @Override
+        public Class<PRankValue> getProtoMessageClass() {
+            return PRankValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PRankValue rankValueProto) {
+            return RankValue.fromProto(serializationContext, rankValueProto);
+        }
     }
 }

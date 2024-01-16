@@ -66,7 +66,7 @@ public class InValuesSource extends InSource {
         super(serializationContext, Objects.requireNonNull(inValuesSourceProto.getSuper()));
         this.values = Lists.newArrayListWithExpectedSize(inValuesSourceProto.getValuesCount());
         for (int i = 0; i < inValuesSourceProto.getValuesCount(); i ++) {
-            this.values.add(PlanSerialization.protoObjectToValue(inValuesSourceProto.getValues(i)));
+            this.values.add(PlanSerialization.protoToValueObject(inValuesSourceProto.getValues(i)));
         }
     }
 

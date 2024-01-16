@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.protobuf.DynamicMessage;
@@ -48,8 +47,6 @@ import java.util.Set;
 /**
  * Represents a constant value that references a constant in __CONST__ binding of {@link EvaluationContext}.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PConstantObjectValue.class)
 public class ConstantObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
 
     @Nonnull
@@ -203,5 +200,24 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Nonnull
     public static ConstantObjectValue of(@Nonnull final CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
         return new ConstantObjectValue(alias, ordinal, resultType);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConstantObjectValue, ConstantObjectValue> {
+        @Nonnull
+        @Override
+        public Class<PConstantObjectValue> getProtoMessageClass() {
+            return PConstantObjectValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConstantObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PConstantObjectValue constantObjectValueProto) {
+            return ConstantObjectValue.fromProto(serializationContext, constantObjectValueProto);
+        }
     }
 }

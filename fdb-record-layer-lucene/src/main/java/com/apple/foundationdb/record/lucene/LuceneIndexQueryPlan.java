@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan;
-import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
@@ -54,8 +53,6 @@ import java.util.Set;
 /**
  * Lucene query plan for including search-related scan parameters.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PLuceneIndexQueryPlan.class)
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWithOrderingKey, PlanWithStoredFields {
     @Nullable
     private final PlanOrderingKey planOrderingKey;
@@ -289,5 +286,24 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     public static LuceneIndexQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                  @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
         return new LuceneIndexQueryPlan(serializationContext, luceneIndexQueryPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PLuceneIndexQueryPlan, LuceneIndexQueryPlan> {
+        @Nonnull
+        @Override
+        public Class<PLuceneIndexQueryPlan> getProtoMessageClass() {
+            return PLuceneIndexQueryPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneIndexQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
+            return LuceneIndexQueryPlan.fromProto(serializationContext, luceneIndexQueryPlanProto);
+        }
     }
 }

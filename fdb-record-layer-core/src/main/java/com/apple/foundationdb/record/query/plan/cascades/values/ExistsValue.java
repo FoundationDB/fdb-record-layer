@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PExistsValue;
@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -55,8 +54,6 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PExistsValue.class)
 public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
     @Nonnull
@@ -161,6 +158,25 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
             final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getFlowedObjectValue());
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PExistsValue, ExistsValue> {
+        @Nonnull
+        @Override
+        public Class<PExistsValue> getProtoMessageClass() {
+            return PExistsValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PExistsValue existsValueProto) {
+            return ExistsValue.fromProto(serializationContext, existsValueProto);
         }
     }
 }

@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanQueryParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -56,8 +56,6 @@ import java.util.Set;
  * Scan parameters for making a {@link LuceneScanQuery}.
  */
 @API(API.Status.UNSTABLE)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PLuceneScanQueryParameters.class)
 public class LuceneScanQueryParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Query");
 
@@ -300,6 +298,25 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
 
         public int getMaxMatchCount() {
             return maxMatchCount;
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PLuceneScanQueryParameters, LuceneScanQueryParameters> {
+        @Nonnull
+        @Override
+        public Class<PLuceneScanQueryParameters> getProtoMessageClass() {
+            return PLuceneScanQueryParameters.class;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneScanQueryParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+            return LuceneScanQueryParameters.fromProto(serializationContext, luceneScanQueryParametersProto);
         }
     }
 }

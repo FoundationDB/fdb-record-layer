@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractArrayConstructorValue;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -179,8 +178,6 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     /**
      * An array that does not need any nested proto constructed.
      */
-    @AutoService(PlanSerializable.class)
-    @ProtoMessage(PLightArrayConstructorValue.class)
     @SuppressWarnings("java:S2160")
     public static class LightArrayConstructorValue extends AbstractArrayConstructorValue {
         private LightArrayConstructorValue(@Nonnull final List<? extends Value> children) {
@@ -267,6 +264,25 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         public static LightArrayConstructorValue emptyArray(@Nonnull final Type elementType) {
             return new LightArrayConstructorValue(elementType);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PLightArrayConstructorValue, LightArrayConstructorValue> {
+            @Nonnull
+            @Override
+            public Class<PLightArrayConstructorValue> getProtoMessageClass() {
+                return PLightArrayConstructorValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public LightArrayConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
+                return LightArrayConstructorValue.fromProto(serializationContext, lightArrayConstructorValueProto);
+            }
         }
     }
 

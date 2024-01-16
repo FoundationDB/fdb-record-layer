@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
 import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanSpellCheckParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -39,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +56,6 @@ import java.util.Set;
  * Scan parameters for making a {@link LuceneScanSpellCheck}.
  */
 @API(API.Status.UNSTABLE)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PLuceneScanSpellCheckParameters.class)
 public class LuceneScanSpellCheckParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Spell-Check");
 
@@ -205,5 +203,24 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
     public static LuceneScanSpellCheckParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                            @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
         return new LuceneScanSpellCheckParameters(serializationContext, luceneScanSpellCheckParametersProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PLuceneScanSpellCheckParameters, LuceneScanSpellCheckParameters> {
+        @Nonnull
+        @Override
+        public Class<PLuceneScanSpellCheckParameters> getProtoMessageClass() {
+            return PLuceneScanSpellCheckParameters.class;
+        }
+
+        @Nonnull
+        @Override
+        public LuceneScanSpellCheckParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+            return LuceneScanSpellCheckParameters.fromProto(serializationContext, luceneScanSpellCheckParametersProto);
+        }
     }
 }

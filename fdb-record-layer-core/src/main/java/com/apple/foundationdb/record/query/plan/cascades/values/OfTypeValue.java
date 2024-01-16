@@ -23,17 +23,16 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.POfTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.google.protobuf.DynamicMessage;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,8 +42,6 @@ import java.util.Objects;
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(POfTypeValue.class)
 public class OfTypeValue extends AbstractValue implements Value.RangeMatchableValue, ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
@@ -159,5 +156,24 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     @Nonnull
     public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
         return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getOrdinal(), Type.any()), value.getResultType());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<POfTypeValue, OfTypeValue> {
+        @Nonnull
+        @Override
+        public Class<POfTypeValue> getProtoMessageClass() {
+            return POfTypeValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final POfTypeValue ofTypeValueProto) {
+            return OfTypeValue.fromProto(serializationContext, ofTypeValueProto);
+        }
     }
 }

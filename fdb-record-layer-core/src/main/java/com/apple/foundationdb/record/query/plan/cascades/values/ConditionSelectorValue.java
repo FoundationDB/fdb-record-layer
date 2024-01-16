@@ -22,14 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConditionSelectorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -43,8 +42,6 @@ import java.util.List;
  *
  * @see PickValue for more information.
  */
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PConditionSelectorValue.class)
 public class ConditionSelectorValue extends AbstractValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Condition-Selector-Value");
@@ -131,5 +128,24 @@ public class ConditionSelectorValue extends AbstractValue {
             implicationsBuilder.add(Value.fromValueProto(serializationContext, conditionSelectorValueProto.getImplications(i)));
         }
         return new ConditionSelectorValue(implicationsBuilder.build());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConditionSelectorValue, ConditionSelectorValue> {
+        @Nonnull
+        @Override
+        public Class<PConditionSelectorValue> getProtoMessageClass() {
+            return PConditionSelectorValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConditionSelectorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PConditionSelectorValue conditionSelectorValueProto) {
+            return ConditionSelectorValue.fromProto(serializationContext, conditionSelectorValueProto);
+        }
     }
 }

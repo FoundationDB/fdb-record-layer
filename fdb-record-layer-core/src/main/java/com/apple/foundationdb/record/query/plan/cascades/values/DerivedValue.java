@@ -23,14 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PDerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -44,8 +43,6 @@ import java.util.stream.Collectors;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PDerivedValue.class)
 public class DerivedValue extends AbstractValue implements Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Derived-Value");
 
@@ -138,5 +135,24 @@ public class DerivedValue extends AbstractValue implements Value.CompileTimeValu
         }
         return new DerivedValue(childrenBuilder.build(),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(derivedValueProto.getResultType())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PDerivedValue, DerivedValue> {
+        @Nonnull
+        @Override
+        public Class<PDerivedValue> getProtoMessageClass() {
+            return PDerivedValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PDerivedValue derivedValueProto) {
+            return DerivedValue.fromProto(serializationContext, derivedValueProto);
+        }
     }
 }

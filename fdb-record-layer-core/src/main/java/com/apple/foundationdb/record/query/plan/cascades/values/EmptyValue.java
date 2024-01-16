@@ -24,15 +24,14 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PEmptyValue;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.annotation.ProtoMessage;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
@@ -43,8 +42,6 @@ import javax.annotation.Nullable;
  * A value that evaluates to empty.
  */
 @API(API.Status.EXPERIMENTAL)
-@AutoService(PlanSerializable.class)
-@ProtoMessage(PEmptyValue.class)
 public class EmptyValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Value");
 
@@ -115,5 +112,24 @@ public class EmptyValue extends AbstractValue implements LeafValue {
     public static EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                        @Nonnull final PEmptyValue emptyValueProto) {
         return new EmptyValue();
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PEmptyValue, EmptyValue> {
+        @Nonnull
+        @Override
+        public Class<PEmptyValue> getProtoMessageClass() {
+            return PEmptyValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PEmptyValue emptyValueProto) {
+            return EmptyValue.fromProto(serializationContext, emptyValueProto);
+        }
     }
 }

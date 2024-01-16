@@ -54,6 +54,16 @@ import java.util.function.Predicate;
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s.
  */
 public class PlanSerialization {
+    /**
+     * Helper method to serialize plan fragments that are essentially values of the underlying data model.
+     * For instance a comparison {@code = 5} needs to be able to serialize the number {@code 5}. Unfortunately,
+     * the kind of objects that can be used for comparisons, in value-lists, etc. is quite extensive. This method
+     * should be able to deal with all kinds of objects that can appear in these cases. Note that enums do not
+     * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
+     * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
+     * @param object object that also happens to be a plan fragment
+     * @return a {@link PComparableObject} that can be serialized.
+     */
     @Nonnull
     public static PComparableObject valueObjectToProto(@Nullable final Object object) {
         final PComparableObject.Builder builder = PComparableObject.newBuilder();
@@ -75,8 +85,18 @@ public class PlanSerialization {
         return builder.build();
     }
 
+    /**
+     * Helper method to deserialize plan fragments that are essentially values of the underlying data model.
+     * For instance a comparison {@code = 5} needs to be able to serialize the number {@code 5}. Unfortunately,
+     * the kind of objects that can be used for comparisons, in value-lists, etc. is quite extensive. This method
+     * should be able to deal with all kinds of objects that can appear in these cases. Note that enums do not
+     * round-trip as the instance of the actual enum is not deserializable as such. Instead, we resort to deserializing
+     * an enum as a {@link com.apple.foundationdb.record.util.ProtoUtils.DynamicEnum}.
+     * @param proto a {@link PComparableObject} that can be deserialized
+     * @return a value object
+     */
     @Nullable
-    public static Object protoObjectToValue(@Nonnull final PComparableObject proto) {
+    public static Object protoToValueObject(@Nonnull final PComparableObject proto) {
         if (proto.hasEnumObject()) {
             final PEnumLightValue enumProto = Objects.requireNonNull(proto.getEnumObject());
             Verify.verify(enumProto.hasNumber());
@@ -92,11 +112,25 @@ public class PlanSerialization {
         return LiteralKeyExpression.fromProtoValue(Objects.requireNonNull(proto.getPrimitiveObject()));
     }
 
+    /**
+     * Method that packs a {@link Message} passed in into an {@link Any} using the correct type url prefix.
+     * @param serializationContext serialization context in use
+     * @param proto a message
+     * @return a new {@link Any} that holds {@code proto}
+     */
     @Nonnull
     public static Any protoObjectToAny(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final Message proto) {
         return Any.pack(proto, serializationContext.getRegistry().getTypeUrlPrefix());
     }
 
+    /**
+     * Method that, given a protobuf container message (a P-message that contains a {@code oneof} of specific messages),
+     * extracts the specific message, and dispatches to the {@link PlanDeserializer} that can deserialize the particular
+     * specific message.
+     * @param serializationContext serialization context
+     * @param message the message to deserialize
+     * @return a new object that is the plan fragment corresponding to the message passed in
+     */
     @Nonnull
     public static Object dispatchFromProtoContainer(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
         final Map<Descriptors.FieldDescriptor, Object> allFields = message.getAllFields();
@@ -106,8 +140,8 @@ public class PlanSerialization {
     }
 
     @Nonnull
-    public static Object dispatchFromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull Message message) {
+    private static Object dispatchFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull Message message) {
         final PlanSerializationRegistry registry = serializationContext.getRegistry();
         if (message instanceof Any) {
             final Any any = (Any)message;
@@ -129,6 +163,19 @@ public class PlanSerialization {
         return deserializer.fromProto(serializationContext, message);
     }
 
+    /**
+     * Helper method to check for a field's existence in the protobuf message passed in. If the field exists, the method
+     * then extracts and returns the field's value. The method throws an {@link RecordCoreException} if the field does
+     * not exist.
+     * Note that this method is mostly equivalent to {@code Objects.requireNonNull(message.getSomeField())} if
+     * {@code someField} does not use a default value, but also works for primitive values.
+     * @param message protobuf message
+     * @param fieldSetPredicate predicate to check if a field is set
+     * @param fieldExtractor extractor extracting the field's value
+     * @param <M> the specific message type
+     * @param <T> the specific field's type
+     * @return the field's value
+     */
     @Nonnull
     public static <M extends Message, T> T getFieldOrThrow(@Nonnull M message,
                                                            @Nonnull final Predicate<M> fieldSetPredicate,
@@ -139,6 +186,18 @@ public class PlanSerialization {
         throw new RecordCoreException("Field is expected to be set but message does not have field.");
     }
 
+    /**
+     * Helper method to check for a field's existence in the protobuf message passed in. If the field exists, the method
+     * then extracts and returns the field's value. The method returns {@code null} if the field does not exist.
+     * Note that this method is mostly equivalent to {@code message.getSomeField()} if
+     * {@code someField} does not use a default value, but also works for primitive values.
+     * @param message protobuf message
+     * @param fieldSetPredicate predicate to check if a field is set
+     * @param fieldExtractor extractor extracting the field's value
+     * @param <M> the specific message type
+     * @param <T> the specific field's type
+     * @return the field's value
+     */
     @Nullable
     public static <M extends Message, T> T getFieldOrNull(@Nonnull M message,
                                                           @Nonnull final Predicate<M> fieldSetPredicate,
@@ -149,16 +208,26 @@ public class PlanSerialization {
         return null;
     }
 
+    /**
+     * {@link BiMap} to cache enum relationships. This helper has been added to avoid using huge switch
+     * statements that relate domain enums and proto enums.
+     * Note that both enum classes must use the same enum value names and ordinals.
+     * @param domainEnumClass domain enum
+     * @param protoEnumClass proto enum
+     * @param <E1> domain enum type parameter
+     * @param <E2> proto enum type parameter
+     * @return a {@link BiMap} that can be used to look up the <em>other</em> enum value for a given enum value
+     */
     @Nonnull
-    public static <E1 extends Enum<E1>, E2 extends Enum<E2> & ProtocolMessageEnum> BiMap<E1, E2> protoEnumBiMap(@Nonnull final Class<E1> javaEnumClass,
+    public static <E1 extends Enum<E1>, E2 extends Enum<E2> & ProtocolMessageEnum> BiMap<E1, E2> protoEnumBiMap(@Nonnull final Class<E1> domainEnumClass,
                                                                                                                 @Nonnull final Class<E2> protoEnumClass) {
-        Verify.verify(javaEnumClass.isEnum());
+        Verify.verify(domainEnumClass.isEnum());
         Verify.verify(protoEnumClass.isEnum());
-        final E1[] javaEnumConstants = javaEnumClass.getEnumConstants();
+        final E1[] javaEnumConstants = domainEnumClass.getEnumConstants();
         final E2[] protoEnumConstants = protoEnumClass.getEnumConstants();
         Verify.verify(javaEnumConstants.length == protoEnumConstants.length);
 
-        final EnumBiMap<E1, E2> enumBiMap = EnumBiMap.create(javaEnumClass, protoEnumClass);
+        final EnumBiMap<E1, E2> enumBiMap = EnumBiMap.create(domainEnumClass, protoEnumClass);
         for (int i = 0; i < javaEnumConstants.length; i ++) {
             final E1 e1 = javaEnumConstants[i];
             final E2 e2 = protoEnumConstants[i];

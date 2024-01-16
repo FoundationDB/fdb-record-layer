@@ -1,6 +1,5 @@
-
 /*
- * PlanSerializable.java
+ * PlanDeserializer.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,9 +32,21 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public interface PlanDeserializer<M extends Message, T> {
+    /**
+     * Returns {@code M.class}.
+     * @return {@code M.class}
+     */
     @Nonnull
     Class<M> getProtoMessageClass();
 
+    /**
+     * Dispatch method to transform from {@code M} to {@code T}.
+     * @param serializationContext the serialization context (and by extension the
+     *        {@link com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry}) that is being
+     *        used.
+     * @param message the protobuf message of type {@code M}
+     * @return an instance of type {@code T}
+     */
     @Nonnull
     T fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull M message);
 }
