@@ -51,11 +51,11 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.j2objc/j2objc-annotations/1.3/ba035118bc8bac37d7eff77700720999acd9986d/j2objc-annotations-1.3.jar" />
         </processorPath>
         <module name="fdb-record-layer.fdb-extensions.main" />
-        <module name="fdb-record-layer.fdb-record-layer-lucene-pb3.main" />
-        <module name="fdb-record-layer.fdb-record-layer-core-pb3.test" />
-        <module name="fdb-record-layer.fdb-record-layer-spatial-pb3.main" />
-        <module name="fdb-record-layer.fdb-record-layer-icu-pb3.main" />
-        <module name="fdb-record-layer.fdb-record-layer-lucene-pb3.test" />
+        <module name="fdb-record-layer.fdb-record-layer-lucene.test" />
+        <module name="fdb-record-layer.fdb-record-layer-spatial.main" />
+        <module name="fdb-record-layer.fdb-record-layer-lucene.main" />
+        <module name="fdb-record-layer.fdb-record-layer-core.test" />
+        <module name="fdb-record-layer.fdb-record-layer-icu.main" />
       </profile>
       <profile name="Gradle Imported" enabled="true">
         <outputRelativeToContentRoot value="true" />
@@ -74,7 +74,7 @@
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-qual/3.37.0/ba74746d38026581c12166e164bb3c15e90cc4ea/checker-qual-3.37.0.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.google.errorprone/error_prone_annotations/2.21.1/6d9b10773b5237df178a7b3c1b4208df7d0e7f94/error_prone_annotations-2.21.1.jar" />
         </processorPath>
-        <module name="fdb-record-layer.fdb-record-layer-core-pb3.main" />
+        <module name="fdb-record-layer.fdb-record-layer-core.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel target="11" />

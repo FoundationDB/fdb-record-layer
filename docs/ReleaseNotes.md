@@ -9,7 +9,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ### Breaking Changes
 
-Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`.
+Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
 
 <!--
 // begin next release

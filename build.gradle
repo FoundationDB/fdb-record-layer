@@ -198,18 +198,8 @@ subprojects {
     }
 
     ext {
-        if (System.getenv('PROTO_VERSION') != null) {
-            protoMajorVersion = System.getenv('PROTO_VERSION')
-        } else {
-            protoMajorVersion = '3'
-        }
-        if (protoMajorVersion != "2") {
-            coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
-            shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
-        } else {
-            coreProjectName = "fdb-record-layer-core"
-            shadedProjectName = "fdb-record-layer-core-shaded"
-        }
+        coreProjectName = "fdb-record-layer-core"
+        shadedProjectName = "fdb-record-layer-core-shaded"
     }
 
     artifacts {

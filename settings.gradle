@@ -43,18 +43,3 @@ def recursiveRenameBuildfiles(prefix, project) {
 rootProject.children.each { project ->
     recursiveRenameBuildfiles('', project)
 }
-
-def protoMajorVersion
-if ( System.getenv('PROTO_VERSION') != null) {
-    protoMajorVersion = System.getenv('PROTO_VERSION')
-} else {
-    protoMajorVersion = '3'
-}
-if (protoMajorVersion != "2") {
-    project(':fdb-record-layer-core').name = "fdb-record-layer-core-pb${protoMajorVersion}"
-    project(':fdb-record-layer-core-shaded').name = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
-    project(':fdb-record-layer-icu').name = "fdb-record-layer-icu-pb${protoMajorVersion}"
-    project(':fdb-record-layer-spatial').name = "fdb-record-layer-spatial-pb${protoMajorVersion}"
-    project(':fdb-record-layer-lucene').name = "fdb-record-layer-lucene-pb${protoMajorVersion}"
-    project(':fdb-record-layer-jmh').name = "fdb-record-layer-jmh-pb${protoMajorVersion}"
-}
