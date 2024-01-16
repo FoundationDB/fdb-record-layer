@@ -43,6 +43,7 @@ public enum LuceneLogMessageKeys {
     DATA_SIZE,
     DATA_VALUE,
     DEST_FILE,
+    DOC_ID,
     ENCODED_DATA_SIZE,
     ENCRYPTED_EVENTUALLY,
     ENCRYPTION_SUPPOSED,
@@ -59,6 +60,8 @@ public enum LuceneLogMessageKeys {
     INPUT,
     LENGTH,
     LOCK_NAME,
+    LOCK_EXISTING_TIMESTAMP,
+    LOCK_DIRECTORY,
     MERGE_SOURCE,
     MERGE_TRIGGER,
     OFFSET,
@@ -66,8 +69,10 @@ public enum LuceneLogMessageKeys {
     POINTER,
     POSITION,
     REFERENCE_CACHE_STATUS,
+    REF_ID,
     RESOURCE,
     SEEK_NUM,
+    SEGMENT,
 
     //Lucene component
     COMPONENT,

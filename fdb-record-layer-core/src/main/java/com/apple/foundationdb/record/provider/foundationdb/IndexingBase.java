@@ -960,12 +960,7 @@ public abstract class IndexingBase {
         if (indexingMergerMap == null) {
             indexingMergerMap = new HashMap<>();
         }
-        IndexingMerger merger = indexingMergerMap.get(index.getName());
-        if (merger == null) {
-            merger = new IndexingMerger(index, common, policy.getInitialMergesCountLimit());
-            indexingMergerMap.put(index.getName(), merger);
-        }
-        return merger;
+        return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
     }
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
@@ -974,10 +969,10 @@ public abstract class IndexingBase {
         }
     }
 
-    protected static boolean allRangesExhausted(Tuple cont, Tuple end) {
+    protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
-        return end == null && cont == null;
+        return end != null || cont != null;
     }
 
     protected ScanProperties scanPropertiesWithLimits(boolean isIdempotent) {

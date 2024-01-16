@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -154,5 +155,10 @@ class LuceneAutoCompletedMatchesTest {
         List<String> match =
                 LuceneAutoCompleteHelpers.computeAllMatchesForPhrase("text", analyzer, text, tokens, numAdditionalTokens);
         assertEquals(expectedMatches, match);
+    }
+
+    @Test
+    void autoCompleteMatchesWithStopWord() {
+        assertComputeAllMatchesForPhrase("United States of Ameri", List.of("united", "states", "of"), "ameri", "United States of America", 0, ImmutableList.of("United States of America"));
     }
 }

@@ -46,10 +46,8 @@ import java.util.Set;
  *
  * Borrowed from Lucene to remove checksum from end of file.
  * This implementation skips the reading and validation of checksum, which could have quite big data size sometimes.
- *
- * @lucene.experimental
  */
-final class LuceneOptimizedCompoundReader extends CompoundDirectory {
+public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
     private final Directory directory;
     private final String segmentName;
@@ -60,13 +58,17 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
 
 
     /** Offset/Length for a slice inside of a compound file. */
-    public static final class FileEntry {
+    private static final class FileEntry {
         long offset;
         long length;
     }
 
     /**
-     * Create a new CompoundFileDirectory.
+     * Sole constructor.
+     * @param directory the underlying directory
+     * @param si the segment
+     * @param context context in which this is being read
+     * @throws IOException if there is an issue reading initial data
      */
     // TODO: we should just pre-strip "entries" and append segment name up-front like simpletext?
     // this need not be a "general purpose" directory anymore (it only writes index files)
@@ -172,10 +174,18 @@ final class LuceneOptimizedCompoundReader extends CompoundDirectory {
         }
     }
 
+    /**
+     * Get the underlying directory associated with this reader.
+     * @return the underlying directory
+     */
     public Directory getDirectory() {
         return directory;
     }
 
+    /**
+     * Get the filename for storing the entries in this compound file.
+     * @return the filename for the entries
+     */
     public String getEntriesFileName() {
         return entriesFileName;
     }

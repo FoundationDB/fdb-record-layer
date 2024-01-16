@@ -104,4 +104,12 @@ class IndexKeyValueToPartialRecordTest {
         service.shutdown();
         Assertions.assertTrue(completed);
     }
+
+    @Test
+    void testAddRequiredMessage() {
+        // has a required message field in a nested field
+        IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(TestRequiredNestedRecordProto.MyNestedRecord.getDescriptor());
+        builder.addRequiredMessageFields();
+        Assertions.assertTrue(builder.isValid(true));
+    }
 }

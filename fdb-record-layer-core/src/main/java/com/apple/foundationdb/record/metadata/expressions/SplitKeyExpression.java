@@ -129,6 +129,11 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return Collections.nCopies(splitSize, getJoined());
     }
 
+    @Override
+    public boolean hasLosslessNormalization() {
+        return false;
+    }
+
     @Nonnull
     @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {

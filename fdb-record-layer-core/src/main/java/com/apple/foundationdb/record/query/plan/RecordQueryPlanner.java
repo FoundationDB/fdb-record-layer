@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -1797,11 +1798,15 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planOrderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
-        final KeyExpression sort = planContext.query.getSort();
-        KeyExpression candidateKey = planContext.commonPrimaryKey;
+        @Nullable final KeyExpression sort = planContext.query.getSort();
+        @Nullable KeyExpression candidateKey;
         boolean candidateOnly = false;
-        if (sort != null) {
-            candidateKey = getKeyForMerge(sort, candidateKey);
+        if (configuration.shouldOmitPrimaryKeyInUnionOrderingKey() || planContext.commonPrimaryKey == null) {
+            candidateKey = sort;
+        } else if (sort == null) {
+            candidateKey = PlanOrderingKey.candidateContainingPrimaryKey(subplans, planContext.commonPrimaryKey);
+        } else {
+            candidateKey = getKeyForMerge(sort, planContext.commonPrimaryKey);
             candidateOnly = true;
         }
         KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(subplans, candidateKey, candidateOnly);
@@ -1992,6 +1997,17 @@ public class RecordQueryPlanner implements QueryPlanner {
         KeyExpression indexExpr = index.getRootExpression();
         if (indexExpr instanceof GroupingKeyExpression) {
             indexExpr = ((GroupingKeyExpression)indexExpr).getGroupingSubKey();
+            if (IndexTypes.PERMUTED_MAX.equals(index.getType()) || IndexTypes.PERMUTED_MIN.equals(index.getType())) {
+                @Nullable String permutedSizeOption = index.getOption(IndexOptions.PERMUTED_SIZE_OPTION);
+                if (permutedSizeOption != null) {
+                    int permutedSize = Integer.parseInt(permutedSizeOption);
+                    indexExpr = Key.Expressions.concat(
+                            indexExpr.getSubKey(0, indexExpr.getColumnSize() - permutedSize),
+                            ((GroupingKeyExpression)index.getRootExpression()).getGroupedSubKey(),
+                            indexExpr.getSubKey(indexExpr.getColumnSize() - permutedSize, indexExpr.getColumnSize())
+                    );
+                }
+            }
         } else {
             indexExpr = EmptyKeyExpression.EMPTY;
         }
@@ -2019,7 +2035,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-        final List<KeyExpression> keyFields = index.getRootExpression().normalizeKeyForPositions();
+        final List<KeyExpression> keyFields = indexExpr.normalizeKeyForPositions();
         final List<KeyExpression> valueFields = Collections.emptyList();
         for (KeyExpression resultField : query.getRequiredResults()) {
             if (!addCoveringField(resultField, builder, keyFields, valueFields)) {

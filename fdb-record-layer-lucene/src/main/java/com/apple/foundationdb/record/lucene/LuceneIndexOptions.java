@@ -80,6 +80,24 @@ public class LuceneIndexOptions {
      */
     public static final String OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED = "optimizedStoredFieldsFormatEnabled";
 
+    /**
+     * Option to designate a record field as the timestamp by which the corresponding document would be partitioned in
+     * Lucene.
+     */
+    public static final String INDEX_PARTITION_BY_TIMESTAMP = "partitionTimestamp";
+
+    /**
+     * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new
+     * partition would be created.
+     */
+    public static final String INDEX_PARTITION_HIGH_WATERMARK = "partitionHighWatermark";
+
+    /**
+     * Option to set low watermark size for a lucene partition, below which the partition would be a candidate for
+     * merge with another adjacent partition.
+     */
+    public static final String INDEX_PARTITION_LOW_WATERMARK = "partitionLowWatermark";
+
     private LuceneIndexOptions() {
     }
 

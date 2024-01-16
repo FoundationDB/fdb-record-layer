@@ -119,6 +119,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().normalizeKeyForPositions();
     }
 
+    @Override
+    public boolean hasLosslessNormalization() {
+        return getWholeKey().hasLosslessNormalization();
+    }
+
     @Nonnull
     @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {

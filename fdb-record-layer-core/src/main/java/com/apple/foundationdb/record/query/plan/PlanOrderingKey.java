@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -40,7 +41,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpre
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * The keys that order the results from a plan.
@@ -77,6 +81,10 @@ public class PlanOrderingKey {
 
     public int getPrefixSize() {
         return prefixSize;
+    }
+
+    public int getSuffixSize() {
+        return keys.size() - prefixSize;
     }
 
     public int getPrimaryKeyStart() {
@@ -208,30 +216,68 @@ public class PlanOrderingKey {
             if (candidateKey == null) {
                 return null;
             }
-        } else if (candidateKey == null) {
-            candidateKey = sufficientOrdering(plans.get(0).planOrderingKey);
-        } else {
-            // Allowed to use other than just given key; check it first and if not pick one based on one of the plans.
-            try_candidate_key:
-            {
-                for (RecordQueryPlanner.ScoredPlan plan : plans) {
-                    final PlanOrderingKey planOrderingKey = plan.planOrderingKey;
-                    if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
-                        candidateKey = sufficientOrdering(planOrderingKey);
-                        break try_candidate_key;
-                    }
+            // See whether candidateKey, the only one allowed or one sufficient for one of the plans, is good enough for all plans.
+            for (RecordQueryPlanner.ScoredPlan plan : plans) {
+                final PlanOrderingKey planOrderingKey = Objects.requireNonNull(plan.planOrderingKey);
+                if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
+                    return null;
                 }
-                return candidateKey;
+            }
+            return candidateKey;
+        } else {
+            // Sort plans descending by the number of non-equality bound ordering keys. Keys with shorter suffixes
+            // only need to match a subset of the ordering keys of the longest one (if the missing elements are
+            // equality bound within the plans with shorter suffixes)
+            List<RecordQueryPlanner.ScoredPlan> plansDescendingBySuffixSize = plans.stream()
+                    .sorted((p1, p2) -> -1 * Integer.compare(p1.planOrderingKey.getSuffixSize(), p2.planOrderingKey.getSuffixSize()))
+                    .collect(Collectors.toList());
+            for (RecordQueryPlanner.ScoredPlan plan : plansDescendingBySuffixSize) {
+                KeyExpression planKey = orderingCompatiblePlanKey(Objects.requireNonNull(plan.planOrderingKey), candidateKey);
+                if (planKey == null) {
+                    return null;
+                }
+                candidateKey = planKey;
+            }
+            return candidateKey;
+        }
+    }
+
+    @Nullable
+    private static KeyExpression orderingCompatiblePlanKey(@Nonnull PlanOrderingKey planOrderingKey,
+                                                           @Nullable KeyExpression candidateKey) {
+        List<KeyExpression> components = new ArrayList<>(planOrderingKey.getSuffixSize());
+        int nextNonPrefix = planOrderingKey.prefixSize;
+
+        // Be sure to retain any elements of the candidate key
+        if (candidateKey != null) {
+            for (KeyExpression component : candidateKey.normalizeKeyForPositions()) {
+                int pos = planOrderingKey.keys.indexOf(component);
+                if (pos < 0) {
+                    return null;
+                }
+                if (pos < planOrderingKey.prefixSize) {
+                    // Equality bound predicate. We're trivially ordered by it, so add it to the final key.
+                    // When combining sub-plans, this can represent, slotting in all of the elements of one
+                    // sub-plan before or after the elements of another sub-plan.
+                    components.add(component);
+                } else if (pos == nextNonPrefix) {
+                    // We're aligned with the next non-prefix position. Add it in to the final key
+                    components.add(component);
+                    nextNonPrefix++;
+                } else {
+                    // Not matched. Exit now
+                    return null;
+                }
             }
         }
-        // See whether candidateKey, the only one allowed or one sufficient for one of the plans, is good enough for all plans.
-        for (RecordQueryPlanner.ScoredPlan plan : plans) {
-            final PlanOrderingKey planOrderingKey = plan.planOrderingKey;
-            if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
-                return null;
-            }
+
+        // Add in all remaining non-prefix components. If other sub-plans are to match with this one, this
+        // needs to be maintained
+        while (nextNonPrefix < planOrderingKey.getKeys().size()) {
+            components.add(planOrderingKey.getKeys().get(nextNonPrefix));
+            nextNonPrefix++;
         }
-        return candidateKey;
+        return combine(components);
     }
 
     /**
@@ -262,19 +308,38 @@ public class PlanOrderingKey {
     }
 
     /**
-     * Get the smallest key that is sufficient to generate the primary key while still obeying the ordering key.
-     * This will include all of the primary key, with perhaps some non-equality keys before it.
+     * Find a candidate key for the sort that includes (at least) the given primary key. This finds a candidate
+     * ordering key that contains the primary key columns and is compatible with as many plans as possible.
+     *
+     * @param plans the list of plans to check for a candidate ordering
+     * @param primaryKey the primary key to preserve within the ordering key
+     * @return a key that contains the primary key and is compatible with the ordering of at least one plan
      */
     @Nonnull
-    private static KeyExpression sufficientOrdering(@Nonnull PlanOrderingKey planOrderingKey) {
-        List<KeyExpression> keys = planOrderingKey.keys
-                .subList(Math.min(planOrderingKey.prefixSize, planOrderingKey.primaryKeyStart),
-                        planOrderingKey.keys.size());
-        if (keys.size() == 1) {
+    public static KeyExpression candidateContainingPrimaryKey(@Nonnull Collection<RecordQueryPlanner.ScoredPlan> plans, @Nonnull KeyExpression primaryKey) {
+        KeyExpression candidateKey = primaryKey;
+        for (RecordQueryPlanner.ScoredPlan scoredPlan : plans) {
+            PlanOrderingKey planOrderingKey = scoredPlan.planOrderingKey;
+            if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
+                // Widen the plan to include all non-equality bound fields in the plan
+                List<KeyExpression> newKeys = planOrderingKey.getKeys().subList(
+                        Math.min(planOrderingKey.getPrefixSize(), planOrderingKey.getPrimaryKeyStart()),
+                        planOrderingKey.getKeys().size()
+                );
+                candidateKey = combine(newKeys);
+            }
+        }
+        return candidateKey;
+    }
+
+    @Nonnull
+    private static KeyExpression combine(@Nonnull List<KeyExpression> keys) {
+        if (keys.isEmpty()) {
+            return EmptyKeyExpression.EMPTY;
+        } else if (keys.size() == 1) {
             return keys.get(0);
         } else {
             return new ThenKeyExpression(keys);
         }
     }
-
 }

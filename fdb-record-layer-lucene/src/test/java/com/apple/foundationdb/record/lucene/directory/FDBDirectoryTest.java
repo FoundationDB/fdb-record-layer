@@ -69,7 +69,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, 2);
-        directory.getContext().commit();
+        directory.getCallerContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
             directory = new FDBDirectory(subspace, context, null);
@@ -82,13 +82,13 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         final int threads = 50;
         List<CompletableFuture<Long>> futures = new ArrayList<>(threads);
         for (int i = 0; i < threads; i++) {
-            futures.add(CompletableFuture.supplyAsync(directory::getIncrement, directory.getContext().getExecutor()));
+            futures.add(CompletableFuture.supplyAsync(directory::getIncrement, directory.getCallerContext().getExecutor()));
         }
         List<Long> values = AsyncUtil.getAll(futures).join();
         assertThat(values, containsInAnyOrder(LongStream.range(1, threads + 1).mapToObj(Matchers::equalTo).collect(Collectors.toList())));
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_GET_INCREMENT_CALLS, threads);
         assertMetricCountAtMost(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT, threads);
-        directory.getContext().commit();
+        directory.getCallerContext().commit();
 
         try (FDBRecordContext context = fdb.openContext()) {
             directory = new FDBDirectory(subspace, context, null);
@@ -126,11 +126,12 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testMissingSeek() {
         final CompletableFuture<byte[]> seekFuture = directory.readBlock(
+                new EmptyIndexInput("Test Empty"),
                 "testDescription",
                 directory.getFDBLuceneFileReferenceAsync("testReference"),
                 1
         );
-        final FDBRecordContext context = directory.getContext();
+        final FDBRecordContext context = directory.getCallerContext();
         assertThrows(RecordCoreArgumentException.class,
                 () -> context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, seekFuture));
     }
@@ -138,14 +139,16 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     public void testWriteSeekData() throws Exception {
         directory.writeFDBLuceneFileReference("testReference1", new FDBLuceneFileReference(1, 1, 1, 1));
-        assertNull(directory.readBlock("testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
+        final EmptyIndexInput emptyInput = new EmptyIndexInput("Empty Input");
+        assertNull(directory.readBlock(emptyInput,
+                "testReference1", directory.getFDBLuceneFileReferenceAsync("testReference1"), 1).get());
         directory.writeFDBLuceneFileReference("testReference2", new FDBLuceneFileReference(2, 1, 1, 200));
         byte[] data = "test string for write".getBytes();
         directory.writeData(2, 1, data);
-        assertNotNull(directory.readBlock("testReference2",
+        assertNotNull(directory.readBlock(emptyInput, "testReference2",
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
-        directory.getContext().commit();
+        directory.getCallerContext().commit();
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_SIZE, LuceneSerializer.encode(data, true, false).length);
         assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_CALL, 1);
     }
@@ -160,7 +163,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 2);
         // Assert that the cache is loaded only once even though directory::listAll is called twice
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, 1);
-        directory.getContext().ensureActive().cancel();
+        directory.getCallerContext().ensureActive().cancel();
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
@@ -192,7 +195,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         long fileSize = directory.fileLength("test1");
         assertEquals(expectedSize, fileSize);
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_GET_FILE_LENGTH, 1);
-        directory.getContext().commit();
+        directory.getCallerContext().commit();
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {

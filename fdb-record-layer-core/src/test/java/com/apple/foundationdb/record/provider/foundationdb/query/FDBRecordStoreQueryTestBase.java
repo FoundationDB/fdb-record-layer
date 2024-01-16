@@ -484,6 +484,16 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
+    protected void setOmitPrimaryKeyInUnionOrderingKey(boolean shouldOmitPrimaryKeyInUnionOrderingKey) {
+        if (planner instanceof RecordQueryPlanner) {
+            RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+            recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
+                    .asBuilder()
+                    .setOmitPrimaryKeyInUnionOrderingKey(shouldOmitPrimaryKeyInUnionOrderingKey)
+                    .build());
+        }
+    }
+
     protected void setOptimizeForIndexFilters(boolean shouldOptimizeForIndexFilters) {
         assertTrue(planner instanceof RecordQueryPlanner);
         RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;

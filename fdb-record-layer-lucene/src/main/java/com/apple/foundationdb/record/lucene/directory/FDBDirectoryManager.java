@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.lucene.LucenePartitioner;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.MergeScheduler;
@@ -88,7 +90,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper) {
+    public CompletableFuture<Void> mergeIndex(LucenePartitioner partitioner, LuceneAnalyzerWrapper analyzerWrapper) {
         // This function will iterate the grouping keys and explicitly merge each
 
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
@@ -100,7 +102,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY);
+            // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
+            mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner.isPartitioningEnabled() ? 0 : null);
             return AsyncUtil.DONE;
         }
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
@@ -114,16 +117,17 @@ public class FDBDirectoryManager implements AutoCloseable {
                 null,
                 ScanProperties.FORWARD_SCAN);
 
+        // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
         return cursor
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEach(groupingKey ->
-                        mergeIndex(analyzerWrapper, groupingKey));
+                        mergeIndex(analyzerWrapper, groupingKey, partitioner.isPartitioningEnabled() ? 0 : null));
     }
 
-    private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey) {
+    private void mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable Integer partitionId) {
         try {
-            getDirectoryWrapper(groupingKey).mergeIndex(analyzerWrapper);
+            getDirectoryWrapper(groupingKey, partitionId, true).mergeIndex(analyzerWrapper);
         } catch (IOException e) {
             throw new RecordCoreStorageException("Lucene mergeIndex failed", e);
         }
@@ -183,23 +187,34 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey) {
-        final Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount));
+    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        return getDirectoryWrapper(groupingKey, partitionId, false);
+    }
+
+    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, boolean useAgilityContext) {
+        Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
+        if (partitionId != null) {
+            mapKey = mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
+        }
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, useAgilityContext));
     }
 
     @Nonnull
-    public FDBDirectory getDirectory(@Nullable Tuple groupingKey) {
-        return getDirectoryWrapper(groupingKey).getDirectory();
+    public FDBDirectory getDirectory(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        return getDirectoryWrapper(groupingKey, partitionId).getDirectory();
     }
 
-    public IndexReader getIndexReader(@Nullable Tuple groupingKey) throws IOException {
-        return getDirectoryWrapper(groupingKey).getReader();
+    public IndexReader getIndexReader(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
+        return getDirectoryWrapper(groupingKey, partitionId).getReader();
     }
 
     @Nonnull
-    public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
-        return getDirectoryWrapper(groupingKey).getWriter(analyzerWrapper);
+    public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nullable Integer partitionId, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+        return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper);
+    }
+
+    public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
+        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader(false);
     }
 
     @Nonnull

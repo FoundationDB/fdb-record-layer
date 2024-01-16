@@ -950,6 +950,31 @@ public class KeyExpressionTest {
                 () -> String.format("%s should%s have a record type prefix", key, hasRecordTypePrefix ? "" : " not"));
     }
 
+    @SuppressWarnings("unused")
+    static Stream<Arguments> getLosslessNormalizationKeys() {
+        return Stream.of(
+                Arguments.of(EMPTY, true),
+                Arguments.of(field("foo"), true),
+                Arguments.of(value(1066L), true),
+                Arguments.of(recordType(), true),
+                Arguments.of(list(recordType(), field("foo")), true),
+                Arguments.of(VERSION, true),
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(concat(field("foo"), field("bar")), true),
+                Arguments.of(field("foo").groupBy(field("bar")), true),
+                Arguments.of(field("parent").nest(field("foo"), field("bar")), true),
+                Arguments.of(field("parent").nest(field("child", FanType.FanOut).nest(field("foo"), field("bar"))), false),
+                Arguments.of(new GroupingKeyExpression(field("parent", FanType.FanOut).nest(field("foo"), field("bar")), 1), false)
+        );
+    }
+
+    @ParameterizedTest(name = "testLosslessNormalization[key={0}]")
+    @MethodSource("getLosslessNormalizationKeys")
+    void testLosslessNormalization(@Nonnull KeyExpression key, boolean lossless) {
+        assertEquals(lossless, key.hasLosslessNormalization(),
+                () -> String.format("%s should have %s normalization", key, lossless ? "lossless" : "lossy"));
+    }
+
     /**
      * Function registry for functions defined in this class.
      */

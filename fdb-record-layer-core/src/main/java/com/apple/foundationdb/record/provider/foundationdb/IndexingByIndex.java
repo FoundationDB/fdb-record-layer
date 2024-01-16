@@ -167,7 +167,7 @@ public class IndexingByIndex extends IndexingBase {
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
-                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
+                                .thenApply(ignore -> notAllRangesExhausted(cont, rangeEnd)));
 
         });
     }

@@ -47,7 +47,7 @@ public class PlanComplexityExceededTest extends FDBRecordStoreQueryTestBase {
 
     @BeforeEach
     public void setup() throws Exception {
-        useRewritePlanner = true;
+        useCascadesPlanner = true;
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         cascadesPlanner = (CascadesPlanner)planner;

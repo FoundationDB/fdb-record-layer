@@ -46,6 +46,7 @@ message ComplexDocument {
     optional string text2 = 7;
     optional bool is_seen = 8;
     optional double time = 9;
+    optional int64 timestamp = 10;
 }
 
 message MapDocument {

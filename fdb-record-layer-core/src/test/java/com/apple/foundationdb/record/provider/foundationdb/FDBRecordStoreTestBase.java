@@ -72,7 +72,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
     protected FDBStoreTimer timer = new FDBStoreTimer();
-    protected boolean useRewritePlanner = false;
+    protected boolean useCascadesPlanner = false;
     protected QueryPlanner planner;
     protected final KeySpacePath path;
 
@@ -128,7 +128,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        final FDBRecordContextConfig config = contextConfig(props).build();
+        final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
         return fdb.openContext(config);
     }
 
@@ -195,12 +195,12 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         setupPlanner(null);
     }
 
-    public void setUseRewritePlanner(boolean useRewritePlanner) {
-        this.useRewritePlanner = useRewritePlanner;
+    public void setUseCascadesPlanner(boolean useCascadesPlanner) {
+        this.useCascadesPlanner = useCascadesPlanner;
     }
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useRewritePlanner) {
+        if (useCascadesPlanner) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
             if (Debugger.getDebugger() == null) {
                 Debugger.setDebugger(new DebuggerWithSymbolTables());

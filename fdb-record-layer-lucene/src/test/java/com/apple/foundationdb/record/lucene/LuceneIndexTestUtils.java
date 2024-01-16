@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -118,23 +119,17 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
-    static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
-                                                                   final KeySpacePath path,
-                                                                   final String document,
-                                                                   final Index index) {
-        return rebuildIndexMetaData(context, path, document, index, false);
-    }
-
     public static Pair<FDBRecordStore, QueryPlanner> rebuildIndexMetaData(final FDBRecordContext context,
                                                                           final KeySpacePath path,
                                                                           final String document,
-                                                                          final Index index, boolean useRewritePlanner) {
+                                                                          final Index index,
+                                                                          boolean useCascadesPlanner) {
         FDBRecordStore store = openRecordStore(context, path, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
 
-        QueryPlanner planner = setupPlanner(store, null, useRewritePlanner);
+        QueryPlanner planner = setupPlanner(store, null, useCascadesPlanner);
         return Pair.of(store, planner);
     }
 
@@ -240,6 +235,15 @@ public class LuceneIndexTestUtils {
                 .build();
     }
 
+    public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, long group, long timestamp) {
+        return TestRecordsTextProto.ComplexDocument.newBuilder()
+                .setDocId(docId)
+                .setText(text)
+                .setGroup(group)
+                .setTimestamp(timestamp)
+                .build();
+    }
+
     public static TestRecordsTextProto.ComplexDocument createComplexDocument(long docId, String text, String text2, long group, int score, boolean isSeen, double time) {
         return TestRecordsTextProto.ComplexDocument.newBuilder()
                 .setDocId(docId)
@@ -263,5 +267,20 @@ public class LuceneIndexTestUtils {
                         .setThirdValue("thirdValue" + docId)
                         .build())
                 .build();
+    }
+
+    /**
+     * Try to force a segment merge on the provided store using the given index. The merge will be triggered if there are
+     * sufficient conditions for one.
+     * @param recordStore the store where the index is stored
+     * @param index the Lucene indes to merge
+     */
+    public static void mergeSegments(final FDBRecordStore recordStore, final Index index) {
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .build()) {
+            indexBuilder.mergeIndex();
+        }
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -30,7 +31,6 @@ import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
 import java.io.IOException;
@@ -49,10 +49,10 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
 
-    private final CompoundFormat compoundFormat;
+    protected final CompoundFormat underlying;
 
     public LuceneOptimizedCompoundFormat(final CompoundFormat underlying) {
-        this.compoundFormat = underlying;
+        this.underlying = underlying;
     }
 
     @Override
@@ -74,9 +74,13 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         Set<String> filteredFiles = filterMarkerFiles(si.files());
         si.setFiles(filteredFiles);
         @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
-        final FDBDirectory directory = (FDBDirectory)FilterDirectory.unwrap(dir);
-        compoundFormat.write(dir, si, context);
+        final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(dir);
+        underlying.write(dir, si, context);
         si.setFiles(filesForAfter);
+        copyFieldInfos(si, filesForAfter, directory);
+    }
+
+    protected void copyFieldInfos(final SegmentInfo si, final Set<String> filesForAfter, final FDBDirectory directory) {
         final String fieldInfosFileName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst().orElseThrow();
         final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
         String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
@@ -97,6 +101,12 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             }
         }
 
+        validateFileCounts(files, fieldInfos, storedFields);
+
+        return filteredFiles;
+    }
+
+    protected void validateFileCounts(final Set<String> files, final int fieldInfos, final int storedFields) {
         if (fieldInfos != 1) {
             throw new RecordCoreException("Segment has wrong number of FieldInfos")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
@@ -106,7 +116,5 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
             throw new RecordCoreException("Segment has wrong number of StoredFields")
                     .addLogInfo(LuceneLogMessageKeys.FILE_LIST, files);
         }
-
-        return filteredFiles;
     }
 }

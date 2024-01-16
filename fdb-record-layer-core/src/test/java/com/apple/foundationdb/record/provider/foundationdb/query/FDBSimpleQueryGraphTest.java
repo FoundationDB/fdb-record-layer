@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -138,11 +139,15 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
+        return executeCascades(store, plan, Bindings.EMPTY_BINDINGS);
+    }
+
+    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
         Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
         TypeRepository typeRepository = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes)
                 .build();
-        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(typeRepository);
+        EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository);
         return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
