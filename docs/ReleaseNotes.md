@@ -9,6 +9,8 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ### Breaking Changes
 
+Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -29,7 +31,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Support for the Protobuf 2 runtime has been removed from all artifacts [(Issue #1637)](https://github.com/FoundationDB/fdb-record-layer/issues/1637)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

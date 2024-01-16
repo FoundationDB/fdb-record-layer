@@ -145,6 +145,7 @@ public class MetaDataEvolutionValidatorTestV3 {
      * Validate that it is legal to change the records descriptor from proto2 to proto3 as long as all of the records
      * contained within that file are still the same syntax.
      */
+    @SuppressWarnings("deprecation") // test focuses on checking the (deprecated) syntax field
     @Test
     public void onlyFileProto2ToProto3() throws InvalidProtocolBufferException {
         assertNotEquals(TestRecords1Proto.getDescriptor().getSyntax(), TestRecords1ImportedProto.getDescriptor().getSyntax());

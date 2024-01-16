@@ -203,13 +203,6 @@ subprojects {
         } else {
             protoMajorVersion = '3'
         }
-        if (protoMajorVersion == "2") {
-            protobufVersion = protobuf2Version
-        } else if (protoMajorVersion == "3") {
-            protobufVersion = protobuf3Version
-        } else {
-            throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
-        }
         if (protoMajorVersion != "2") {
             coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
             shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"

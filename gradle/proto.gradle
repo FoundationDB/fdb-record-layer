@@ -27,9 +27,6 @@ sourceSets {
         }
     }
     test {
-        proto {
-            srcDir "src/test/proto${protoMajorVersion}"
-        }
         java {
             srcDir 'protogen/test/java'
         }
@@ -51,36 +48,25 @@ protobuf {
     }
     protoc {
         artifact = "com.google.protobuf:protoc:${protobufVersion}"
-        def osName = providers.systemProperty("os.name").forUseAtConfigurationTime().getOrElse("")
-        def osArch = providers.systemProperty("os.arch").forUseAtConfigurationTime().getOrElse("")
-        if ((osName == "macOS" || osName == "Mac OS X") && osArch == "aarch64" && protobufVersion == protobuf2Version) {
-            // There is not a macOS aarch64 build of the proto2 compiler. Download the x86_64 version instead, which
-            // will be run in emulation on that architecture. This is fine because this is used only to generate Java
-            // code; it is not directly linked against.
-            artifact = "com.google.protobuf:protoc:${protobufVersion}:osx-x86_64"
-        }
     }
     generateProtoTasks {
         all().each { task ->
             task.addIncludeDir(files("${projectDir}/src/main/proto/include"))
-            task.addIncludeDir(files("${projectDir}/src/main/proto${protoMajorVersion}/include"))
             if (task.name != 'generateProto') {
                 // test protos likely include both main protos and their dependencies.
                 task.addIncludeDir(files("${projectDir}/src/main/proto"))
                 task.addIncludeDir(files("${projectDir}/.out/extracted-include-protos/main"))
             }
 
-            if (protoMajorVersion == '3') {
-                // When generating from syntax = proto2 files, protoc can generate methods that reference
-                // the deprecated PARSER field. Suppress these warnings on generated code
-                // See: https://github.com/protocolbuffers/protobuf/issues/7271
-                task.doLast {
-                    task.outputs.getFiles().forEach {
-                        ant.replace(dir: it, includes: "**/*.java",
-                                token: "public static final class ",
-                                value: "@SuppressWarnings(\"deprecation\") public static final class ",
-                        )
-                    }
+            // When generating from syntax = proto2 files, protoc can generate methods that reference
+            // the deprecated PARSER field. Suppress these warnings on generated code
+            // See: https://github.com/protocolbuffers/protobuf/issues/7271
+            task.doLast {
+                task.outputs.getFiles().forEach {
+                    ant.replace(dir: it, includes: "**/*.java",
+                            token: "public static final class ",
+                            value: "@SuppressWarnings(\"deprecation\") public static final class ",
+                    )
                 }
             }
         }
@@ -90,9 +76,6 @@ protobuf {
 // Configure the published jar to include any external protos
 jar {
     from ("${projectDir}/src/main/proto/include") {
-        include '**/*.proto'
-    }
-    from ("${projectDir}/src/main/proto${protoMajorVersion}/include") {
         include '**/*.proto'
     }
 }

@@ -1,5 +1,5 @@
 /*
- * ProtoVersionSupplier.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record;
-
 /**
- * A utility class that that specifies what the Protocol buffer version is.
- */
-public class ProtoVersionSupplier {
-
-    /**
-     * Get the major version of the Protocol buffer version.
-     *
-     * @return the major version of the Protocol buffer dependency
-     */
-    public static int getProtoVersion() {
-        return 2;
-    }
-
-    private ProtoVersionSupplier() {
-    }
-}
+ * Ability to support zero copy byte[] wrapping to ByteString.
+ *
+*/
+package com.google.protobuf;
