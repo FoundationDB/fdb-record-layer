@@ -5,11 +5,9 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 3.3
+## 3.4
 
 ### Breaking Changes
-
-The Guava dependency version has been updated to 31.1. Projects may need to check for compatibility with their own versions of the dependency, or they may need to consider using the shaded artifact if the new version is incompatible.
 
 <!--
 // begin next release
@@ -38,6 +36,13 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 
 // end next release
 -->
+
+## 3.3
+
+### Breaking Changes
+
+The Guava dependency version has been updated to 31.1. Projects may need to check for compatibility with their own versions of the dependency, or they may need to consider using the shaded artifact if the new version is incompatible.
+
 
 ### 3.3.446.0
 
