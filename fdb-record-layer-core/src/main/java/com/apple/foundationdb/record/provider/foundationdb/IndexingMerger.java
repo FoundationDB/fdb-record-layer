@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +51,7 @@ public class IndexingMerger {
     private int mergeSuccesses = 0;
     private long timeQuotaMillis = 0;
     private final IndexingCommon common;
+    private SubspaceProvider subspaceProvider = null;
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -62,7 +64,8 @@ public class IndexingMerger {
     }
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
-    CompletableFuture<Void> mergeIndex() {
+    CompletableFuture<Void> mergeIndex(@Nullable SubspaceProvider subspaceProvider) {
+        this.subspaceProvider = subspaceProvider; // for logs only
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         AtomicReference<Runnable> recordTime = new AtomicReference<>();
@@ -103,9 +106,7 @@ public class IndexingMerger {
         }
         mergeSuccesses++;
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(KeyValueLogMessage.build("IndexMerge: Success")
-                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                    .toString());
+            LOGGER.debug(mergerLogMessage("IndexMerge: Success", mergeControl));
         }
         // after a successful merge, reset the time quota. It is unlikely to be applicable for the next merge.
         timeQuotaMillis = 0;
@@ -132,9 +133,7 @@ public class IndexingMerger {
         // Here: reduce the number of OneMerge items attempted
         mergesLimit = mergeControl.getMergesTried() / 2;
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.build("IndexMerge: Merges diluted")
-                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                    .toString(), e);
+            LOGGER.trace(mergerLogMessage("IndexMerge: Merges diluted", mergeControl), e);
         }
     }
 
@@ -148,17 +147,13 @@ public class IndexingMerger {
         }
         timeQuotaMillis /= 2;
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(KeyValueLogMessage.build("IndexMerge: Decrease time quota")
-                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                    .toString(), e);
+            LOGGER.trace(mergerLogMessage("IndexMerge: Decrease time quota", mergeControl), e);
         }
     }
 
     private void giveUpMerging(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         if (LOGGER.isWarnEnabled()) {
-            LOGGER.warn(KeyValueLogMessage.build("IndexMerge: Gave up merge dilution")
-                    .addKeysAndValues(mergerKeysAndValues(mergeControl))
-                    .toString(), e);
+            LOGGER.warn(mergerLogMessage("IndexMerge: Gave up merge dilution", mergeControl), e);
         }
         throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
     }
@@ -171,6 +166,15 @@ public class IndexingMerger {
                 LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried(),
                 LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis()
         );
+    }
+
+    String mergerLogMessage(String ttl, final IndexDeferredMaintenanceControl mergeControl) {
+        final KeyValueLogMessage msg = KeyValueLogMessage.build(ttl);
+        msg.addKeysAndValues(mergerKeysAndValues(mergeControl));
+        if (subspaceProvider != null) {
+            msg.addKeyAndValue(subspaceProvider.logKey(), subspaceProvider);
+        }
+        return msg.toString();
     }
 
 }
