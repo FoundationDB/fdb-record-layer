@@ -18,40 +18,39 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: DROP SCHEMA TEMPLATE if exists messenger_template;
+  - query: CREATE SCHEMA TEMPLATE messenger_template
+      CREATE TABLE messages(
+             id bigint,
+             text string,
+             timestamp bigint,
+             other_party_id bigint,
+             sent boolean,
+             primary key(id))
+         CREATE TABLE customer(
+             id bigint,
+             name string,
+             phone_number string,
+             address string,
+             primary key(id));
+  - query: drop database if exists /FRL/JOIN_YAML
+  - query: create database /FRL/JOIN_YAML
+  - query: create schema /FRL/JOIN_YAML/test with template messenger_template
+  - connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
 ---
-- query: DROP SCHEMA TEMPLATE if exists messenger_template;
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      # the query works now as expected, TODO: add data, verify results.
+      - query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
 ---
-- query: CREATE SCHEMA TEMPLATE messenger_template 
-    CREATE TABLE messages(
-           id bigint,
-           text string,
-           timestamp bigint,
-           other_party_id bigint,
-           sent boolean,
-           primary key(id))
-       CREATE TABLE customer(
-           id bigint,
-           name string,
-           phone_number string,
-           address string,
-           primary key(id))
-   ;
----
-- query: drop database if exists /FRL/JOIN_YAML
----
-- query: create database /FRL/JOIN_YAML
----
-- query: create schema /FRL/JOIN_YAML/test with template messenger_template
----
-- connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
----
-# the query works now as expected, TODO: add data, verify results.
-- query: select name, sent, text, timestamp from messages m, customer c where m.other_party_id = c.id;
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/JOIN_YAML
----
-- query: DROP SCHEMA TEMPLATE messenger_template;
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/JOIN_YAML
+  - query: DROP SCHEMA TEMPLATE messenger_template;
 ...

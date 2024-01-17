@@ -18,42 +18,42 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists primary_key_tests_template
+  - query: create schema template primary_key_tests_template
+      CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
+      create table t1(id s1, g bigint, primary key(id.a, id.b))
+  - query: drop database if exists /FRL/PRIMARY_KEY_YAML
+  - query: create database /FRL/PRIMARY_KEY_YAML
+  - query: create schema /FRL/PRIMARY_KEY_YAML/test with template primary_key_tests_template
+  - connect: "jdbc:embed:/FRL/PRIMARY_KEY_YAML?schema=TEST"
 ---
-- query: drop schema template if exists primary_key_tests_template
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: INSERT INTO T1
+           VALUES ((1, 2, 3, 4), 5),
+                  ((1, 2, 30, 40), 50)
+      - error: "23505"
+    -
+      - query: SELECT COUNT(*) FROM T1
+      - result: [{0}]
+    -
+      - query: INSERT INTO T1
+          VALUES ((1, 2, 3, 4), 5),
+                 ((1, 3, 30, 40), 50)
+      - count: 2
+    -
+      - query: select * from t1;
+      - result: [{{1, 2, 3, 4}, 5},
+                 {{1, 3, 30, 40}, 50}]
 ---
-- query: create schema template primary_key_tests_template
-    CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
-    create table t1(id s1, g bigint, primary key(id.a, id.b))
----
-- query: drop database if exists /FRL/PRIMARY_KEY_YAML
----
-- query: create database /FRL/PRIMARY_KEY_YAML
----
-- query: create schema /FRL/PRIMARY_KEY_YAML/test with template primary_key_tests_template
----
-- connect: "jdbc:embed:/FRL/PRIMARY_KEY_YAML?schema=TEST"
----
-- query: INSERT INTO T1
-     VALUES ((1, 2, 3, 4), 5),
-            ((1, 2, 30, 40), 50)
-- error: "23505"
----
-- query: SELECT COUNT(*) FROM T1
-- result: [{0}]
----
-- query: INSERT INTO T1
-    VALUES ((1, 2, 3, 4), 5),
-           ((1, 3, 30, 40), 50)
-- count: 2
----
-- query: select * from t1;
-- result: [{{1, 2, 3, 4}, 5},
-           {{1, 3, 30, 40}, 50}]
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/PRIMARY_KEY_YAML
----
-- query: drop schema template primary_key_tests_template
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/PRIMARY_KEY_YAML
+  - query: drop schema template primary_key_tests_template
 ...

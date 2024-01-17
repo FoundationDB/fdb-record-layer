@@ -18,492 +18,504 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop schema template if exists aggregate_index_tests_template
----
-- query: create schema template aggregate_index_tests_template
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create table t2(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create table t3(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create index t2_i1 as select count(*) from t2
-    create index t2_i2 as select count(*) from t2 group by col1
-    create index t2_i3 as select count(col2) from t2
-    create index t2_i4 as select count(col2) from t2 group by col1
-    create index t2_i5 as select sum(col1) from t2
-    create index t2_i6 as select sum(col1) from t2 group by col2
-    create index t3_i1 as select col1 from t3
-    create index t3_i2 as select col2 from t3
----
-- query: drop database if exists /FRL/AGG_EMPTY_TABLE_YAML
----
-- query: create database /FRL/AGG_EMPTY_TABLE_YAML
----
-- query: create schema /FRL/AGG_EMPTY_TABLE_YAML/test with template aggregate_index_tests_template
----
-- connect: "jdbc:embed:/FRL/AGG_EMPTY_TABLE_YAML?schema=TEST"
----
-- query: select count(*) from T1;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-# TODO (count query returns nothing instead of zero when running on aggregate index)
-- query: select count(*) from T2;
-- explainContains: "Index(T2_I1 <,> BY_GROUP)"
-#- result: [{0}]
----
-- query: select count(*) from T2 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(*) from T2 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(*) from T2 group by col1;
-- explainContains: "Index(T2_I2 <,> BY_GROUP)"
-- result: []
----
-- query: select count(*) from T2 where col1 = 0 group by col1;
-- explainContains: "Index(T2_I2 [EQUALS promote(@0 as LONG)] BY_GROUP)"
-- result: []
----
-- query: select count(*) from T2 where col1 > 0 group by col1;
-- explainContains: "Index(T2_I2 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
-- result: []
----
-- query: select count(*) from T3;
-- explainContains: "Index(T3_I1 <,>)"
-- result: [{0}]
----
-- query: select count(*) from T3 where col1 = 0;
-- explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
-- result: [{0}]
----
-- query: select count(*) from T3 where col1 > 0;
-- explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: [{0}]
----
-- query: select count(*) from T3 group by col1;
-- explainContains: "Index(T3_I1 <,>)"
-- result: []
----
-- query: select count(*) from T3 where col1 = 0 group by col1;
-- explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
-- result: []
----
-- query: select count(*) from T3 where col1 > 0 group by col1;
-- explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: []
----
-- query: select count(col2) from T1;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-# TODO (count query returns nothing instead of zero when running on aggregate index)
-- query: select count(col2) from T2;
-- explainContains: "Index(T2_I3 <,> BY_GROUP)"
-#- result: [{0}]
----
-- query: select count(col2) from T2 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(col2) from T2 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{0}]
----
-- query: select count(col2) from T2 group by col1;
-- explainContains: "Index(T2_I4 <,> BY_GROUP)"
-- result: []
----
-- query: select count(col2) from T2 where col1 = 0 group by col1;
-- explainContains: "Index(T2_I4 [EQUALS promote(@0 as LONG)] BY_GROUP)"
-- result: []
----
-- query: select count(col2) from T2 where col1 > 0 group by col1;
-- explainContains: "Index(T2_I4 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
-- result: []
----
-- query: select count(col2) from T3;
-- explainContains: "Index(T3_I1 <,>)"
-- result: [{0}]
----
-- query: select count(col2) from T3 where col1 = 0;
-- explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
-- result: [{0}]
----
-- query: select count(col2) from T3 where col1 > 0;
-- explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: [{0}]
----
-- query: select count(col2) from T3 group by col1;
-- explainContains: "Index(T3_I1 <,>)"
-- result: []
----
-- query: select count(col2) from T3 where col1 = 0 group by col1;
-- explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
-- result: []
----
-- query: select count(col2) from T3 where col1 > 0 group by col1;
-- explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: []
----
-- query: select sum(col1) from T1;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col2 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col2 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-# TODO (sum query returns nothing instead of null when running on aggregate index)
-- query: select sum(col1) from T2;
-- explainContains: "Index(T2_I5 <,> BY_GROUP)"
-#- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col1 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col2 = 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col1 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col2 > 0;
-- explainContains: "Scan(<,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col1 = 0 group by col2;
-- error: "0AF00"
----
-- query: select sum(col1) from T2 where col2 = 0 group by col2;
-- explainContains: "Index(T2_I6 [EQUALS promote(@0 as LONG)] BY_GROUP)"
-- result: []
----
-- query: select sum(col1) from T2 where col1 > 0 group by col2;
-- error: "0AF00"
----
-- query: select sum(col1) from T2 where col2 > 0 group by col2;
-- explainContains: "Index(T2_I6 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
-- result: []
----
-- query: select sum(col1) from T3;
-- explainContains: "Index(T3_I1 <,>)"
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 = 0;
-- explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col2 = 0;
-- explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 > 0;
-- explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col2 > 0;
-- explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 = 0 group by col2;
-- explainContains: "Index(T3_I2 <,>)"
-- result: []
----
-- query: select sum(col1) from T3 where col2 = 0 group by col2;
-- explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
-- result: []
----
-- query: select sum(col1) from T3 where col1 > 0 group by col2;
-- explainContains: "Index(T3_I2 <,>)"
-- result: []
----
-- query: select sum(col1) from T3 where col2 > 0 group by col2;
-- explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
-- result: []
----
-- query: insert into t1 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
-- count: 3
----
-- query: insert into t2 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
-- count: 3
----
-- query: insert into t3 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
-- count: 3
----
-- query: delete from t1
-- count: 3
----
-- query: delete from t2
-- count: 3
----
-- query: delete from t3
-- count: 3
----
-- query: select count(*) from T1;
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 = 0;
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 > 0;
-- result: [{0}]
----
-- query: select count(*) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(*) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-# TODO (count query returns nothing instead of zero when running on aggregate index)
-#- query: select count(*) from T2;
-#- result: [{0}]
-#---
-- query: select count(*) from T2 where col1 = 0;
-- result: [{0}]
----
-- query: select count(*) from T2 where col1 > 0;
-- result: [{0}]
----
-# TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
-#- query: select count(*) from T2 group by col1;
-#- result: []
-#---
-- query: select count(*) from T2 where col1 = 0 group by col1;
-- result: []
----
-# TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
-#- query: select count(*) from T2 where col1 > 0 group by col1;
-#- result: []
-#---
-- query: select count(*) from T3;
-- result: [{0}]
----
-- query: select count(*) from T3 where col1 = 0;
-- result: [{0}]
----
-- query: select count(*) from T3 where col1 > 0;
-- result: [{0}]
----
-- query: select count(*) from T3 group by col1;
-- result: []
----
-- query: select count(*) from T3 where col1 = 0 group by col1;
-- result: []
----
-- query: select count(*) from T3 where col1 > 0 group by col1;
-- result: []
----
-- query: select count(col2) from T1;
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 = 0;
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 > 0;
-- result: [{0}]
----
-- query: select count(col2) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 = 0 group by col1;
-- error: "0AF00"
----
-- query: select count(col2) from T1 where col1 > 0 group by col1;
-- error: "0AF00"
----
-# TODO (count query returns nothing instead of zero when running on aggregate index)
-#- query: select count(col2) from T2;
-#- result: [{0}]
-#---
-- query: select count(col2) from T2 where col1 = 0;
-- result: [{0}]
----
-- query: select count(col2) from T2 where col1 > 0;
-- result: [{0}]
----
-# TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
-#- query: select count(col2) from T2 group by col1;
-#- result: []
-#---
-- query: select count(col2) from T2 where col1 = 0 group by col1;
-- result: []
----
-# TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
-#- query: select count(col2) from T2 where col1 > 0 group by col1;
-#- result: []
-#---
-- query: select count(col2) from T3;
-- result: [{0}]
----
-- query: select count(col2) from T3 where col1 = 0;
-- result: [{0}]
----
-- query: select count(col2) from T3 where col1 > 0;
-- result: [{0}]
----
-- query: select count(col2) from T3 group by col1;
-- result: []
----
-- query: select count(col2) from T3 where col1 = 0 group by col1;
-- result: []
----
-- query: select count(col2) from T3 where col1 > 0 group by col1;
-- result: []
----
-- query: select sum(col1) from T1;
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col1 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col2 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col1 > 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T1 where col2 > 0;
-- result: [{!null _}]
----
-# TODO (sum query returns nothing instead of null when running on aggregate index)
-#- query: select sum(col1) from T2;
-#- result: [{!null _}]
-#---
-- query: select sum(col1) from T2 where col1 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col2 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col1 > 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col2 > 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T2 where col1 = 0 group by col2;
-- error: "0AF00"
----
-- query: select sum(col1) from T2 where col2 = 0 group by col2;
-- result: []
----
-- query: select sum(col1) from T2 where col1 > 0 group by col2;
-- error: "0AF00"
----
-# TODO ([POST] Enhance SUM aggregate index to disambiguate null results and 0 results)
-#- query: select sum(col1) from T2 where col2 > 0 group by col2;
-#- result: []
-#---
-- query: select sum(col1) from T3;
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col2 = 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 > 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col2 > 0;
-- result: [{!null _}]
----
-- query: select sum(col1) from T3 where col1 = 0 group by col2;
-- result: []
----
-- query: select sum(col1) from T3 where col2 = 0 group by col2;
-- result: []
----
-- query: select sum(col1) from T3 where col1 > 0 group by col2;
-- result: []
----
-- query: select sum(col1) from T3 where col2 > 0 group by col2;
-- result: []
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/AGG_EMPTY_TABLE_YAML
----
-- query: drop schema template aggregate_index_tests_template
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists aggregate_index_tests_template
+  - query: create schema template aggregate_index_tests_template
+      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create table t2(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create table t3(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create index t2_i1 as select count(*) from t2
+      create index t2_i2 as select count(*) from t2 group by col1
+      create index t2_i3 as select count(col2) from t2
+      create index t2_i4 as select count(col2) from t2 group by col1
+      create index t2_i5 as select sum(col1) from t2
+      create index t2_i6 as select sum(col1) from t2 group by col2
+      create index t3_i1 as select col1 from t3
+      create index t3_i2 as select col2 from t3
+  - query: drop database if exists /FRL/AGG_EMPTY_TABLE_YAML
+  - query: create database /FRL/AGG_EMPTY_TABLE_YAML
+  - query: create schema /FRL/AGG_EMPTY_TABLE_YAML/test with template aggregate_index_tests_template
+  - connect: "jdbc:embed:/FRL/AGG_EMPTY_TABLE_YAML?schema=TEST"
+---
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select count(*) from T1;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      # TODO (count query returns nothing instead of zero when running on aggregate index)
+      - query: select count(*) from T2;
+      - explainContains: "Index(T2_I1 <,> BY_GROUP)"
+#      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T2 group by col1;
+      - explainContains: "Index(T2_I2 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select count(*) from T2 where col1 = 0 group by col1;
+      - explainContains: "Index(T2_I2 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - result: []
+    -
+      - query: select count(*) from T2 where col1 > 0 group by col1;
+      - explainContains: "Index(T2_I2 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - result: []
+    -
+      - query: select count(*) from T3;
+      - explainContains: "Index(T3_I1 <,>)"
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 = 0;
+      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 > 0;
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 group by col1;
+      - explainContains: "Index(T3_I1 <,>)"
+      - result: []
+    -
+      - query: select count(*) from T3 where col1 = 0 group by col1;
+      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - result: []
+    -
+      - query: select count(*) from T3 where col1 > 0 group by col1;
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: []
+    -
+      - query: select count(col2) from T1;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      # TODO (count query returns nothing instead of zero when running on aggregate index)
+      - query: select count(col2) from T2;
+      - explainContains: "Index(T2_I3 <,> BY_GROUP)"
+#      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T2 group by col1;
+      - explainContains: "Index(T2_I4 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select count(col2) from T2 where col1 = 0 group by col1;
+      - explainContains: "Index(T2_I4 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - result: []
+    -
+      - query: select count(col2) from T2 where col1 > 0 group by col1;
+      - explainContains: "Index(T2_I4 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - result: []
+    -
+      - query: select count(col2) from T3;
+      - explainContains: "Index(T3_I1 <,>)"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 = 0;
+      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 > 0;
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 group by col1;
+      - explainContains: "Index(T3_I1 <,>)"
+      - result: []
+    -
+      - query: select count(col2) from T3 where col1 = 0 group by col1;
+      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - result: []
+    -
+      - query: select count(col2) from T3 where col1 > 0 group by col1;
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: []
+    -
+      - query: select sum(col1) from T1;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      # TODO (sum query returns nothing instead of null when running on aggregate index)
+      - query: select sum(col1) from T2;
+      - explainContains: "Index(T2_I5 <,> BY_GROUP)"
+#      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 = 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 > 0;
+      - explainContains: "Scan(<,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 = 0 group by col2;
+      - error: "0AF00"
+    -
+      - query: select sum(col1) from T2 where col2 = 0 group by col2;
+      - explainContains: "Index(T2_I6 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - result: []
+    -
+      - query: select sum(col1) from T2 where col1 > 0 group by col2;
+      - error: "0AF00"
+    -
+      - query: select sum(col1) from T2 where col2 > 0 group by col2;
+      - explainContains: "Index(T2_I6 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - result: []
+    -
+      - query: select sum(col1) from T3;
+      - explainContains: "Index(T3_I1 <,>)"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 = 0;
+      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 = 0;
+      - explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 > 0;
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 > 0;
+      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 = 0 group by col2;
+      - explainContains: "Index(T3_I2 <,>)"
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col2 = 0 group by col2;
+      - explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col1 > 0 group by col2;
+      - explainContains: "Index(T3_I2 <,>)"
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col2 > 0 group by col2;
+      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
+      - result: []
+---
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: insert into t1 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
+      - count: 3
+    -
+      - query: insert into t2 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
+      - count: 3
+    -
+      - query: insert into t3 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
+      - count: 3
+    -
+      - query: delete from t1
+      - count: 3
+    -
+      - query: delete from t2
+      - count: 3
+    -
+      - query: delete from t3
+      - count: 3
+---
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select count(*) from T1;
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 > 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(*) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+#    -
+#      # TODO (count query returns nothing instead of zero when running on aggregate index)
+#      - query: select count(*) from T2;
+#      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T2 where col1 > 0;
+      - result: [{0}]
+#    -
+#      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
+#      - query: select count(*) from T2 group by col1;
+#      - result: []
+    -
+      - query: select count(*) from T2 where col1 = 0 group by col1;
+      - result: []
+#    -
+#      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
+#      - query: select count(*) from T2 where col1 > 0 group by col1;
+#      - result: []
+    -
+      - query: select count(*) from T3;
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 where col1 > 0;
+      - result: [{0}]
+    -
+      - query: select count(*) from T3 group by col1;
+      - result: []
+    -
+      - query: select count(*) from T3 where col1 = 0 group by col1;
+      - result: []
+    -
+      - query: select count(*) from T3 where col1 > 0 group by col1;
+      - result: []
+    -
+      - query: select count(col2) from T1;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 > 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 = 0 group by col1;
+      - error: "0AF00"
+    -
+      - query: select count(col2) from T1 where col1 > 0 group by col1;
+      - error: "0AF00"
+#    -
+#      # TODO (count query returns nothing instead of zero when running on aggregate index)
+#      - query: select count(col2) from T2;
+#      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T2 where col1 > 0;
+      - result: [{0}]
+#    -
+#      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
+#      - query: select count(col2) from T2 group by col1;
+#      - result: []
+    -
+      - query: select count(col2) from T2 where col1 = 0 group by col1;
+      - result: []
+#    -
+#      # TODO ([POST] count index returns 0 instead of nothing when running on a table that was cleared)
+#      - query: select count(col2) from T2 where col1 > 0 group by col1;
+#      - result: []
+    -
+      - query: select count(col2) from T3;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 = 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 where col1 > 0;
+      - result: [{0}]
+    -
+      - query: select count(col2) from T3 group by col1;
+      - result: []
+    -
+      - query: select count(col2) from T3 where col1 = 0 group by col1;
+      - result: []
+    -
+      - query: select count(col2) from T3 where col1 > 0 group by col1;
+      - result: []
+    -
+      - query: select sum(col1) from T1;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col1 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T1 where col2 > 0;
+      - result: [{!null _}]
+#    -
+#      # TODO (sum query returns nothing instead of null when running on aggregate index)
+#      - query: select sum(col1) from T2;
+#      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col2 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T2 where col1 = 0 group by col2;
+      - error: "0AF00"
+    -
+      - query: select sum(col1) from T2 where col2 = 0 group by col2;
+      - result: []
+    -
+      - query: select sum(col1) from T2 where col1 > 0 group by col2;
+      - error: "0AF00"
+#    -
+#      # TODO ([POST] Enhance SUM aggregate index to disambiguate null results and 0 results)
+#      - query: select sum(col1) from T2 where col2 > 0 group by col2;
+#      - result: []
+    -
+      - query: select sum(col1) from T3;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 = 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col2 > 0;
+      - result: [{!null _}]
+    -
+      - query: select sum(col1) from T3 where col1 = 0 group by col2;
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col2 = 0 group by col2;
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col1 > 0 group by col2;
+      - result: []
+    -
+      - query: select sum(col1) from T3 where col2 > 0 group by col2;
+      - result: []
+---
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/AGG_EMPTY_TABLE_YAML
+  - query: drop schema template aggregate_index_tests_template
 ...

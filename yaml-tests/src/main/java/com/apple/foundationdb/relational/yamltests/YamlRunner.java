@@ -26,19 +26,13 @@ import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import com.google.common.collect.Iterables;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.Assertions;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.AbstractConstruct;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.error.Mark;
-import org.yaml.snakeyaml.nodes.MappingNode;
-import org.yaml.snakeyaml.nodes.Node;
-import org.yaml.snakeyaml.nodes.ScalarNode;
-import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
@@ -54,13 +48,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner implements AutoCloseable {
 
-    private static final Logger LOG = LogManager.getLogger(YamlRunner.class);
+    private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
     @Nonnull
     final String resourcePath;
@@ -84,243 +77,81 @@ public final class YamlRunner implements AutoCloseable {
         this.cliCommandFactory = commandFactory;
     }
 
-    private static class CustomTagsInject extends SafeConstructor {
-
-        private boolean recursing;
-
-        public CustomTagsInject(LoaderOptions loaderOptions) {
-            super(loaderOptions);
-            yamlConstructors.put(new Tag("!ignore"), new ConstructIgnore());
-            yamlConstructors.put(new Tag("!l"), new CustomTagsInject.ConstructLong());
-            yamlConstructors.put(new Tag("!sc"), new CustomTagsInject.ConstructStringContains());
-            yamlConstructors.put(new Tag("!null"), new CustomTagsInject.ConstructNullPlaceholder());
-            yamlConstructors.put(new Tag("!not_null"), new CustomTagsInject.ConstructNotNull());
-        }
-
-        @Override
-        protected Object constructObject(Node node) {
-            if (recursing) {
-                return super.constructObject(node);
-            } else {
-                recursing = true;
-                Object o = super.constructObject(node);
-                recursing = false;
-                return new LinedObject(o, node.getStartMark());
-            }
-        }
-
-        @Override
-        protected void constructMapping2ndStep(MappingNode node, Map<Object, Object> mapping) {
-            super.constructMapping2ndStep(node, mapping);
-            final var keySet = mapping.keySet();
-            if (keySet.size() == 1) {
-                final var key = Iterables.getOnlyElement(keySet);
-                if (key instanceof String && ((String) key).contains("explain")) {
-                    mapping.put("__LINE_NUMBER", node.getStartMark().getLine());
-                }
-            }
-        }
-
-        private static final class LinedObject {
-            private final Object object;
-
-            private final Mark startMark;
-
-            private LinedObject(final Object object, final Mark startMark) {
-                this.object = object;
-                this.startMark = startMark;
-            }
-
-            public Object getObject() {
-                return object;
-            }
-
-            public Mark getStartMark() {
-                return startMark;
-            }
-
-        }
-
-        private static class ConstructIgnore extends AbstractConstruct {
-            @Override
-            public Object construct(Node node) {
-                return YamlRunner.Ignore.INSTANCE;
-            }
-        }
-
-        private static class ConstructLong extends AbstractConstruct {
-            @Override
-            public Object construct(Node node) {
-                if (!(node instanceof ScalarNode)) {
-                    Assert.failUnchecked(String.format("The value of the long (!l) tag must be a scalar, however '%s' is found!", node));
-                }
-                return Long.valueOf(((ScalarNode) node).getValue());
-            }
-        }
-
-        private static class ConstructStringContains extends AbstractConstruct {
-            @Override
-            public Object construct(Node node) {
-                if (!(node instanceof ScalarNode)) {
-                    Assert.failUnchecked(String.format("The value of the string-contains (!sc) tag must be a scalar, however '%s' is found!", node));
-                }
-                return new StringContains(((ScalarNode) node).getValue());
-            }
-        }
-
-        private static class ConstructNullPlaceholder extends AbstractConstruct {
-            @Override
-            public Object construct(Node node) {
-                return NullPlaceholder.INSTANCE;
-            }
-        }
-
-        private static class ConstructNotNull extends AbstractConstruct {
-            @Override
-            public Object construct(Node node) {
-                return NotNull.INSTANCE;
-            }
-        }
-    }
-
-    static final class Ignore {
-        static final Ignore INSTANCE = new Ignore();
-
-        private Ignore() {
-        }
-
-        @Override
-        public String toString() {
-            return "!ignore";
-        }
-    }
-
-    static final class StringContains {
-        @Nonnull
-        private final String value;
-
-        StringContains(@Nonnull final String value) {
-            this.value = value;
-        }
-
-        @Nonnull
-        public String getValue() {
-            return value;
-        }
-
-        @Nonnull
-        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, @Nonnull Matchers.ResultSetPrettyPrinter printer) {
-            if (other instanceof String) {
-                final var otherStr = (String) other;
-                if (otherStr.contains(value)) {
-                    return Matchers.ResultSetMatchResult.success();
-                } else {
-                    return Matchers.ResultSetMatchResult.fail(String.format("The string '%s' does not contain '%s'", otherStr, value), printer);
-                }
-            } else {
-                return Matchers.ResultSetMatchResult.fail(String.format("expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other.toString(), other.getClass().getSimpleName()), printer);
-            }
-        }
-
-        @Override
-        public String toString() {
-            return "!sc " + value;
-        }
-    }
-
-    static final class NullPlaceholder {
-        static final NullPlaceholder INSTANCE = new NullPlaceholder();
-
-        private NullPlaceholder() {
-        }
-
-        @Override
-        public String toString() {
-            return "!null";
-        }
-    }
-
-    static final class NotNull {
-        static final NotNull INSTANCE = new NotNull();
-
-        private NotNull() {
-        }
-
-        @Override
-        public String toString() {
-            return "!not_null";
-        }
-    }
-
-    @Nonnull
-    private Command resolveCommand(@Nonnull final List<?> commandAndConfiguration) {
-        final var commandAndArgument = Matchers.firstEntry(Matchers.first(commandAndConfiguration, "command list"), "command list");
-        final var commandStr = Matchers.notNull(Matchers.string(Matchers.notNull(Matchers.notNull(commandAndArgument, "command").getKey(), "command"), "command"), "command");
-        return Objects.requireNonNull(Command.resolve(commandStr));
-    }
-
     public void run() throws Exception {
         LoaderOptions loaderOptions = new LoaderOptions();
         loaderOptions.setAllowDuplicateKeys(true);
         DumperOptions dumperOptions = new DumperOptions();
-        final var yaml = new Yaml(new CustomTagsInject(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
-        int currentLine = 0;
-        for (final var region : yaml.loadAll(inputStream)) {
-            final var regionWithLines = (CustomTagsInject.LinedObject) region;
-            currentLine = regionWithLines.getStartMark().getLine() + 1;
-            LOG.debug("📍 executing at line {} of '{}'", currentLine, resourcePath);
-            final var commandObject = regionWithLines.getObject();
-            final var commandAndConfiguration = Matchers.arrayList(commandObject, "test commands");
-            final var command = resolveCommand(commandAndConfiguration);
-            try {
-                command.invoke(commandAndConfiguration, this.cliCommandFactory);
-            } catch (QueryCommand.ExplainMismatchError e) {
-                if (correctedExplainStream != null) {
-                    final var actualPlan = e.getActualPlan();
-                    final var lineNumber = findExplainLineNumberInRegion(regionWithLines);
-                    correctedExplainStream.set(lineNumber, "- explain: \"" + actualPlan + "\"");
-                    shouldReplaceFile = true;
-                } else {
-                    addYamlFileStackFrameToException(e, resourcePath, currentLine);
-                    throw e;
-                }
-            } catch (Exception | Error e) {
-                addYamlFileStackFrameToException(e, resourcePath, currentLine);
-                throw e;
+        final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+
+        final var documents = new ArrayList<>();
+        yaml.loadAll(inputStream).forEach(documents::add);
+        Assert.thatUnchecked(documents.size() >= 2, "Illegal Format: File has less than minimum 2 required documents.");
+
+        // setup block
+        Assert.thatUnchecked(Block.isConfigBlock(documents.get(0)), "Illegal Format: The first document in the file is required to be a Setup block.");
+        executeConfigBlock(documents.get(0));
+
+        final var testBlockResults = new ArrayList<Pair<Integer, Optional<Throwable>>>();
+        for (int i = 1; i < documents.size() - 1; i++) {
+            final var document = documents.get(i);
+            if (Block.isConfigBlock(document)) {
+                executeConfigBlock(document);
+            } else {
+                executeTestBlock(document, testBlockResults);
             }
         }
-        if (replaceTestFileIfRequired()) {
-            LOG.debug("⚠️ inconclusive result. The file {} is auto-corrected by the test framework, please examine it and make sure it is correct", resourcePath);
+
+        // destruct block
+        Assert.thatUnchecked(Block.isConfigBlock(documents.get(documents.size() - 1)), "Illegal Format: The last document in the file is required to be a destruct block.");
+        executeConfigBlock(documents.get(documents.size() - 1));
+
+        evaluateTestBlockResults(testBlockResults);
+
+        // replace won't do anything for now, since the toggle is switched off
+        Assert.thatUnchecked(!shouldReplaceFile);
+        replaceTestFileIfRequired();
+    }
+
+    private void executeConfigBlock(@Nonnull Object document) {
+        final var block = Block.parse(document, cliCommandFactory);
+        logger.debug("⚪️ Executing `config` block at line {} in {}", block.getLineNumber(), resourcePath);
+        block.execute();
+    }
+
+    private void executeTestBlock(@Nonnull Object document, List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
+        final var block = Block.parse(document, cliCommandFactory);
+        Assert.thatUnchecked(block instanceof Block.TestBlock, "Expect the block to be a test_block at line " + block.getLineNumber());
+        logger.debug("⚪️ Executing `test` block at line {} in {}", block.getLineNumber(), resourcePath);
+        block.execute();
+        testBlockResults.add(Pair.of(block.getLineNumber(), block.getThrowableIfExists()));
+    }
+
+    private void evaluateTestBlockResults(List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
+        int failures = 0;
+        logger.debug("");
+        logger.debug("");
+        logger.debug("--------------------------------------------------------------------------------------------------------------");
+        logger.debug("TEST RESULTS");
+        logger.debug("--------------------------------------------------------------------------------------------------------------");
+
+        for (int i = 0; i < testBlockResults.size(); i++) {
+            final var result = testBlockResults.get(i);
+            if (result.getRight().isEmpty()) {
+                logger.debug("🟢 TestBlock {}/{} runs successfully", i + 1, testBlockResults.size());
+            } else {
+                logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlockResults.size(), result.getLeft());
+                logger.error("--------------------------------------------------------------------------------------------------------------");
+                logger.error("Error:", result.getRight().get());
+                logger.error("--------------------------------------------------------------------------------------------------------------");
+                failures++;
+            }
+        }
+        if (failures > 0) {
+            logger.info("⚠️ Some TestBlocks in {} do not pass.", resourcePath);
+            Assertions.fail();
         } else {
-            LOG.debug("🏁 executed all tests in '{}' successfully!", resourcePath);
+            logger.info("🟢 All tests in {} pass successfully.", resourcePath);
         }
-    }
-
-    @SuppressWarnings("rawtypes")
-    private int findExplainLineNumberInRegion(CustomTagsInject.LinedObject region) {
-        final var content = region.getObject();
-        Assert.thatUnchecked(content instanceof List);
-        final var contentList = (List) content;
-        for (final var contentItem : contentList) {
-            Assert.thatUnchecked(contentItem instanceof Map);
-            final var contentItemMap = (Map) contentItem;
-            final var keySet = contentItemMap.keySet();
-            for (final var key : keySet) {
-                if (key instanceof String && ((String) key).contains("explain")) {
-                    return (int) contentItemMap.get("__LINE_NUMBER");
-                }
-            }
-        }
-        Assert.failUnchecked("could not find line number of expect command");
-        return -1;
-    }
-
-    private static void addYamlFileStackFrameToException(@Nonnull final Throwable exception, @Nonnull final String path, int line) {
-        final StackTraceElement[] stackTrace = exception.getStackTrace();
-        StackTraceElement[] newStackTrace = new StackTraceElement[stackTrace.length + 1];
-        newStackTrace[0] = new StackTraceElement("<YAML FILE>", "", path, line);
-        System.arraycopy(stackTrace, 0, newStackTrace, 1, stackTrace.length);
-        exception.setStackTrace(newStackTrace);
     }
 
     @Override

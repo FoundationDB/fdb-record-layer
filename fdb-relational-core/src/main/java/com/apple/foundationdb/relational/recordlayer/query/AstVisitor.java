@@ -811,7 +811,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.inList().selectStatement() != null) {
             Assert.failUnchecked("IN <SELECT_STATEMENT> is not supported", ErrorCode.SYNTAX_ERROR);
         }
-
+        final var left = (Value) visit(ctx.expressionAtom());
         Typed typedList;
         if (ctx.inList().preparedStatementParameter() != null) {
             typedList = (Typed) visit(ctx.inList().preparedStatementParameter());
@@ -829,7 +829,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 typedList = ParserUtils.encapsulate(AbstractArrayConstructorValue.ArrayFn.class, ParserUtils.validateInValuesList(values));
             }
         }
-        final var left = (Value) visit(ctx.expressionAtom());
         return (Value) ParserUtils.encapsulate(InOpValue.InFn.class, List.of(left, typedList));
     }
 

@@ -18,109 +18,108 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists boolean_tests_schema_template
+  - query: create schema template boolean_tests_schema_template
+      create table lb(a bigint, b boolean, primary key(a))
+  - query: drop database if exists /FRL/BOOLEAN_YAML
+  - query: create database /FRL/BOOLEAN_YAML
+  - query: create schema /FRL/BOOLEAN_YAML/BOOLEAN_SCHEMA with template boolean_tests_schema_template
+  - connect: "jdbc:embed:/FRL/BOOLEAN_YAML?schema=BOOLEAN_SCHEMA"
+  - query: insert into lb values (1, true), (2, false), (3, null);
 ---
-- query: drop schema template if exists boolean_tests_schema_template
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select lb.* from lb where B = true
+      - result: [ { 1,true } ]
+    -
+      - query: select lb.* from lb where B = false
+      - result: [ { 2, false } ]
+    -
+      - query: select lb.* from lb where B <> TRUE
+      - result: [ { 2, false } ]
+    -
+      - query: select lb.* from lb where B <> FALSE
+      - result: [ { 1, true } ]
+    -
+      - query: select lb.* from lb where B is true
+      - result: [ { 1,true } ]
+    -
+      - query: select lb.* from lb where B is false
+      - result: [ { 2,false } ]
+    -
+      - query: select lb.* from lb where B is null
+      - result: [ { 3, !null } ]
+    -
+      - query: select lb.* from lb where B is not true
+      - result: [ { A: 2, B: false }, { A: 3, B: !null } ]
+    -
+      - query: select lb.* from lb where B is not false
+      - result: [ { 1,true }, { 3, !null } ]
+    -
+      - query: select lb.* from lb where B is not null
+      - result: [ { 1,true }, { 2, false } ]
+    -
+      - query: select B = true from lb
+      - result: [ { true }, { false }, { !null } ]
+    -
+      - query: select B = false from lb
+      - result: [ { false }, { true }, { !null } ]
+    -
+      - query: select B <> TRUE from lb
+      - result: [ { false }, { true }, { !null } ]
+    -
+      - query: select B <> FALSE from lb
+      - result: [ { true }, { false }, { !null } ]
+    -
+      - query: select B IS TRUE from lb
+      - result: [ { true }, { false }, { false } ]
+    -
+      - query: select B IS FALSE from lb
+      - result: [ { false }, { true }, { false} ]
+    -
+      - query: select B IS NULL FROM lb
+      - result: [ { false }, { false }, { true } ]
+    -
+      - query: select B IS NOT TRUE from lb
+      - result: [ { false }, { true }, { true } ]
+    -
+      - query: select B IS NOT FALSE from lb
+      - result: [ { true }, { false }, { true } ]
+    -
+      - query: select B IS NOT NULL from lb
+      - result: [ { true }, { true }, { false } ]
+    -
+      - query: select B AND TRUE from lb
+      - result: [ { true }, { false }, { !null } ]
+    -
+      - query: select B AND FALSE from lb
+      - result: [ { false }, { false }, { false } ]
+    -
+      - query: select B AND NULL from lb
+      - result: [ { !null }, { false }, { !null } ]
+    -
+      - query: select B OR TRUE from lb
+      - result: [ { true }, { true }, { true } ]
+    -
+      - query: select B OR FALSE from lb
+      - result: [ { true }, { false }, { !null } ]
+    -
+      - query: select B OR NULL from lb
+      - result: [ { true }, { !null }, { !null } ]
+    -
+      - query: select NOT B from lb
+      - result: [ { false }, { true }, { !null } ]
 ---
-- query: create schema template boolean_tests_schema_template
-    create table lb(a bigint, b boolean, primary key(a))
----
-- query: drop database if exists /FRL/BOOLEAN_YAML
----
-- query: create database /FRL/BOOLEAN_YAML
----
-- query: create schema /FRL/BOOLEAN_YAML/BOOLEAN_SCHEMA with template boolean_tests_schema_template
----
-- connect: "jdbc:embed:/FRL/BOOLEAN_YAML?schema=BOOLEAN_SCHEMA"
----
-- query: insert into lb values (1, true), (2, false), (3, null);
----
-- query: select lb.* from lb where B = true
-- result: [ { 1,true } ]
----
-- query: select lb.* from lb where B = false
-- result: [ { 2, false } ]
----
-- query: select lb.* from lb where B <> TRUE
-- result: [ { 2, false } ]
----
-- query: select lb.* from lb where B <> FALSE
-- result: [ { 1, true } ]
----
-- query: select lb.* from lb where B is true
-- result: [ { 1,true } ]
----
-- query: select lb.* from lb where B is false
-- result: [ { 2,false } ]
----
-- query: select lb.* from lb where B is null
-- result: [ { 3, !null } ]
----
-- query: select lb.* from lb where B is not true
-- result: [ { A: 2, B: false }, { A: 3, B: !null } ]
----
-- query: select lb.* from lb where B is not false
-- result: [ { 1,true }, { 3, !null } ]
----
-- query: select lb.* from lb where B is not null
-- result: [ { 1,true }, { 2, false } ]
----
-- query: select B = true from lb
-- result: [ { true }, { false }, { !null } ]
----
-- query: select B = false from lb
-- result: [ { false }, { true }, { !null } ]
----
-- query: select B <> TRUE from lb
-- result: [ { false }, { true }, { !null } ]
----
-- query: select B <> FALSE from lb
-- result: [ { true }, { false }, { !null } ]
----
-- query: select B IS TRUE from lb
-- result: [ { true }, { false }, { false } ]
----
-- query: select B IS FALSE from lb
-- result: [ { false }, { true }, { false} ]
----
-- query: select B IS NULL FROM lb
-- result: [ { false }, { false }, { true } ]
----
-- query: select B IS NOT TRUE from lb
-- result: [ { false }, { true }, { true } ]
----
-- query: select B IS NOT FALSE from lb
-- result: [ { true }, { false }, { true } ]
----
-- query: select B IS NOT NULL from lb
-- result: [ { true }, { true }, { false } ]
----
-- query: select B AND TRUE from lb
-- result: [ { true }, { false }, { !null } ]
----
-- query: select B AND FALSE from lb
-- result: [ { false }, { false }, { false } ]
----
-- query: select B AND NULL from lb
-- result: [ { !null }, { false }, { !null } ]
----
-- query: select B OR TRUE from lb
-- result: [ { true }, { true }, { true } ]
----
-- query: select B OR FALSE from lb
-- result: [ { true }, { false }, { !null } ]
----
-- query: select B OR NULL from lb
-- result: [ { true }, { !null }, { !null } ]
----
-- query: select NOT B from lb
-- result: [ { false }, { true }, { !null } ]
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/BOOLEAN_YAML
----
-- query: drop schema template boolean_tests_schema_template
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/BOOLEAN_YAML
+  - query: drop schema template boolean_tests_schema_template
 ...
 
 

@@ -18,100 +18,98 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists select_a_star_template
+  - query: create schema template select_a_star_template
+      CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
+      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+      create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+      create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+  - query: drop database if exists /FRL/SELECT_A_STAR_YAML
+  - query: create database /FRL/SELECT_A_STAR_YAML
+  - query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
+  - connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
+  - query: INSERT INTO A
+      VALUES (1, 10, 1),
+             (2, 10, 2),
+             (3, 10, 3)
+  - query: INSERT INTO B
+      VALUES (1, 20, (4, 40)),
+             (2, 20, (5, 50)),
+             (3, 20, (6, 60))
 ---
-- query: drop schema template if exists select_a_star_template
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select A.* from A;
+      - result: [{A1: 1 , A2: 10, A3: 1}, {A1: 2, A2: 10, A3: 2}, {A1: 3, A2: 10, A3: 3}]
+    -
+      - query: select A.* from A where A3 >= 2;
+      - result: [{A1: 2, A2: 10, A3: 2}, {A1: 3, A2: 10, A3: 3}]
+    -
+      - query: select X.* from A as X;
+      - result: [{A1: 1 , 10, 1}, {A1: 2, 10, 2}, {A1: 3, 10, 3}]
+    -
+      - query: select A.* from A group by A1;
+      - error: "42803"
+    -
+      - query: select * from A, B where A.A1 = B.B1;
+      - result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
+                 {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
+                 {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
+    -
+      - query: select A.*, B.* from A, B where A.A1 = B.B1;
+      - result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
+                 {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
+                 {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
+    -
+      - query: select X.*, Y.* from A as X, B as Y where X.A1 = Y.B1;
+      - result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
+                 {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
+                 {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
+    -
+      - query: select Y.*, X.* from A as X, B as Y where X.A1 = Y.B1;
+      - result: [{B1: 1, B2: 20, B3: {4, 40}, A1: 1 , A2: 10, A3: 1},
+                 {B1: 2, B2: 20, B3: {5, 50}, A1: 2, A2: 10, A3: 2},
+                 {B1: 3, B2: 20, B3: {6, 60}, A1: 3, A2: 10, A3: 3}]
+    -
+      - query: select A.*, B.* from A, B where A.A1 = B.B1 group by A1;
+      - error: "42803"
+    -
+      - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
+      - result: [{1}, {2}, {3}]
+    -
+      - query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
+      - result: [{1, 20, {4, 40}},
+                 {2, 20, {5, 50}},
+                 {3, 20, {6, 60}}]
+    -
+      # Not yet supported
+      - query: select B.B3.* from B;
+      - error: "42601"
+    -
+      # Should never be supported
+      - query: select B.*.S1 from B;
+      - error: "42601"
+    -
+      # Ambiguous column A1
+      - query: select A1 from (select A.*, A.* from A) as nested
+      - error: "42F10"
+#    -
+#      - query: select A.*, SUM(B1) from A, B where A.A1 = B.B1 group by A1, A2, A3;
+#      - result: [{A1: 1 , A2: 10, A3: 1, 1},
+#                 {A1: 2, A2: 10, A3: 2, 2},
+#                 {A1: 3, A2: 10, A3: 3, 3}]
 ---
-- query: create schema template select_a_star_template
-    CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
-    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-    create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-    create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
----
-- query: drop database if exists /FRL/SELECT_A_STAR_YAML
----
-- query: create database /FRL/SELECT_A_STAR_YAML
----
-- query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
----
-- connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
----
-- query: INSERT INTO A
-    VALUES (1, 10, 1),
-           (2, 10, 2),
-           (3, 10, 3)
----
-- query: INSERT INTO B
-    VALUES (1, 20, (4, 40)),
-           (2, 20, (5, 50)),
-           (3, 20, (6, 60))
----
-- query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
-- result: [{1}, {2}, {3}]
----
-- query: select A.* from A;
-- result: [{A1: 1 , A2: 10, A3: 1}, {A1: 2, A2: 10, A3: 2}, {A1: 3, A2: 10, A3: 3}]
----
-- query: select A.* from A where A3 >= 2;
-- result: [{A1: 2, A2: 10, A3: 2}, {A1: 3, A2: 10, A3: 3}]
----
-- query: select X.* from A as X;
-- result: [{A1: 1 , 10, 1}, {A1: 2, 10, 2}, {A1: 3, 10, 3}]
----
-- query: select A.* from A group by A1;
-- error: "42803"
----
-- query: select * from A, B where A.A1 = B.B1;
-- result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
-           {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
-           {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
----
-- query: select A.*, B.* from A, B where A.A1 = B.B1;
-- result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
-           {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
-           {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
----
-- query: select X.*, Y.* from A as X, B as Y where X.A1 = Y.B1;
-- result: [{A1: 1 , A2: 10, A3: 1, B1: 1, B2: 20, B3: {4, 40}},
-           {A1: 2, A2: 10, A3: 2, B1: 2, B2: 20, B3: {5, 50}},
-           {A1: 3, A2: 10, A3: 3, B1: 3, B2: 20, B3: {6, 60}}]
----
-- query: select Y.*, X.* from A as X, B as Y where X.A1 = Y.B1;
-- result: [{B1: 1, B2: 20, B3: {4, 40}, A1: 1 , A2: 10, A3: 1},
-           {B1: 2, B2: 20, B3: {5, 50}, A1: 2, A2: 10, A3: 2},
-           {B1: 3, B2: 20, B3: {6, 60}, A1: 3, A2: 10, A3: 3}]
----
-- query: select A.*, B.* from A, B where A.A1 = B.B1 group by A1;
-- error: "42803"
----
-- query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
-- result: [{1}, {2}, {3}]
----
-- query: select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);
-- result: [{1, 20, {4, 40}},
-           {2, 20, {5, 50}},
-           {3, 20, {6, 60}}]
----
-# Not yet supported
-- query: select B.B3.* from B;
-- error: "42601"
----
-# Should never be supported
-- query: select B.*.S1 from B;
-- error: "42601"
----
-# Ambiguous column A1
-- query: select A1 from (select A.*, A.* from A) as nested
-- error: "42F10"
----
-#- query: select A.*, SUM(B1) from A, B where A.A1 = B.B1 group by A1, A2, A3;
-#- result: [{A1: 1 , A2: 10, A3: 1, 1},
-#           {A1: 2, A2: 10, A3: 2, 2},
-#           {A1: 3, A2: 10, A3: 3, 3}]
-#---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop schema template select_a_star_template
----
-- query: drop database /FRL/SELECT_A_STAR_YAML
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template select_a_star_template
+  - query: drop database /FRL/SELECT_A_STAR_YAML
 ...

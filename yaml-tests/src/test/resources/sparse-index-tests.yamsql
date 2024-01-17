@@ -18,107 +18,128 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists sparse_index_tests_template
+  - query: create schema template sparse_index_tests_template
+      create table t1(id integer, col1 integer, col2 integer, primary key(id))
+      create index i1 as select col1 from t1 where col1 < 200
+      create index i2 as select col1 from t1 where col1 < 500
+
+      create table t2(id integer, tombstone boolean, primary key(id))
+      create index i3 as select tombstone from t2 where tombstone = true or tombstone is not null
+
+      create table t3(id integer, tombstone boolean, primary key(id))
+      create index i4 as select id from t3 where tombstone = true or tombstone is not null
+
+      create table t5(id integer, col1 integer, primary key(id))
+      create index i6 as select id from t5 where col1 < 40 or col1 > 90
+  - query: drop database if exists /FRL/SPARSE_YAML
+  - query: create database /FRL/SPARSE_YAML
+  - query: create schema /FRL/SPARSE_YAML/test with template sparse_index_tests_template
+  - connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
 ---
-- query: drop schema template if exists sparse_index_tests_template
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select id from t3 where tombstone = true or tombstone is not null
+      - explainContains: "map(Covering(Index(I4 <,>"
+    -
+      - query: select id from t3 where tombstone = true or tombstone is not null
+      - explainContains: "map(Covering(Index(I4 <,>"
+    -
+      - query: select id from t3 where tombstone = true or tombstone is not null
+      - explainContains: "map(Covering(Index(I4 <,>"
+    -
+      - query: select tombstone from t2 where tombstone is null
+      - explainContains: "map(Scan("
+    -
+      - query: select tombstone from t2 where tombstone is not null
+      - explainContains: "map(Covering(Index(I3 ([null],>)"
+    -
+      - query: select id from t5 where col1 < 40 or col1 > 90
+      - explainContains: "map(Covering(Index(I6 <,>"
+    -
+      - query: select id from t5 where col1 < 40 or col1 > 90
+      - explainContains: "map(Covering(Index(I6 <,>"
+    -
+      - query: select id from t5 where col1 < 40 or col1 > 90
+      - explainContains: "map(Covering(Index(I6 <,>"
 ---
-- query: create schema template sparse_index_tests_template
-    create table t1(id integer, col1 integer, col2 integer, primary key(id))
-    create index i1 as select col1 from t1 where col1 < 200
-    create index i2 as select col1 from t1 where col1 < 500 
-      
-    create table t2(id integer, tombstone boolean, primary key(id))
-    create index i3 as select tombstone from t2 where tombstone = true or tombstone is not null
-      
-    create table t3(id integer, tombstone boolean, primary key(id))
-    create index i4 as select id from t3 where tombstone = true or tombstone is not null
-  
-    create table t5(id integer, col1 integer, primary key(id))
-    create index i6 as select id from t5 where col1 < 40 or col1 > 90
+# Following tests are executed in order as the index used depends on which query warms up the cache. In this particular
+# scenario, the first query puts the plan in cache, which cannot be used by second query that would use the one with
+# index I2. However, if second query is executed first and puts the plan with index I2 in the cache, the other queries
+# can use the same.
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select id from t1 where col1 < 100
+      - explainContains: "map(Covering(Index(I1 "
+      - result: []
+    -
+      - query: select id from t1 where col1 < 453
+      - explainContains: "map(Covering(Index(I2 "
+      - result: []
+    -
+      - query: select col1 from t1 where col1 > 55 and col1 < 100
+      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
+    -
+      - query: select col1 from t1 where col1 > 55 and col1 < 199
+      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
+    -
+      - query: select col1 from t1 where col1 > 50 and col1 < 350
+      - explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
 ---
-- query: drop database if exists /FRL/SPARSE_YAML
+setup:
+  - query: insert into T1
+      VALUES (1, 100, 7),
+             (2, 200, 7),
+             (3, 243, 7),
+             (4, 499, 7),
+             (5, 500, 7),
+             (6, 879, 7)
 ---
-- query: create database /FRL/SPARSE_YAML
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select id from t1 where col1 < 200
+      - explainContains: "map(Covering(Index(I1 "
+      - result: [{ID: 1}]
+    -
+      - query: select id from t1 where col1 < 201
+      - explainContains: "map(Covering(Index(I2 "
+      - result: [{ID: 1}, {ID: 2}]
+    -
+      - query: select id from t1 where col1 < 250
+      - explainContains: "map(Covering(Index(I2 "
+      - result: [{ID: 1}, {ID: 2}, {ID: 3}]
+    -
+      - query: select id from t1 where col1 < 500
+      - explainContains: "map(Covering(Index(I2"
+      - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
+    -
+      - query: select id from t1 use index (i1)
+      - error: "0AF00"
+    -
+      - query: select id from t1 use index (i2)
+      - error: "0AF00"
+    -
+      - query: select id from t1
+      # Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
+      - explainContains: "Scan("
+      - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
 ---
-- query: create schema /FRL/SPARSE_YAML/test with template sparse_index_tests_template
----
-- connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
----
-- query: select id from t3 where tombstone = true or tombstone is not null
-- explainContains: "map(Covering(Index(I4 <,>"
----
-- query: select id from t3 where tombstone = true or tombstone is not null
-- explainContains: "map(Covering(Index(I4 <,>"
----
-- query: select id from t3 where tombstone = true or tombstone is not null
-- explainContains: "map(Covering(Index(I4 <,>"
----
-- query: select col1 from t1 where col1 > 55 and col1 < 100
-- explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
----
-- query: select col1 from t1 where col1 > 55 and col1 < 199
-- explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
----
-- query: select col1 from t1 where col1 > 50 and col1 < 350
-- explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
----
-- query: select tombstone from t2 where tombstone is null
-- explainContains: "map(Scan("
----
-- query: select tombstone from t2 where tombstone is not null
-- explainContains: "map(Covering(Index(I3 ([null],>)"
----
-- query: select id from t5 where col1 < 40 or col1 > 90
-- explainContains: "map(Covering(Index(I6 <,>"
----
-- query: select id from t5 where col1 < 40 or col1 > 90
-- explainContains: "map(Covering(Index(I6 <,>"
----
-- query: select id from t5 where col1 < 40 or col1 > 90
-- explainContains: "map(Covering(Index(I6 <,>"
----
-- query: select id from t1 where col1 < 100
-- explainContains: "map(Covering(Index(I1 "
-- result: []
----
-- query: select id from t1 where col1 < 453
-- explainContains: "map(Covering(Index(I2 "
-- result: []
----
-- query: insert into T1
-    VALUES (1, 100, 7),
-           (2, 200, 7),
-           (3, 243, 7),
-           (4, 499, 7),
-           (5, 500, 7),
-           (6, 879, 7)
----
-- query: select id from t1 where col1 < 200
-- explainContains: "map(Covering(Index(I1 "
-- result: [{ID: 1}]
----
-- query: select id from t1 where col1 < 201
-- explainContains: "map(Covering(Index(I2 "
-- result: [{ID: 1}, {ID: 2}]
----
-- query: select id from t1 where col1 < 250
-- explainContains: "map(Covering(Index(I2 "
-- result: [{ID: 1}, {ID: 2}, {ID: 3}]
----
-- query: select id from t1 where col1 < 500
-- explainContains: "map(Covering(Index(I2"
-- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}]
----
-- query: select id from t1 use index (i1)
-- error: "0AF00"
----
-- query: select id from t1 use index (i2)
-- error: "0AF00"
----
-- query: select id from t1
-# Without a predicate matching any of these sparse indexes, this needs to fall back to a scan
-- explainContains: "Scan("
-- result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
----
-- query: drop database /FRL/SPARSE_YAML
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/SPARSE_YAML
+  - query: drop schema template sparse_index_tests_template
 ...

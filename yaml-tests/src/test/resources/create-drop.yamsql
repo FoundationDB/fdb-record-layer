@@ -18,102 +18,185 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists temp
+  - query: drop schema template if exists temp1
+  - query: drop schema template if exists temp2
+  - query: drop database if exists /frl/DB
 ---
-- query: drop schema template if exists temp
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: drop schema template temp
+      - error: "42F55"
+    -
+      - query: drop database /frl/DB
+      - error: "42F63"
 ---
-- query: drop schema template if exists temp1
+setup:
+  - query: drop schema template if exists temp
+  - query: drop database if exists /frl/DB
+  - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
 ---
-- query: drop schema template if exists temp2
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
+      - result: [{1}]
 ---
-- query: drop database if exists /frl/DB
+setup:
+  - query: drop schema template temp1
 ---
-- query: drop schema template temp
-- error: "42F55"
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
+      - result: [{0}]
 ---
-- query: drop database /frl/DB
-- error: "42F63"
+setup:
+  - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
 ---
-- query: drop schema template if exists temp
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
+      - result: [{1}]
 ---
-- query: drop database if exists /frl/DB
+setup:
+  - query: create database /frl/db
 ---
-- query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
-- query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
-- result: [{1}]
+setup:
+  - query: drop database /frl/db
 ---
-- query: drop schema template temp1
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
-- query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
-- result: [{0}]
+setup:
+  - query: create database /frl/db
 ---
-- query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
-- query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
-- result: [{1}]
+setup:
+  - query: drop database if exists /frl/db
 ---
-- query: create database /frl/db
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{1}]
+setup:
+  - query: create database /frl/db
 ---
-- query: drop database /frl/db
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{0}]
+setup:
+  - query: create schema /frl/db/s1 with template temp2
 ---
-- query: create database /frl/db
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{1}]
 ---
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{1}]
+setup:
+  - query: drop database /frl/db
 ---
-- query: drop database if exists /frl/db
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{0}]
+setup:
+  - query: drop database if exists /frl/db
+  - query: create database /frl/db
+  - query: create schema /frl/db/s1 with template temp2
+  - query: create schema /frl/db/s2 with template temp2
 ---
-- query: create database /frl/db
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{1}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{2}]
 ---
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{1}]
+setup:
+  - query: drop database /frl/db
 ---
-- query: create schema /frl/db/s1 with template temp2
+test_block:
+  options:
+    mode: ordered
+    repetition: 1
+  tests:
+    -
+      - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
+      - result: [{0}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
+      - result: [{0}]
 ---
-- query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-- result: [{1}]
----
-- query: drop database /frl/db
----
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{0}]
----
-- query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-- result: [{0}]
----
-- query: drop database if exists /frl/db
----
-- query: create database /frl/db
----
-- query: create schema /frl/db/s1 with template temp2
----
-- query: create schema /frl/db/s2 with template temp2
----
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{1}]
----
-- query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-- result: [{2}]
----
-- query: drop database /frl/db
----
-- query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-- result: [{0}]
----
-- query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-- result: [{0}]
----
-- query: drop schema template temp2
+setup:
+  - query: drop schema template temp2
 ...
 
 

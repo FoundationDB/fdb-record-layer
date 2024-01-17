@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
-import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
@@ -36,60 +33,20 @@ import com.apple.foundationdb.relational.yamltests.generated.schemainstance.Sche
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class Command {
 
-    private static final Logger logger = LogManager.getLogger(Command.class);
+    static final String COMMAND_CONNECT = "connect";
+    static final String COMMAND_LOAD_SCHEMA_TEMPLATE = "load schema template";
+    static final String COMMAND_SET_SCHEMA_STATE = "set schema state";
+    static final String COMMAND_QUERY = "query";
 
-    protected Continuation checkForError(Object queryResults, SQLException sqlException,
-                                         String errorCode, String query) throws Exception {
-        if (queryResults != null) {
-            Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
-            if (queryResults instanceof ErrorCapturingResultSet) {
-                Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
-                Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a result set%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "%s%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                        resultSetPrettyPrinter)
-                );
-            } else if (queryResults instanceof Integer) {
-                Assert.fail(String.format("‼️ expecting statement to throw an error, however it returned a count %n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "%s%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                        queryResults)
-                );
-            } else {
-                Assert.fail(String.format("‼️ another error is encountered while trying to print to" +
-                        "print unexpected query result!%n" +
-                        "unexpected query result of type '%s' (expecting '%s')",
-                        queryResults.getClass().getSimpleName(),
-                        ErrorCapturingResultSet.class.getSimpleName()));
-            }
-        }
-        logger.debug("checking error code resulted from executing '{}'", query);
-        if (sqlException == null) {
-            if (errorCode != null) {
-                Assert.fail("‼️ unexpected NULL SQLException!");
-            } else {
-                return ContinuationImpl.END;
-            }
-        }
-        if (!sqlException.getSQLState().equals(errorCode)) {
-            Assertions.fail(String.format("‼️ expecting '%s' error code, got '%s' instead!", errorCode, sqlException.getSQLState()));
-        } else {
-            logger.debug("✔️ error codes '{}' match!", errorCode);
-        }
-        return ContinuationImpl.END;
-    }
+    private static final Logger logger = LogManager.getLogger(Command.class);
 
     static Command resolve(String commandString) {
         if ("connect".equals(commandString)) {
@@ -97,10 +54,10 @@ public abstract class Command {
                 @Override
                 public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     var uri = Matchers.string(Matchers.firstEntry(Matchers.first(region, "connect"), "connect").getValue(), "connect");
-                    logger.debug("connecting to '{}'", uri);
+                    logger.debug("⏳ Connecting to '{}'", uri);
                     final var connectionFun = factory.getConnectCommand(URI.create(Matchers.notNull(uri, "connection URI")));
                     connectionFun.call();
-                    logger.debug("connected to '{}'", uri);
+                    logger.debug("✅ Connected to '{}'", uri);
                 }
             };
         } else if ("load schema template".equals(commandString)) {
@@ -108,7 +65,7 @@ public abstract class Command {
                 @Override
                 public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
-                    logger.debug("loading template '{}'", loadCommandString);
+                    logger.debug("⏳ Loading template '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
                     final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     // save schema template
@@ -130,7 +87,7 @@ public abstract class Command {
                 @Override
                 public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "set schema state"), "set schema state").getValue(), "set schema state");
-                    logger.debug("setting schema state '{}'", loadCommandString);
+                    logger.debug("⏳ Setting schema state '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
                     final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();

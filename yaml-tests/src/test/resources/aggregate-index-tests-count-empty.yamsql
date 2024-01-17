@@ -18,65 +18,65 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists aggregate_index_tests_template_count_empty
+  - query: create schema template aggregate_index_tests_template_count_empty
+        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+        create index mv1 as select count(*) from t1
+        create index mv2 as select count(*) from t1 group by col2
+        create index mv3 as select count(col1) from t1
+        create index mv4 as select count(col1) from t1 group by col2
+        create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+        create index mv5 as select col2 from t2
+  - query: drop database if exists /FRL/AGG_IDX_YAML_COUNT_EMPTY
+  - query: create database /FRL/AGG_IDX_YAML_COUNT_EMPTY
+  - query: create schema /FRL/AGG_IDX_YAML_COUNT_EMPTY/test with template aggregate_index_tests_template_count_empty
+  - connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT_EMPTY?schema=TEST"
 ---
-- query: drop schema template if exists aggregate_index_tests_template_count_empty
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select count(*) from t1
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select count(*) from t1 group by col2
+      - explainContains: "AggregateIndexScan(Index(MV2 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select count(col1) from t1
+      - explainContains: "AggregateIndexScan(Index(MV3 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select count(col1) from t1 group by col2
+      - explainContains: "AggregateIndexScan(Index(MV4 <,> BY_GROUP)"
+      - result: []
+    -
+      - query: select * from t2
+      - result: []
+    -
+      - query: select count(*) from t2
+      - explainContains: "AGGREGATE BY (count_star("
+      - result: [{0}]
+    -
+      - query: select count(*) from t2 group by col2
+      - explainContains: "AGGREGATE BY (count_star("
+      - result: []
+    -
+      - query: select count(col1) from t2
+      - explainContains: "AGGREGATE BY (count("
+      - result: [{0}]
+    -
+      - query: select count(col1) from t2 group by col2
+      - explainContains: "AGGREGATE BY (count("
+      - result: []
 ---
-- query: create schema template aggregate_index_tests_template_count_empty
-      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-      create index mv1 as select count(*) from t1
-      create index mv2 as select count(*) from t1 group by col2
-      create index mv3 as select count(col1) from t1
-      create index mv4 as select count(col1) from t1 group by col2
-      create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
-      create index mv5 as select col2 from t2
----
-- query: drop database if exists /FRL/AGG_IDX_YAML_COUNT_EMPTY
----
-- query: create database /FRL/AGG_IDX_YAML_COUNT_EMPTY
----
-- query: create schema /FRL/AGG_IDX_YAML_COUNT_EMPTY/test with template aggregate_index_tests_template_count_empty
----
-- connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT_EMPTY?schema=TEST"
----
-- query: select count(*) from t1
-- explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
-- result: []
----
-- query: select count(*) from t1 group by col2
-- explainContains: "AggregateIndexScan(Index(MV2 <,> BY_GROUP)"
-- result: []
----
-- query: select count(col1) from t1
-- explainContains: "AggregateIndexScan(Index(MV3 <,> BY_GROUP)"
-- result: []
----
-- query: select count(col1) from t1 group by col2
-- explainContains: "AggregateIndexScan(Index(MV4 <,> BY_GROUP)"
-- result: []
----
-- query: select * from t2
-- result: []
----
-- query: select count(*) from t2
-- explainContains: "AGGREGATE BY (count_star("
-- result: [{0}]
----
-- query: select count(*) from t2 group by col2
-- explainContains: "AGGREGATE BY (count_star("
-- result: []
----
-- query: select count(col1) from t2
-- explainContains: "AGGREGATE BY (count("
-- result: [{0}]
----
-- query: select count(col1) from t2 group by col2
-- explainContains: "AGGREGATE BY (count("
-- result: []
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/AGG_IDX_YAML_COUNT_EMPTY
----
-- query: drop schema template aggregate_index_tests_template_count_empty
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/AGG_IDX_YAML_COUNT_EMPTY
+  - query: drop schema template aggregate_index_tests_template_count_empty
 ...

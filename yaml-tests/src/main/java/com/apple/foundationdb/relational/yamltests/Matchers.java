@@ -107,10 +107,8 @@ public class Matchers {
         return null;
     }
 
-    public static void matches(@Nonnull final Object expected, @Nonnull final Object actual) {
-        if (!Objects.equals(expected, actual)) {
-            fail(String.format("expected to find '%s', however '%s' is found", expected, actual));
-        }
+    public static boolean matches(@Nonnull final Object expected, @Nonnull final Object actual) {
+        return Objects.equals(expected, actual);
     }
 
     public static String string(@Nonnull final Object obj) {
@@ -142,6 +140,9 @@ public class Matchers {
         if (obj instanceof Long) {
             return (Long) obj;
         }
+        if (obj instanceof Integer) {
+            return Long.valueOf((Integer) obj);
+        }
         fail(String.format("Expecting %s to be of type %s, however it is of type %s", obj, Long.class.getSimpleName(), obj.getClass().getSimpleName()));
         return -1; // never reached.
     }
@@ -150,7 +151,7 @@ public class Matchers {
         return obj instanceof Integer;
     }
 
-    public static long intValue(@Nonnull final Object obj) {
+    public static int intValue(@Nonnull final Object obj) {
         if (obj instanceof Integer) {
             return (Integer) obj;
         }
@@ -214,7 +215,7 @@ public class Matchers {
     @Nonnull
     public static Object keyOrValue(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
-            fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", YamlRunner.NullPlaceholder.INSTANCE));
+            fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", CustomTag.NullPlaceholder.INSTANCE));
         }
         return (entry.getValue() == null) ? entry.getKey() : entry.getValue();
     }
@@ -390,7 +391,7 @@ public class Matchers {
     public static ResultSetMatchResult matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
 
-        if (expected instanceof YamlRunner.Ignore) {
+        if (expected instanceof CustomTag.Ignore) {
             return ResultSetMatchResult.success();
         }
         if (expected == null && actual == null) {
@@ -403,8 +404,8 @@ public class Matchers {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", resultSetPrettyPrinter);
             }
         }
-        if (expected instanceof YamlRunner.StringContains) {
-            return ((YamlRunner.StringContains) expected).matchWith(actual, resultSetPrettyPrinter);
+        if (expected instanceof CustomTag.StringContains) {
+            return ((CustomTag.StringContains) expected).matchWith(actual, resultSetPrettyPrinter);
         }
         if (isMap(expected)) {
             if (!actual.next()) {
@@ -532,10 +533,10 @@ public class Matchers {
                                                    @Nullable final Object actual,
                                                    @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
         // the test does not care about the incoming value.
-        if (expected instanceof YamlRunner.Ignore) {
+        if (expected instanceof CustomTag.Ignore) {
             return ResultSetMatchResult.success();
         }
-        final var expectedIsNull = expected instanceof YamlRunner.NullPlaceholder;
+        final var expectedIsNull = expected instanceof CustomTag.NullPlaceholder;
 
         if (expectedIsNull && actual == null) {
             return ResultSetMatchResult.success();
@@ -547,12 +548,12 @@ public class Matchers {
                 return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", printer);
             }
         }
-        if (expected instanceof YamlRunner.NotNull) {
+        if (expected instanceof CustomTag.NotNull) {
             // Actual value is not null, which is all the test cares about
             return ResultSetMatchResult.success();
         }
-        if (expected instanceof YamlRunner.StringContains) {
-            return ((YamlRunner.StringContains) expected).matchWith(actual, printer);
+        if (expected instanceof CustomTag.StringContains) {
+            return ((CustomTag.StringContains) expected).matchWith(actual, printer);
         }
 
         // (nested) message

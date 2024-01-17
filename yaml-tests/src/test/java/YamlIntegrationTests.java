@@ -28,7 +28,7 @@ public class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
-    public void groupbyTests() throws Exception {
+    public void groupByTests() throws Exception {
         doRun("groupby-tests.yamsql");
     }
 
@@ -46,7 +46,7 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void fieldIndexTestsProto() throws Exception {
         doRun("field-index-tests-proto.yamsql");
     }
-    
+
     @Test
     public void standardTestsWithMetaData() throws Exception {
         doRun("standard-tests-metadata.yamsql");
@@ -57,6 +57,7 @@ public class YamlIntegrationTests extends YamlTestBase {
         doRun("null-operator-tests.yamsql");
     }
 
+    @Test
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
     public void deprecatedFieldsTestsWithProto() throws Exception {
         doRun("deprecated-fields-tests-proto.yamsql");
@@ -182,7 +183,7 @@ public class YamlIntegrationTests extends YamlTestBase {
     void like() throws Exception {
         doRun("like.yamsql");
     }
-    
+
     @Test
     void functions() throws Exception {
         doRun("functions.yamsql");

@@ -18,7 +18,12 @@
 # limitations under the License.
 
 # you can add comments like this one to your scripts.
-# the file is split into "regions", each region includes:
+# the file is split into "documents", each document can either be a config block or a test block.
+#   - config block: This can be either a `setup` block or a `destruct` block. The motive of these block is to
+#      "setup" and "clean" the environment needed to run the test blocks. Hence, the first block of the file should
+#       be the `setup` block, while the last one should be `destruct`. A file can have multiple `setup` blocks
+#       to change the environment as needed to run multiple test blocks. Config block consist of a list of commands.
+#   - test block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
 # a command of the form <cmd>: <value> (pay attention to spaces)
 # an optional subsequent list of command configurations
 # a value can span across multi lines, again please pay attention to
@@ -28,88 +33,100 @@
 # using the CLI internal API to run them. such as the 'connect' command
 # below.
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists test_template
+  # Here we use SQL to create the schema template.
+  - query: create schema template test_template
+     create table t1(id bigint, col1 bigint, primary key(id))
+     create table t2(col1 bigint, primary key(col1))
+     create table t3(col1 bigint, col2 string, primary key(col1))
+  # Alternatively, you can directly load the schema template from a pre-crafted proto buf
+  # file that you put in main/resources. For example:
+  # load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
+  # check standard-tests-proto.yaml and standard_tests.proto for more information.
+  - query: drop database if exists /FRL/YOUSSEF
+  - query: create database /FRL/YOUSSEF
+  - query: create schema /FRL/YOUSSEF/test with template test_template
+  - connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
+  # We are inserting an array of three rows, each containing two columns
+  # note the `table` configuration is very important
+  # also note the casing of your table names.
+  - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
-- query: drop schema template if exists test_template
+test_block:
+  options:
+    # defines if the tests can be permuted. optional. default: ordered
+    mode: randomized
+    # defines how many times a particular tests should be scheduled. optional. default: 1
+    repetition: 2
+    # defines the seed for the randomizer, if the mode is `randomized`. optional. default is `System.currentTimeMillis()`
+    seed: 343434
+  tests:
+    -
+      # We check here an error code, as you can see, the statement is syntactically
+      # incorrect, this should throw SYNTAX_ERROR error whose SQL state is 42601
+      # the `query` command has a configuration `error` implemented to check that.
+      - query: selec * from t1;
+      - error: "42601"
+    -
+      # in addition, the `query` command has a `result` configuration for checking
+      # the result set, again using the same YAML format mentioned above.
+      # we leverage YAML tags to implement more features such as partial matching
+      # in partial matching, we can mark any part of a (nested) message with the
+      # tag !ignore to inform the result set verifier that we do not really care about
+      # the that value of the result set, this allows us to quickly test scenarios
+      # in which we're e.g. interested in checking the values of the _first_ column
+      # only, or we're interested in a particular deeply nested field in a message
+      # without the rest of the message.
+      # note: SnakeYAML parses numbers as Java Integers, however since we're expecting
+      # Long in the result set, we implement a special YAML Tag (!l), which parses each
+      # number as Long instead of Integer so we can do proper matching.
+      - query: select * from t1 where id > 15;
+      - result: [{!l 30, !ignore dc}, {!l 50, !ignore dc}]
+    -
+      # Having multiple `result` configs for the `query` command checks the result sets
+      # (in order of appearance) with consecutive continuations of the query.
+      - query: select * from t1 limit 1;
+      - result: [{10, 20}]
+      - result: [{30, 40}]
+      - result: [{50, 60}]
 ---
-# Here we use SQL to create the schema template.
-- query: create schema template test_template
-   create table t1(id bigint, col1 bigint, primary key(id))
-   create table t2(col1 bigint, primary key(col1))
-   create table t3(col1 bigint, col2 string, primary key(col1))
-# Alternatively, you can directly load the schema template from a pre-crafted proto buf
-# file that you put in main/resources. For example:
-# load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
-# check standard-tests-proto.yaml and standard_tests.proto for more information.
+# Another setup document to "change" the testing environment
+setup:
+  - query: drop schema template if exists test_template_nested
+  # Here is a more complex schema template with nesting to show how to deal with nested
+  # data.
+  - query: create schema template test_template_nested
+           CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
+           CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
+           create table t1(id bigint, col5 s2, primary key(id))
+           create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
+  - query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
+  - connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
+  - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
 ---
-- query: drop database if exists /FRL/YOUSSEF
+# Another test block to test in the new "changed" environment
+test_block:
+  options:
+    # defines if the tests can be permuted.
+    mode: randomized
+    # defines how many times a particular tests should be scheduled.
+    repetition: 2
+  tests:
+    -
+      # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
+      # the matcher to always return true for that particular part of the message. This allows for
+      # the matcher to always return true for that particular part of the message. This allows for
+      # partial message matching which can make life easier in certain scenarios, e.g. verify that
+      # the third struct field of the second column is ordered, without caring about the result of
+      # the results.
+      - query: select * from t1
+      - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
-- query: create database /FRL/YOUSSEF
----
-- query: create schema /FRL/YOUSSEF/test with template test_template
----
-- connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
----
-# We are inserting an array of three rows, each containing two columns
-# note the `table` configuration is very important
-# also note the casing of your table names.
-- query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
----
-# We check here an error code, as you can see, the statement is syntactically
-# incorrect, this should throw SYNTAX_ERROR error whose SQL state is 42601
-# the `query` command has a configuration `error` implemented to check that.
-- query: selec * from t1;
-- error: "42601"
----
-# in addition, the `query` command has a `result` configuration for checking
-# the result set, again using the same YAML format mentioned above.
-# we leverage YAML tags to implement more features such as partial matching
-# in partial matching, we can mark any part of a (nested) message with the
-# tag !ignore to inform the result set verifier that we do not really care about
-# the that value of the result set, this allows us to quickly test scenarios
-# in which we're e.g. interested in checking the values of the _first_ column
-# only, or we're interested in a particular deeply nested field in a message
-# without the rest of the message.
-# note: SnakeYAML parses numbers as Java Integers, however since we're expecting
-# Long in the result set, we implement a special YAML Tag (!l), which parses each
-# number as Long instead of Integer so we can do proper matching.
-- query: select * from t1 where id > 15;
-- result: [{!l 30, !ignore dc}, {!l 50, !ignore dc}]
----
-# Having multiple `result` configs for the `query` command checks the result sets
-# (in order of appearance) with consecutive continuations of the query.
-- query: select * from t1 limit 1;
-- result: [{10, 20}]
-- result: [{30, 40}]
-- result: [{50, 60}]
----
-- query: drop schema template if exists test_template_nested
----
-# Here is a more complex schema template with nesting to show how to deal with nested
-# data.
-- query: create schema template test_template_nested
-         CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
-         CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
-         create table t1(id bigint, col5 s2, primary key(id))
-         create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
----
-- query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
----
-- connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
----
-- query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
----
-# We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
-# the matcher to always return true for that particular part of the message. This allows for
-# partial message matching which can make life easier in certain scenarios, e.g. verify that
-# the third struct field of the second column is ordered, without caring about the result of
-# the results.
-- query: select * from t1
-- result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop schema template test_template
----
-- query: drop database /FRL/YOUSSEF
+# Final document, clean-up the environment.
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template test_template
+  - query: drop database /FRL/YOUSSEF
 ...

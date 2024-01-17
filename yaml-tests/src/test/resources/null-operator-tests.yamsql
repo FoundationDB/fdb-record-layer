@@ -18,53 +18,51 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists null_operator_tests_template
+  - query: create schema template null_operator_tests_template
+      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create index i1 as select col1 from t1
+  - query: drop database if exists /FRL/NULL_YAML
+  - query: create database /FRL/NULL_YAML
+  - query: create schema /FRL/NULL_YAML/test with template null_operator_tests_template
+  - connect: "jdbc:embed:/FRL/NULL_YAML?schema=TEST"
+  - query: INSERT INTO T1
+      VALUES (1, 10, 1),
+      (2, 10, 2),
+      (3, 10, 3),
+      (4, 10, 4),
+      (5, 10, 5),
+      (6, 20, 6),
+      (7, 20, 7),
+      (8, 20, 8),
+      (9, 20, 9),
+      (10, 20, 10),
+      (11, 20, 11),
+      (12, 20, 12),
+      (13, 20, 13)
 ---
-- query: drop schema template if exists null_operator_tests_template
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select * from (select * from (select * from T1) as x where ID is null) as y;
+      - result: []
+    -
+      - query: select count(*) from (select * from (select * from T1) as x where ID is not null) as y;
+      - unorderedResult: [{13}]
+#    -
+#      - query: select count(*) from (select * from (select * from T1) as x where ID != null) as y;
+#      - unorderedResult: [{13}]
+#    -
+#      - query: select * from (select * from (select * from T1) as x where ID < null) as y;
+#      - result: []
 ---
-- query: create schema template null_operator_tests_template
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create index i1 as select col1 from t1
----
-- query: drop database if exists /FRL/NULL_YAML
----
-- query: create database /FRL/NULL_YAML
----
-- query: create schema /FRL/NULL_YAML/test with template null_operator_tests_template
----
-- connect: "jdbc:embed:/FRL/NULL_YAML?schema=TEST"
----
-- query: INSERT INTO T1
-    VALUES (1, 10, 1),
-    (2, 10, 2),
-    (3, 10, 3),
-    (4, 10, 4),
-    (5, 10, 5),
-    (6, 20, 6),
-    (7, 20, 7),
-    (8, 20, 8),
-    (9, 20, 9),
-    (10, 20, 10),
-    (11, 20, 11),
-    (12, 20, 12),
-    (13, 20, 13)
-- count: 13
----
-- query: select * from (select * from (select * from T1) as x where ID is null) as y;
-- result: []
----
-- query: select count(*) from (select * from (select * from T1) as x where ID is not null) as y;
-- unorderedResult: [{13}]
----
-#- query: select count(*) from (select * from (select * from T1) as x where ID != null) as y;
-#- unorderedResult: [{13}]
-#---
-#- query: select * from (select * from (select * from T1) as x where ID < null) as y;
-#- result: []
-#---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/NULL_YAML
----
-- query: drop schema template null_operator_tests_template
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/NULL_YAML
+  - query: drop schema template null_operator_tests_template
 ...

@@ -18,47 +18,43 @@
 # limitations under the License.
 
 ---
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
+setup:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop schema template if exists standard_tests_template
+  - query: create schema template standard_tests_template
+      CREATE TYPE AS STRUCT s1(a bigint, b bigint)
+      CREATE TYPE AS STRUCT s2(c bigint, d bigint)
+      CREATE TYPE AS STRUCT s3(e s1, f s2)
+      create table t1(id bigint, g bigint, h s3, primary key(id))
+      create table t2(id bigint, g bigint, h s3, primary key(id))
+  - query: drop database if exists /FRL/STANDARD_YAML
+  - query: create database /FRL/STANDARD_YAML
+  - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
+  - connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
+  - query: INSERT INTO T1
+            VALUES (1, 2, ((3, 4), (5, 6))),
+            (10, 20, ((30, 40), (50, 60)))
+  - query: INSERT INTO T2
+            VALUES (1, 2, ((3, 4), null)),
+            (10, 20, ((null, null), null))
 ---
-- query: drop schema template if exists standard_tests_template
----
-- query: create schema template standard_tests_template
-    CREATE TYPE AS STRUCT s1(a bigint, b bigint)
-    CREATE TYPE AS STRUCT s2(c bigint, d bigint)
-    CREATE TYPE AS STRUCT s3(e s1, f s2)
-    create table t1(id bigint, g bigint, h s3, primary key(id))
-    create table t2(id bigint, g bigint, h s3, primary key(id))
----
-- query: drop database if exists /FRL/STANDARD_YAML
----
-- query: create database /FRL/STANDARD_YAML
----
-- query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
----
-- connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
----
-- query: INSERT INTO T1
-    VALUES (1, 2, ((3, 4), (5, 6))),
-           (10, 20, ((30, 40), (50, 60)))
----
-- query: select * from t1;
-- result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
+test_block:
+  options:
+    mode: randomized
+    repetition: 2
+  tests:
+    -
+      - query: select * from t1;
+      - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
            {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
+    -
+      # multiple !null placeholders in the same level should be named.
+      - query: select * from t2;
+      - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
+                 {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
 ---
-- query: INSERT INTO T2
-      VALUES (1, 2, ((3, 4), null)),
-             (10, 20, ((null, null), null))
----
-# multiple !null placeholders in the same level should be named.
-- query: select * from t2;
-- result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
-           {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
-#---
-#- query: drop schema template standard_tests_template
----
-- connect: "jdbc:embed:/__SYS?schema=CATALOG"
----
-- query: drop database /FRL/STANDARD_YAML
----
-- query: drop schema template standard_tests_template
+destruct:
+  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  - query: drop database /FRL/STANDARD_YAML
+  - query: drop schema template standard_tests_template
 ...
