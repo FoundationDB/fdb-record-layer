@@ -28,16 +28,21 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** add feature to serialize/deserialize plans [(Issue #2443)](https://github.com/FoundationDB/fdb-record-layer/issues/2443)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Support for the Protobuf 2 runtime has been removed from all artifacts [(Issue #1637)](https://github.com/FoundationDB/fdb-record-layer/issues/1637)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.448.0
+
+* **Feature** add feature to serialize/deserialize plans [(Issue #2443)](https://github.com/FoundationDB/fdb-record-layer/issues/2443)
+* **Breaking change** Support for the Protobuf 2 runtime has been removed from all artifacts [(Issue #1637)](https://github.com/FoundationDB/fdb-record-layer/issues/1637)
 
 ## 3.3
 
