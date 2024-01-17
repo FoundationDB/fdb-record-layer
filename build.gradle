@@ -32,7 +32,9 @@ buildscript {
         classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
     }
 }
-
+/*
+add comment to test PR build
+*/
 plugins {
     id 'com.google.protobuf' version '0.8.19'
     id 'com.github.ben-manes.versions' version '0.38.0'
