@@ -23,19 +23,24 @@ package com.apple.foundationdb.record.query.plan.sorting;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQuerySortKey;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.sorting.MemorySortAdapter;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Defines, logically, how {@link RecordQuerySortPlan} should sort the records.
  * Also acts as a factory for {@link RecordQuerySortAdapter}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQuerySortKey implements PlanHashable {
+public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Key");
 
     @Nonnull
@@ -118,5 +123,20 @@ public class RecordQuerySortKey implements PlanHashable {
         int result = key.hashCode();
         result = 31 * result + (reverse ? 1 : 0);
         return result;
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQuerySortKey toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQuerySortKey.newBuilder().setKey(key.toKeyExpression()).setReverse(reverse).build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static RecordQuerySortKey fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQuerySortKey recordQuerySortKeyProto) {
+        Verify.verify(recordQuerySortKeyProto.hasReverse());
+        return new RecordQuerySortKey(KeyExpression.fromProto(Objects.requireNonNull(recordQuerySortKeyProto.getKey())),
+                recordQuerySortKeyProto.getReverse());
     }
 }

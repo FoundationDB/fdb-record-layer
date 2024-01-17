@@ -182,7 +182,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> actual = queryNames(query, hook);
         final List<String> expected = Arrays.asList("Ørsted", "Ångström");
         assertEquals(expected, actual);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan("collated_name"));
     }
 
@@ -205,7 +205,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> actual = queryNames(query, hook);
         final List<String> expected = Arrays.asList("Ampère");
         assertEquals(expected, actual);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, coveringIndexScan(indexScan("collated_name")));
     }
 
@@ -225,7 +225,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> actual = queryNames(query, hook, "name", "gauss");
         final List<String> expected = Arrays.asList("Gauß");
         assertEquals(expected, actual);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("collated_name"), bounds(hasTupleString(String.format("[EQUALS %s($name)]", collateFunctionName))))));
     }
 

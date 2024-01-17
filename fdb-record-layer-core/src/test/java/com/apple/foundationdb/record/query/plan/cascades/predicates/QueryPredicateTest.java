@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -112,6 +115,18 @@ public class QueryPredicateTest {
         public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.TRUE;
         }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
     };
 
     private static final QueryPredicate FALSE = new TestPredicate() {
@@ -120,6 +135,18 @@ public class QueryPredicateTest {
         public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.FALSE;
         }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
     };
 
     private static final QueryPredicate NULL = new TestPredicate() {
@@ -127,6 +154,18 @@ public class QueryPredicateTest {
         @Override
         public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return null;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
         }
     };
 

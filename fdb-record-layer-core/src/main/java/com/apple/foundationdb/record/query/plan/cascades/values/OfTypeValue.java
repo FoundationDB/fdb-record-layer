@@ -23,22 +23,26 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.POfTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
 public class OfTypeValue extends AbstractValue implements Value.RangeMatchableValue, ValueWithChild {
-
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
     @Nonnull
@@ -91,8 +95,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         if (!promotionNeeded) {
             return true;
         }
-        final var promotionFunction = PromoteValue.resolvePromotionFunction(type, expectedType);
-        return promotionFunction != null;
+        return PromoteValue.resolvePhysicalOperator(type, expectedType) != null;
     }
 
     @Override
@@ -118,6 +121,28 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     }
 
     @Nonnull
+    @Override
+    public POfTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return POfTypeValue.newBuilder()
+                .setChild(child.toValueProto(serializationContext))
+                .setExpectedType(expectedType.toTypeProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setOfTypeValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final POfTypeValue ofTypeValueProto) {
+        return new OfTypeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getChild())),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getExpectedType())));
+    }
+
+    @Nonnull
     public static OfTypeValue of(@Nonnull final Value value, @Nonnull final Type type) {
         return new OfTypeValue(value, type);
     }
@@ -131,5 +156,24 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     @Nonnull
     public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
         return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getOrdinal(), Type.any()), value.getResultType());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<POfTypeValue, OfTypeValue> {
+        @Nonnull
+        @Override
+        public Class<POfTypeValue> getProtoMessageClass() {
+            return POfTypeValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final POfTypeValue ofTypeValueProto) {
+            return OfTypeValue.fromProto(serializationContext, ofTypeValueProto);
+        }
     }
 }

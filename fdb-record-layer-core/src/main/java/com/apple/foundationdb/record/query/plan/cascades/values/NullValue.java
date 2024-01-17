@@ -24,15 +24,21 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNullValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * A value that evaluates to empty.
@@ -128,5 +134,43 @@ public class NullValue extends AbstractValue implements LeafValue {
     public Value with(@Nonnull final Type type) {
         Verify.verify(type.isNullable());
         return new NullValue(type);
+    }
+
+    @Nonnull
+    @Override
+    public PNullValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PNullValue.newBuilder()
+                .setResultType(resultType.toTypeProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setNullValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNullValue nullValueProto) {
+        return new NullValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(nullValueProto.getResultType())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PNullValue, NullValue> {
+        @Nonnull
+        @Override
+        public Class<PNullValue> getProtoMessageClass() {
+            return PNullValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PNullValue nullValueProto) {
+            return NullValue.fromProto(serializationContext, nullValueProto);
+        }
     }
 }

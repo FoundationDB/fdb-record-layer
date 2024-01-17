@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -481,7 +483,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -490,7 +492,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -574,7 +576,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -583,7 +585,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 unorderedPrimaryKeyDistinctPlan(
@@ -630,7 +632,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -639,7 +641,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 unorderedPrimaryKeyDistinctPlan(
@@ -684,7 +686,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -693,7 +695,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -735,7 +737,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -744,7 +746,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan plan2 = planner.plan(query);
+        final RecordQueryPlan plan2 = planQuery(query);
         // make sure that een now we don't pick the md index
         Assertions.assertTrue(plan2.hasIndexScan("calendarNameStartEpoch"));
     }
@@ -806,7 +808,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -815,7 +817,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan plan2 = planner.plan(query);
+        final RecordQueryPlan plan2 = planQuery(query);
         // make sure that een now we don't pick the md index
         Assertions.assertTrue(plan2.hasIndexScan("calendarNameStartEpoch"));
     }
@@ -871,7 +873,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
@@ -955,7 +957,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -965,7 +967,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan plan2 = planner.plan(query);
+        final RecordQueryPlan plan2 = planQuery(query);
         // make sure that een now we don't pick the md index
         Assertions.assertTrue(plan2.hasRecordScan());
     }
@@ -1000,7 +1002,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -1010,7 +1012,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan plan2 = planner.plan(query);
+        final RecordQueryPlan plan2 = planQuery(query);
         // make sure that een now we don't pick the md index
         Assertions.assertTrue(plan2.hasRecordScan());
     }
@@ -1142,7 +1144,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .setRequiredResults(ImmutableList.of(field("calendar_name"), field("start_epoch"), field("end_epoch")))
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
 
         // run an un-hinted query -- make sure the planner picks up the md-index
@@ -1151,7 +1153,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setRequiredResults(ImmutableList.of(field("calendar_name"), field("start_epoch"), field("end_epoch")))
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 coveringIndexPlan()
@@ -1205,7 +1207,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndex, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -1214,7 +1216,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -1313,7 +1315,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
         Assertions.assertEquals(expectedResults, actualResults);
 
@@ -1322,7 +1324,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -1360,7 +1362,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
 
         // run an un-hinted query -- make sure the planner picks up the md-index
@@ -1368,7 +1370,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -1407,7 +1409,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
 
         // run an un-hinted query -- make sure the planner picks up the md-index
@@ -1415,7 +1417,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 fetchFromPartialRecordPlan(
@@ -1459,7 +1461,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
 
         // run an un-hinted query -- make sure the planner picks up the md-index
@@ -1467,7 +1469,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyMultidimensionalRecord")
                 .setFilter(filter)
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 fetchFromPartialRecordPlan(
@@ -1519,7 +1521,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setIndexQueryabilityFilter(noMultidimensionalIndexes)
                 .build();
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final Set<Message> expectedResults = getResults(additionalIndexes, plan);
 
         // run an un-hinted query -- make sure the planner picks up the md-index
@@ -1528,7 +1530,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(filter)
                 .setAllowedIndexes(ImmutableSet.of("EventIntervals"))
                 .build();
-        final RecordQueryPlan mdPlan = planner.plan(query);
+        final RecordQueryPlan mdPlan = planQuery(query);
 
         assertMatchesExactly(mdPlan,
                 indexPlan()
@@ -1642,6 +1644,18 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
         @Nonnull
         @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
         public IndexScanType getScanType() {
             return IndexScanType.BY_VALUE;
         }
@@ -1719,6 +1733,18 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             return 13;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("unsupported");
         }
 
         @Nonnull

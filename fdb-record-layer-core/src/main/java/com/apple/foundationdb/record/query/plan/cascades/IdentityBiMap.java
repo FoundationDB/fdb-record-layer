@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -51,6 +52,8 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     private static final Equivalence<Object> identity = Equivalence.identity();
 
     private final BiMap<Wrapper<K>, Wrapper<V>> delegate;
+
+    private final Supplier<IdentityBiMap<V, K>> inverseProvider = Suppliers.memoize(() -> create(getDelegate().inverse()));
 
     private IdentityBiMap(final BiMap<Wrapper<K>, Wrapper<V>> delegate) {
         this.delegate = delegate;
@@ -103,7 +106,7 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     @Override
     @Nonnull
     public IdentityBiMap<V, K> inverse() {
-        return create(getDelegate().inverse());
+        return inverseProvider.get();
     }
 
     @Override

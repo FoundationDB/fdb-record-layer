@@ -141,8 +141,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
 
                         // make accessors and resolve them
-                        final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("name", -1)));
-                        final var updateValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_SS, FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), LiteralValue.ofScalar(" McDonald's"));
                         qun = Quantifier.forEach(GroupExpressionRef.of(new DeleteExpression(qun, "RestaurantRecord")));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
@@ -488,7 +486,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             fetchResultValues(context, plan, Function.identity(), c -> {
             });
 
-            plan = cascadesPlanner.planGraph(
+            plan = verifySerialization(cascadesPlanner.planGraph(
                     () -> {
                         final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
 
@@ -526,7 +524,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
+                    EvaluationContext.empty()).getPlan());
 
             assertMatchesExactly(plan,
                     updatePlan(unorderedPrimaryKeyDistinctPlan(

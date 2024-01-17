@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PPhysicalQuantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -141,7 +144,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
         /**
-         * Builder subclass to build for-each quantifiers..
+         * Builder subclass to build for-each quantifiers.
          */
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
             @Nonnull
@@ -331,7 +334,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * by the query plans themselves.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
-    public static final class Physical extends Quantifier {
+    public static final class Physical extends Quantifier implements PlanSerializable {
         @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
         /**
@@ -399,10 +402,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         public boolean structuralEquals(@Nullable final Object other) {
+            return structuralEquals(other, AliasMap.emptyMap());
+        }
+
+        public boolean structuralEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
             if (!(other instanceof Physical)) {
                 return false;
             }
-            return getRangesOverPlan().structuralEquals(((Physical)other).getRangesOverPlan());
+            return getRangesOverPlan().structuralEquals(((Physical)other).getRangesOverPlan(), equivalenceMap);
         }
 
         public int structuralHashCode() {
@@ -421,6 +428,32 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         public List<Column<? extends FieldValue>> computeFlowedColumns() {
             return pullUpResultColumns(getFlowedObjectType(), getAlias());
+        }
+
+        @Nonnull
+        @Override
+        public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
+                    .setAlias(getAlias().getId());
+            final LinkedIdentitySet<? extends RelationalExpression> members = getRangesOver().getMembers();
+            for (final RelationalExpression member : members) {
+                Verify.verify(member instanceof RecordQueryPlan);
+                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
+            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
+                membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
+            }
+            final GroupExpressionRef<? extends RelationalExpression> groupExpressionRef =
+                    GroupExpressionRef.from(membersBuilder.build());
+            return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
+                    .build(groupExpressionRef);
         }
     }
 

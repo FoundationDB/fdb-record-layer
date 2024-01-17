@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -236,11 +235,6 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                                              @Nonnull CorrelationIdentifier oldInnerAlias,
                                              @Nonnull CorrelationIdentifier newInnerAlias,
                                              @Nonnull final QueryPredicate leafPredicate) {
-        if (leafPredicate instanceof QueryComponentPredicate) {
-            // We cannot push these predicates. They always contain nesteds.
-            return null;
-        }
-
         if (!(leafPredicate instanceof PredicateWithValue)) {
             // Only values depend on aliases -- returning this leaf is ok as it
             // appears to be pushable as is.

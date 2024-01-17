@@ -123,7 +123,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
                     .setFilter(filter)
                     .build();
-            final RecordQueryPlan plan = planner.plan(rq);
+            final RecordQueryPlan plan = planQuery(planner, rq);
             Set<String> appliedIndexNames = plan.getUsedIndexes();
             Assertions.assertEquals(1, appliedIndexNames.size(), "index selection is incorrect");
             Assertions.assertTrue(appliedIndexNames.contains(text2Index.getName()), "Did not select the correct index");
@@ -145,7 +145,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
                     .setFilter(filter)
                     .build();
-            final RecordQueryPlan plan = planner.plan(rq);
+            final RecordQueryPlan plan = planQuery(planner, rq);
             Set<String> appliedIndexNames = plan.getUsedIndexes();
             Assertions.assertEquals(1, appliedIndexNames.size(), "index selection is incorrect");
             Assertions.assertTrue(appliedIndexNames.contains(nestedDualIndex2.getName()), "Did not select the correct index");
@@ -173,8 +173,8 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(new NotComponent(filter))
                     .build();
 
-            final RecordQueryPlan plan = planner.plan(rq);
-            final RecordQueryPlan notPlan = planner.plan(notQuery);
+            final RecordQueryPlan plan = planQuery(planner, rq);
+            final RecordQueryPlan notPlan = planQuery(planner, notQuery);
             Assertions.assertEquals(71592145, plan.planHash(PlanHashable.CURRENT_LEGACY));
             Assertions.assertEquals(-1378983311, notPlan.planHash(PlanHashable.CURRENT_LEGACY));
         }

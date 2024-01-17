@@ -22,15 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -73,13 +71,6 @@ public class QueryPredicateMatchers {
 
     public static <C extends Collection<? extends QueryPredicate>> BindingMatcher<AndPredicate> andPredicate(@Nonnull final BindingMatcher<C> downstream) {
         return ofTypeWithChildren(AndPredicate.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<QueryComponentPredicate> queryComponentPredicate(@Nonnull BindingMatcher<? extends QueryComponent> downstream) {
-        return typedWithDownstream(QueryComponentPredicate.class,
-                Extractor.of(QueryComponentPredicate::getQueryComponent, name -> "queryComponent(" + name + ")"),
-                downstream);
     }
 
     public static TypedMatcher<Comparisons.Comparison> anyComparison() {

@@ -24,11 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -53,6 +58,16 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nullable
     private final Boolean value;
+
+    public ConstantPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                             @Nonnull final PConstantPredicate constantPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(constantPredicateProto.getSuper()));
+        if (constantPredicateProto.hasValue()) {
+            this.value = constantPredicateProto.getValue();
+        } else {
+            this.value = null;
+        }
+    }
 
     public ConstantPredicate(@Nullable Boolean value) {
         super(false);
@@ -132,5 +147,47 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     @Override
     public String toString() {
         return String.valueOf(value);
+    }
+
+    @Nonnull
+    @Override
+    public PConstantPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PConstantPredicate.newBuilder()
+                .setSuper(toAbstractQueryPredicateProto(serializationContext));
+        if (value != null) {
+            builder.setValue(value);
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ConstantPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PConstantPredicate constantPredicateProto) {
+        return new ConstantPredicate(serializationContext, constantPredicateProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConstantPredicate, ConstantPredicate> {
+        @Nonnull
+        @Override
+        public Class<PConstantPredicate> getProtoMessageClass() {
+            return PConstantPredicate.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConstantPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PConstantPredicate constantPredicateProto) {
+            return ConstantPredicate.fromProto(serializationContext, constantPredicateProto);
+        }
     }
 }

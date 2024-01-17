@@ -22,7 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCompilableRange;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRangeConstraints;
 import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -53,7 +57,7 @@ import java.util.stream.Collectors;
  * Represents a compile-time range that can be evaluated against other compile-time ranges with an optional list
  * of deferred ranges that cannot be evaluated at compile-time but can still be used as scan index prefix.
  */
-public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints> {
+public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints>, PlanSerializable {
 
     @Nonnull
     private final Supplier<List<Comparisons.Comparison>> comparisonsCalculator;
@@ -395,6 +399,33 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return Objects.hash(evaluableRange, deferredRanges);
     }
 
+    @Nonnull
+    @Override
+    public PRangeConstraints toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRangeConstraints.Builder builder = PRangeConstraints.newBuilder();
+        if (evaluableRange != null) {
+            builder.setEvaluableRange(evaluableRange.toProto(serializationContext));
+        }
+        for (final Comparisons.Comparison deferredRange : deferredRanges) {
+            builder.addDeferredRanges(deferredRange.toComparisonProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    public static RangeConstraints fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PRangeConstraints rangeConstraintsProto) {
+        final ImmutableSet.Builder<Comparisons.Comparison> deferredRangesBuilder = ImmutableSet.builder();
+        for (int i = 0; i < rangeConstraintsProto.getDeferredRangesCount(); i ++) {
+            deferredRangesBuilder.add(
+                    Comparisons.Comparison.fromComparisonProto(serializationContext, rangeConstraintsProto.getDeferredRanges(i)));
+        }
+        return new RangeConstraints(
+                rangeConstraintsProto.hasEvaluableRange()
+                ? CompilableRange.fromProto(serializationContext, rangeConstraintsProto.getEvaluableRange()) : null,
+                deferredRangesBuilder.build());
+    }
+
     /**
      * Represents a range boundary.
      */
@@ -472,7 +503,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * Represents a range that comprises an intersection of a set of {@link Comparisons.Comparison} with reference operands
      * (i.e. {@link ConstantObjectValue}s). The range can be evaluated at compile-time under a given {@link EvaluationContext}.
      */
-    public static class CompilableRange implements PlanHashable {
+    public static class CompilableRange implements PlanHashable, PlanSerializable {
 
         @Nonnull
         private final Set<Comparisons.Comparison> compilableComparisons;
@@ -486,28 +517,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 return;
             }
             compilableComparisons.addAll(other.compilableComparisons);
-        }
-
-        @Nonnull
-        private static Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison,
-                                               @Nonnull final EvaluationContext evaluationContext) {
-            final var boundary = Boundary.from(comparison, evaluationContext);
-            switch (comparison.getType()) {
-                case GREATER_THAN: // fallthrough
-                case NOT_NULL:
-                    return Range.greaterThan(boundary);
-                case GREATER_THAN_OR_EQUALS:
-                    return Range.atLeast(boundary);
-                case LESS_THAN:
-                    return Range.lessThan(boundary);
-                case LESS_THAN_OR_EQUALS:
-                    return Range.atMost(boundary);
-                case EQUALS: // fallthrough
-                case IS_NULL:
-                    return Range.singleton(boundary);
-                default:
-                    throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
-            }
         }
 
         /**
@@ -541,6 +550,49 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Override
         public String toString() {
             return compilableComparisons.stream().map(Objects::toString).collect(Collectors.joining("∩"));
+        }
+
+        @Nonnull
+        private static Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison,
+                                               @Nonnull final EvaluationContext evaluationContext) {
+            final var boundary = Boundary.from(comparison, evaluationContext);
+            switch (comparison.getType()) {
+                case GREATER_THAN: // fallthrough
+                case NOT_NULL:
+                    return Range.greaterThan(boundary);
+                case GREATER_THAN_OR_EQUALS:
+                    return Range.atLeast(boundary);
+                case LESS_THAN:
+                    return Range.lessThan(boundary);
+                case LESS_THAN_OR_EQUALS:
+                    return Range.atMost(boundary);
+                case EQUALS: // fallthrough
+                case IS_NULL:
+                    return Range.singleton(boundary);
+                default:
+                    throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
+            }
+        }
+
+        @Nonnull
+        @Override
+        public PCompilableRange toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PCompilableRange.Builder builder = PCompilableRange.newBuilder();
+            for (final Comparisons.Comparison compilableComparison : compilableComparisons) {
+                builder.addCompilableComparisons(compilableComparison.toComparisonProto(serializationContext));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static CompilableRange fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PCompilableRange compilableRangeProto) {
+            final ImmutableSet.Builder<Comparisons.Comparison> compilableComparisonsBuilder = ImmutableSet.builder();
+            for (int i = 0; i < compilableRangeProto.getCompilableComparisonsCount(); i ++) {
+                compilableComparisonsBuilder.add(
+                        Comparisons.Comparison.fromComparisonProto(serializationContext, compilableRangeProto.getCompilableComparisons(i)));
+            }
+            return new CompilableRange(compilableComparisonsBuilder.build());
         }
     }
 

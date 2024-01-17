@@ -24,8 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryMapPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -41,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -226,5 +231,46 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                         ImmutableList.of("MAP {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryMapPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryMapPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setResultValue(resultValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setMapPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryMapPlan mapPlanProto) {
+        return new RecordQueryMapPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(mapPlanProto.getInner())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(mapPlanProto.getResultValue())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryMapPlan, RecordQueryMapPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryMapPlan> getProtoMessageClass() {
+            return PRecordQueryMapPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PRecordQueryMapPlan recordQueryMapPlanProto) {
+            return RecordQueryMapPlan.fromProto(serializationContext, recordQueryMapPlanProto);
+        }
     }
 }

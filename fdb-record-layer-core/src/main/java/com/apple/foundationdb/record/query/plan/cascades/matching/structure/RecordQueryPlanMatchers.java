@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
@@ -243,6 +244,10 @@ public class RecordQueryPlanMatchers {
         return typedWithDownstream(RecordQueryInValuesJoinPlan.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getInListValues()), name -> "values(" + name + ")"),
                 downstream);
+    }
+
+    public static <T extends List<?>> BindingMatcher<T> equalsInList(@Nonnull final T object) {
+        return PrimitiveMatchers.testObject(object, Comparisons::compareListEquals);
     }
 
     @Nonnull

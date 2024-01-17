@@ -24,20 +24,26 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue.PPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -49,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -61,7 +68,7 @@ public class VariadicFunctionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Variadic-Function-Value");
 
     @Nonnull
-    private final PhysicalOperator operation;
+    private final PhysicalOperator operator;
     @Nonnull
     private final List<Value> children;
 
@@ -71,12 +78,12 @@ public class VariadicFunctionValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link VariadicFunctionValue}.
-     * @param operation The arithmetic operation.
+     * @param operator The arithmetic operation.
      * @param children The children.
      */
-    public VariadicFunctionValue(@Nonnull PhysicalOperator operation,
+    public VariadicFunctionValue(@Nonnull PhysicalOperator operator,
                                  @Nonnull List<Value> children) {
-        this.operation = operation;
+        this.operator = operator;
         this.children = children;
     }
 
@@ -84,13 +91,13 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operation.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
+        return operator.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
     }
 
     @Nonnull
@@ -109,22 +116,22 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) >= 2);
-        return new VariadicFunctionValue(this.operation, ImmutableList.copyOf(newChildren));
+        return new VariadicFunctionValue(this.operator, ImmutableList.copyOf(newChildren));
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operation);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operation, children);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, children);
     }
 
     @Override
     public String toString() {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
     }
 
     @Override
@@ -137,6 +144,37 @@ public class VariadicFunctionValue extends AbstractValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PVariadicFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PVariadicFunctionValue.Builder builder = PVariadicFunctionValue.newBuilder();
+
+        builder.setOperator(operator.toProto(serializationContext));
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(serializationContext));
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setVariadicFunctionValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+        final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
+        for (int i = 0; i < variadicFunctionValueProto.getChildrenCount(); i ++) {
+            final Value child = Value.fromValueProto(serializationContext, variadicFunctionValueProto.getChildren(i));
+            childrenBuilder.add(child);
+        }
+        return new VariadicFunctionValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(variadicFunctionValueProto.getOperator())),
+                childrenBuilder.build());
     }
 
     @Nonnull
@@ -343,6 +381,10 @@ public class VariadicFunctionValue extends AbstractValue {
         COALESCE_ARRAY(ComparisonFunction.COALESCE, TypeCode.ARRAY, PhysicalOperator::coalesce);
 
         @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
+
+        @Nonnull
         private final ComparisonFunction comparisonFunction;
 
         @Nonnull
@@ -374,6 +416,24 @@ public class VariadicFunctionValue extends AbstractValue {
             return evaluateFunction.apply(args);
         }
 
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
+        }
+
         private static Object coalesce(final List<Object> args) {
             for (Object i : args) {
                 if (i != null) {
@@ -381,6 +441,25 @@ public class VariadicFunctionValue extends AbstractValue {
                 }
             }
             return null;
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PVariadicFunctionValue, VariadicFunctionValue> {
+        @Nonnull
+        @Override
+        public Class<PVariadicFunctionValue> getProtoMessageClass() {
+            return PVariadicFunctionValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+            return VariadicFunctionValue.fromProto(serializationContext, variadicFunctionValueProto);
         }
     }
 }

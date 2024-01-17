@@ -23,19 +23,24 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInsertPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -60,12 +65,17 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryInsertPlan.class);
 
+    protected RecordQueryInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryInsertPlanProto.getSuper()));
+    }
+
     private RecordQueryInsertPlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String recordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, recordType, targetType, null, coercionsTrie, computationValue);
+        super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
     @Override
@@ -147,6 +157,24 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInsertPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+        return new RecordQueryInsertPlan(serializationContext, recordQueryInsertPlanProto);
+    }
+
     /**
      * Factory method to create a {@link RecordQueryInsertPlan}.
      *
@@ -168,5 +196,24 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 targetType,
                 PromoteValue.computePromotionsTrie(targetType, inner.getFlowedObjectType(), null),
                 computationValue);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInsertPlan, RecordQueryInsertPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInsertPlan> getProtoMessageClass() {
+            return PRecordQueryInsertPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+            return RecordQueryInsertPlan.fromProto(serializationContext, recordQueryInsertPlanProto);
+        }
     }
 }

@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PQuantifiedObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -32,11 +36,13 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -146,6 +152,29 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     }
 
     @Nonnull
+    @Override
+    public PQuantifiedObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        PQuantifiedObjectValue.Builder builder = PQuantifiedObjectValue.newBuilder();
+        builder.setAlias(alias.getId());
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
+        return RecordQueryPlanProto.PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
+    }
+
+    @Nonnull
+    public static QuantifiedObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PQuantifiedObjectValue quantifiedObjectValue) {
+        return new QuantifiedObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(quantifiedObjectValue.getAlias())),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(quantifiedObjectValue.getResultType())));
+    }
+
+    @Nonnull
     public static QuantifiedObjectValue of(@Nonnull final Quantifier quantifier) {
         return new QuantifiedObjectValue(quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
@@ -153,5 +182,24 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Nonnull
     public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         return new QuantifiedObjectValue(alias, resultType);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PQuantifiedObjectValue, QuantifiedObjectValue> {
+        @Nonnull
+        @Override
+        public Class<PQuantifiedObjectValue> getProtoMessageClass() {
+            return PQuantifiedObjectValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public QuantifiedObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PQuantifiedObjectValue quantifiedObjectValueProto) {
+            return QuantifiedObjectValue.fromProto(serializationContext, quantifiedObjectValueProto);
+        }
     }
 }

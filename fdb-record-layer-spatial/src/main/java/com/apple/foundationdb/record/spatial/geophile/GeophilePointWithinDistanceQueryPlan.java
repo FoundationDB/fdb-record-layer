@@ -25,6 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -45,6 +48,7 @@ import com.geophile.z.index.RecordWithSpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Message;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -221,5 +225,17 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
                         PlannerGraph.fromNodeAndChildGraphs(
                                 new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, new Type.Relation(new Type.Any()), ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("serialization of this plan is not supported");
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("serialization of this plan is not supported");
     }
 }

@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanParameters;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
@@ -42,6 +44,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Base class for {@link IndexScanParameters} used by {@code LUCENE} indexes.
@@ -54,7 +57,13 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     @Nonnull
     protected final ScanComparisons groupComparisons;
 
-    protected LuceneScanParameters(@Nonnull IndexScanType scanType, @Nonnull ScanComparisons groupComparisons) {
+    protected LuceneScanParameters(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PLuceneScanParameters luceneScanParametersProto) {
+        this(IndexScanType.fromProto(serializationContext, Objects.requireNonNull(luceneScanParametersProto.getScanType())),
+                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(luceneScanParametersProto.getGroupComparisons())));
+    }
+
+    protected LuceneScanParameters(@Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons groupComparisons) {
         this.scanType = scanType;
         this.groupComparisons = groupComparisons;
     }
@@ -165,5 +174,13 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
         int result = scanType.hashCode();
         result = 31 * result + groupComparisons.hashCode();
         return result;
+    }
+
+    @Nonnull
+    public PLuceneScanParameters toLuceneScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PLuceneScanParameters.newBuilder()
+                .setScanType(scanType.toProto(serializationContext))
+                .setGroupComparisons(groupComparisons.toProto(serializationContext))
+                .build();
     }
 }

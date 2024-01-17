@@ -24,7 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInParameterSource;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +50,13 @@ public class SortedInParameterSource extends InParameterSource {
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE = new ObjectPlanHash("Sorted-In-Parameter");
 
     private final boolean isReverse;
+
+    protected SortedInParameterSource(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+        super(serializationContext, Objects.requireNonNull(sortedInParameterSourceProto.getSuper()));
+        Verify.verify(sortedInParameterSourceProto.hasReverse());
+        this.isReverse = sortedInParameterSourceProto.getReverse();
+    }
 
     public SortedInParameterSource(@Nonnull String bindingName, @Nonnull final String parameterName, final boolean isReverse) {
         super(bindingName, parameterName);
@@ -104,5 +117,45 @@ public class SortedInParameterSource extends InParameterSource {
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), isReverse);
+    }
+
+    @Nonnull
+    @Override
+    public PSortedInParameterSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PSortedInParameterSource.newBuilder()
+                .setSuper(toInParameterSourceProto(serializationContext))
+                .setReverse(isReverse)
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setSortedInParameterSource(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+        return new SortedInParameterSource(serializationContext, sortedInParameterSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PSortedInParameterSource, SortedInParameterSource> {
+        @Nonnull
+        @Override
+        public Class<PSortedInParameterSource> getProtoMessageClass() {
+            return PSortedInParameterSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+            return SortedInParameterSource.fromProto(serializationContext, sortedInParameterSourceProto);
+        }
     }
 }

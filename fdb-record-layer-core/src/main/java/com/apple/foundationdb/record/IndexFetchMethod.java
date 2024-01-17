@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexFetchMethod;
+
+import javax.annotation.Nonnull;
 
 /**
  * An indicator for the index fetch method to use for a query or an index scan.
@@ -34,4 +37,39 @@ import com.apple.foundationdb.annotation.API;
  * </UL>
  */
 @API(API.Status.EXPERIMENTAL)
-public enum IndexFetchMethod { SCAN_AND_FETCH, USE_REMOTE_FETCH, USE_REMOTE_FETCH_WITH_FALLBACK }
+public enum IndexFetchMethod {
+    SCAN_AND_FETCH,
+    USE_REMOTE_FETCH,
+    USE_REMOTE_FETCH_WITH_FALLBACK;
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public PIndexFetchMethod toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        switch (this) {
+            case SCAN_AND_FETCH:
+                return PIndexFetchMethod.SCAN_AND_FETCH;
+            case USE_REMOTE_FETCH:
+                return PIndexFetchMethod.USE_REMOTE_FETCH;
+            case USE_REMOTE_FETCH_WITH_FALLBACK:
+                return PIndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+            default:
+                throw new RecordCoreException("unknown index fetch method mapping. did you forget to add it?");
+        }
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static IndexFetchMethod fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PIndexFetchMethod indexFetchMethodProto) {
+        switch (indexFetchMethodProto) {
+            case SCAN_AND_FETCH:
+                return SCAN_AND_FETCH;
+            case USE_REMOTE_FETCH:
+                return USE_REMOTE_FETCH;
+            case USE_REMOTE_FETCH_WITH_FALLBACK:
+                return USE_REMOTE_FETCH_WITH_FALLBACK;
+            default:
+                throw new RecordCoreException("unknown index fetch method mapping. did you forget to add it?");
+        }
+    }
+}

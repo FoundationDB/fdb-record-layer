@@ -26,7 +26,10 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PScanComparisons;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -47,8 +50,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.ProtocolMessageEnum;
+import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,7 +73,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * inequality comparisons to be applied to the next field.
  */
 @API(API.Status.INTERNAL)
-public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons> {
+public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons>, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Scan-Comparisons");
 
     @Nonnull
@@ -324,10 +326,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         if (item instanceof ByteString) {
             return ((ByteString) item).toByteArray();
         // Following two are both Internal.EnumLite, so could use that, too.
-        } else if (item instanceof ProtocolMessageEnum) {
-            return ((ProtocolMessageEnum) item).getNumber();
-        } else if (item instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) item).getNumber();
+        } else if (item instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite) item).getNumber();
         } else if (item instanceof FDBRecordVersion) {
             return ((FDBRecordVersion) item).toVersionstamp();
         } else {
@@ -455,6 +455,32 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                             .collect(Collectors.joining(" && ", "[", "]"))));
         }
         return strs.collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    @Nonnull
+    @Override
+    public PScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PScanComparisons.Builder builder = PScanComparisons.newBuilder();
+        for (final Comparisons.Comparison equalityComparison : equalityComparisons) {
+            builder.addEqualityComparisons(equalityComparison.toComparisonProto(serializationContext));
+        }
+        for (final Comparisons.Comparison inequalityComparison : inequalityComparisons) {
+            builder.addInequalityComparisons(inequalityComparison.toComparisonProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    public static ScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PScanComparisons scanComparisonsProto) {
+        final ImmutableList.Builder<Comparisons.Comparison> equalityComparisonsBuilder = ImmutableList.builder();
+        for (int i = 0; i < scanComparisonsProto.getEqualityComparisonsCount(); i ++) {
+            equalityComparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scanComparisonsProto.getEqualityComparisons(i)));
+        }
+        final ImmutableSet.Builder<Comparisons.Comparison> inequalityComparisonsBuilder = ImmutableSet.builder();
+        for (int i = 0; i < scanComparisonsProto.getInequalityComparisonsCount(); i ++) {
+            inequalityComparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scanComparisonsProto.getInequalityComparisons(i)));
+        }
+        return new ScanComparisons(equalityComparisonsBuilder.build(), inequalityComparisonsBuilder.build());
     }
 
     @Nonnull

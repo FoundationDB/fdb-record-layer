@@ -24,9 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryRangePlan;
 import com.apple.foundationdb.record.cursors.RangeCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -44,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -116,11 +120,6 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
-    }
-
-    @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
-        return UNKNOWN_MAX_CARDINALITY;
     }
 
     @Override
@@ -238,5 +237,44 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
         return PlannerGraph.fromNodeAndChildGraphs(
                 dataNodeWithInfo,
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryRangePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryRangePlan.newBuilder()
+                .setExclusiveLimitValue(exclusiveLimitValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setRangePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+        return new RecordQueryRangePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getExclusiveLimitValue())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryRangePlan, RecordQueryRangePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryRangePlan> getProtoMessageClass() {
+            return PRecordQueryRangePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+            return RecordQueryRangePlan.fromProto(serializationContext, recordQueryRangePlanProto);
+        }
     }
 }

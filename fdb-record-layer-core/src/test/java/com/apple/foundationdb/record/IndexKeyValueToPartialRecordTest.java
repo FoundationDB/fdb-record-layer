@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.primitives.ImmutableIntArray;
@@ -44,7 +45,7 @@ class IndexKeyValueToPartialRecordTest {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private static final IndexKeyValueToPartialRecord plan = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
-            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, ignored -> true, ImmutableIntArray.of(0))
+            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0))
             .build();
 
     @Nonnull

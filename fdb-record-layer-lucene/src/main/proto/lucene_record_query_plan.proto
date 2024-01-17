@@ -1,0 +1,61 @@
+/*
+ * record_metadata.proto
+ *
+ * This source file is part of the FoundationDB open source projectsour
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+import "record_metadata.proto";
+import "record_query_plan.proto";
+
+option java_outer_classname = "LuceneRecordQueryPlanProto";
+
+message PLuceneIndexQueryPlan {
+  optional PRecordQueryIndexPlan super = 1;
+  optional bool has_stored_fields = 2;
+  repeated KeyExpression stored_fields = 3;
+}
+
+message PLuceneScanParameters {
+  optional PIndexScanType scan_type = 1;
+  optional PScanComparisons group_comparisons = 2;
+}
+
+message PLuceneScanQueryParameters {
+  optional PLuceneScanParameters super = 1;
+  // TODO
+}
+
+message PLuceneScanSpellCheckParameters {
+  optional PLuceneScanParameters super = 1;
+  // TODO
+}
+
+extend PIndexScanParameters {
+  optional PLuceneScanQueryParameters lucene_scan_query_parameters = 5001;
+  optional PLuceneScanSpellCheckParameters lucene_scan_spell_check_parameters = 5002;
+}
+
+message PLuceneSpellCheckCopier {
+  optional int32 grouping_column_size = 1;
+}
+
+extend PIndexKeyValueToPartialRecord.PCopier {
+  optional PLuceneSpellCheckCopier lucene_spell_check_copier = 5001;
+}

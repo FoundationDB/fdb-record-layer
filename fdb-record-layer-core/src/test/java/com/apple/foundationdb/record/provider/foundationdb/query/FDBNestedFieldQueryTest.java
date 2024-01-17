@@ -152,7 +152,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan([[photos],[photos]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
@@ -174,7 +174,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan({[photos],[photos]})
-        plan = planner.plan(query);
+        plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     scanPlan().where(scanComparisons(range("{[photos],[photos]}"))));
@@ -253,7 +253,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(review_rating ([5],>) | UnorderedPrimaryKeyDistinct()
-        final var plan = planner.plan(query);
+        final var plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
@@ -294,7 +294,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(tag [[Lilliput, 5],[Lilliput]]) | UnorderedPrimaryKeyDistinct()
-        final var plan = planner.plan(query);
+        final var plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
@@ -332,7 +332,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("RestaurantRecord")
                 .setFilter(reviewFilter)
                 .build();
-        final var plan = planner.plan(query);
+        final var plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -392,7 +392,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rest_no").equalsValue(1L),
                         nestedComponent))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         var indexPlanMatcher = indexPlan().where(indexName("complex"))
                 .and(scanComparisons(range("[[something, 1, 10, 20],[something, 1, 10, 20]]")));
@@ -429,7 +429,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([0],>) | stats/{school_name EQUALS Human University}
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -469,7 +469,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(stats$school ([null],[1000]]) | stats/{And([school_name LESS_THAN University of Procrastination, hometown STARTS_WITH H])}
         // Index(stats$school ([null],[1000]]) | And([$85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.hometown STARTS_WITH H, $85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.school_name LESS_THAN University of Procrastination])
-        plan = planner.plan(query);
+        plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -518,7 +518,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("hometown").equalsValue("Home Town"))),
                         Query.field("email").equalsValue("pmp@example.com")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 indexPlan()
                         .where(indexName("emailHometown"))
@@ -537,7 +537,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("email").equalsValue("pmp@example.com"),
                         Query.field("stats").matches(Query.field("hometown").equalsValue("Home Town"))))
                 .build();
-        assertEquals(plan, planner.plan(query));
+        assertEquals(plan, planQuery(query));
     }
 
     /**
@@ -557,7 +557,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("school_name").equalsValue("University of Learning"))),
                         Query.field("email").equalsValue("pmp@example.com")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -616,7 +616,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(key_index [[1, alpha],[1, alpha]]) | UnorderedPrimaryKeyDistinct() | map/{one of entry/{And([key EQUALS alpha, value NOT_EQUALS test])}}
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         // verify that the value filter that can't be satisfied by the index isn't dropped from the filter expression
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
@@ -672,7 +672,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Human University, 0],[Human University]])
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         assertMatchesExactly(plan1,
                 indexPlan()
                         .where(indexName("stats$school"))
@@ -693,7 +693,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Human University, 0],[Human University]])
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertMatchesExactly(plan2,
                 indexPlan()
                         .where(indexName("stats$school"))
@@ -728,7 +728,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Newt A. Robot, 100],[Newt A. Robot, 2000]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 indexPlan()
                         .where(indexName("stats$school"))
@@ -761,7 +761,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$cat_school_email ([1, 0],[1]])
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         assertMatchesExactly(plan1,
                 indexPlan()
                         .where(indexName("stats$cat_school_email"))
@@ -783,7 +783,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         field("email")))
                 .build();
 
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertEquals(plan1, plan2);
     }
 
@@ -808,7 +808,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$cat_school_email [[1, 1066],[1, 1066]])
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         assertMatchesExactly(plan1,
                 indexPlan()
                         .where(indexName("stats$cat_school_email"))
@@ -831,7 +831,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         field("email")))
                 .build();
 
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertEquals(plan1, plan2);
     }
 
@@ -857,7 +857,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$cat_school_email ([1, 1066, M],[1, 1066]])
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         assertMatchesExactly(plan1,
                 indexPlan()
                         .where(indexName("stats$cat_school_email"))
@@ -879,7 +879,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setSort(field("stats").nest("hometown"))
                 .build();
 
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertEquals(plan1, plan2);
     }
 
@@ -937,7 +937,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(event_start ([10],>) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     unorderedPrimaryKeyDistinctPlan(
@@ -994,7 +994,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions [[3],[3]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 indexPlan()
                         .where(indexName("versions"))
@@ -1014,7 +1014,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions [[2, 6],[2, 6]])
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertMatchesExactly(plan2,
                 indexPlan()
                         .where(indexName("versions"))
@@ -1033,7 +1033,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions ([1],>)
-        RecordQueryPlan plan3 = planner.plan(query3);
+        RecordQueryPlan plan3 = planQuery(query3);
         assertMatchesExactly(plan3,
                 indexPlan()
                         .where(indexName("versions"))
@@ -1075,7 +1075,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan([[a, 2],[a, 2]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 scanPlan()
                         .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
@@ -1132,7 +1132,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.rank(rankGroup).lessThan(10L),
                         keyCondition))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 unorderedPrimaryKeyDistinctPlan(
                         indexPlan()

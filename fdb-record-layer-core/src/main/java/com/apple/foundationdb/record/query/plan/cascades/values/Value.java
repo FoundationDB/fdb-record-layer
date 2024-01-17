@@ -24,7 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -40,9 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
@@ -52,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.O
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,7 +80,7 @@ import java.util.stream.StreamSupport;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value> {
+public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
     @Override
@@ -358,6 +362,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return Optional.of(with(type));
         }
         return Optional.empty();
+    }
+
+    @Nonnull
+    RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
+
+    @Nonnull
+    static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final RecordQueryPlanProto.PValue valueProto) {
+        return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
     }
 
     static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {

@@ -24,12 +24,24 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInValuesSource;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.Lists;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Helper class which represents a specialized {@link InSource} whose input is a list of literal values.
@@ -45,6 +57,19 @@ public class InValuesSource extends InSource {
     @Nonnull
     private final List<Object> values;
 
+    @Nonnull
+    private final Supplier<List<Object>> valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(getValues(),
+            Comparisons::toClassWithRealEquals));
+
+    protected InValuesSource(@Nonnull final PlanSerializationContext serializationContext,
+                             @Nonnull final PInValuesSource inValuesSourceProto) {
+        super(serializationContext, Objects.requireNonNull(inValuesSourceProto.getSuper()));
+        this.values = Lists.newArrayListWithExpectedSize(inValuesSourceProto.getValuesCount());
+        for (int i = 0; i < inValuesSourceProto.getValuesCount(); i ++) {
+            this.values.add(PlanSerialization.protoToValueObject(inValuesSourceProto.getValues(i)));
+        }
+    }
+
     public InValuesSource(@Nonnull String bindingName, @Nonnull final List<Object> values) {
         super(bindingName);
         this.values = values;
@@ -56,10 +81,16 @@ public class InValuesSource extends InSource {
         return values;
     }
 
+
     @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         return values;
+    }
+
+    @Nonnull
+    public List<Object> getValuesWithRealEquals() {
+        return valuesWithRealEqualsSupplier.get();
     }
 
     @Override
@@ -113,11 +144,59 @@ public class InValuesSource extends InSource {
         if (!getBindingName().equals(inValuesSource.getBindingName())) {
             return false;
         }
-        return values.equals(inValuesSource.values);
+        return getValuesWithRealEquals().equals(inValuesSource.getValuesWithRealEquals());
     }
 
     @Override
     public int hashCode() {
-        return values.hashCode();
+        return getValuesWithRealEquals().hashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return toInValuesSourceProto(serializationContext);
+    }
+
+    @Nonnull
+    protected PInValuesSource toInValuesSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PInValuesSource.Builder builder =
+                PInValuesSource.newBuilder()
+                        .setSuper(toInSourceSuperProto(serializationContext));
+        for (final Object value : values) {
+            builder.addValues(PlanSerialization.valueObjectToProto(value));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setInValuesSource(toInValuesSourceProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PInValuesSource inValuesSource) {
+        return new InValuesSource(serializationContext, inValuesSource);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInValuesSource, InValuesSource> {
+        @Nonnull
+        @Override
+        public Class<PInValuesSource> getProtoMessageClass() {
+            return PInValuesSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PInValuesSource inValuesSourceProto) {
+            return InValuesSource.fromProto(serializationContext, inValuesSourceProto);
+        }
     }
 }

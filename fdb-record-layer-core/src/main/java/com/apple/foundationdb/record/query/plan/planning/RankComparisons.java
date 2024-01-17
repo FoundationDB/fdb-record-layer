@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithCo
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
-import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,7 +58,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -282,7 +280,7 @@ public class RankComparisons {
                     ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
             final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
             comparisons.add(comparison.getComparison());
-            final Function<Tuple, Object> bindingFunction = BindingFunctions.comparisonBindingFunction(substitute, index, metaData);
+            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(substitute, index, metaData);
             return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
         }
     }

@@ -23,7 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PPredicateWithValueAndRanges;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -38,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +54,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -76,7 +82,6 @@ import java.util.stream.Collectors;
  * If the attribute, however, is not indexed, then we use an instance of {@code this} class as a restriction on that
  * particular attribute.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue {
 
@@ -94,6 +99,18 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     private final Supplier<Boolean> rangesCompileTimeChecker;
+
+    protected PredicateWithValueAndRanges(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+        super(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getSuper()));
+        this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getValue()));
+        ImmutableSet.Builder<RangeConstraints> rangeConstraintsBuilder = ImmutableSet.builder();
+        for (int i = 0; i < predicateWithValueAndRangesProto.getRangesCount(); i ++) {
+            rangeConstraintsBuilder.add(RangeConstraints.fromProto(serializationContext, predicateWithValueAndRangesProto.getRanges(i)));
+        }
+        this.ranges = rangeConstraintsBuilder.build();
+        this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
+    }
 
     /**
      * Creates a new instance of {@link PredicateWithValueAndRanges}.
@@ -463,5 +480,49 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             }
         }
         return false;
+    }
+
+    @Nonnull
+    @Override
+    public PPredicateWithValueAndRanges toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PPredicateWithValueAndRanges.Builder builder =
+                PPredicateWithValueAndRanges.newBuilder()
+                        .setSuper(toAbstractQueryPredicateProto(serializationContext))
+                        .setValue(value.toValueProto(serializationContext));
+        for (final RangeConstraints range : ranges) {
+            builder.addRanges(range.toProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setPredicateWithValueAndRanges(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+        return new PredicateWithValueAndRanges(serializationContext, predicateWithValueAndRangesProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PPredicateWithValueAndRanges, PredicateWithValueAndRanges> {
+        @Nonnull
+        @Override
+        public Class<PPredicateWithValueAndRanges> getProtoMessageClass() {
+            return PPredicateWithValueAndRanges.class;
+        }
+
+        @Nonnull
+        @Override
+        public PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+            return PredicateWithValueAndRanges.fromProto(serializationContext, predicateWithValueAndRangesProto);
+        }
     }
 }

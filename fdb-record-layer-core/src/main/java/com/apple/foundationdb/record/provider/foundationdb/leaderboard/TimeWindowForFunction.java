@@ -23,10 +23,14 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PTimeWindowForFunction;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,7 +41,7 @@ import java.util.Collections;
  * Additional function arguments for time window.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TimeWindowForFunction implements PlanHashable {
+public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
 
     private final int leaderboardType;
     private final long leaderboardTimestamp;
@@ -156,5 +160,45 @@ public class TimeWindowForFunction implements PlanHashable {
         result = 31 * result + (leaderboardTypeParameter != null ? leaderboardTypeParameter.hashCode() : 0);
         result = 31 * result + (leaderboardTimestampParameter != null ? leaderboardTimestampParameter.hashCode() : 0);
         return result;
+    }
+
+    @Nonnull
+    @Override
+    public PTimeWindowForFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PTimeWindowForFunction.Builder builder = PTimeWindowForFunction.newBuilder();
+        builder.setLeaderboardType(leaderboardType);
+        builder.setLeaderboardTimestamp(leaderboardTimestamp);
+        if (leaderboardTypeParameter != null) {
+            builder.setLeaderboardTypeParameter(leaderboardTypeParameter);
+        }
+        if (leaderboardTimestampParameter != null) {
+            builder.setLeaderboardTimestampParameter(leaderboardTimestampParameter);
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static TimeWindowForFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PTimeWindowForFunction timeWindowForFunctionProto) {
+        Verify.verify(timeWindowForFunctionProto.hasLeaderboardType());
+        Verify.verify(timeWindowForFunctionProto.hasLeaderboardTimestamp());
+
+        final String leaderboardTypeParameter;
+        if (timeWindowForFunctionProto.hasLeaderboardTypeParameter()) {
+            leaderboardTypeParameter = timeWindowForFunctionProto.getLeaderboardTypeParameter();
+        } else {
+            leaderboardTypeParameter = null;
+        }
+        final String leaderboardTimestampParameter;
+        if (timeWindowForFunctionProto.hasLeaderboardTimestampParameter()) {
+            leaderboardTimestampParameter = timeWindowForFunctionProto.getLeaderboardTimestampParameter();
+        } else {
+            leaderboardTimestampParameter = null;
+        }
+        return new TimeWindowForFunction(timeWindowForFunctionProto.getLeaderboardType(),
+                timeWindowForFunctionProto.getLeaderboardTimestamp(),
+                leaderboardTypeParameter,
+                leaderboardTimestampParameter);
     }
 }

@@ -23,7 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.POrPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -31,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +68,11 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
+
+    private OrPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                        @Nonnull final POrPredicate orPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(orPredicateProto.getSuper()));
+    }
 
     private OrPredicate(@Nonnull final List<QueryPredicate> operands, final boolean isAtomic) {
         super(operands, isAtomic);
@@ -323,6 +333,24 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
+    @Override
+    public POrPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return POrPredicate.newBuilder().setSuper(toAndOrPredicateProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setOrPredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static OrPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final POrPredicate orPredicateProto) {
+        return new OrPredicate(serializationContext, orPredicateProto);
+    }
+
+    @Nonnull
     public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                     @Nonnull QueryPredicate... operands) {
         return of(toList(first, second, operands), false);
@@ -357,5 +385,24 @@ public class OrPredicate extends AndOrPredicate {
         }
 
         return new OrPredicate(ImmutableList.copyOf(disjuncts), isAtomic);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<POrPredicate, OrPredicate> {
+        @Nonnull
+        @Override
+        public Class<POrPredicate> getProtoMessageClass() {
+            return POrPredicate.class;
+        }
+
+        @Nonnull
+        @Override
+        public OrPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final POrPredicate orPredicateProto) {
+            return OrPredicate.fromProto(serializationContext, orPredicateProto);
+        }
     }
 }

@@ -23,7 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionTrieNode;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PTransformationTrieNode;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -31,9 +36,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -490,7 +497,7 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> {
+    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -500,6 +507,14 @@ public class MessageHelpers {
         @Override
         public TransformationTrieNode getThis() {
             return this;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            if (getChildrenMap() == null) {
+                return PlanHashable.objectPlanHash(mode, getValue());
+            }
+            return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -545,14 +560,64 @@ public class MessageHelpers {
             }
             return nonNullableTest.apply(self, other);
         }
+
+        @Nonnull
+        @Override
+        public PTransformationTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PTransformationTrieNode.Builder builder = PTransformationTrieNode.newBuilder();
+
+            if (getValue() != null) {
+                builder.setValue(getValue().toValueProto(serializationContext));
+            }
+            builder.setChildrenMapIsNull(getChildrenMap() == null);
+            if (getChildrenMap() != null) {
+                for (final Map.Entry<Integer, TransformationTrieNode> entry : getChildrenMap().entrySet()) {
+                    builder.addChildPair(PTransformationTrieNode.IntChildPair.newBuilder()
+                            .setIndex(entry.getKey())
+                            .setChildTransformationTrieNode(entry.getValue().toProto(serializationContext)));
+                }
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static TransformationTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PTransformationTrieNode transformationTrieNodeProto) {
+            final Value value;
+            if (transformationTrieNodeProto.hasValue()) {
+                value =
+                        Value.fromValueProto(serializationContext, transformationTrieNodeProto.getValue());
+            } else {
+                value = null;
+            }
+
+            Verify.verify(transformationTrieNodeProto.hasChildrenMapIsNull());
+
+            final Map<Integer, TransformationTrieNode> childrenMap;
+            if (!transformationTrieNodeProto.getChildrenMapIsNull()) {
+                final ImmutableMap.Builder<Integer, TransformationTrieNode> childrenMapBuilder = ImmutableMap.builder();
+
+                for (int i = 0; i < transformationTrieNodeProto.getChildPairCount(); i ++) {
+                    final PTransformationTrieNode.IntChildPair childPair = transformationTrieNodeProto.getChildPair(i);
+                    Verify.verify(childPair.hasIndex());
+                    Verify.verify(childPair.hasChildTransformationTrieNode());
+                    childrenMapBuilder.put(childPair.getIndex(),
+                            TransformationTrieNode.fromProto(serializationContext, childPair.getChildTransformationTrieNode()));
+                }
+                childrenMap = childrenMapBuilder.build();
+            } else {
+                childrenMap = null;
+            }
+            return new TransformationTrieNode(value, childrenMap);
+        }
     }
 
     /**
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, BiFunction<Descriptors.Descriptor, Object, Object>, CoercionTrieNode> implements PlanHashable {
-        public CoercionTrieNode(@Nullable final BiFunction<Descriptors.Descriptor, Object, Object> value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
+    public static class CoercionTrieNode extends TrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
+        public CoercionTrieNode(@Nullable final CoercionBiFunction value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
 
@@ -565,9 +630,75 @@ public class MessageHelpers {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             if (getChildrenMap() == null) {
-                return 0;
+                return PlanHashable.objectPlanHash(mode, getValue());
             }
             return PlanHashable.objectPlanHash(mode, getChildrenMap());
+        }
+
+        @Nonnull
+        @Override
+        public PCoercionTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PCoercionTrieNode.Builder builder = PCoercionTrieNode.newBuilder();
+
+            if (getValue() != null) {
+                builder.setValue(getValue().toCoercionBiFunctionProto(serializationContext));
+            }
+            builder.setChildrenMapIsNull(getChildrenMap() == null);
+            if (getChildrenMap() != null) {
+                for (final Map.Entry<Integer, CoercionTrieNode> entry : getChildrenMap().entrySet()) {
+                    builder.addChildPair(PCoercionTrieNode.IntChildPair.newBuilder()
+                            .setIndex(entry.getKey())
+                            .setChildCoercionTrieNode(entry.getValue().toProto(serializationContext)));
+                }
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static CoercionTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
+            final CoercionBiFunction value;
+            if (coercionTrieNodeProto.hasValue()) {
+                value =
+                        CoercionBiFunction.fromCoercionBiFunctionProto(serializationContext,
+                                coercionTrieNodeProto.getValue());
+            } else {
+                value = null;
+            }
+
+            Verify.verify(coercionTrieNodeProto.hasChildrenMapIsNull());
+
+            final Map<Integer, CoercionTrieNode> childrenMap;
+            if (!coercionTrieNodeProto.getChildrenMapIsNull()) {
+                final ImmutableMap.Builder<Integer, CoercionTrieNode> childrenMapBuilder = ImmutableMap.builder();
+
+                for (int i = 0; i < coercionTrieNodeProto.getChildPairCount(); i ++) {
+                    final PCoercionTrieNode.IntChildPair childPair = coercionTrieNodeProto.getChildPair(i);
+                    Verify.verify(childPair.hasIndex());
+                    Verify.verify(childPair.hasChildCoercionTrieNode());
+                    childrenMapBuilder.put(childPair.getIndex(),
+                            CoercionTrieNode.fromProto(serializationContext, childPair.getChildCoercionTrieNode()));
+                }
+                childrenMap = childrenMapBuilder.build();
+            } else {
+                childrenMap = null;
+            }
+            return new CoercionTrieNode(value, childrenMap);
+        }
+    }
+
+    /**
+     * Coercion (bi)-function which also is plan hashable.
+     */
+    public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
+        @Nonnull
+        @SuppressWarnings("unused")
+        PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                              @Nonnull final PCoercionBiFunction coercionBiFunctionProto) {
+            return (CoercionBiFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, coercionBiFunctionProto);
         }
     }
 }

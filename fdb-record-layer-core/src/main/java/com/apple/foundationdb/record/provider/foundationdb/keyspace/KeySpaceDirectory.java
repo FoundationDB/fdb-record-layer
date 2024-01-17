@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -838,6 +839,7 @@ public class KeySpaceDirectory {
 
         // Function that tests a value to see if it is of this type
         @Nonnull
+        @SpotBugsSuppressWarnings("SE_BAD_FIELD")
         final Function<Object, Boolean> matcher;
         // Value used by a directory to indicate that it can accept any value of this type
         @Nullable
