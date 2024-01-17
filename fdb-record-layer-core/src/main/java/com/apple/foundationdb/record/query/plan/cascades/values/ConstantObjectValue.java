@@ -23,20 +23,25 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -134,9 +139,9 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         if (!promotionNeeded) {
             return obj;
         }
-        final var promotionFunction = PromoteValue.resolvePromotionFunction(objType, getResultType());
-        SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        return promotionFunction.apply(null, obj);
+        final var promotionOperator = PromoteValue.resolvePhysicalOperator(objType, getResultType());
+        SemanticException.check(promotionOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        return promotionOperator.apply(null, obj);
     }
 
     @Override
@@ -160,6 +165,31 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         return "@" + ordinal;
     }
 
+    @Nonnull
+    @Override
+    public PConstantObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PConstantObjectValue.newBuilder()
+                .setAlias(alias.getId())
+                .setOrdinal(ordinal)
+                .setResultType(resultType.toTypeProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantObjectValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ConstantObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PConstantObjectValue constantObjectValueProto) {
+        Verify.verify(constantObjectValueProto.hasOrdinal());
+        return new ConstantObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(constantObjectValueProto.getAlias())),
+                constantObjectValueProto.getOrdinal(),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(constantObjectValueProto.getResultType())));
+    }
+
     /**
      * Creates a new instance of {@link ConstantObjectValue}.
      * @param alias The alias, must be a {@code CONSTANT} quantifier.
@@ -170,5 +200,24 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Nonnull
     public static ConstantObjectValue of(@Nonnull final CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
         return new ConstantObjectValue(alias, ordinal, resultType);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConstantObjectValue, ConstantObjectValue> {
+        @Nonnull
+        @Override
+        public Class<PConstantObjectValue> getProtoMessageClass() {
+            return PConstantObjectValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConstantObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PConstantObjectValue constantObjectValueProto) {
+            return ConstantObjectValue.fromProto(serializationContext, constantObjectValueProto);
+        }
     }
 }

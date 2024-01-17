@@ -89,7 +89,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(prefix_scalar [[1],[1]])
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         assertThat(plan1, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1],[1]]")))));
         assertEquals(339959201, plan1.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1160014595, plan1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -100,7 +100,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("num_value_3_indexed").equalsValue(1)))
                 .build();
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertThat(plan2, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1, 1],[1, 1]]")))));
         assertEquals(-447322749, plan2.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-1253390298, plan2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -137,7 +137,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [[even, 0, 3],[even, 0, 3]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 3],[even, 0, 3]]")))));
         assertEquals(657537200, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -180,7 +180,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [[even, 0, 2],[even, 0, 3]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]")))));
         assertEquals(2137890746, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-64740525, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -218,7 +218,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)))
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         RecordQuery queryDenorm = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
@@ -229,7 +229,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("num_value_3_indexed").greaterThanOrEquals(2),
                                 Query.field("num_value_3_indexed").lessThanOrEquals(3))))
                 .build();
-        RecordQueryPlan planDenorm = planner.plan(queryDenorm);
+        RecordQueryPlan planDenorm = planQuery(queryDenorm);
         assertEquals(plan, planDenorm);
     }
 
@@ -250,7 +250,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [[even, 0, 2],[even, 0]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(
                 indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 2],[even, 0]]")))));
@@ -291,7 +291,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [[even],[even]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even],[even]]")))));
         assertEquals(1375215309, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(-929085987, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -338,7 +338,7 @@ class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(ImmutableList.of(field("str_value_indexed"), field("num_value_2"), field("num_value_3_indexed")))
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         assertMatchesExactly(plan,
                 coveringIndexPlan()

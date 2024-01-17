@@ -126,7 +126,7 @@ public abstract class IndexComparison {
             GREATER_THAN_OR_EQUALS,
             STARTS_WITH,
             NOT_NULL,
-            IS_NULL
+            IS_NULL;
         }
 
         @Nonnull

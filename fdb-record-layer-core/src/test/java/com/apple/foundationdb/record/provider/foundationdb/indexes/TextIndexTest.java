@@ -972,7 +972,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
     private void saveTwoRecordsConcurrently(@Nonnull RecordMetaDataHook hook, @Nonnull Message record1, @Nonnull Message record2, boolean shouldSucceed) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);

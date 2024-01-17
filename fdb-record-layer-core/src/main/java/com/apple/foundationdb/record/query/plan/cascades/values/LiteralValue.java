@@ -24,12 +24,19 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -44,7 +51,7 @@ import java.util.Objects;
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
+public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nonnull
@@ -116,6 +123,32 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public PLiteralValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PLiteralValue.newBuilder();
+        builder.setValue(PlanSerialization.valueObjectToProto(value));
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
+        return RecordQueryPlanProto.PValue.newBuilder()
+                .setLiteralValue(specificValueProto)
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    public static <T> LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PLiteralValue literalValueProto) {
+        return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()),
+                (T)PlanSerialization.protoToValueObject(literalValueProto.getValue()));
     }
 
     @Override
@@ -213,5 +246,25 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
                        ? new Type.Any()
                        : resolvedElementType;
         return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
+    }
+
+    /**
+     * Deserializer.
+     * @param <T> the type of literal
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer<T> implements PlanDeserializer<PLiteralValue, LiteralValue<T>> {
+        @Nonnull
+        @Override
+        public Class<PLiteralValue> getProtoMessageClass() {
+            return PLiteralValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PLiteralValue literalValueProto) {
+            return LiteralValue.fromProto(serializationContext, literalValueProto);
+        }
     }
 }

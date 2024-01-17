@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInJoinPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -45,6 +47,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -68,6 +71,13 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      */
     @Nonnull
     protected final Bindings.Internal internal;
+
+    protected RecordQueryInJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordQueryInJoinPlan inJoinPlanProto) {
+        this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getPhysicalQuantifier())),
+                InSource.fromInSourceProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInSource())),
+                Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInternal())));
+    }
 
     protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
                                     @Nonnull final InSource inSource,
@@ -240,5 +250,14 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     public int getComplexity() {
         return 1 + getInnerPlan().getComplexity();
+    }
+
+    @Nonnull
+    public PRecordQueryInJoinPlan toRecordQueryInJoinPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInJoinPlan.newBuilder()
+                .setPhysicalQuantifier(inner.toProto(serializationContext))
+                .setInSource(inSource.toInSourceProto(serializationContext))
+                .setInternal(internal.toProto(serializationContext))
+                .build();
     }
 }

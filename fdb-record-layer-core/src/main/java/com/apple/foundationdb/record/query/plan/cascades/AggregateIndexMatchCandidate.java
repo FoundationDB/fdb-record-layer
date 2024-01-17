@@ -315,6 +315,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
         // reset indexes of all fields, such that we can normalize them
+        // TODO This is incorrect. Either the type indicates the field indexes or it does not. It is the truth here.
+        //      Why do we need to remove the field indexes here? They should not be set for most trivial cases anyway.
         final var type = reset(groupByResultValue.getResultType());
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(type).build().newMessageBuilder(type);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
@@ -335,7 +337,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
-                messageDescriptor,
                 groupByResultValue,
                 constraintMaybe.orElse(QueryPlanConstraint.tautology()));
     }

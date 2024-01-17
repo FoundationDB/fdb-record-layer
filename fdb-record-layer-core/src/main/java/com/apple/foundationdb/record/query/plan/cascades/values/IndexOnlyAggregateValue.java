@@ -24,7 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue.PPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMaxEverLongValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -42,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Represents a compile-time aggregation value that must be backed by an aggregation index, and can not be evaluated
@@ -50,12 +59,38 @@ import java.util.Locale;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
-
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 
-    enum PhysicalOperator {
+    protected enum PhysicalOperator {
         MAX_EVER_LONG,
-        MIN_EVER_LONG
+        MIN_EVER_LONG;
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            switch (this) {
+                case MAX_EVER_LONG:
+                    return PPhysicalOperator.MAX_EVER_LONG;
+                case MIN_EVER_LONG:
+                    return PPhysicalOperator.MIN_EVER_LONG;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            switch (physicalOperatorProto) {
+                case MAX_EVER_LONG:
+                    return MAX_EVER_LONG;
+                case MIN_EVER_LONG:
+                    return MIN_EVER_LONG;
+                default:
+                    throw new RecordCoreException("unknown operator mapping. did you forget to add it?");
+            }
+        }
     }
 
     @Nonnull
@@ -63,6 +98,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Nonnull
     private final Value child;
+
+    protected IndexOnlyAggregateValue(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
+        this(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(indexOnlyAggregateValueProto.getOperator())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(indexOnlyAggregateValueProto.getChild())));
+    }
 
     /**
      * Creates a new instance of {@link IndexOnlyAggregateValue}.
@@ -129,6 +170,14 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
     }
 
+    @Nonnull
+    PIndexOnlyAggregateValue toIndexOnlyAggregateValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexOnlyAggregateValue.newBuilder()
+                .setOperator(operator.toProto(serializationContext))
+                .setChild(child.toValueProto(serializationContext))
+                .build();
+    }
+
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
@@ -136,7 +185,15 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    static class MinEverLongValue extends IndexOnlyAggregateValue {
+    /**
+     * Class to represent MIN_EVER(field) which can only be provided by a suitable index.
+     */
+    public static class MinEverLongValue extends IndexOnlyAggregateValue {
+
+        MinEverLongValue(@Nonnull final PlanSerializationContext serializationContext,
+                         @Nonnull final PMinEverLongValue minEverLongValueProto) {
+            super(serializationContext, Objects.requireNonNull(minEverLongValueProto.getSuper()));
+        }
 
         /**
          * Creates a new instance of {@link MinEverLongValue}.
@@ -150,7 +207,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public String getIndexName() {
+        public String getIndexTypeName() {
             return IndexTypes.MIN_EVER_LONG;
         }
 
@@ -168,9 +225,55 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MinEverLongValue(operator, rebasedChild);
         }
+
+        @Nonnull
+        @Override
+        public PMinEverLongValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMinEverLongValue.newBuilder()
+                    .setSuper(toIndexOnlyAggregateValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setMinEverLongValue(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static MinEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PMinEverLongValue minEverLongValueProto) {
+            return new MinEverLongValue(serializationContext, minEverLongValueProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMinEverLongValue, MinEverLongValue> {
+            @Nonnull
+            @Override
+            public Class<PMinEverLongValue> getProtoMessageClass() {
+                return PMinEverLongValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public MinEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PMinEverLongValue minEverLongValueProto) {
+                return MinEverLongValue.fromProto(serializationContext, minEverLongValueProto);
+            }
+        }
     }
 
-    static class MaxEverLongValue extends IndexOnlyAggregateValue {
+    /**
+     * Class to represent MIN_EVER(field) which can only be provided by a suitable index.
+     */
+    public static class MaxEverLongValue extends IndexOnlyAggregateValue {
+        MaxEverLongValue(@Nonnull final PlanSerializationContext serializationContext,
+                         @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
+            super(serializationContext, Objects.requireNonNull(maxEverLongValueProto.getSuper()));
+        }
 
         /**
          * Creates a new instance of {@link MaxEverLongValue}.
@@ -184,7 +287,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public String getIndexName() {
+        public String getIndexTypeName() {
             return IndexTypes.MAX_EVER_LONG;
         }
 
@@ -201,6 +304,45 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MaxEverLongValue(operator, rebasedChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMaxEverLongValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMaxEverLongValue.newBuilder()
+                    .setSuper(toIndexOnlyAggregateValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setMaxEverLongValue(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static MaxEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
+            return new MaxEverLongValue(serializationContext, maxEverLongValueProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMaxEverLongValue, MaxEverLongValue> {
+            @Nonnull
+            @Override
+            public Class<PMaxEverLongValue> getProtoMessageClass() {
+                return PMaxEverLongValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public MaxEverLongValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PMaxEverLongValue maxEverLongValueProto) {
+                return MaxEverLongValue.fromProto(serializationContext, maxEverLongValueProto);
+            }
         }
     }
 

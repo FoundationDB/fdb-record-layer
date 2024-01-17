@@ -24,7 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue.PPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -33,11 +38,13 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -49,6 +56,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
@@ -61,7 +69,7 @@ public class ArithmeticValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
     @Nonnull
-    private final PhysicalOperator operation;
+    private final PhysicalOperator operator;
     @Nonnull
     private final Value leftChild;
     @Nonnull
@@ -73,41 +81,41 @@ public class ArithmeticValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link ArithmeticValue}.
-     * @param operation The arithmetic operation.
+     * @param operator The arithmetic operation.
      * @param leftChild The left child.
      * @param rightChild The right child.
      */
-    public ArithmeticValue(@Nonnull PhysicalOperator operation,
+    public ArithmeticValue(@Nonnull PhysicalOperator operator,
                            @Nonnull Value leftChild,
                            @Nonnull Value rightChild) {
-        this.operation = operation;
+        this.operator = operator;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
     }
 
     @Nonnull
     public LogicalOperator getLogicalOperator() {
-        return operation.getLogicalOperator();
+        return operator.getLogicalOperator();
     }
 
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operation.eval(leftChild.eval(store, context),
+        return operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "(" + leftChild.explain(formatter) + " " + operation.getLogicalOperator().getInfixNotation() + " " + rightChild.explain(formatter) + ")";
+        return "(" + leftChild.explain(formatter) + " " + operator.getLogicalOperator().getInfixNotation() + " " + rightChild.explain(formatter) + ")";
     }
 
     @Nonnull
     @Override
     public Type getResultType() {
-        return Type.primitiveType(operation.getResultTypeCode());
+        return Type.primitiveType(operator.getResultTypeCode());
     }
 
     @Nonnull
@@ -120,24 +128,24 @@ public class ArithmeticValue extends AbstractValue {
     @Override
     public ArithmeticValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
-        return new ArithmeticValue(this.operation,
+        return new ArithmeticValue(this.operator,
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1));
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operation);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operation, leftChild, rightChild);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
     }
 
     @Override
     public String toString() {
-        return operation.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -153,6 +161,30 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
+    @Override
+    public PArithmeticValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PArithmeticValue.newBuilder()
+                .setOperator(operator.toProto(serializationContext))
+                .setLeftChild(leftChild.toValueProto(serializationContext))
+                .setRightChild(rightChild.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PArithmeticValue arithmeticValueProto) {
+        return new ArithmeticValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getOperator())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getLeftChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getRightChild())));
+    }
+
+    @Nonnull
     private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
@@ -164,7 +196,6 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
     private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
@@ -260,7 +291,7 @@ public class ArithmeticValue extends AbstractValue {
         MOD("%");
 
         @Nonnull
-        private String infixNotation;
+        private final String infixNotation;
 
         LogicalOperator(@Nonnull final String infixNotation) {
             this.infixNotation = infixNotation;
@@ -372,6 +403,11 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r);
 
         @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class,
+                        PPhysicalOperator.class));
+
+        @Nonnull
         private final LogicalOperator logicalOperator;
 
         @Nonnull
@@ -424,6 +460,43 @@ public class ArithmeticValue extends AbstractValue {
                 return null;
             }
             return evaluateFunction.apply(arg1, arg2);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PArithmeticValue, ArithmeticValue> {
+        @Nonnull
+        @Override
+        public Class<PArithmeticValue> getProtoMessageClass() {
+            return PArithmeticValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PArithmeticValue arithmeticValueProto) {
+            return ArithmeticValue.fromProto(serializationContext, arithmeticValueProto);
         }
     }
 }

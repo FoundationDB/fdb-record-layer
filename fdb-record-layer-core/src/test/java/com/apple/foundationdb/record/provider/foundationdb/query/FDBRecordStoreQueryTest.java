@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -47,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityExcepti
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -55,7 +57,11 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,7 +71,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.PlanHashable.CURRENT_FOR_CONTINUATION;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -92,8 +100,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -126,7 +137,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -170,7 +181,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(ByteStringRecord$secondary [[[0, 1, 3]],[[0, 1, 3]]])
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan,
                     indexPlan().where(indexName("ByteStringRecord$secondary"))
                             .and(scanComparisons(range("[[[0, 1, 3]],[[0, 1, 3]]]"))));
@@ -202,7 +213,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(ByteStringRecord$secondary ([null],[[0, 1, 2]]]) | name NOT_NULL ∪[Field { 'secondary' None}, Field { 'pkey' None}] Index(ByteStringRecord$secondary [[[0, 1, 3]],>)
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan,
                     RecordQueryPlanMatchers.unionOnExpressionPlan(
                             filterPlan(
@@ -249,7 +260,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
 
             // Scan(<,>) | [MySimpleRecord]
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
                         typeFilterPlan(
@@ -294,7 +305,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(MySimpleRecord$str_value_indexed [[odd],[odd]])
-            plan = planner.plan(query);
+            plan = planQuery(query);
             assertMatchesExactly(plan,
                     indexPlan()
                             .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))));
@@ -329,7 +340,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
                     .setFilter(filter)
                     .build();
-            plan = planner.plan(query);
+            plan = planQuery(query);
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
                         filterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
@@ -384,7 +395,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").equalsValue(5))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(1000)
                 .setTimeLimit(1)
@@ -436,7 +447,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [EQUALS $1, EQUALS $2])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS $1, EQUALS $2]"))));
         assertEquals(584809367, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -492,7 +503,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("even"))
                 .setAllowedIndexes(Collections.emptyList())
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertTrue(plan.hasRecordScan(), "should use scan");
         assertFalse(plan.hasFullRecordScan(), "should not use full scan");
     }
@@ -516,7 +527,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(color [[10],[10]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan, indexPlan().where(indexName("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -569,7 +580,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord")
                     .setFilter(Query.field("str_value_indexed").notEquals("yes"))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
 
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
@@ -592,7 +603,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord")
                     .setFilter(Query.field("str_value_indexed").notNull())
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             try (FDBRecordContext context = openContext()) {
                 clearStoreCounter(context);
                 openSimpleRecordStore(context);
@@ -663,7 +674,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("element").oneOfThem().greaterThan("A"))
                     .setRemoveDuplicates(true)
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
                         filterPlan(
@@ -706,7 +717,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Scan(<,>) | [MultiRecordOne, MultiRecordTwo] | one of element GREATER_THAN A
             // Index(onetwo$element ([A],>) | UnorderedPrimaryKeyDistinct()
-            plan = planner.plan(query);
+            plan = planQuery(query);
             if (planner instanceof RecordQueryPlanner) {
                 // RecordQueryPlanner doesn't notice that the requested record type match the record types for onetwo$element.
                 assertMatchesExactly(plan,
@@ -755,7 +766,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").lessThan(2))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan,
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))));
         assertEquals(-699045510, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -794,9 +805,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(clauses))
                 .build();
 
-        assertThrows(RecordQueryPlanComplexityException.class, () -> {
-            planner.plan(query);
-        });
+        assertThrows(RecordQueryPlanComplexityException.class, () -> planQuery(query));
     }
 
     @DualPlannerTest
@@ -814,7 +823,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("uuid").lessThan(uuids.get(3)))
                     .setSort(field("uuid"))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, scanPlan().where(scanComparisons(range(String.format("([null],[%s])", uuids.get(3))))));
             assertEquals(uuids.subList(0, 3), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }
@@ -829,7 +838,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MyFieldsRecord")
                     .setFilter(Query.field("fint32").isNull())
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan,
                     indexPlan().where(indexName("MyFieldsRecord$fint32")).and(scanComparisons(range("[[null],[null]]"))));
             assertEquals(uuids.subList(3, 4), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
@@ -855,7 +864,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(cnf)
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan, filterPlan(RecordQueryPlanMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))));
     }
 
@@ -882,7 +891,74 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(cnf)
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertMatchesExactly(plan, filterPlan(RecordQueryPlanMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))));
+    }
+
+
+    /**
+     * Verify that queries on enums work even without the right index.
+     */
+    @DualPlannerTest
+    public void enumFieldsWithoutIndex() throws Exception {
+        setupEnumShapes(NO_HOOK);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyShapeRecord")
+                .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED), scan(PlanMatchers.unbounded())));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-1555885413, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            assertEquals(598572619, plan.planHash(CURRENT_FOR_CONTINUATION));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openEnumRecordStore(context, NO_HOOK);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();
+                    shapeRec.mergeFrom(rec.getRecord());
+                    assertEquals(TestRecordsEnumProto.MyShapeRecord.Color.RED, shapeRec.getColor());
+                    i++;
+                }
+            }
+            assertEquals(9, i);
+            assertDiscardedAtMost(18, context);
+        }
+    }
+
+    @Nonnull
+    static Stream<Arguments> wrongEnumTypeArgs() {
+        return Stream.of(
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor().toProto(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getValueDescriptor().toProto().toBuilder(),
+                TestRecordsEnumProto.MyShapeRecord.Color.RED.getNumber()
+        ).flatMap(obj -> Stream.of(Arguments.of(obj, false), Arguments.of(obj, true)));
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest
+    @MethodSource("wrongEnumTypeArgs")
+    public void enumFieldsWithWrongTypes(Object comparandValue, boolean addIndex) throws Exception {
+        RecordMetaDataHook hook;
+        if (addIndex) {
+            hook = metaData -> metaData.addIndex("MyShapeRecord", new Index("color", field("color")));
+        } else {
+            hook = NO_HOOK;
+        }
+        setupEnumShapes(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyShapeRecord")
+                .setFilter(Query.field("color").equalsValue(comparandValue))
+                .build();
+        RecordCoreException e = assertThrows(RecordCoreException.class, () -> planner.plan(query));
+        assertThat(e.getMessage(), containsString("Comparison value of incorrect type"));
     }
 }

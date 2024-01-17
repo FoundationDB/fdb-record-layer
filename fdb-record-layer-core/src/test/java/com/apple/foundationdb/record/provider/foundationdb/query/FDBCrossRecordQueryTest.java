@@ -87,7 +87,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
         assertEquals(1555932709, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(155792354, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -154,7 +154,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         planner.setConfiguration(planner.getConfiguration().asBuilder().setIndexFetchMethod(fetchMethod).build());
 
         // Index(versions <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
 
         names.clear();
@@ -225,7 +225,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(partial_versions [[7],[7]])
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             MatcherAssert.assertThat(plan, indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]")))));
             assertEquals(-501898489, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1416119651, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -252,7 +252,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(partial_versions [[7],[7]]) | [MySimpleRecord2]
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord2"), indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1724404567, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(1091241424, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -279,7 +279,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(versions [[7],[7]]) | [MySimpleRecord3]
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord3"), indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1908726868, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(168009743, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -307,7 +307,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Index(versions [[7],[7]]) | [MySimpleRecord2, MySimpleRecord3]
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                     indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1151709653, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -350,7 +350,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions ([3],>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), bounds(hasTupleString("([3],>")))));
         assertEquals(-1766882004, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1241117888, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -393,7 +393,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(cross_versions ([1],>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("cross_versions"), bounds(hasTupleString("([1],>")))));
         assertEquals(552822345, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1595549405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -442,7 +442,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         planner.setConfiguration(planner.getConfiguration().asBuilder().setIndexFetchMethod(fetchMethod).build());
 
         // Index(partial_nested_versions [[2, 1],[2, 1]]) | [MySimpleRecord2, MySimpleRecord3]
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                 indexScan(allOf(indexName("partial_nested_versions"), bounds(hasTupleString("[[2, 1],[2, 1]]"))))));
         assertEquals(-1448785488, plan.planHash(PlanHashable.CURRENT_LEGACY));

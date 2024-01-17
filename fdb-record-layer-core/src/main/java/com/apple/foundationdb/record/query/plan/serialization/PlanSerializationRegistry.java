@@ -1,9 +1,9 @@
 /*
- * ZeroCopyByteString.java
+ * PlanSerializationRegistry.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,25 @@
  * limitations under the License.
  */
 
-package com.google.protobuf;
+package com.apple.foundationdb.record.query.plan.serialization;
+
+import com.apple.foundationdb.record.PlanDeserializer;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
 /**
- * Use this as a way to use existing byte arrays when converting to ByteString for
- * protobuf conversion.  Critical to remember that if the backing byte[] mutates, so does your
- * ByteString.
- *
+ * Plugin interface to be used by the plan serialization framework to dispatch serialization/deserialiation
+ * invocations properly.
  */
-public class ZeroCopyByteString {
+public interface PlanSerializationRegistry {
 
-    public static ByteString wrap(@Nonnull byte[] bytes) {
-        return new LiteralByteString(bytes);
-    }
+    @Nonnull
+    String getTypeUrlPrefix();
 
+    @Nonnull
+    <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(@Nonnull Class<M> messageClass);
+
+    @Nonnull
+    Class<? extends Message> lookUpMessageClass(@Nonnull String typeUrl);
 }

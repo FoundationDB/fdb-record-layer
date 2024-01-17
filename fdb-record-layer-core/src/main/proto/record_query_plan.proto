@@ -1,0 +1,1565 @@
+/*
+ * record_query_plan.proto
+ *
+ * This source file is part of the FoundationDB open source projectsour
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/any.proto";
+import "record_metadata.proto";
+
+option java_outer_classname = "RecordQueryPlanProto";
+
+//
+// Type system
+//
+// Note that the subtypes are nested messages and we don't define an extension point because PType should be considered
+// a sealed treat that cannot be extended.
+//
+message PType {
+  enum PTypeCode {
+    UNKNOWN = 1;
+    ANY = 2;
+    NULL = 3;
+    BOOLEAN = 4;
+    BYTES = 5;
+    DOUBLE = 6;
+    FLOAT = 7;
+    INT = 8;
+    LONG = 9;
+    STRING = 10;
+    VERSION = 11;
+    ENUM = 12;
+    RECORD = 13;
+    ARRAY = 14;
+    RELATION = 15;
+    NONE = 16;
+  }
+
+  message PPrimitiveType {
+    optional PTypeCode type_code = 1;
+    optional bool is_nullable = 2;
+  }
+
+  message PNullType {
+    // nothing
+  }
+
+  message PNoneType {
+    // nothing
+  }
+
+  message PAnyType {
+    // nothing
+  }
+
+  message PEnumType {
+    message PEnumValue {
+      optional string name = 1;
+      optional int32 number = 2;
+    }
+
+    optional bool is_nullable = 1;
+    repeated PEnumValue enum_values = 2;
+    optional string name = 3; // referential name -- not used in the planner
+  }
+
+  message PRecordType {
+    message PField {
+      optional PType field_type = 1;
+      optional string field_name = 2;
+      optional int32 field_index = 3;
+    }
+
+    optional string name = 1;  // referential name -- not used in the planner
+    optional bool is_nullable = 2;
+    repeated PField fields = 3;
+  }
+
+  message PRelationType {
+    optional PType inner_type = 1;
+  }
+
+  message PArrayType {
+    optional bool is_nullable = 2;
+    optional PType element_type = 3;
+  }
+
+  oneof specific_type {
+    PPrimitiveType primitive_type = 1;
+    PNullType null_type = 2;
+    PNoneType none_type = 3;
+    PAnyType any_type = 4;
+    PEnumType enum_type = 5;
+    PRecordType record_type = 6;
+    PRelationType relation_type = 7;
+    PArrayType array_type = 8;
+  }
+}
+
+//
+// Coercion Tries
+//
+message PCoercionTrieNode {
+  message IntChildPair {
+    optional int32 index = 1;
+    optional PCoercionTrieNode child_coercion_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated IntChildPair child_pair = 2;
+  optional PCoercionBiFunction value = 3;
+}
+
+message PCoercionBiFunction {
+  extensions 5000 to max;
+  oneof specific_function {
+    google.protobuf.Any additional_coercion_bi_functions = 1;
+    PPrimitiveCoercionBiFunction primitive_coercion_bi_function = 2;
+    PArrayCoercionBiFunction array_coercion_bi_function = 3;
+  }
+}
+
+message PPrimitiveCoercionBiFunction {
+  enum PPhysicalOperator {
+    INT_TO_LONG = 1;
+    INT_TO_FLOAT = 2;
+    INT_TO_DOUBLE = 3;
+    LONG_TO_FLOAT = 4;
+    LONG_TO_DOUBLE = 5;
+    FLOAT_TO_DOUBLE = 6;
+    NULL_TO_INT = 7;
+    NULL_TO_LONG = 8;
+    NULL_TO_FLOAT = 9;
+    NULL_TO_DOUBLE = 10;
+    NULL_TO_BOOLEAN = 11;
+    NULL_TO_STRING = 12;
+    NULL_TO_ARRAY = 13;
+    NULL_TO_RECORD = 14;
+    NONE_TO_ARRAY = 15;
+  }
+  optional PPhysicalOperator operator = 1;
+}
+
+message PArrayCoercionBiFunction {
+    optional PType from_array_type = 1;
+    optional PType to_array_type = 2;
+    optional PCoercionTrieNode elements_trie = 3;
+}
+
+message PTransformationTrieNode {
+  message IntChildPair {
+    optional int32 index = 1;
+    optional PTransformationTrieNode child_transformation_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated IntChildPair child_pair = 2;
+  optional PValue value = 3;
+}
+
+//
+// Values
+//
+message PValue {
+  extensions 5000 to max;
+  oneof specific_value {
+    google.protobuf.Any additional_values = 1;
+    PLightArrayConstructorValue light_array_constructor_value = 2;
+    PAndOrValue and_or_value = 3;
+    PArithmeticValue arithmetic_value = 4;
+    PConditionSelectorValue condition_selector_value = 5;
+    PConstantObjectValue constant_object_value = 6;
+    PConstantValue constant_value = 7;
+    PCountValue count_value = 8;
+    PDerivedValue derived_value = 9;
+    PEmptyValue empty_value = 10;
+    PExistsValue exists_value = 11;
+    PFieldValue field_value = 12;
+    PIndexedValue indexed_value = 13;
+    PMaxEverLongValue max_ever_long_value = 14;
+    PMinEverLongValue min_ever_long_value = 15;
+    PInOpValue in_op_value = 16;
+    PLikeOperatorValue like_operator_value = 17;
+    PLiteralValue literal_value = 18;
+    PNotValue not_value = 19;
+    PNullValue null_value = 20;
+    PNumericAggregationValue.PSum numeric_aggregation_value_sum = 21;
+    PNumericAggregationValue.PAvg numeric_aggregation_value_avg = 22;
+    PNumericAggregationValue.PMin numeric_aggregation_value_min = 23;
+    PNumericAggregationValue.PMax numeric_aggregation_value_max = 24;
+    PObjectValue object_value = 25;
+    POfTypeValue of_type_value = 26;
+    PPatternForLikeValue pattern_for_like_value = 27;
+    PPickValue pick_value = 28;
+    PPromoteValue promote_value = 29;
+    PQuantifiedObjectValue quantified_object_value = 30;
+    PQueriedValue queried_value = 31;
+    PRankValue rank_value = 32;
+    PRecordConstructorValue record_constructor_value = 33;
+    PRecordTypeValue record_type_value = 34;
+    PBinaryRelOpValue binary_rel_op_value = 35;
+    PUnaryRelOpValue unary_rel_op_value = 36;
+    PVariadicFunctionValue variadic_function_value = 37;
+    PVersionValue version_value = 38;
+  }
+}
+
+message PAbstractArrayConstructorValue {
+  repeated PValue children = 1;
+  optional PType element_type = 2;
+}
+
+message PLightArrayConstructorValue {
+  optional PAbstractArrayConstructorValue super = 1;
+}
+
+message PAndOrValue {
+  enum POperator {
+    AND = 1;
+    OR = 2;
+  }
+  optional string function_name = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+  optional POperator operator = 4;
+}
+
+message PArithmeticValue {
+  enum PPhysicalOperator {
+      ADD_II = 1;
+      ADD_IL = 2;
+      ADD_IF = 3;
+      ADD_ID = 4;
+      ADD_IS = 5;
+      ADD_LI = 6;
+      ADD_LL = 7;
+      ADD_LF = 8;
+      ADD_LD = 9;
+      ADD_LS = 10;
+      ADD_FI = 11;
+      ADD_FL = 12;
+      ADD_FF = 13;
+      ADD_FD = 14;
+      ADD_FS = 15;
+      ADD_DI = 16;
+      ADD_DL = 17;
+      ADD_DF = 18;
+      ADD_DD = 19;
+      ADD_DS = 20;
+      ADD_SI = 21;
+      ADD_SL = 22;
+      ADD_SF = 23;
+      ADD_SD = 24;
+      ADD_SS = 25;
+
+      SUB_II = 26;
+      SUB_IL = 27;
+      SUB_IF = 28;
+      SUB_ID = 29;
+      SUB_LI = 30;
+      SUB_LL = 31;
+      SUB_LF = 32;
+      SUB_LD = 33;
+      SUB_FI = 34;
+      SUB_FL = 35;
+      SUB_FF = 36;
+      SUB_FD = 37;
+      SUB_DI = 38;
+      SUB_DL = 39;
+      SUB_DF = 40;
+      SUB_DD = 41;
+
+      MUL_II = 42;  // my favorite
+      MUL_IL = 43;
+      MUL_IF = 44;
+      MUL_ID = 45;
+      MUL_LI = 46;
+      MUL_LL = 47;
+      MUL_LF = 48;
+      MUL_LD = 49;
+      MUL_FI = 50;
+      MUL_FL = 51;
+      MUL_FF = 52;
+      MUL_FD = 53;
+      MUL_DI = 54;
+      MUL_DL = 55;
+      MUL_DF = 56;
+      MUL_DD = 57;
+
+      DIV_II = 58;
+      DIV_IL = 59;
+      DIV_IF = 60;
+      DIV_ID = 61;
+      DIV_LI = 62;
+      DIV_LL = 63;
+      DIV_LF = 64;
+      DIV_LD = 65;
+      DIV_FI = 66;
+      DIV_FL = 67;
+      DIV_FF = 68;
+      DIV_FD = 69;
+      DIV_DI = 70;
+      DIV_DL = 71;
+      DIV_DF = 72;
+      DIV_DD = 73;
+
+      MOD_II = 74;
+      MOD_IL = 75;
+      MOD_IF = 76;
+      MOD_ID = 77;
+      MOD_LI = 78;
+      MOD_LL = 79;
+      MOD_LF = 80;
+      MOD_LD = 81;
+      MOD_FI = 82;
+      MOD_FL = 83;
+      MOD_FF = 84;
+      MOD_FD = 85;
+      MOD_DI = 86;
+      MOD_DL = 87;
+      MOD_DF = 88;
+      MOD_DD = 89;
+  }
+
+  optional PPhysicalOperator operator = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+}
+
+message PConditionSelectorValue {
+  repeated PValue implications = 1;
+}
+
+message PConstantObjectValue {
+  optional string alias = 1;
+  optional int32 ordinal = 2;
+  optional PType result_type = 3;
+}
+
+message PConstantValue {
+  optional PValue value = 1;
+}
+
+message PCountValue {
+  enum PPhysicalOperator {
+    COUNT = 1;
+    COUNT_STAR = 2;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+}
+
+message PDerivedValue {
+  repeated PValue children = 1;
+  optional PType result_type = 2;
+}
+
+message PEmptyValue {
+  // nothing
+}
+
+message PExistsValue {
+  optional PQuantifiedObjectValue child = 1;
+}
+
+message PFieldValue {
+  optional PValue child_value = 1;
+  optional PFieldPath field_path = 2;
+}
+
+message PFieldPath {
+  message PResolvedAccessor {
+    optional string name = 1;
+    optional int32 ordinal = 2;
+    optional PType type = 3;
+  }
+  repeated PResolvedAccessor field_accessors = 1;
+}
+
+message PIndexedValue {
+  optional PType result_type = 1;
+}
+
+message PIndexOnlyAggregateValue {  // abstract
+  enum PPhysicalOperator {
+    MAX_EVER_LONG = 1;
+    MIN_EVER_LONG = 2;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+}
+
+message PMaxEverLongValue {
+  optional PIndexOnlyAggregateValue super = 1;
+}
+
+message PMinEverLongValue {
+  optional PIndexOnlyAggregateValue super = 1;
+}
+
+message PInOpValue {
+  optional PValue probe_value = 1;
+  optional PValue in_array_value = 2;
+}
+
+message PLikeOperatorValue {
+  optional PValue src_child = 1;
+  optional PValue pattern_child = 2;
+}
+
+message PLiteralValue {
+  optional PType result_type = 1;
+  optional PComparableObject value = 2;
+}
+
+message PNotValue {
+  optional PValue child = 1;
+}
+
+message PNullValue {
+  optional PType result_type = 1;
+}
+
+message PNumericAggregationValue {
+  enum PPhysicalOperator {
+      SUM_I = 1;
+      SUM_L = 2;
+      SUM_F = 3;
+      SUM_D = 4;
+
+      AVG_I = 5;
+      AVG_L = 6;
+      AVG_F = 7;
+      AVG_D = 8;
+
+      MIN_I = 9;
+      MIN_L = 10;
+      MIN_F = 11;
+      MIN_D = 12;
+
+      MAX_I = 13;
+      MAX_L = 14;
+      MAX_F = 15;
+      MAX_D = 16;
+  }
+  optional PPhysicalOperator operator = 1;
+  optional PValue child = 2;
+
+  message PSum {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PAvg {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PMin {
+    optional PNumericAggregationValue super = 1;
+  }
+  message PMax {
+    optional PNumericAggregationValue super = 1;
+  }
+}
+
+message PObjectValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
+message POfTypeValue {
+  optional PValue child = 1;
+  optional PType expected_type = 2;
+}
+
+message PPatternForLikeValue {
+  optional PValue pattern_child = 1;
+  optional PValue escape_child = 2;
+}
+
+message PPickValue {
+  optional PValue selector_value = 1;
+  repeated PValue alternative_values = 2;
+  optional PType result_type = 3;
+}
+
+message PPromoteValue {
+  optional PValue in_value = 1;
+  optional PType promote_to_type = 2;
+  optional PCoercionTrieNode promotion_trie = 3;
+}
+
+message PQuantifiedObjectValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
+}
+
+message PQueriedValue {
+  optional PType result_type = 1;
+}
+
+message PRankValue {
+  optional PWindowedValue super = 1;
+}
+
+message PRecordConstructorValue {
+  message PColumn {
+    optional PType.PRecordType.PField field = 1;
+    optional PValue value = 2;
+  }
+  optional PType result_type = 1;
+  repeated PColumn columns = 2;
+}
+
+message PRecordTypeValue {
+  optional string alias = 1;
+}
+
+message PRelOpValue {
+  optional string function_name = 1;
+  optional PComparison.PComparisonType comparison_type = 2;
+  repeated PValue children = 3;
+}
+
+message PBinaryRelOpValue {
+  enum PBinaryPhysicalOperator {
+      EQ_BU = 1;
+      EQ_BB = 2;
+      EQ_IU = 3;
+      EQ_II = 4;
+      EQ_IL = 5;
+      EQ_IF = 6;
+      EQ_ID = 7;
+      EQ_LU = 8;
+      EQ_LI = 9;
+      EQ_LL = 10;
+      EQ_LF = 11;
+      EQ_LD = 12;
+      EQ_FU = 13;
+      EQ_FI = 14;
+      EQ_FL = 15;
+      EQ_FF = 16;
+      EQ_FD = 17;
+      EQ_DU = 18;
+      EQ_DI = 19;
+      EQ_DL = 20;
+      EQ_DF = 21;
+      EQ_DD = 22;
+      EQ_SU = 23;
+      EQ_SS = 24;
+      EQ_UU = 25;
+      EQ_UB = 26;
+      EQ_UI = 27;
+      EQ_UL = 28;
+      EQ_UF = 29;
+      EQ_UD = 30;
+      EQ_US = 31;
+      EQ_UV = 32;
+      EQ_VU = 33;
+      EQ_VV = 34;
+      NEQ_BU = 35;
+      NEQ_BB = 36;
+      NEQ_IU = 37;
+      NEQ_II = 38;
+      NEQ_IL = 39;
+      NEQ_IF = 40;
+      NEQ_ID = 41;
+      NEQ_LU = 42;
+      NEQ_LI = 43;
+      NEQ_LL = 44;
+      NEQ_LF = 45;
+      NEQ_LD = 46;
+      NEQ_FU = 47;
+      NEQ_FI = 48;
+      NEQ_FL = 49;
+      NEQ_FF = 50;
+      NEQ_FD = 51;
+      NEQ_DU = 52;
+      NEQ_DI = 53;
+      NEQ_DL = 54;
+      NEQ_DF = 55;
+      NEQ_DD = 56;
+      NEQ_SU = 57;
+      NEQ_SS = 58;
+      NEQ_UU = 59;
+      NEQ_UB = 60;
+      NEQ_UI = 61;
+      NEQ_UL = 62;
+      NEQ_UF = 63;
+      NEQ_UD = 64;
+      NEQ_US = 65;
+      NEQ_UV = 66;
+      NEQ_VU = 67;
+      NEQ_VV = 68;
+      LT_IU = 69;
+      LT_II = 70;
+      LT_IL = 71;
+      LT_IF = 72;
+      LT_ID = 73;
+      LT_LU = 74;
+      LT_LI = 75;
+      LT_LL = 76;
+      LT_LF = 77;
+      LT_LD = 78;
+      LT_FU = 79;
+      LT_FI = 80;
+      LT_FL = 81;
+      LT_FF = 82;
+      LT_FD = 83;
+      LT_DU = 84;
+      LT_DI = 85;
+      LT_DL = 86;
+      LT_DF = 87;
+      LT_DD = 88;
+      LT_SU = 89;
+      LT_SS = 90;
+      LT_UU = 91;
+      LT_UB = 92;
+      LT_UI = 93;
+      LT_UL = 94;
+      LT_UF = 95;
+      LT_UD = 96;
+      LT_US = 97;
+      LT_UV = 98;
+      LT_VU = 99;
+      LT_VV = 100;
+      LTE_IU = 101;
+      LTE_II = 102;
+      LTE_IL = 103;
+      LTE_IF = 104;
+      LTE_ID = 105;
+      LTE_LU = 106;
+      LTE_LI = 107;
+      LTE_LL = 108;
+      LTE_LF = 109;
+      LTE_LD = 110;
+      LTE_FU = 111;
+      LTE_FI = 112;
+      LTE_FL = 113;
+      LTE_FF = 114;
+      LTE_FD = 115;
+      LTE_DU = 116;
+      LTE_DI = 117;
+      LTE_DL = 118;
+      LTE_DF = 119;
+      LTE_DD = 120;
+      LTE_SU = 121;
+      LTE_SS = 122;
+      LTE_UU = 123;
+      LTE_UB = 124;
+      LTE_UI = 125;
+      LTE_UL = 126;
+      LTE_UF = 127;
+      LTE_UD = 128;
+      LTE_US = 129;
+      LTE_UV = 130;
+      LTE_VU = 131;
+      LTE_VV = 132;
+      GT_IU = 133;
+      GT_II = 134;
+      GT_IL = 135;
+      GT_IF = 136;
+      GT_ID = 137;
+      GT_LU = 138;
+      GT_LI = 139;
+      GT_LL = 140;
+      GT_LF = 141;
+      GT_LD = 142;
+      GT_FU = 143;
+      GT_FI = 144;
+      GT_FL = 145;
+      GT_FF = 146;
+      GT_FD = 147;
+      GT_DU = 148;
+      GT_DI = 149;
+      GT_DL = 150;
+      GT_DF = 151;
+      GT_DD = 152;
+      GT_SU = 153;
+      GT_SS = 154;
+      GT_UU = 155;
+      GT_UB = 156;
+      GT_UI = 157;
+      GT_UL = 158;
+      GT_UF = 159;
+      GT_UD = 160;
+      GT_US = 161;
+      GT_UV = 162;
+      GT_VU = 163;
+      GT_VV = 164;
+      GTE_IU = 165;
+      GTE_II = 166;
+      GTE_IL = 167;
+      GTE_IF = 168;
+      GTE_ID = 169;
+      GTE_LU = 170;
+      GTE_LI = 171;
+      GTE_LL = 172;
+      GTE_LF = 173;
+      GTE_LD = 174;
+      GTE_FU = 175;
+      GTE_FI = 176;
+      GTE_FL = 177;
+      GTE_FF = 178;
+      GTE_FD = 179;
+      GTE_DU = 180;
+      GTE_DI = 181;
+      GTE_DL = 182;
+      GTE_DF = 183;
+      GTE_DD = 184;
+      GTE_SU = 185;
+      GTE_SS = 186;
+      GTE_UU = 187;
+      GTE_UB = 188;
+      GTE_UI = 189;
+      GTE_UL = 190;
+      GTE_UF = 191;
+      GTE_UD = 192;
+      GTE_US = 193;
+      GTE_UV = 194;
+      GTE_VU = 195;
+      GTE_VV = 196;
+  }
+  optional PRelOpValue super = 1;
+  optional PBinaryPhysicalOperator operator = 2;
+}
+
+message PUnaryRelOpValue {
+  enum PUnaryPhysicalOperator {
+      IS_NULL_UI = 1;
+      IS_NULL_II = 2;
+      IS_NULL_LI = 3;
+      IS_NULL_FI = 4;
+      IS_NULL_DI = 5;
+      IS_NULL_SS = 6;
+      IS_NULL_BI = 7;
+
+      IS_NOT_NULL_UI = 8;
+      IS_NOT_NULL_II = 9;
+      IS_NOT_NULL_LI = 10;
+      IS_NOT_NULL_FI = 11;
+      IS_NOT_NULL_DI = 12;
+      IS_NOT_NULL_SS = 13;
+      IS_NOT_NULL_BI = 14;
+  }
+  optional PRelOpValue super = 1;
+  optional PUnaryPhysicalOperator operator = 2;
+}
+
+message PUdfValue { // abstract
+  repeated PValue children = 1;
+  optional PType result_type = 2;
+}
+
+message PVariadicFunctionValue {
+  enum PPhysicalOperator {
+      GREATEST_INT = 1;
+      GREATEST_LONG = 2;
+      GREATEST_BOOLEAN = 3;
+      GREATEST_STRING = 4;
+      GREATEST_FLOAT = 5;
+      GREATEST_DOUBLE = 6;
+      LEAST_INT = 7;
+      LEAST_LONG = 8;
+      LEAST_BOOLEAN = 9;
+      LEAST_STRING = 10;
+      LEAST_FLOAT = 11;
+      LEAST_DOUBLE = 12;
+      COALESCE_INT = 13;
+      COALESCE_LONG = 14;
+      COALESCE_BOOLEAN = 15;
+      COALESCE_STRING = 16;
+      COALESCE_FLOAT = 17;
+      COALESCE_DOUBLE = 18;
+      COALESCE_RECORD = 19;
+      COALESCE_ARRAY = 20;
+  }
+  optional PPhysicalOperator operator = 1;
+  repeated PValue children = 2;
+}
+
+message PVersionValue {
+  optional string base_alias = 1;
+}
+
+message PWindowedValue {
+  repeated PValue partitioning_values = 1;
+  repeated PValue argument_values = 2;
+}
+
+//
+// Comparisons
+//
+message PComparison {
+  enum PComparisonType {
+    EQUALS = 1;
+    NOT_EQUALS = 2;
+    LESS_THAN = 3;
+    LESS_THAN_OR_EQUALS = 4;
+    GREATER_THAN = 5;
+    GREATER_THAN_OR_EQUALS = 6;
+    STARTS_WITH = 7;
+    NOT_NULL = 8;
+    IS_NULL = 9;
+    IN = 10;
+    TEXT_CONTAINS_ALL = 11;
+    TEXT_CONTAINS_ALL_WITHIN = 12;
+    TEXT_CONTAINS_ANY = 13;
+    TEXT_CONTAINS_PHRASE = 14;
+    TEXT_CONTAINS_PREFIX = 15;
+    TEXT_CONTAINS_ALL_PREFIXES = 16;
+    TEXT_CONTAINS_ANY_PREFIX = 17;
+    SORT = 18;
+    LIKE = 19;
+  }
+
+  extensions 5000 to max;
+  oneof specific_comparison {
+    google.protobuf.Any additional_comparisons = 1;
+    PSimpleComparison simple_comparison = 2;
+    PParameterComparison parameter_comparison = 3;
+    PValueComparison value_comparison = 4;
+    PListComparison list_comparison = 5;
+    PNullComparison null_comparison = 6;
+    POpaqueEqualityComparison opaque_equality_comparison = 7;
+    PMultiColumnComparison multi_column_comparison = 8;
+    PInvertedFunctionComparison inverted_function_comparison = 9;
+    PRecordTypeComparison record_type_comparison = 10;
+  }
+}
+
+message PSimpleComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional PComparableObject object = 2;
+}
+
+message PComparableObject {
+  oneof specific_object {
+    Value primitive_object = 1;
+    PEnumLightValue enum_object = 2;
+    PUUID uuid = 3;
+    PFDBRecordVersion fdb_record_version = 4;
+  }
+}
+
+message PEnumLightValue {
+  optional string name = 1;
+  optional int32 number = 2;
+}
+
+message PUUID {
+  optional uint64 mostSigBits = 1;
+  optional uint64 leastSigBits = 2;
+}
+
+message PFDBRecordVersion {
+  optional bytes raw_bytes = 1;
+}
+
+message PParameterComparison {
+  enum PBindingKind {
+    IN = 1;
+    RANK = 2;
+    CORRELATION = 3;
+    CONSTANT = 4;
+  }
+
+  optional PComparison.PComparisonType type = 1;
+  optional string parameter = 2;
+  optional PBindingKind internal = 3;
+}
+
+message PValueComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional PValue comparandValue = 2;
+}
+
+message PListComparison {
+  optional PComparison.PComparisonType type = 1;
+  repeated PComparableObject comparand = 2;
+}
+
+message PNullComparison {
+  optional PComparison.PComparisonType type = 1;
+}
+
+message POpaqueEqualityComparison {
+  // nothing
+}
+
+message PMultiColumnComparison {
+  optional PComparison inner = 1;
+}
+
+message PInvertedFunctionComparison {
+  optional Function function = 1;
+  optional PComparison original_comparison = 2;
+  optional PComparison.PComparisonType type = 3;
+}
+
+message PRecordTypeComparison {
+  optional string record_type_name = 1;
+}
+
+//
+// Query Predicates
+//
+message PQueryPredicate {
+  extensions 5000 to max;
+  oneof specific_predicate {
+      google.protobuf.Any additional_query_predicates = 1;
+      PAndPredicate and_predicate = 2;
+      PConstantPredicate constant_predicate = 3;
+      PExistsPredicate exists_predicate = 4;
+      PNotPredicate not_predicate = 5;
+      POrPredicate or_predicate = 6;
+      PPredicateWithValueAndRanges predicate_with_value_and_ranges = 7;
+      PValuePredicate value_predicate = 8;
+  }
+}
+
+message PAbstractQueryPredicate {  // abstract
+  optional bool is_atomic = 1;
+}
+
+message PAndOrPredicate {  // abstract
+  optional PAbstractQueryPredicate super = 1;
+  repeated PQueryPredicate children = 2;
+}
+
+message PAndPredicate {
+  optional PAndOrPredicate super = 1;
+}
+
+message PConstantPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional bool value = 2;
+}
+
+message PExistsPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional string existential_alias = 2;
+}
+
+message PNotPredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional PQueryPredicate child = 2;
+}
+
+message POrPredicate {
+  optional PAndOrPredicate super = 1;
+}
+
+message PPredicateWithValueAndRanges {
+  optional PAbstractQueryPredicate super = 1;
+  optional PValue value = 2;
+  repeated PRangeConstraints ranges = 3;
+}
+
+message PRangeConstraints {
+  optional PCompilableRange evaluable_range = 1;
+  repeated PComparison deferred_ranges = 2;
+}
+
+message PCompilableRange {
+  repeated PComparison compilable_comparisons = 1;
+}
+
+message PValuePredicate {
+  optional PAbstractQueryPredicate super = 1;
+  optional PValue value = 2;
+  optional PComparison comparison = 3;
+}
+
+//
+// Plans
+//
+
+//
+// PPhysicalQuantifier - A quantifier ranges over at least one plan reference, however, it could range
+// over more than one if we at some point want to serialize variations as well, i.e. the intermediate state that
+// a plan structure can be in during planning.
+//
+message PPhysicalQuantifier {
+  optional string alias = 1;
+  repeated PPlanReference plan_references = 2;
+}
+
+//
+// Plan reference holder to assign ids to plans in order to support plan DAGs.
+//
+message PPlanReference {
+  optional int32 reference_id = 1;
+  optional PRecordQueryPlan record_query_plan = 2;
+}
+
+message PRecordQueryPlan {
+  extensions 5000 to max;
+  oneof specific_plan {
+    google.protobuf.Any additional_plans = 1;
+    PRecordQueryAggregateIndexPlan aggregate_index_plan = 2;
+    PRecordQueryCoveringIndexPlan covering_index_plan = 3;
+    PRecordQueryDamPlan dam_plan = 4;
+    PRecordQueryDeletePlan delete_plan = 5;
+    PRecordQueryExplodePlan explode_plan = 6;
+    PRecordQueryFetchFromPartialRecordPlan fetch_from_partial_record_plan = 7;
+    PRecordQueryFirstOrDefaultPlan first_or_default_plan = 8;
+    PRecordQueryFlatMapPlan flat_map_plan = 9;
+    PRecordQueryInComparandJoinPlan in_comparand_join_plan = 10;
+    PRecordQueryIndexPlan record_query_index_plan = 11;
+    PRecordQueryInParameterJoinPlan in_parameter_join_plan = 12;
+    PRecordQueryInsertPlan insert_plan = 13;
+    PRecordQueryIntersectionOnKeyExpressionPlan intersection_on_key_expression_plan = 14;
+    PRecordQueryIntersectionOnValuesPlan intersection_on_values_plan = 15;
+    PRecordQueryInUnionOnKeyExpressionPlan in_union_on_key_expression_plan = 16;
+    PRecordQueryInUnionOnValuesPlan in_union_on_values_plan = 17;
+    PRecordQueryInValuesJoinPlan in_values_join_plan = 18;
+    PRecordQueryMapPlan map_plan = 19;
+    PRecordQueryPredicatesFilterPlan predicates_filter_plan = 20;
+    PRecordQueryRangePlan range_plan = 21;
+    PRecordQueryScanPlan scan_plan = 22;
+    PRecordQueryScoreForRankPlan score_for_rank_plan = 23;
+    PRecordQuerySortPlan sort_plan = 24;
+    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 25;
+    PRecordQueryTypeFilterPlan type_filter_plan = 26;
+    PRecordQueryUnionOnKeyExpressionPlan union_on_key_expression_plan = 27;
+    PRecordQueryUnionOnValuesPlan union_on_values_plan = 28;
+    PRecordQueryUnorderedDistinctPlan unordered_distinct_plan = 29;
+    PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
+    PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
+    PRecordQueryUpdatePlan update_plan = 32;
+  }
+}
+
+//
+// Specific plan operators (in alphabetical order)
+//
+
+//
+// PRecordQueryAbstractDataModificationPlan
+//
+message PRecordQueryAbstractDataModificationPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional string target_record_type = 2;
+  optional PType.PRecordType target_type = 3;
+  optional PTransformationTrieNode transformations_trie = 4;
+  optional PCoercionTrieNode coercion_trie = 5;
+  optional PValue computation_value = 6;
+  optional string current_modified_record_alias = 7;
+}
+
+//
+// PRecordQueryAggregateIndexPlan
+//
+message PRecordQueryAggregateIndexPlan {
+  optional PRecordQueryIndexPlan index_plan = 1;
+  optional string record_type_name = 2;
+  optional PIndexKeyValueToPartialRecord to_record = 3;
+  optional PValue result_value = 4;
+  optional PQueryPlanConstraint constraint = 5;
+}
+
+//
+// PRecordQueryCoveringIndexPlan
+//
+message PRecordQueryCoveringIndexPlan {
+  optional PRecordQueryPlan index_plan = 1;
+  optional string record_type_name = 2;
+  optional PIndexKeyValueToPartialRecord to_record = 3;
+}
+
+message PIndexKeyValueToPartialRecord {
+  message PCopier {
+    extensions 5000 to max;
+    oneof specific_copier {
+      google.protobuf.Any additional_copiers = 1;
+      PFieldCopier field_copier = 2;
+      PMessageCopier message_copier = 3;
+    }
+  }
+
+  message PFieldCopier {
+    optional string field = 1;
+    optional PTupleSource source = 2;
+    optional PCopyIfPredicate copy_if_predicate = 3;
+    repeated int32 ordinal_path = 4;
+  }
+
+  enum PTupleSource {
+    KEY = 1;
+    VALUE = 2;
+    OTHER = 3;
+  }
+
+  message PCopyIfPredicate {
+    message PTruePredicate {
+      // nothing
+    }
+
+    message PConditionalUponPathPredicate {
+      repeated int32 ordinal_path = 1;
+    }
+
+    extensions 5000 to max;
+    oneof specific_copy_if_predicate {
+      google.protobuf.Any additional_copy_if_predicate = 101;
+      PTruePredicate true_predicate = 1;
+       PConditionalUponPathPredicate conditional_upon_path_predicate = 2;
+    }
+  }
+
+  message PMessageCopier {
+    optional string field = 1;
+    optional PIndexKeyValueToPartialRecord nested = 2;
+  }
+
+  repeated PCopier copiers = 1;
+  optional bool is_required = 2;
+}
+
+//
+// PRecordQueryDamPlan
+//
+message PRecordQueryDamPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PRecordQuerySortKey key = 2;
+}
+
+//
+// PRecordQueryDeletePlan
+//
+message PRecordQueryDeletePlan {
+  optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryExplodePlan
+//
+message PRecordQueryExplodePlan {
+  optional PValue collection_value = 1;
+}
+
+//
+// PRecordQueryFetchFromPartialRecordPlan
+//
+message PRecordQueryFetchFromPartialRecordPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PType result_type = 2;
+  optional PFetchIndexRecords fetch_index_records = 3;
+}
+
+//
+// PRecordQueryFilterPlanBase
+//
+message PRecordQueryFilterPlanBase {
+  optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryFirstOrDefaultPlan
+//
+message PRecordQueryFirstOrDefaultPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PValue on_empty_result_value = 2;
+}
+
+//
+// PRecordQueryFlatMapPlan
+//
+message PRecordQueryFlatMapPlan {
+  optional PPhysicalQuantifier outer_quantifier = 1;
+  optional PPhysicalQuantifier inner_quantifier = 2;
+  optional PValue result_value = 3;
+  optional bool inherit_outer_record_properties = 4;
+}
+
+//
+// PRecordQueryIndexPlan
+//
+message PRecordQueryIndexPlan {
+  optional string index_name = 1;
+  optional KeyExpression common_primary_key = 2;
+  optional PIndexScanParameters scan_parameters = 3;
+  optional PIndexFetchMethod index_fetch_method = 4;
+  optional PFetchIndexRecords fetch_index_records = 5;
+  optional bool reverse = 6;
+  optional bool strictly_sorted = 7;
+  optional PType result_type = 8;
+  optional PQueryPlanConstraint constraint = 9;
+}
+
+message PIndexScanParameters {
+  extensions 5000 to max;
+  oneof specific_index_scan_parameters {
+    google.protobuf.Any additional_index_scan_parameters = 1;
+    PIndexScanComparisons index_scan_comparisons = 2;
+    PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
+    PTimeWindowScanComparisons time_window_scan_comparisons = 4;
+  }
+}
+
+message PIndexScanType {
+  optional string name = 1;
+}
+
+message PScanComparisons {
+  repeated PComparison equality_comparisons = 1;
+  repeated PComparison inequality_comparisons = 2;
+}
+
+message PIndexScanComparisons {
+  optional PIndexScanType scan_type = 1;
+  optional PScanComparisons scan_comparisons = 2;
+}
+
+message PMultidimensionalIndexScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  repeated PScanComparisons dimensions_scan_comparisons = 2;
+  optional PScanComparisons suffix_scan_comparisons = 3;
+}
+
+message PTimeWindowForFunction {
+  optional int32 leaderboard_type = 1;
+  optional int64 leaderboard_timestamp = 2;
+  optional string leaderboard_type_parameter = 3;
+  optional string leaderboard_timestamp_parameter = 4;
+}
+
+message PTimeWindowScanComparisons {
+ optional PIndexScanComparisons super = 1;
+ optional PTimeWindowForFunction time_window = 2;
+}
+
+enum PIndexFetchMethod {
+  SCAN_AND_FETCH = 1;
+  USE_REMOTE_FETCH = 2;
+  USE_REMOTE_FETCH_WITH_FALLBACK = 3;
+}
+
+enum PFetchIndexRecords {
+  PRIMARY_KEY = 1;
+  SYNTHETIC_CONSTITUENTS = 2;
+}
+
+message PQueryPlanConstraint {
+  optional PQueryPredicate predicate = 1;
+}
+
+//
+// PRecordQueryInComparandJoinPlan
+//
+message PRecordQueryInComparandJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryInJoinPlan
+//
+message PRecordQueryInJoinPlan {
+  optional PPhysicalQuantifier physical_quantifier = 1;
+  optional PInSource in_source = 2;
+  optional PParameterComparison.PBindingKind internal = 3;
+}
+
+message PInSource {
+  message Super {
+    optional string binding_name = 1;
+  }
+
+  oneof specific_in_source {
+    PInComparandSource in_comparand_source = 1;
+    PSortedInComparandSource sorted_in_comparand_source = 2;
+    PInParameterSource in_parameter_source = 3;
+    PSortedInParameterSource sorted_in_parameter_source = 4;
+    PInValuesSource in_values_source = 5;
+    PSortedInValuesSource sorted_in_values_source = 6;
+  }
+}
+
+message PInComparandSource {
+  optional PInSource.Super super = 1;
+  optional PComparison comparison = 2;
+}
+
+message PSortedInComparandSource {
+  optional PInComparandSource super = 1;
+  optional bool reverse = 2;
+}
+
+message PInParameterSource {
+  optional PInSource.Super super = 1;
+  optional string parameter_name = 2;
+}
+
+message PSortedInParameterSource {
+  optional PInParameterSource super = 1;
+  optional bool reverse = 2;
+}
+
+message PInValuesSource {
+  optional PInSource.Super super = 1;
+  repeated PComparableObject values = 2;
+}
+
+message PSortedInValuesSource {
+  optional PInValuesSource super = 1;
+  optional bool reverse = 2;
+}
+
+//
+// PRecordQueryInParameterJoinPlan
+//
+message PRecordQueryInParameterJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryInsertPlan
+//
+message PRecordQueryInsertPlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PRecordQueryIntersectionPlan
+//
+message PRecordQueryIntersectionPlan {
+  repeated PPhysicalQuantifier quantifiers = 1;
+  optional PComparisonKeyFunction comparison_key_function = 2;
+  optional bool reverse = 3;
+}
+
+message PComparisonKeyFunction {
+  message POnKeyExpression {
+    optional KeyExpression comparison_key_expression = 1;
+  }
+  message POnValues {
+    optional string base_alias = 1;
+    repeated PValue comparison_key_values = 2;
+  }
+  oneof specific_comparison_key_function {
+    POnKeyExpression on_key_expression = 1;
+    POnValues on_values = 2;
+  }
+}
+
+//
+// PRecordQueryIntersectionOnKeyExpressionPlan
+//
+message PRecordQueryIntersectionOnKeyExpressionPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryIntersectionOnValuesPlan
+//
+message PRecordQueryIntersectionOnValuesPlan {
+  optional PRecordQueryIntersectionPlan super = 1;
+}
+
+//
+// PRecordQueryInUnionPlan
+//
+message PRecordQueryInUnionPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated PInSource in_sources = 2;
+  optional PComparisonKeyFunction comparison_key_function = 3;
+  optional bool reverse = 4;
+  optional int32 max_number_of_values_allowed = 5;
+  optional PParameterComparison.PBindingKind internal = 6;
+}
+
+//
+// PRecordQueryInUnionOnKeyExpressionPlan
+//
+message PRecordQueryInUnionOnKeyExpressionPlan {
+  optional PRecordQueryInUnionPlan super = 1;
+}
+
+//
+// PRecordQueryInUnionOnValuesPlan
+//
+message PRecordQueryInUnionOnValuesPlan {
+  optional PRecordQueryInUnionPlan super = 1;
+}
+
+//
+// PRecordQueryInValuesJoinPlan
+//
+message PRecordQueryInValuesJoinPlan {
+  optional PRecordQueryInJoinPlan super = 1;
+}
+
+//
+// PRecordQueryMapPlan
+//
+message PRecordQueryMapPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PValue result_value = 2;
+}
+
+//
+// PRecordQueryPredicatesFilterPlan
+//
+message PRecordQueryPredicatesFilterPlan {
+  optional PRecordQueryFilterPlanBase super = 1;
+  repeated PQueryPredicate predicates = 2;
+}
+
+//
+// PRecordQueryRangePlan
+//
+message PRecordQueryRangePlan {
+  optional PValue exclusive_limit_value = 1;
+}
+
+//
+// PRecordQuerySortPlan
+//
+message PRecordQuerySortPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional PRecordQuerySortKey key = 2;
+}
+
+message PRecordQuerySortKey {
+  optional KeyExpression key = 1;
+  optional bool reverse = 2;
+}
+
+//
+// PRecordQueryScanPlan
+//
+message PRecordQueryScanPlan {
+  optional bool has_record_types = 1;
+  repeated string record_types = 2;
+  optional PType flowed_type = 3;
+  optional KeyExpression common_primary_key = 4;
+  optional PScanComparisons comparisons = 5;
+  optional bool reverse = 6;
+  optional bool strictly_sorted = 7;
+}
+
+//
+// PRecordQueryScoreForRankPlan
+//
+message PRecordQueryScoreForRankPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated PScoreForRank ranks = 2;
+}
+
+message PScoreForRank {
+  enum PBindingFunction {
+      INT = 1;
+      LONG = 2;
+      FLOAT = 3;
+      DOUBLE = 4;
+      BOOLEAN = 5;
+      STRING = 6;
+      BYTE_STRING = 7;
+      TUPLE = 8;
+  }
+
+  optional string binding_name = 1;
+  optional PBindingFunction binding_function = 2;
+  optional PIndexAggregateFunction function = 3;
+  repeated PComparison comparisons = 4;
+}
+
+message PIndexAggregateFunction {
+  optional string name = 1;
+  optional KeyExpression operand = 2;
+  optional string index = 3;
+}
+
+//
+// PRecordQueryStreamingAggregationPlan
+//
+message PRecordQueryStreamingAggregationPlan {
+    optional PPhysicalQuantifier inner = 1;
+    optional PValue aggregate_value = 2;
+    optional PValue grouping_key_value = 3;
+    optional string grouping_key_alias = 4;
+    optional string aggregate_alias = 5;
+    optional PValue complete_result_value = 6;
+}
+
+//
+// PRecordQueryTypeFilterPlan
+//
+message PRecordQueryTypeFilterPlan {
+  optional PPhysicalQuantifier inner = 1;
+  repeated string record_types = 2;
+  optional PType result_type = 3;
+}
+
+//
+// PRecordQueryUnionOnKeyExpressionPlan
+//
+message PRecordQueryUnionOnKeyExpressionPlan {
+  optional PRecordQueryUnionPlan super = 1;
+}
+
+//
+// PRecordQueryUnionOnValuesPlan
+//
+message PRecordQueryUnionOnValuesPlan {
+  optional PRecordQueryUnionPlan super = 1;
+}
+
+//
+// PRecordQueryUnionPlan
+//
+message PRecordQueryUnionPlan {
+  optional PRecordQueryUnionPlanBase super = 1;
+  optional PComparisonKeyFunction comparison_key_function = 2;
+  optional bool show_comparison_key = 3;
+}
+
+//
+// PRecordQueryUnorderedDistinctPlan
+//
+message PRecordQueryUnorderedDistinctPlan {
+  optional PPhysicalQuantifier inner = 1;
+  optional KeyExpression comparison_key = 2;
+}
+
+//
+// PRecordQueryUnorderedPrimaryKeyDistinctPlan
+//
+message PRecordQueryUnorderedPrimaryKeyDistinctPlan {
+  optional PPhysicalQuantifier inner = 1;
+}
+
+//
+// PRecordQueryUnorderedUnionPlan
+//
+message PRecordQueryUnorderedUnionPlan {
+  optional PRecordQueryUnionPlanBase super = 1;
+}
+
+//
+// PRecordQueryUnionPlanBase
+//
+message PRecordQueryUnionPlanBase {
+  repeated PPhysicalQuantifier quantifiers = 1;
+  optional bool reverse = 2;
+}
+
+//
+// PRecordQueryUpdatePlan
+//
+message PRecordQueryUpdatePlan {
+  optional PRecordQueryAbstractDataModificationPlan super = 1;
+}

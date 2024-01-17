@@ -24,13 +24,20 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInComparandSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.google.auto.service.AutoService;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Source of values for an "IN" query where the values are derived from the comparand of a
@@ -47,6 +54,13 @@ public class InComparandSource extends InSource {
 
     @Nonnull
     private final Comparisons.Comparison comparison;
+
+    protected InComparandSource(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final PInComparandSource inComparandSource) {
+        super(serializationContext, Objects.requireNonNull(inComparandSource.getSuper()));
+        this.comparison = Comparisons.Comparison.fromComparisonProto(serializationContext,
+                Objects.requireNonNull(inComparandSource.getComparison()));
+    }
 
     public InComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison) {
         super(bindingName);
@@ -122,5 +136,50 @@ public class InComparandSource extends InSource {
     @Override
     public int hashCode() {
         return comparison.hashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return toInComparandSourceProto(serializationContext);
+    }
+
+    @Nonnull
+    protected PInComparandSource toInComparandSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInComparandSource.newBuilder()
+                .setSuper(toInSourceSuperProto(serializationContext))
+                .setComparison(comparison.toComparisonProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PInComparandSource inComparandSourceProto) {
+        return new InComparandSource(serializationContext, inComparandSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInComparandSource, InComparandSource> {
+        @Nonnull
+        @Override
+        public Class<PInComparandSource> getProtoMessageClass() {
+            return PInComparandSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PInComparandSource inComparandSourceProto) {
+            return InComparandSource.fromProto(serializationContext, inComparandSourceProto);
+        }
     }
 }

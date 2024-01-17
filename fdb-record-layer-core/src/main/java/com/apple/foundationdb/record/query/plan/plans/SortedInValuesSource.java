@@ -22,7 +22,13 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInValuesSource;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -41,6 +47,13 @@ public class SortedInValuesSource extends InValuesSource {
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("Sorted-In-Values");
 
     final boolean isReverse;
+
+    protected SortedInValuesSource(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PSortedInValuesSource sortedInValuesSourceProto) {
+        super(serializationContext, Objects.requireNonNull(sortedInValuesSourceProto.getSuper()));
+        Verify.verify(sortedInValuesSourceProto.hasReverse());
+        this.isReverse = sortedInValuesSourceProto.getReverse();
+    }
 
     public SortedInValuesSource(@Nonnull String bindingName, @Nonnull final List<Object> values, final boolean isReverse) {
         super(bindingName, InSource.sortValues(values, isReverse));
@@ -87,5 +100,45 @@ public class SortedInValuesSource extends InValuesSource {
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), isReverse);
+    }
+
+    @Nonnull
+    @Override
+    public PSortedInValuesSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PSortedInValuesSource.newBuilder()
+                .setSuper(toInValuesSourceProto(serializationContext))
+                .setReverse(isReverse)
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PInSource.newBuilder().setSortedInValuesSource(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static SortedInValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSortedInValuesSource sortedInValuesSourceProto) {
+        return new SortedInValuesSource(serializationContext, sortedInValuesSourceProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PSortedInValuesSource, SortedInValuesSource> {
+        @Nonnull
+        @Override
+        public Class<PSortedInValuesSource> getProtoMessageClass() {
+            return PSortedInValuesSource.class;
+        }
+
+        @Nonnull
+        @Override
+        public SortedInValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PSortedInValuesSource sortedInValuesSourceProto) {
+            return SortedInValuesSource.fromProto(serializationContext, sortedInValuesSourceProto);
+        }
     }
 }

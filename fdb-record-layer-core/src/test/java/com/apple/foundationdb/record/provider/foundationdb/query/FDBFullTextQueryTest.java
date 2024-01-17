@@ -114,7 +114,7 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Unordered(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) ∪ TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) | UnorderedPrimaryKeyDistinct()) | UnorderedPrimaryKeyDistinct()
             // Fetch(Unordered(Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) -> [doc_id: KEY[1]]) ∪ Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()) | UnorderedPrimaryKeyDistinct())
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             if (shouldDeferFetch) {
                 assertThat(plan, fetch(primaryKeyDistinct(unorderedUnion(
                         coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))),
@@ -161,7 +161,7 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("text").text().contains("civil"))
                     .setRequiredResults(ImmutableList.of(field("text")))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             // No covering index scan
             assertThat(plan, textIndexScan(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME)));
 

@@ -66,8 +66,8 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyChildRecord")
                 .setFilter(Query.field("parent_rec_no").equalsParameter("parent"))
                 .build();
-        RecordQueryPlan parentPlan = planner.plan(parentQuery);
-        RecordQueryPlan childPlan = planner.plan(childQuery);
+        RecordQueryPlan parentPlan = planQuery(parentQuery);
+        RecordQueryPlan childPlan = planQuery(childQuery);
 
         try (FDBRecordContext context = openContext()) {
             openJoinRecordStore(context);
@@ -101,7 +101,7 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyParentRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .build();
-        RecordQueryPlan parentPlan = planner.plan(parentQuery);
+        RecordQueryPlan parentPlan = planQuery(parentQuery);
         RecordQueryPlan childPlan = new RecordQueryLoadByKeysPlan("children");
 
         try (FDBRecordContext context = openContext()) {

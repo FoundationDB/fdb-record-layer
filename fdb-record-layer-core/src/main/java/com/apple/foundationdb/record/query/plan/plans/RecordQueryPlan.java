@@ -24,8 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -37,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
@@ -59,7 +63,7 @@ import java.util.Objects;
  */
 @API(API.Status.STABLE)
 @GenerateVisitor(stripPrefix = "RecordQuery")
-public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable {
+public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, PlannerGraphRewritable, PlanSerializable {
 
     /**
      * Execute this query plan.
@@ -247,7 +251,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
             final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.derived();
 
-            AliasMap boundCorrelatedToMap = AliasMap.emptyMap();
+            AliasMap boundCorrelatedToMap;
 
             int i;
             for (i = 0; i < quantifiers.size(); i++) {
@@ -260,21 +264,32 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                     break;
                 }
 
-                if (!quantifier.structuralEquals(otherQuantifier)) {
+                if (!quantifier.structuralEquals(otherQuantifier, boundCorrelatedToMap)) {
                     break;
                 }
 
-                if (canCorrelate()) {
-                    boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
-                }
+                boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
             }
 
-            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToMap))) {
+            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToBuilder.build()))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    @Nonnull
+    @Override
+    Message toProto(@Nonnull PlanSerializationContext serializationContext);
+
+    @Nonnull
+    RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext);
+
+    @Nonnull
+    static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final RecordQueryPlanProto.PRecordQueryPlan recordQueryPlanProto) {
+        return (RecordQueryPlan)PlanSerialization.dispatchFromProtoContainer(serializationContext, recordQueryPlanProto);
     }
 
     @API(API.Status.EXPERIMENTAL)

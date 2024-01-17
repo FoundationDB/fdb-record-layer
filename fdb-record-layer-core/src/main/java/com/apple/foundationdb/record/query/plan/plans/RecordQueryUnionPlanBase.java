@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnionPlanBase;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -68,6 +70,19 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     private final boolean reverse;
     @Nonnull
     private final Value resultValue;
+
+    protected RecordQueryUnionPlanBase(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PRecordQueryUnionPlanBase recordQueryUnionPlanBaseProto) {
+        Verify.verify(recordQueryUnionPlanBaseProto.getQuantifiersCount() > 0);
+        Verify.verify(recordQueryUnionPlanBaseProto.hasReverse());
+        ImmutableList.Builder<Quantifier.Physical> quantifiersBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryUnionPlanBaseProto.getQuantifiersCount(); i ++) {
+            quantifiersBuilder.add(Quantifier.Physical.fromProto(serializationContext, recordQueryUnionPlanBaseProto.getQuantifiers(i)));
+        }
+        this.quantifiers = quantifiersBuilder.build();
+        this.reverse = recordQueryUnionPlanBaseProto.getReverse();
+        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
+    }
 
     protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
                                        final boolean reverse) {
@@ -236,4 +251,13 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return withChildrenReferences(getChildren().stream().map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
     }
 
+    @Nonnull
+    protected PRecordQueryUnionPlanBase toRecordQueryUnionPlanBaseProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryUnionPlanBase.Builder builder = PRecordQueryUnionPlanBase.newBuilder();
+        for (final Quantifier.Physical quantifier : quantifiers) {
+            builder.addQuantifiers(quantifier.toProto(serializationContext));
+        }
+        builder.setReverse(reverse);
+        return builder.build();
+    }
 }

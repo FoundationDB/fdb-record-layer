@@ -78,6 +78,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -86,10 +87,14 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.search.FieldDoc;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -110,12 +115,14 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -200,7 +207,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE);
 
     protected static final Index COMPLEX_PARTITIONED = new Index("Complex$partitioned",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")),
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                 IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
@@ -338,6 +345,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                                   "'Wait, said the software engineer. 'Before we do anything, I think we should push the car back up the road and see if it happens again.'";
 
     protected static final String WAYLON = "There's always one more way to do things and that's your way, and you have a right to try it at least once.";
+    private long timestamp60DaysAgo;
+    private long timestamp30DaysAgo;
+    private long timestamp29DaysAgo;
+    private long yesterday;
 
     private static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
         return new Index(
@@ -474,9 +485,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanBounds groupedTextSearch(Index index, String search, Object group) {
+        return groupedSortedTextSearch(index, search, null, group);
+    }
+
+    private LuceneScanBounds groupedSortedTextSearch(Index index, String search, Sort sort, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
-                new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false));
+                new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false),
+                sort,
+                null,
+                null,
+                null);
+
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
@@ -609,6 +629,223 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertNotNull(results);
             assertEquals(1, results.size());
             commit(context);
+        }
+    }
+
+    @Test
+    void simpleCrossPartitionQuery() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(1);
+
+            // query will return results from both partitions
+            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1, 0L), Tuple.from(1, 1000L)),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            commit(context);
+        }
+    }
+
+    /**
+     * test LIMIT spanning partitions.
+     */
+    @Test
+    void testPartitionedLimit() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(15);
+
+            // get 20 records (15 from partition 1, and 5 from partition 0)
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 1000, 1014, 0, 4), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).build().asScanProperties(false)));
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    /**
+     * test SKIP spanning partitions.
+     */
+    @Test
+    void testPartitionedSkip() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(30);
+
+            // 25 messages from partition 0 (all partition 1 skipped)
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 5, 29), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setSkip(35).build().asScanProperties(false)));
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    /**
+     * test skip with limit spanning partitions.
+     */
+    @Test
+    void testPartitionedSkipWithLimit() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(30);
+
+            // 20 messages from partition 0 (all partition 1 skipped)
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 5, 24), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).setSkip(35).build().asScanProperties(false)));
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    /**
+     * test limit with continuation spanning partitions.
+     */
+    @Test
+    void testPartitionedLimitWithContinuation() throws ExecutionException, InterruptedException, InvalidProtocolBufferException {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(10);
+
+            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(5).build().asScanProperties(false));
+
+            // Get 5 results and continuation
+            List<IndexEntry> entries = indexEntryCursor.asList().join();
+            assertEquals(5, entries.size());
+            assertEquals(5, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            RecordCursorResult<IndexEntry> lastResult = indexEntryCursor.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+            LuceneContinuationProto.LuceneIndexContinuation parsed = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(lastResult.getContinuation().toBytes());
+            // we stopped in partition 1
+            assertEquals(1, parsed.getPartitionId());
+
+            RecordCursor<IndexEntry> indexEntryCursor2 = recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), lastResult.getContinuation().toBytes(), ExecuteProperties.newBuilder().setReturnedRowLimit(10).build().asScanProperties(false));
+            // Get 10 results and continuation
+            List<IndexEntry> entries2 = indexEntryCursor2.asList().join();
+            assertEquals(10, entries2.size());
+            RecordCursorResult<IndexEntry> lastResult2 = indexEntryCursor2.onNext().get();
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+            LuceneContinuationProto.LuceneIndexContinuation parsed2 = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(lastResult2.getContinuation().toBytes());
+            // we stopped in partition 0
+            assertEquals(0, parsed2.getPartitionId());
+
+            // assert we got the right docs
+            assertEquals(makeKeyTuples(1, 1005, 1009, 0, 4), entries2.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    /**
+     * test cross partition limit query with multiple scans.
+     */
+    @Test
+    void testPartitionedLimitNeedsMultipleScans() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(300);
+
+            assertEquals(451, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(451).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(3, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+            assertEquals(451, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    /**
+     * test cross partition skip over max page size.
+     */
+    @Test
+    void testPartitionedSkipOverMaxPageSize() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(150);
+            assertEquals(99, recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(351).setSkip(201).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(3, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+            assertEquals(300, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    @Test
+    void testPartitionedSorted() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            setTimestamps();
+            createDualPartitionsWithComplexDocs(10);
+
+            LuceneScanQuery scanQuery = (LuceneScanQuery) groupedSortedTextSearch(COMPLEX_PARTITIONED, "text:propose", new Sort(new SortField("timestamp", SortField.Type.LONG, true)), 1);
+            RecordCursor<IndexEntry> cursor = recordStore.scanIndex(COMPLEX_PARTITIONED, scanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build().asScanProperties(false));
+            List<IndexEntry> entries = cursor.asList().join();
+            assertEquals(15, entries.size());
+            assertEquals(15, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            List<Long> timestamps = entries.stream().map(a -> ((FieldDoc) ((LuceneRecordCursor.ScoreDocIndexEntry) a).getScoreDoc()).fields[0]).map(Long.class::cast).collect(Collectors.toList());
+            Comparator<Long> comparator = Long::compareTo;
+            assertTrue(Comparators.isInOrder(timestamps, comparator.reversed()));
+
+            validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
+        }
+    }
+
+    private Set<Tuple> makeKeyTuples(long group, int... ranges) {
+        int[] rangeList = Arrays.stream(ranges).toArray();
+        if (rangeList.length == 0 || rangeList.length % 2 == 1) {
+            throw new IllegalArgumentException("specify ranges as pairs of (from, to)");
+        }
+        Set<Tuple> tuples = new HashSet<>();
+        for (int i = 0; i < rangeList.length - 1; i += 2) {
+            for (int j = rangeList[i]; j <= rangeList[i + 1]; j++) {
+                tuples.add(Tuple.from(group, j));
+            }
+        }
+        return tuples;
+    }
+
+    private void setTimestamps() {
+        timestamp60DaysAgo = Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli();
+        timestamp30DaysAgo = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
+        timestamp29DaysAgo = Instant.now().minus(29, ChronoUnit.DAYS).toEpochMilli();
+        yesterday = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
+    }
+
+    void createDualPartitionsWithComplexDocs(int docCount) {
+        // two partitions: 0 and 1. 0 has older messages, 1 has newer.
+        // doc keys in 0 start at (1, 0), doc keys in 1 start at (1, 1000)
+        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
+        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
+        for (int i = 0; i < docCount; i++) {
+            recordStore.saveRecord(createComplexDocument(i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp60DaysAgo, timestamp30DaysAgo + 1)));
+        }
+        for (int i = 0; i < docCount; i++) {
+            recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp29DaysAgo, yesterday + 1)));
+        }
+    }
+
+    void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp) {
+        LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
+                .setCount(0)
+                .setFrom(ByteString.copyFrom(Tuple.from(fromTimestamp).pack()))
+                .setTo(ByteString.copyFrom(Tuple.from(toTimestamp).pack()))
+                .setId(partitionId)
+                .build();
+
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(Tuple.from(groupKey, LucenePartitioner.PARTITION_META_SUBSPACE, fromTimestamp));
+        recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
+    }
+
+    void validatePartitionSegmentIntegrity(Index index, FDBRecordContext context, long group, int... partitionIds) {
+        for (int partitionId : partitionIds) {
+            final Subspace subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED).subspace(Tuple.from(group, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId));
+            validateSegmentAndIndexIntegrity(index, subspace, context, "_0.cfs");
         }
     }
 
@@ -1054,7 +1291,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
-            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
+            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, fullTextSearch(SIMPLE_TEXT_SUFFIXES, "Vision"), null, ExecuteProperties.newBuilder().setSkip(10).build().asScanProperties(false))
                     .getCount().join());
 
             validateSegmentAndIndexIntegrity(SIMPLE_TEXT_SUFFIXES, recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs");

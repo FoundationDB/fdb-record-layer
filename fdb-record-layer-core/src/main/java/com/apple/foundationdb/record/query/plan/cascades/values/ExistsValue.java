@@ -23,7 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -43,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -112,6 +117,27 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
+    @Override
+    public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PExistsValue.newBuilder()
+                .setChild(child.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setExistsValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PExistsValue existsValueProto) {
+        return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
+                Objects.requireNonNull(existsValueProto.getChild())));
+    }
+
     /**
      * A function that checks whether an item exists in a {@link RelationalExpression}.
      */
@@ -132,6 +158,25 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
             final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getFlowedObjectValue());
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PExistsValue, ExistsValue> {
+        @Nonnull
+        @Override
+        public Class<PExistsValue> getProtoMessageClass() {
+            return PExistsValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PExistsValue existsValueProto) {
+            return ExistsValue.fromProto(serializationContext, existsValueProto);
         }
     }
 }

@@ -95,7 +95,7 @@ public class PlanComplexityExceededTest extends FDBRecordStoreQueryTestBase {
         if (requiredResults != null) {
             builder.setRequiredResults(requiredResults);
         }
-        return cascadesPlanner.plan(builder.build());
+        return planQuery(builder.build());
     }
 
 }

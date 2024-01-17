@@ -129,7 +129,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[even],[even]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[even],[even]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(
@@ -197,7 +197,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         setDeferFetchAfterUnionAndIntersection(true);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
             assertThat(plan, fetch(intersection(
@@ -264,7 +264,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .setRequiredResults(ImmutableList.of(field("str_value_indexed"), field("num_value_3_indexed")))
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(
@@ -310,7 +310,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) ∩ Index(MySimpleRecord$num_value_2 [[1],[1]])
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∩ Covering(Index(MySimpleRecord$num_value_2 [[1],[1]]) -> [num_value_2: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
@@ -389,7 +389,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed {[e],[e]}) | num_value_3_indexed EQUALS 3
         // Fetch(Covering(Index(multi_index {[e],[e]}) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[2], rec_no: KEY[3], str_value_indexed: KEY[0]]) | num_value_3_indexed EQUALS 3)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         // Not an intersection plan, since not compatibly ordered.
         if (shouldOptimizeForIndexFilters && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, allOf(
@@ -461,7 +461,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∩ Covering(Index(MySimpleRecord$num_value_2 [[2],[2]]) -> [num_value_2: KEY[0], rec_no: KEY[1]])) | str_value_indexed STARTS_WITH e
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         // Should only include compatibly-ordered things in the intersection
 
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
@@ -540,7 +540,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
 
         // Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) | str_value_indexed EQUALS even
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         // Would get Intersection didn't have identical continuations if it did
         assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan("grouped_index")));
 
@@ -603,7 +603,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[0],[0]])
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
@@ -672,7 +672,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(str_value_2_index [[even, 1],[even, 1]]) -> [num_value_2: KEY[1], num_value_unique: KEY[2], str_value_indexed: KEY[0]]) ∩ Covering(Index(str_value_3_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], num_value_unique: KEY[2], str_value_indexed: KEY[0]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(
@@ -751,7 +751,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS even, num_value_unique EQUALS 0])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertThat("should have range scan in " + plan, plan, descendant(indexScan("index_2_3")));
 
         assertFalse(plan.hasRecordScan(), "should not use record scan");
@@ -799,7 +799,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS even, num_value_unique EQUALS 0])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertMatchesExactly(plan,
                 predicatesFilterPlan(
@@ -832,7 +832,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(color [[10],[10]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200],[200]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(
                     coveringIndexScan(indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10],[10]]"))))),
@@ -906,7 +906,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
 
         // Fetch(Covering(Index(color [[10, 2],[10, 11]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200, 2],[200, 11]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
         // Fetch(Covering(Index(color [[10, 2],[10, 11]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200, 2],[200, 11]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         if (shouldDeferFetch && !(planner instanceof CascadesPlanner)) {
             assertThat(plan, fetch(intersection(
                     coveringIndexScan(indexScan(allOf(indexName("color"), bounds(hasTupleString("[[10, 2],[10, 11]]"))))),

@@ -22,10 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PAndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -44,7 +47,17 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @Nonnull
     private final List<QueryPredicate> children;
 
-    private final Supplier<Set<Equivalence.Wrapper<QueryPredicate>>> childrenAsSetSupplier;
+    private final Supplier<Set<Equivalence.Wrapper<QueryPredicate>>> childrenAsSetSupplier =
+            Suppliers.memoize(() -> computeChildrenAsSet(getChildren(), AliasMap.identitiesFor(getCorrelatedTo())));
+
+    protected AndOrPredicate(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PAndOrPredicate andOrPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(andOrPredicateProto.getSuper()));
+        ImmutableList.Builder<QueryPredicate> childrenBuilder = ImmutableList.builder();
+        for (int i = 0; i < andOrPredicateProto.getChildrenCount(); i ++) {
+            childrenBuilder.add(QueryPredicate.fromQueryPredicateProto(serializationContext, andOrPredicateProto.getChildren(i)));
+        }
+        this.children = childrenBuilder.build();
+    }
 
     protected AndOrPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
         super(isAtomic);
@@ -53,7 +66,6 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         }
 
         this.children = children;
-        this.childrenAsSetSupplier = Suppliers.memoize(() -> computeChildrenAsSet(children, AliasMap.identitiesFor(getCorrelatedTo())));
     }
 
     @Nonnull
@@ -97,6 +109,17 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     public int computeSemanticHashCode() {
         return Objects.hash(hashCodeWithoutChildren(), ImmutableSet.copyOf(getChildren()));
     }
+
+    @Nonnull
+    public PAndOrPredicate toAndOrPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PAndOrPredicate.Builder builder =
+                PAndOrPredicate.newBuilder()
+                        .setSuper(toAbstractQueryPredicateProto(serializationContext));
+        for (final QueryPredicate child : children) {
+            builder.addChildren(child.toQueryPredicateProto(serializationContext));
+        }
+        return builder.build();
+    }
     
     protected static List<? extends QueryPredicate> toList(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                                            @Nonnull QueryPredicate... operands) {
@@ -108,12 +131,11 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     }
 
     @Nonnull
-    private static Set<Equivalence.Wrapper<QueryPredicate>> computeChildrenAsSet(@Nonnull final List<QueryPredicate> children, @Nonnull final AliasMap aliasMap)  {
+    private static Set<Equivalence.Wrapper<QueryPredicate>> computeChildrenAsSet(@Nonnull final List<? extends QueryPredicate> children,
+                                                                                 @Nonnull final AliasMap aliasMap)  {
         final var equivalence = new BoundEquivalence<QueryPredicate>(aliasMap);
         final var resultBuilder = ImmutableSet.<Equivalence.Wrapper<QueryPredicate>>builder();
-        children.forEach(child -> {
-            resultBuilder.add(equivalence.wrap(child));
-        });
+        children.forEach(child -> resultBuilder.add(equivalence.wrap(child)));
         return resultBuilder.build();
     }
 }

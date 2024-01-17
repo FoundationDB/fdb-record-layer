@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryFilterPlanBase;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -37,6 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -56,6 +59,11 @@ public abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithCh
     private static final Set<StoreTimer.Count> successCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_PASSED);
     @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
+
+    protected RecordQueryFilterPlanBase(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PRecordQueryFilterPlanBase recordQueryFilterPlanBaseProto) {
+        this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFilterPlanBaseProto.getInner())));
+    }
 
     protected RecordQueryFilterPlanBase(@Nonnull Quantifier.Physical inner) {
         this.inner = inner;
@@ -153,5 +161,10 @@ public abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithCh
     @Override
     public int getComplexity() {
         return 1 + getInnerPlan().getComplexity();
+    }
+
+    @Nonnull
+    protected PRecordQueryFilterPlanBase toRecordQueryFilterPlanBaseProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryFilterPlanBase.newBuilder().setInner(inner.toProto(serializationContext)).build();
     }
 }

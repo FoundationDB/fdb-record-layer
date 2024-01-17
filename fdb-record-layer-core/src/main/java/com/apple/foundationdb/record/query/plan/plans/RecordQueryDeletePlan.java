@@ -25,8 +25,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryDeletePlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
@@ -40,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -242,6 +247,24 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryDeletePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryDeletePlan.newBuilder().setInner(inner.toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setDeletePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryDeletePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
+        return new RecordQueryDeletePlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryDeletePlanProto.getInner())));
+    }
+
     /**
      * Factory method to create a {@link RecordQueryInsertPlan}.
      * @param inner an input value to transform
@@ -250,5 +273,24 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
     @Nonnull
     public static RecordQueryDeletePlan deletePlan(@Nonnull final Quantifier.Physical inner) {
         return new RecordQueryDeletePlan(inner);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryDeletePlan, RecordQueryDeletePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryDeletePlan> getProtoMessageClass() {
+            return PRecordQueryDeletePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryDeletePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
+            return RecordQueryDeletePlan.fromProto(serializationContext, recordQueryDeletePlanProto);
+        }
     }
 }

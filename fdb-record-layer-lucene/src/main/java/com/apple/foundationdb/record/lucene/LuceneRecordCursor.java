@@ -71,6 +71,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+
 /**
  * This class is a Record Cursor implementation for Lucene queries.
  *
@@ -92,7 +94,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     /**
      * The records to skip.
      */
-    private final int skip;
+    private int skip;
     /**
      * To track the count of records left to skip.
      */
@@ -112,7 +114,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private boolean exhausted = false;
     @Nullable
     private final Tuple groupingKey;
-    @Nullable final Integer partitionId;
+    @Nullable
+    Integer partitionId;
+    @Nullable
+    Long partitionTimestamp;
+    @Nonnull
+    LucenePartitioner partitioner;
     @Nullable
     private final List<String> storedFields;
     @Nonnull
@@ -142,7 +149,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nullable Sort sort,
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
-                       @Nullable Integer partitionId,
+                       @Nullable LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
                        @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable Map<String, Set<String>> termMap,
                        @Nullable final List<String> storedFields,
@@ -162,21 +169,36 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.skip = scanProperties.getExecuteProperties().getSkip();
-        this.leftToSkip = scanProperties.getExecuteProperties().getSkip();
+        this.leftToSkip = this.skip;
         this.timer = state.context.getTimer();
         this.query = query;
         this.sort = sort;
+        if (partitionInfo != null) {
+            this.partitionTimestamp = LucenePartitioner.getFrom(partitionInfo);
+            this.partitionId = partitionInfo.getId();
+        }
         if (continuation != null) {
             try {
                 LuceneContinuationProto.LuceneIndexContinuation parsed = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
                 searchAfter = LuceneCursorContinuation.toScoreDoc(parsed);
+                // continuation partitionInfo "overrides" the defaults passed in
+                // from the index maintainer
+
+                // both must be either present or absent
+                if (parsed.hasPartitionId() != parsed.hasPartitionTimestamp()) {
+                    throw new RecordCoreException("Invalid continuation for Lucene index", "hasPartitionId", parsed.hasPartitionId(), "hasPartitionTimestamp", parsed.hasPartitionTimestamp());
+                }
+                if (parsed.hasPartitionId()) {
+                    this.partitionId = parsed.getPartitionId();
+                    this.partitionTimestamp = parsed.getPartitionTimestamp();
+                }
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
             }
         }
+        partitioner = new LucenePartitioner(state);
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
-        this.partitionId = partitionId;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.termMap = termMap;
         this.analyzerSelector = analyzerSelector;
@@ -199,7 +221,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 return CompletableFuture.completedFuture(false);
             }
             try {
-                searchForTopDocs(pageSize);
+                TopDocs topDocs = searchForTopDocs(pageSize);
+                leftToSkip -= topDocs.scoreDocs.length;
             } catch (IndexNotFoundException indexNotFoundException) {
                 // Trying to open an empty directory results in an IndexNotFoundException,
                 // but this should be interpreted as there not being any data to read
@@ -208,7 +231,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
                         .addLogInfo(LogMessageKeys.QUERY, query);
             }
-            leftToSkip -= pageSize;
             return CompletableFuture.completedFuture(leftToSkip >= pageSize);
         }, executor);
 
@@ -226,10 +248,44 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
                                 .addLogInfo(LogMessageKeys.QUERY, query);
                     }
-                    return lookupResults.onNext();
+                    return lookupResults.onNext().thenCompose(this::switchToNextOlderPartitionAndContinue);
                 }).thenCompose(Function.identity());
             }
-            return lookupResults.onNext();
+            return lookupResults.onNext().thenCompose(this::switchToNextOlderPartitionAndContinue);
+        });
+    }
+
+    private CompletableFuture<RecordCursorResult<IndexEntry>> switchToNextOlderPartitionAndContinue(RecordCursorResult<IndexEntry> recordCursorResult) {
+        if (recordCursorResult.hasNext() ||
+                partitionTimestamp == null ||
+                recordCursorResult.getNoNextReason() != SOURCE_EXHAUSTED) {
+            return CompletableFuture.completedFuture(recordCursorResult);
+        }
+
+        // see if there's a next older partition by looking for the partition covering the timestamp equal to the `from` value of the
+        // current partition minus a millisecond (lowest resolution of timestamp)
+
+        return partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1).thenCompose(previousPartition -> {
+            if (previousPartition != null) {
+                // reset scan params/state
+                exhausted = false;
+                this.partitionTimestamp = LucenePartitioner.getFrom(previousPartition);
+                this.partitionId = previousPartition.getId();
+                searchAfter = null;
+                currentPosition = 0;
+                if (skip > 0) {
+                    skip = leftToSkip;
+                }
+                try {
+                    maybePerformScan();
+                    return lookupResults.onNext();
+                } catch (IOException ioException) {
+                    throw new RecordCoreException(ioException)
+                            .addLogInfo(LogMessageKeys.QUERY, query);
+                }
+            } else {
+                return CompletableFuture.completedFuture(nextResult);
+            }
         });
     }
 
@@ -238,6 +294,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
         }
+        indexReader = null;
         closed = true;
     }
 
@@ -274,7 +331,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 .mapPipelined(this::buildIndexEntryFromScoreDocAsync, state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .mapResult(result -> {
                     if (result.hasNext() && limitManager.tryRecordScan()) {
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(result.get().scoreDoc);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(result.get().scoreDoc, partitionId, partitionTimestamp);
                         currentPosition++;
                         if (limitRemaining != Integer.MAX_VALUE) {
                             limitRemaining--;
@@ -283,19 +340,19 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     } else if (exhausted) {
                         nextResult = RecordCursorResult.exhausted();
                     } else if (limitRemaining <= 0) {
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(searchAfter);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(searchAfter, partitionId, partitionTimestamp);
                         nextResult = RecordCursorResult.withoutNextValue(continuationFromDoc, NoNextReason.RETURN_LIMIT_REACHED);
                     } else {
                         final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
-                        if (!stoppedReason.isPresent()) {
+                        if (stoppedReason.isEmpty()) {
                             throw new RecordCoreException("limit manager stopped LuceneRecordCursor but did not report a reason");
                         } else {
-                            nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(searchAfter), stoppedReason.get());
+                            nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(searchAfter, partitionId, partitionTimestamp), stoppedReason.get());
                         }
                     }
                     return nextResult;
                 });
-        leftToSkip = 0;
+        leftToSkip = Math.max(0, leftToSkip - newTopDocs.scoreDocs.length);
     }
 
     private TopDocs searchForTopDocs(int limit) throws IOException {

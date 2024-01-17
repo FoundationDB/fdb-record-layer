@@ -1,9 +1,9 @@
 /*
- * ProtoVersionSupplier.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record;
-
 /**
- * A utility class that that specifies what the Protocol buffer version is.
+ * Classes related to plan serialization/deserialization.
  */
-public class ProtoVersionSupplier {
-
-    /**
-     * Get the major version of the Protocol buffer version.
-     *
-     * @return the major version of the Protocol buffer dependency
-     */
-    public static int getProtoVersion() {
-        return 2;
-    }
-
-    private ProtoVersionSupplier() {
-    }
-}
+package com.apple.foundationdb.record.query.plan.serialization;

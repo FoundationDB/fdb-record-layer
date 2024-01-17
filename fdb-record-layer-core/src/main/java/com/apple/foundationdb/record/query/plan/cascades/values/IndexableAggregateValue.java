@@ -29,8 +29,6 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface IndexableAggregateValue extends Value {
-
     @Nonnull
-    String getIndexName();
-
+    String getIndexTypeName();
 }

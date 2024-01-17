@@ -23,14 +23,20 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PDerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -101,5 +107,52 @@ public class DerivedValue extends AbstractValue implements Value.CompileTimeValu
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    @Override
+    public PDerivedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PDerivedValue.newBuilder();
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(serializationContext));
+        }
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setDerivedValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PDerivedValue derivedValueProto) {
+        final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
+        for (int i = 0; i < derivedValueProto.getChildrenCount(); i ++) {
+            childrenBuilder.add(Value.fromValueProto(serializationContext, derivedValueProto.getChildren(i)));
+        }
+        return new DerivedValue(childrenBuilder.build(),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(derivedValueProto.getResultType())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PDerivedValue, DerivedValue> {
+        @Nonnull
+        @Override
+        public Class<PDerivedValue> getProtoMessageClass() {
+            return PDerivedValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PDerivedValue derivedValueProto) {
+            return DerivedValue.fromProto(serializationContext, derivedValueProto);
+        }
     }
 }

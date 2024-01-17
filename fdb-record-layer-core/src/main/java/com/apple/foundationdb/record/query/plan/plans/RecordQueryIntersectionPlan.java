@@ -25,9 +25,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -86,6 +89,19 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     @Nonnull
     private final Value resultValue;
+
+    protected RecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
+        Verify.verify(recordQueryIntersectionPlanProto.hasReverse());
+        final ImmutableList.Builder<Quantifier.Physical> quantifiersBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryIntersectionPlanProto.getQuantifiersCount(); i ++) {
+            quantifiersBuilder.add(Quantifier.Physical.fromProto(serializationContext, recordQueryIntersectionPlanProto.getQuantifiers(i)));
+        }
+        this.quantifiers = quantifiersBuilder.build();
+        this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryIntersectionPlanProto.getComparisonKeyFunction()));
+        this.reverse = recordQueryIntersectionPlanProto.getReverse();
+        this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
+    }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     protected RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
@@ -252,6 +268,17 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
                         ImmutableList.of("COMPARE BY {{comparisonKeyFunction}}"),
                         ImmutableMap.of("comparisonKeyFunction", Attribute.gml(comparisonKeyFunction.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    protected PRecordQueryIntersectionPlan toRecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryIntersectionPlan.Builder builder = PRecordQueryIntersectionPlan.newBuilder();
+        for (final Quantifier.Physical quantifier : quantifiers) {
+            builder.addQuantifiers(quantifier.toProto(serializationContext));
+        }
+        builder.setComparisonKeyFunction(comparisonKeyFunction.toComparisonKeyFunctionProto(serializationContext))
+                .setReverse(reverse);
+        return builder.build();
     }
 
     @Nonnull

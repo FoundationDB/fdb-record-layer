@@ -198,7 +198,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(version())
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(VERSION_INDEX.getName()))
                     .and(scanComparisons(unbounded())));
@@ -225,7 +225,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(version())
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(VERSION_INDEX.getName()))
                     .and(scanComparisons(unbounded())));
@@ -253,7 +253,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.version().greaterThan(versionForQuery))
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(VERSION_INDEX.getName()))
                     .and(scanComparisons(range("([" + versionForQuery.toVersionstamp(false) + "],>"))));
@@ -289,7 +289,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("num_value_unique")) // use sort to force execution of predicate as a residual filter
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
                     .where(indexName("MySimpleRecord$num_value_unique"))
                     .and(scanComparisons(unbounded()));
@@ -334,7 +334,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRequiredResults(List.of(field("num_value_unique"), field("rec_no")))
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
                     .where(indexName("MySimpleRecord$num_value_unique"))
                     .and(scanComparisons(unbounded()));
@@ -378,7 +378,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(version())
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()))
                     .and(scanComparisons(range("[[1],[1]]"))));
@@ -415,7 +415,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(version())
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             // Should be able to push down version filter onto index the index entries when planner can better reason about version field
             BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher = indexPlan()
                     .where(indexName(VERSION_BY_NUM_VALUE_2_INDEX.getName()))
@@ -455,7 +455,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRequiredResults(List.of(field("rec_no"), version()))
                     .build();
 
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planQuery(query);
             // Should be able to push down version filter onto index the index entries when planner can better reason about version field
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName("MySimpleRecord$str_value_indexed"))

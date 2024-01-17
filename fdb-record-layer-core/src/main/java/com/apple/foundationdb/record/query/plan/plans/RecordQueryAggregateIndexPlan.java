@@ -25,9 +25,13 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -48,7 +52,9 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -78,9 +84,6 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     private final IndexKeyValueToPartialRecord toRecord;
 
     @Nonnull
-    private final Descriptors.Descriptor partialRecordDescriptor;
-
-    @Nonnull
     private final Value resultValue;
 
     @Nonnull
@@ -92,15 +95,13 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
      * @param indexPlan The underlying index.
      * @param recordTypeName The name of the base record, used for debugging.
      * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param partialRecordDescriptor The descriptor of the resulting record.
      * @param resultValue The result value.
      */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
                                          @Nonnull final String recordTypeName,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
-                                         @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
                                          @Nonnull final Value resultValue) {
-        this(indexPlan, recordTypeName, indexEntryToPartialRecordConverter, partialRecordDescriptor, resultValue, QueryPlanConstraint.tautology());
+        this(indexPlan, recordTypeName, indexEntryToPartialRecordConverter, resultValue, QueryPlanConstraint.tautology());
     }
 
     /**
@@ -109,20 +110,17 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
      * @param indexPlan The underlying index.
      * @param recordTypeName The name of the base record, used for debugging.
      * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param partialRecordDescriptor The descriptor of the resulting record.
      * @param resultValue The result value.
      * @param constraint The index filter.
      */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
                                          @Nonnull final String recordTypeName,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
-                                         @Nonnull final Descriptors.Descriptor partialRecordDescriptor,
                                          @Nonnull final Value resultValue,
                                          @Nonnull final QueryPlanConstraint constraint) {
         this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
-        this.partialRecordDescriptor = partialRecordDescriptor;
         this.resultValue = resultValue;
         this.constraint = constraint;
     }
@@ -134,13 +132,16 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final TypeRepository typeRepository = context.getTypeRepository();
+        final Descriptors.Descriptor recordDescriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultValue.getResultType()));
+
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntry -> {
                     final RecordMetaData metaData = store.getRecordMetaData();
                     final RecordType recordType = metaData.getRecordType(recordTypeName);
                     final Index index = metaData.getIndex(getIndexName());
-                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(partialRecordDescriptor, indexEntry), false);
+                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), false);
                 })
                 .map(QueryResult::fromQueriedRecord);
     }
@@ -207,7 +208,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
-        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord, partialRecordDescriptor, resultValue);
+        return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord, resultValue);
     }
 
     @Nonnull
@@ -260,7 +261,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
         final var maybeNewResult = resultValue.translateCorrelations(translationMap);
         if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
-            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, partialRecordDescriptor, maybeNewResult);
+            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, maybeNewResult);
         }
         return this;
     }
@@ -349,5 +350,52 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Override
     public ComparisonRanges getComparisonRanges() {
         return indexPlan.getComparisonRanges();
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryAggregateIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryAggregateIndexPlan.newBuilder()
+                .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
+                .setRecordTypeName(recordTypeName)
+                .setToRecord(toRecord.toProto(serializationContext))
+                .setResultValue(resultValue.toValueProto(serializationContext))
+                .setConstraint(constraint.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setAggregateIndexPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
+        return new RecordQueryAggregateIndexPlan(RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan())),
+                Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName()),
+                IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryAggregateIndexPlan, RecordQueryAggregateIndexPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryAggregateIndexPlan> getProtoMessageClass() {
+            return PRecordQueryAggregateIndexPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
+            return RecordQueryAggregateIndexPlan.fromProto(serializationContext, recordQueryAggregateIndexPlanProto);
+        }
     }
 }

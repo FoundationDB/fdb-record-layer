@@ -932,7 +932,8 @@ public abstract class IndexingBase {
                                 if (ex == null) {
                                     final Set<Index> indexSet = throttle.getAndResetMergeRequiredIndexes();
                                     if (indexSet != null && !indexSet.isEmpty()) {
-                                        return mergeIndexes(indexSet).thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
+                                        return mergeIndexes(indexSet, subspaceProvider)
+                                                .thenCompose(ignore -> doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues));
                                     }
                                     return doneOrThrottleDelayAndMaybeLogProgress(!hasMore, subspaceProvider, additionalLogMessageKeyValues);
                                 }
@@ -947,12 +948,12 @@ public abstract class IndexingBase {
     }
 
     public CompletableFuture<Void> mergeIndexes() {
-        return mergeIndexes(new HashSet<>(common.getTargetIndexes()));
+        return mergeIndexes(new HashSet<>(common.getTargetIndexes()), common.getRecordStoreBuilder().subspaceProvider);
     }
 
-    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet) {
+    private CompletableFuture<Void> mergeIndexes(Set<Index> indexSet, @Nullable SubspaceProvider subspaceProvider) {
         return AsyncUtil.whenAll(indexSet.stream()
-                .map(index -> getIndexingMerger(index).mergeIndex()
+                .map(index -> getIndexingMerger(index).mergeIndex(subspaceProvider)
         ).collect(Collectors.toList()));
     }
 

@@ -24,8 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath.PResolvedAccessor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -34,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -233,6 +241,28 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     }
 
     @Nonnull
+    @Override
+    public PFieldValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        PFieldValue.Builder builder = PFieldValue.newBuilder();
+        builder.setChildValue(childValue.toValueProto(serializationContext));
+        builder.setFieldPath(fieldPath.toProto(serializationContext));
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
+        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(specificValueProto).build();
+    }
+
+    @Nonnull
+    public static FieldValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PFieldValue fieldValueProto) {
+        return new FieldValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(fieldValueProto.getChildValue())),
+                FieldPath.fromProto(serializationContext, Objects.requireNonNull(fieldValueProto.getFieldPath())));
+    }
+
+    @Nonnull
     @VisibleForTesting
     public static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
         final var accessorPathBuilder = ImmutableList.<ResolvedAccessor>builder();
@@ -328,7 +358,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     /**
      * A list of fields forming a path.
      */
-    public static class FieldPath {
+    public static class FieldPath implements PlanSerializable {
         private static final FieldPath EMPTY = new FieldPath(ImmutableList.of());
 
         private static final Comparator<FieldPath> COMPARATOR =
@@ -519,6 +549,29 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         public static Comparator<FieldPath> comparator() {
             return COMPARATOR;
         }
+
+        @Nonnull
+        @Override
+        public PFieldPath toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            PFieldPath.Builder builder = PFieldPath.newBuilder();
+            for (final ResolvedAccessor fieldAccessor : fieldAccessors) {
+                builder.addFieldAccessors(fieldAccessor.toProto(serializationContext));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static FieldPath fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PFieldPath fieldPathProto) {
+            final ImmutableList.Builder<ResolvedAccessor> resolvedAccessorsBuilder = ImmutableList.builder();
+            for (int i = 0; i < fieldPathProto.getFieldAccessorsCount(); i ++) {
+                final PResolvedAccessor resolvedAccessorProto = fieldPathProto.getFieldAccessors(i);
+                resolvedAccessorsBuilder.add(ResolvedAccessor.fromProto(serializationContext, resolvedAccessorProto));
+            }
+            final var resolvedAccessors = resolvedAccessorsBuilder.build();
+            Verify.verify(!resolvedAccessors.isEmpty());
+            return new FieldPath(resolvedAccessors);
+        }
     }
 
     /**
@@ -565,7 +618,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     /**
      * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
      */
-    public static class ResolvedAccessor {
+    public static class ResolvedAccessor implements PlanSerializable {
         @Nullable
         final String name;
 
@@ -612,6 +665,23 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
+        @Override
+        public PResolvedAccessor toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
+            builder.setName(name);
+            builder.setOrdinal(ordinal);
+            builder.setType(type.toTypeProto(serializationContext));
+            return builder.build();
+        }
+
+        @Nonnull
+        public static ResolvedAccessor fromProto(@Nonnull PlanSerializationContext serializationContext,
+                                                 @Nonnull final PResolvedAccessor resolvedAccessorProto) {
+            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(),
+                    Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType()));
+        }
+
+        @Nonnull
         public static ResolvedAccessor of(@Nonnull final Field field, final int ordinal) {
             return of(field.getFieldNameOptional().orElse(null), ordinal, field.getFieldType());
         }
@@ -620,6 +690,25 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
             Preconditions.checkArgument(ordinalFieldNumber >= 0);
             return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PFieldValue, FieldValue> {
+        @Nonnull
+        @Override
+        public Class<PFieldValue> getProtoMessageClass() {
+            return PFieldValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public FieldValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PFieldValue fieldValueProto) {
+            return FieldValue.fromProto(serializationContext, fieldValueProto);
         }
     }
 }

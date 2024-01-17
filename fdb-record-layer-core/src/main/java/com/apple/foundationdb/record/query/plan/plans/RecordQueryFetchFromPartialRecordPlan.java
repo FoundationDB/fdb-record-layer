@@ -26,8 +26,14 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PFetchIndexRecords;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -48,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +81,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     private final Quantifier.Physical inner;
     @Nonnull
     private final Type resultType;
-    @Nonnull
+    @Nullable // planner-only
     private final TranslateValueFunction translateValueFunction;
 
     @Nonnull
@@ -82,6 +89,15 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     private final Supplier<? extends Value> resultValueSupplier;
+
+    protected RecordQueryFetchFromPartialRecordPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
+        this.inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getInner()));
+        this.resultType = Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getResultType()));
+        this.translateValueFunction = null; // not serialized as this is a planner-only structure
+        this.fetchIndexRecords = FetchIndexRecords.fromProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getFetchIndexRecords()));
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
+    }
 
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
         this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction, resultType, fetchIndexRecords);
@@ -153,7 +169,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     public TranslateValueFunction getPushValueFunction() {
-        return translateValueFunction;
+        return Objects.requireNonNull(translateValueFunction);
     }
 
     @Nonnull
@@ -165,12 +181,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction, resultType, fetchIndexRecords);
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), Objects.requireNonNull(translateValueFunction), resultType, fetchIndexRecords);
     }
 
     @Nonnull
     public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier sourceAlias, @Nonnull CorrelationIdentifier targetAlias) {
-        return translateValueFunction.translateValue(value, sourceAlias, targetAlias);
+        return Objects.requireNonNull(translateValueFunction).translateValue(value, sourceAlias, targetAlias);
     }
 
     @Nonnull
@@ -245,6 +261,28 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                 childGraphs);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryFetchFromPartialRecordPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryFetchFromPartialRecordPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setResultType(resultType.toTypeProto(serializationContext))
+                .setFetchIndexRecords(fetchIndexRecords.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setFetchFromPartialRecordPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryFetchFromPartialRecordPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                  @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
+        return new RecordQueryFetchFromPartialRecordPlan(serializationContext, recordQueryFetchFromPartialRecordPlanProto);
+    }
+
     /**
      * Enum to govern how to interpret the primary key of an index entry when accessing its base record(s).
      */
@@ -286,6 +324,33 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
             return fetchIndexRecordsFunction.fetchIndexRecords(store, entryRecordCursor, executeProperties);
         }
 
+        @Nonnull
+        @SuppressWarnings("unused")
+        public final PFetchIndexRecords toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            switch (this) {
+                case PRIMARY_KEY:
+                    return PFetchIndexRecords.PRIMARY_KEY;
+                case SYNTHETIC_CONSTITUENTS:
+                    return PFetchIndexRecords.SYNTHETIC_CONSTITUENTS;
+                default:
+                    throw new RecordCoreException("unknown fetch index records mapping. did you forget to add it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static FetchIndexRecords fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PFetchIndexRecords fetchIndexRecordsProto) {
+            switch (fetchIndexRecordsProto) {
+                case PRIMARY_KEY:
+                    return PRIMARY_KEY;
+                case SYNTHETIC_CONSTITUENTS:
+                    return SYNTHETIC_CONSTITUENTS;
+                default:
+                    throw new RecordCoreException("unknown fetch index records mapping. did you forget to add it?");
+            }
+        }
+
         /**
          * The function to apply.
          */
@@ -294,6 +359,25 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
             <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull FDBRecordStoreBase<M> store,
                                                                                     @Nonnull RecordCursor<IndexEntry> entryRecordCursor,
                                                                                     @Nonnull ExecuteProperties executeProperties);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<RecordQueryPlanProto.PRecordQueryFetchFromPartialRecordPlan, RecordQueryFetchFromPartialRecordPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryFetchFromPartialRecordPlan> getProtoMessageClass() {
+            return PRecordQueryFetchFromPartialRecordPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryFetchFromPartialRecordPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                               @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
+            return RecordQueryFetchFromPartialRecordPlan.fromProto(serializationContext, recordQueryFetchFromPartialRecordPlanProto);
         }
     }
 }

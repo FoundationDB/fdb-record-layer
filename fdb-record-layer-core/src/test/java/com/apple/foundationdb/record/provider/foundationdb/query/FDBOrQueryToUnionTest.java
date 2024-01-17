@@ -253,7 +253,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
@@ -314,7 +314,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(0)))
                 .build();
         orQueryParams.setPlannerConfiguration(this);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -367,7 +367,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[4],[4]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final KeyExpression comparisonKey = planner instanceof CascadesPlanner ? concat(primaryKey("MySimpleRecord"), field("num_value_3_indexed")) : primaryKey("MySimpleRecord");
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
@@ -421,7 +421,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(4)))
                 .build();
         orQueryParams.setPlannerConfiguration(this);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -431,7 +431,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(1)))
                 .build();
         orQueryParams.setPlannerConfiguration(this);
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
 
         // plan is physically different but returns the same result
         assertThat(plan.hashCode(), not(equalTo(plan2.hashCode())));
@@ -459,7 +459,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[2],[2]]"))),
@@ -517,7 +517,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed ([null],[2])) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([3],>")))
@@ -573,7 +573,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[even],[even]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[even],[even]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
@@ -632,7 +632,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         // Cascades planner always removes duplicates
         boolean planRemovesDuplicates = orQueryParams.isRemoveDuplicates() || planner instanceof CascadesPlanner;
@@ -718,7 +718,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         boolean planRemovesDuplicates = orQueryParams.isRemoveDuplicates() || planner instanceof CascadesPlanner;
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher;
@@ -824,7 +824,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(str_value_3_index ([even, 3],[even]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_3_indexed ([null],[1]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("str_value_3_index")).and(scanComparisons(range("([even, 3],[even]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[1])")))
@@ -886,7 +886,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Unordered(Index(multi_index ([even, null],[even, 1]]) ∪ Index(multi_index_2 [[even, 3],[even]]))
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
 
         // The Cascades planner always removes duplicates and defers fetches, even when not specified on the query
         final boolean planRemovesDuplicates = orQueryParams.isRemoveDuplicates() || (planner instanceof CascadesPlanner);
@@ -977,7 +977,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(str_value_3_index [[even, 1],[even, 1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'num_value_unique' None}] Index(str_value_3_index ([even, 3],[even]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final KeyExpression comparisonKey = (orQueryParams.shouldOmitPrimaryKeyInOrderingKey() || planner instanceof CascadesPlanner)
                 ? concatenateFields("num_value_3_indexed", "num_value_unique")
                 : concatenateFields("str_value_indexed", "num_value_3_indexed", "num_value_unique");
@@ -1053,7 +1053,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'str_value_indexed' None}, Field { 'num_value_unique' None}] Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]")))
@@ -1095,7 +1095,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")), orQueryParams.isSortReverse())
                 .build();
         orQueryParams.setPlannerConfiguration(this);
-        plan = planner.plan(query);
+        plan = planQuery(query);
         planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]")))
@@ -1158,7 +1158,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(multi_index [[odd, 0],[odd, 0]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[odd, 2],[odd, 2]])
         orQueryParams.setPlannerConfiguration(this);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final KeyExpression comparisonKey = planner instanceof CascadesPlanner ? concat(field("num_value_3_indexed"), field("num_value_2"), primaryKey("MySimpleRecord")) : concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"));
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[odd, 0],[odd, 0]]"))),
@@ -1240,11 +1240,11 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Index(multi_index [[odd],[odd]]) ∪[Field { 'num_value_2' None}, Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[even],[even]])
         final RecordQueryPlan plan;
         if (planner instanceof RecordQueryPlanner && !orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
-            RecordCoreException err = assertThrows(RecordCoreException.class, () -> planner.plan(query));
+            RecordCoreException err = assertThrows(RecordCoreException.class, () -> planQuery(query));
             assertThat(err.getMessage(), Matchers.containsString("Cannot sort without appropriate index"));
             return;
         } else {
-            plan = planner.plan(query);
+            plan = planQuery(query);
         }
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
@@ -1321,7 +1321,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(MySimpleRecord$num_value_3_indexed <,>) | Or([str_value_indexed EQUALS even, str_value_indexed EQUALS odd])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> indexPlanMatcher = indexPlan()
                 .where(indexName("MySimpleRecord$num_value_3_indexed"))
                 .and(scanComparisons(unbounded()));
@@ -1392,7 +1392,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(
                         Query.field("num_value_3_indexed").equalsValue(0),
@@ -1401,7 +1401,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]))
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertNotEquals(plan1.hashCode(), plan2.hashCode());
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
@@ -1468,14 +1468,14 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan1 = planner.plan(query1);
+        RecordQueryPlan plan1 = planQuery(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(Lists.reverse(Objects.requireNonNull((OrComponent)query1.getFilter()).getChildren())))
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]))
-        RecordQueryPlan plan2 = planner.plan(query2);
+        RecordQueryPlan plan2 = planQuery(query2);
         assertNotEquals(plan1.hashCode(), plan2.hashCode());
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
@@ -1551,7 +1551,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(str_2 [[even],[even]]) ∪[Field { 'num_value_2' None}, Field { 'rec_no' None}] Index(nu_2 [[909],[909]]) ∩ Index(n3_2 [[1],[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
             if (orQueryParams.shouldDeferFetch()) {
@@ -1631,7 +1631,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[0],[0]]")))
@@ -1697,7 +1697,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(multi_index [[even, 0, 0],[even, 0, 0]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[even, 0, 2],[even, 0, 3]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 0],[even, 0, 0]]"))),
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[even, 0, 2],[even, 0, 3]]")))
@@ -1766,7 +1766,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) ∪ Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) ∪ Index(MySimpleRecord$num_value_3_indexed [[5],[5]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[3],[3]]"))),
@@ -1832,7 +1832,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         orQueryParams.setPlannerConfiguration(this);
 
         // Index(MySimpleRecord$str_value_indexed [[even],[even]]) | Or([num_value_3_indexed EQUALS 1, num_value_3_indexed EQUALS 2, num_value_3_indexed EQUALS 4])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -1941,7 +1941,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 ))
                 .build();
         orQueryParams.setPlannerConfiguration(this);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
             if (orQueryParams.shouldDeferFetch()) {
@@ -2015,7 +2015,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         orQueryParams.setPlannerConfiguration(this);
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = queryPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName("MySimpleRecord$str_value_indexed")),
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed"))
@@ -2051,7 +2051,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         orQueryParams.setPlannerConfiguration(this);
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -2118,7 +2118,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         orQueryParams.setPlannerConfiguration(this);
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
 
         final List<BindingMatcher<RecordQueryIndexPlan>> indexMatchers = List.of(
                         indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([1],[2])"))),

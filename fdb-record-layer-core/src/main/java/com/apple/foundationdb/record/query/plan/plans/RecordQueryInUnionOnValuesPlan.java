@@ -21,7 +21,11 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionOnValuesPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -31,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -44,6 +49,11 @@ import java.util.Set;
  */
 @SuppressWarnings("java:S2160")
 public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan implements RecordQueryPlanWithComparisonKeyValues {
+
+    protected RecordQueryInUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+        super(serializationContext, recordQueryInUnionOnValuesPlanProto.getSuper());
+    }
 
     public RecordQueryInUnionOnValuesPlan(@Nonnull final Quantifier.Physical inner,
                                           @Nonnull final List<? extends InSource> inSources,
@@ -121,6 +131,26 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     }
 
     @Nonnull
+    @Override
+    public PRecordQueryInUnionOnValuesPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryInUnionOnValuesPlan.newBuilder()
+                .setSuper(toRecordQueryInUnionPlanProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInUnionOnValuesPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryInUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+        return new RecordQueryInUnionOnValuesPlan(serializationContext, recordQueryInUnionOnValuesPlanProto);
+    }
+
+    @Nonnull
     public static RecordQueryInUnionOnValuesPlan inUnion(@Nonnull final Quantifier.Physical inner,
                                                          @Nonnull final List<? extends InSource> inSources,
                                                          @Nonnull final List<? extends Value> comparisonKeyValues,
@@ -133,5 +163,24 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 reverse,
                 maxNumberOfValuesAllowed,
                 internal);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryInUnionOnValuesPlan, RecordQueryInUnionOnValuesPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryInUnionOnValuesPlan> getProtoMessageClass() {
+            return PRecordQueryInUnionOnValuesPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryInUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+            return RecordQueryInUnionOnValuesPlan.fromProto(serializationContext, recordQueryInUnionOnValuesPlanProto);
+        }
     }
 }

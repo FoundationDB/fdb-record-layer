@@ -23,8 +23,12 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -33,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -145,12 +150,16 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         throw new UnsupportedOperationException("Cannot change comparison");
     }
 
-    static class RecordTypeComparison implements Comparisons.Comparison {
+    /**
+     * Equality comparison to check for records of a particular record type.
+     */
+    public static class RecordTypeComparison implements Comparisons.Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Comparison");
 
+        @Nonnull
         private final String recordTypeName;
 
-        RecordTypeComparison(String recordTypeName) {
+        RecordTypeComparison(@Nonnull String recordTypeName) {
             this.recordTypeName = recordTypeName;
         }
 
@@ -243,6 +252,44 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Override
         public int hashCode() {
             return Objects.hash(recordTypeName);
+        }
+
+        @Nonnull
+        @Override
+        public PRecordTypeComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PRecordTypeComparison.newBuilder().setRecordTypeName(recordTypeName).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setRecordTypeComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+            return new RecordTypeComparison(Objects.requireNonNull(recordTypeComparisonProto.getRecordTypeName()));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PRecordTypeComparison, RecordTypeComparison> {
+            @Nonnull
+            @Override
+            public Class<PRecordTypeComparison> getProtoMessageClass() {
+                return PRecordTypeComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+                return RecordTypeComparison.fromProto(serializationContext, recordTypeComparisonProto);
+            }
         }
     }
 }

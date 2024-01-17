@@ -27,8 +27,14 @@ import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryScoreForRankPlan;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PScoreForRank;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -50,7 +56,9 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.planning.BindingFunction;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,7 +72,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -268,22 +275,52 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 .build();
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryScoreForRankPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryScoreForRankPlan.Builder builder =
+                PRecordQueryScoreForRankPlan.newBuilder()
+                        .setInner(inner.toProto(serializationContext));
+        for (final ScoreForRank rank : ranks) {
+            builder.addRanks(rank.toProto(serializationContext));
+        }
+
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setScoreForRankPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+        final ImmutableList.Builder<ScoreForRank> ranksBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryScoreForRankPlanProto.getRanksCount(); i++) {
+            ranksBuilder.add(ScoreForRank.fromProto(serializationContext, recordQueryScoreForRankPlanProto.getRanks(i)));
+        }
+        return new RecordQueryScoreForRankPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryScoreForRankPlanProto.getInner())),
+                ranksBuilder.build());
+    }
+
     /**
      * A single conversion of a rank to a score to be bound to some name.
      */
-    public static class ScoreForRank implements PlanHashable {
+    public static class ScoreForRank implements PlanHashable, PlanSerializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Score-For-Rank");
 
         @Nonnull
         private final String bindingName;
         @Nonnull
-        private final Function<Tuple, Object> bindingFunction;
+        private final BindingFunction bindingFunction;
         @Nonnull
         private final IndexAggregateFunction function;
         @Nonnull
         private final List<Comparisons.Comparison> comparisons;
 
-        public ScoreForRank(@Nonnull String bindingName, @Nonnull Function<Tuple, Object> bindingFunction,
+        public ScoreForRank(@Nonnull String bindingName, @Nonnull BindingFunction bindingFunction,
                             @Nonnull IndexAggregateFunction function, @Nonnull List<Comparisons.Comparison> comparisons) {
             this.bindingName = bindingName;
             this.bindingFunction = bindingFunction;
@@ -341,6 +378,51 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
+        }
+
+        @Nonnull
+        @Override
+        public PScoreForRank toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final var builder = PScoreForRank.newBuilder()
+                    .setBindingName(bindingName)
+                    .setBindingFunction(bindingFunction.toProto(serializationContext))
+                    .setFunction(function.toProto(serializationContext));
+            for (final Comparisons.Comparison comparison : comparisons) {
+                builder.addComparisons(comparison.toComparisonProto(serializationContext));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        public static ScoreForRank fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PScoreForRank scoreForRankProto) {
+            final ImmutableList.Builder<Comparisons.Comparison> comparisonsBuilder = ImmutableList.builder();
+            for (int i = 0; i < scoreForRankProto.getComparisonsCount(); i++) {
+                comparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scoreForRankProto.getComparisons(i)));
+            }
+            return new ScoreForRank(Objects.requireNonNull(scoreForRankProto.getBindingName()),
+                    BindingFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getBindingFunction())),
+                    IndexAggregateFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getFunction())),
+                    comparisonsBuilder.build());
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryScoreForRankPlan, RecordQueryScoreForRankPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryScoreForRankPlan> getProtoMessageClass() {
+            return PRecordQueryScoreForRankPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+            return RecordQueryScoreForRankPlan.fromProto(serializationContext, recordQueryScoreForRankPlanProto);
         }
     }
 }
