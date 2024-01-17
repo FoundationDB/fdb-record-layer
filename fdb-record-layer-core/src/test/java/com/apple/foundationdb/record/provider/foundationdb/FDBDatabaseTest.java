@@ -33,7 +33,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -51,7 +50,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -179,68 +177,6 @@ class FDBDatabaseTest extends FDBTestBase {
         assertThat(readVersion5, greaterThanOrEqualTo(outOfBandReadVersion));
     }
 
-    @Test
-    void testBlockingInAsyncException() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING);
-
-        // Make sure that we aren't holding on to previously created databases
-        factory.clear();
-
-        FDBDatabase database = factory.getDatabase();
-        assertEquals(BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING, database.getBlockingInAsyncDetection());
-        assertThrows(BlockingInAsyncException.class, () -> callAsyncBlocking(database));
-    }
-
-    @Test
-    void testBlockingInAsyncWarning() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING);
-        factory.clear();
-
-        FDBDatabase database = factory.getDatabase();
-        TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_IN_ASYNC_CONTEXT_MESSAGE,
-                () -> {
-                    callAsyncBlocking(database, true);
-                    return null;
-                });
-    }
-
-    @Test
-    void testCompletedBlockingInAsyncWarning() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
-        factory.clear();
-
-        FDBDatabase database = factory.getDatabase();
-        TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_IN_ASYNC_CONTEXT_MESSAGE,
-                () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK,
-                        CompletableFuture.supplyAsync(() ->
-                                database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, CompletableFuture.completedFuture(10L)))));
-    }
-
-    @Test
-    void testBlockingCreatingAsyncDetection() throws Exception {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
-        factory.clear();
-
-        FDBDatabase database = factory.getDatabase();
-        TestHelpers.assertLogs(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
-                () -> returnAnAsync(database, MoreAsyncUtil.delayedFuture(200L, TimeUnit.MILLISECONDS)));
-    }
-
-    @Test
-    void testCompletedBlockingCreatingAsyncDetection() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
-        factory.clear();
-
-        FDBDatabase database = factory.getDatabase();
-        TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_RETURNING_ASYNC_MESSAGE,
-                () -> returnAnAsync(database, CompletableFuture.completedFuture(10L)));
-    }
-
     @ParameterizedTest(name = "testJoinNowOnCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
     void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
@@ -363,37 +299,6 @@ class FDBDatabaseTest extends FDBTestBase {
             context.commit();
         }
         assertEquals(2, counter.get());
-    }
-
-    private CompletableFuture<Long> returnAnAsync(FDBDatabase database, CompletableFuture<?> toComplete) {
-        database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, toComplete);
-        return CompletableFuture.completedFuture(10L);
-    }
-
-    private void callAsyncBlocking(FDBDatabase database) {
-        callAsyncBlocking(database, false);
-    }
-
-    private void callAsyncBlocking(FDBDatabase database, boolean shouldTimeOut) {
-        final CompletableFuture<Long> incomplete = new CompletableFuture<>();
-        final Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> existingTimeouts = database.getAsyncToSyncTimeout();
-
-        try {
-            database.setAsyncToSyncTimeout(200L, TimeUnit.MILLISECONDS);
-            database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, CompletableFuture.supplyAsync(
-                    () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_ERROR_CHECK, incomplete)));
-            incomplete.complete(10L);
-        } catch (RecordCoreException e) {
-            if (e.getCause() instanceof TimeoutException) {
-                if (!shouldTimeOut) {
-                    throw e;
-                }
-            } else {
-                throw e;
-            }
-        } finally {
-            database.setAsyncToSyncTimeout(existingTimeouts);
-        }
     }
 
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {

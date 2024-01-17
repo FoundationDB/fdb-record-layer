@@ -63,48 +63,6 @@ sourceSets {
     }
 }
 
-test {
-    useJUnitPlatform {
-        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
-            excludeTags 'RequiresFDB'
-        }
-        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
-            excludeTags 'Slow'
-        }
-
-        // Configure whether or not tests will validate that asyncToSync isn't being called in async
-        // context.  See BlockingInAsyncDetection class for details on values.
-        systemProperty "com.apple.foundationdb.record.blockingInAsyncDetection",
-                System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
-
-        // We need the destructive tests to be available in the 'test' task, so that IntelliJ's gradle test runner can
-        // find them. However, we _only_ want to run them as part of the 'test' task if we're running from IntelliJ.
-        // This isn't a great way to detect it, but it's the only one I could find. If this ever breaks, I'd look here first.
-        if (System.getenv('XPC_SERVICE_NAME') == null || !(System.getenv('XPC_SERVICE_NAME').contains("intellij") || System.getenv('XPC_SERVICE_NAME').contains("idea"))) {
-            excludeTags 'WipesFDB'
-            excludeTags 'Performance'
-        }
-    }
-}
-
-task destructiveTest(type: Test) {
-    useJUnitPlatform {
-        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
-            excludeTags 'RequiresFDB'
-        }
-        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
-            excludeTags 'Slow'
-        }
-        excludeTags 'Performance'
-
-        includeTags 'WipesFDB'
-        maxParallelForks = 1
-    }
-    reports {
-        junitXml.destination = file("${buildDir}/test-results/destructive")
-    }
-}
-
 task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     classifier = 'standalone-tests'
     from sourceSets.main.output

@@ -47,19 +47,6 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
-def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
-def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
-test {
-    useJUnitPlatform {
-        if (skipFDB) {
-            excludeTags 'RequiresFDB'
-        }
-        if (skipSlow) {
-            excludeTags 'Slow'
-        }
-    }
-}
-
 def geonames_files = ['countryInfo.txt', 'cities15000.zip', 'shapes_all_low.zip']
 
 task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {
@@ -67,19 +54,22 @@ task downloadGeonames(type: de.undercouch.gradle.tasks.download.Download) {
     /* some times geonames times out or is otherwise unreliable, move files to
     an s3 bucket that we control for more consistent download behavior */
     src geonames_files.collect { file -> "https://fdb-record-layer.s3.amazonaws.com/geonames/${file}" }
-    dest buildDir
+    dest layout.buildDirectory.dir("geonames").get().asFile
     overwrite false         // Don't need the very latest.
 }
 
 task unzipGeonames(dependsOn: downloadGeonames, type: Copy) {
-    into buildDir
+    into layout.buildDirectory.dir("geonames")
     geonames_files.each { file ->
         if (file.endsWith('.zip')) {
-            from zipTree(new File(buildDir, file))
+            from zipTree(layout.buildDirectory.dir("geonames").map { d ->
+                d.file(file).asFile
+            }.get())
         }
     }
 }
 
+def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 if (!skipSlow) {
     test.dependsOn unzipGeonames
 }
