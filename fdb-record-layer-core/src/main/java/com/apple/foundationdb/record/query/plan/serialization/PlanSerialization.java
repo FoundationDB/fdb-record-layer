@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -53,6 +54,7 @@ import java.util.function.Predicate;
  * Class to facilitate serialization and deserialization of
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s.
  */
+@API(API.Status.INTERNAL)
 public class PlanSerialization {
     /**
      * Helper method to serialize plan fragments that are essentially values of the underlying data model.

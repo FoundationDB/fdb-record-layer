@@ -697,7 +697,7 @@ class BooleanValueTest {
 
     @Nonnull
     protected static Value verifySerialization(@Nonnull final Value value) {
-        PlanSerializationContext serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlanProto.PValue planProto = value.toValueProto(serializationContext);
         final byte[] serializedValue = planProto.toByteArray();
@@ -708,7 +708,7 @@ class BooleanValueTest {
             throw new RuntimeException(e);
         }
 
-        serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
+        serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final Value deserializedValue =
                 Value.fromValueProto(serializationContext, parsedValueProto);
         Assertions.assertEquals(value.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedValue.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));

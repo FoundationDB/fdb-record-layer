@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
  * boilerplate that is necessary to be aware of when extending existing plan structures or adding new plan operators
  * themselves.
  * <br>
- * All classes that are serializable for plan serialization purposed must implement {@link PlanSerializable}.
+ * All classes that are serializable for plan serialization purposes must implement {@link PlanSerializable}.
  * That interface complements {@link PlanHashable} which is doing similar things to compute a deterministic and stable
  * hash code for a plan. Each class {@code SomeClass} implementing {@link PlanSerializable} has a counterpart protobuf
  * message called {@code PSomeClass}. This convention was chosen in order to allow both classes to be referenced with

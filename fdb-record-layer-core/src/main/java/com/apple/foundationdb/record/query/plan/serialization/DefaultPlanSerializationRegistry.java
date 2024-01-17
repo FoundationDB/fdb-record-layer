@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.serialization;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -37,6 +38,7 @@ import java.util.Map;
 /**
  * Default implementation of a plan serialization registry.
  */
+@API(API.Status.EXPERIMENTAL)
 public class DefaultPlanSerializationRegistry implements PlanSerializationRegistry {
     public static final PlanSerializationRegistry INSTANCE = new DefaultPlanSerializationRegistry();
     private static final String TYPE_URL_PREFIX = "c.a.fdb.types";

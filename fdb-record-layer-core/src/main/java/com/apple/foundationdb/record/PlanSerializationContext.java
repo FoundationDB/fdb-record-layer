@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPlanReference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
@@ -32,8 +33,9 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * TBD.
+ * Context class defining the state of serialization/deserialization currently in-flight.
  */
+@API(API.Status.INTERNAL)
 public class PlanSerializationContext {
 
     @Nonnull
@@ -69,7 +71,7 @@ public class PlanSerializationContext {
 
     @Nonnull
     public static PlanSerializationContext newForCurrentMode() {
-        return newForCurrentMode(new DefaultPlanSerializationRegistry());
+        return newForCurrentMode(DefaultPlanSerializationRegistry.INSTANCE);
     }
 
     @Nonnull

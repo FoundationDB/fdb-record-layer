@@ -546,7 +546,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      */
     @Nonnull
     protected static RecordQueryPlan verifySerialization(@Nonnull final RecordQueryPlan plan) {
-        PlanSerializationContext serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlanProto.PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
         final byte[] serializedPlan = planProto.toByteArray();
