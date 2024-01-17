@@ -26,7 +26,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support for Cross-Partition Queries [(Issue #2432)](https://github.com/FoundationDB/fdb-record-layer/issues/2432)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** add feature to serialize/deserialize plans [(Issue #2443)](https://github.com/FoundationDB/fdb-record-layer/issues/2443)
 * **Feature** IndexMerge should include key_space_path in logs [(Issue #2436)](https://github.com/FoundationDB/fdb-record-layer/issues/2436)

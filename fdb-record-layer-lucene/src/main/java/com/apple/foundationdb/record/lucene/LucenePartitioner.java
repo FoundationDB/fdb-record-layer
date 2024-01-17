@@ -114,15 +114,28 @@ public class LucenePartitioner {
      */
     @Nullable
     public Integer selectQueryPartitionId(@Nonnull Tuple groupKey) {
-        Integer partitionId = null;
         if (isPartitioningEnabled()) {
-            partitionId = 0;
-            LucenePartitionInfoProto.LucenePartitionInfo partition = state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey));
-            if (partition != null) {
-                partitionId = partition.getId();
+            LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = selectQueryPartition(groupKey);
+            if (partitionInfo != null) {
+                return partitionInfo.getId();
             }
         }
-        return partitionId;
+        return null;
+    }
+
+    /**
+     * return the partition ID on which to run a query, given a grouping key.
+     * For now, the most recent partition is returned.
+     *
+     * @param groupKey group key
+     * @return partition, or <code>null</code> if partitioning isn't enabled or no partitioning metadata exist
+     */
+    @Nullable
+    public LucenePartitionInfoProto.LucenePartitionInfo selectQueryPartition(@Nonnull Tuple groupKey) {
+        return isPartitioningEnabled() ?
+               state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey))
+               :
+               null;
     }
 
     /**
@@ -244,7 +257,7 @@ public class LucenePartitioner {
      * @return partition metadata key
      */
     @Nonnull
-    private byte[] partitionMetadataKeyFromTimestamp(@Nonnull Tuple groupKey, long timestamp) {
+    byte[] partitionMetadataKeyFromTimestamp(@Nonnull Tuple groupKey, long timestamp) {
         return state.indexSubspace.pack(Tuple.from(groupKey, PARTITION_META_SUBSPACE, timestamp));
     }
 
@@ -254,11 +267,22 @@ public class LucenePartitioner {
      * @param groupKey group key
      * @param builder builder instance
      */
-    private void savePartitionMetadata(@Nonnull Tuple groupKey, @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo.Builder builder) {
+    void savePartitionMetadata(@Nonnull Tuple groupKey, @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo.Builder builder) {
         LucenePartitionInfoProto.LucenePartitionInfo updatedPartition = builder.build();
         state.context.ensureActive().set(
                 partitionMetadataKeyFromTimestamp(groupKey, Tuple.fromBytes(builder.getFrom().toByteArray()).getLong(0)),
                 updatedPartition.toByteArray());
+    }
+
+    @Nonnull
+    CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> findPartitionInfo(@Nonnull Tuple groupKey, long timestamp) {
+        Range range = new Range(state.indexSubspace.subspace(Tuple.from(groupKey, PARTITION_META_SUBSPACE)).pack(),
+                state.indexSubspace.subspace(Tuple.from(groupKey, PARTITION_META_SUBSPACE, timestamp)).pack());
+
+        final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
+
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor())
+                .thenApply(targetPartition -> targetPartition.isEmpty() ? null : partitionInfoFromKV(targetPartition.get(0)));
     }
 
     /**
@@ -420,7 +444,7 @@ public class LucenePartitioner {
      * @param partitionInfo partition metadata instance
      * @return long
      */
-    private long getFrom(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+    public static long getFrom(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getFrom().toByteArray()).getLong(0);
     }
 
@@ -431,7 +455,7 @@ public class LucenePartitioner {
      * @param partitionInfo partition metadata instance
      * @return long
      */
-    private long getTo(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+    public static long getTo(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getTo().toByteArray()).getLong(0);
     }
 }
