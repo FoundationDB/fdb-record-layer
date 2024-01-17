@@ -67,8 +67,6 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
                 int permutedSize = PermutedMinMaxIndexMaintainer.getPermutedSize(index);
                 if (permutedSize < 0) {
                     throw new MetaDataException("permuted size cannot be negative", LogMessageKeys.INDEX_NAME, index.getName());
-                } else if (permutedSize == 0) {
-                    throw new MetaDataException("no permutation does not need a special index type for MIN and MAX", LogMessageKeys.INDEX_NAME, index.getName());
                 } else if (permutedSize > groupingCount) {
                     throw new MetaDataException("permuted size cannot be larger than grouping size", LogMessageKeys.INDEX_NAME, index.getName());
                 }

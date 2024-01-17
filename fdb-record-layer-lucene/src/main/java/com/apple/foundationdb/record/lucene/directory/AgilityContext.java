@@ -22,17 +22,20 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
@@ -43,8 +46,12 @@ import java.util.function.Function;
  */
 public interface AgilityContext {
 
-    static AgilityContext factory(FDBRecordContext callerContext, boolean useAgileContext) {
-        return useAgileContext ? new Agile(callerContext) : new NonAgile(callerContext);
+    static AgilityContext nonAgile(FDBRecordContext callerContext) {
+        return new NonAgile(callerContext);
+    }
+
+    static AgilityContext agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        return new Agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
     }
 
     // `apply` should be called when a returned value is expected
@@ -110,12 +117,16 @@ public interface AgilityContext {
         return getCallerContext().asyncToSync(event, async);
     }
 
+    @Nullable
+    default <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
+        return getCallerContext().getPropertyStorage().getPropertyValue(propertyKey);
+    }
 
     /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
      */
     class Agile implements AgilityContext {
-
+        static final Logger LOGGER = LoggerFactory.getLogger(AgilityContext.Agile.class);
         private final FDBRecordContextConfig.Builder contextConfigBuilder;
         private final FDBDatabase database;
         private final FDBRecordContext callerContext; // for counters updates only
@@ -136,15 +147,15 @@ public interface AgilityContext {
         private final Object createLockSync = new Object();
         private final Object commitLockSync = new Object();
         private boolean committingNow = false;
+        private long prevCommitCheckTime;
 
-        Agile(FDBRecordContext callerContext) {
+        Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
             database = callerContext.getDatabase();
-            this.timeQuotaMillis = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
-            this.sizeQuotaBytes = Objects.requireNonNullElse(callerContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
-
+            this.timeQuotaMillis = timeQuotaMillis;
+            this.sizeQuotaBytes = sizeQuotaBytes;
             callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
         }
 
@@ -165,6 +176,7 @@ public interface AgilityContext {
                     FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
                     creationTime = now();
+                    prevCommitCheckTime = creationTime;
                     currentWriteSize = 0;
                 }
             }
@@ -199,6 +211,7 @@ public interface AgilityContext {
             if (shouldCommit()) {
                 commitNow();
             }
+            prevCommitCheckTime = now();
         }
 
         public void commitNow() {
@@ -210,14 +223,32 @@ public interface AgilityContext {
                     committingNow = true;
                     final long stamp = lock.writeLock();
 
-                    currentContext.commit();
-                    currentContext.close();
+                    try {
+                        currentContext.commit();
+                        currentContext.close();
+                    } catch (RuntimeException ex) {
+                        reportFdbException(ex);
+                        throw ex;
+                    }
                     currentContext = null;
                     currentWriteSize = 0;
 
                     lock.unlock(stamp);
                     committingNow = false;
                 }
+            }
+        }
+
+        private void reportFdbException(Throwable ex) {
+            if (LOGGER.isDebugEnabled()) {
+                long nowMilliseconds = now();
+                final long creationAge = nowMilliseconds - creationTime;
+                final long  prevCheckAge = nowMilliseconds - prevCommitCheckTime;
+                LOGGER.debug(KeyValueLogMessage.build("AgilityContext: Commit failed",
+                        LogMessageKeys.AGILITY_CONTEXT_AGE_MILLISECONDS, creationAge,
+                        LogMessageKeys.AGILITY_CONTEXT_PREV_CHECK_MILLISECONDS, prevCheckAge,
+                        LogMessageKeys.AGILITY_CONTEXT_WRITE_SIZE_BYTES, currentWriteSize
+                ).toString(), ex);
             }
         }
 
@@ -229,6 +260,10 @@ public interface AgilityContext {
                 lock.unlock(stamp);
                 commitIfNeeded();
                 return ret;
+            }).whenComplete((ret, ex) -> {
+                if (ex != null) {
+                    reportFdbException(ex);
+                }
             });
         }
 

@@ -28,8 +28,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -117,7 +120,23 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return context.dereferenceConstant(alias, ordinal);
+        final var obj = context.dereferenceConstant(alias, ordinal);
+        if (obj == null) {
+            Verify.verify(getResultType().isNullable());
+            return obj;
+        }
+        if (obj instanceof DynamicMessage) {
+            // TODO: run coercion for proper promotion, and if that fails then bailout.
+            return obj;
+        }
+        final var objType = Type.fromObject(obj);
+        final var promotionNeeded = PromoteValue.isPromotionNeeded(objType, getResultType());
+        if (!promotionNeeded) {
+            return obj;
+        }
+        final var promotionFunction = PromoteValue.resolvePromotionFunction(objType, getResultType());
+        SemanticException.check(promotionFunction != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        return promotionFunction.apply(null, obj);
     }
 
     @Override

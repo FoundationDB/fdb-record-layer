@@ -310,17 +310,15 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     public static Optional<FieldPath> stripFieldPrefixMaybe(@Nonnull FieldPath fieldPath,
-                                                              @Nonnull FieldPath potentialPrefixPath) {
+                                                            @Nonnull FieldPath potentialPrefixPath) {
         if (fieldPath.size() < potentialPrefixPath.size()) {
             return Optional.empty();
         }
 
         final var fieldPathOrdinals = fieldPath.getFieldOrdinals();
-        final var fieldPathTypes = fieldPath.getFieldTypes();
         final var potentialPrefixFieldOrdinals = potentialPrefixPath.getFieldOrdinals();
-        final var potentialPrefixFieldTypes = potentialPrefixPath.getFieldTypes();
         for (int i = 0; i < potentialPrefixPath.size(); i++) {
-            if (fieldPathOrdinals.get(i) != potentialPrefixFieldOrdinals.get(i) || !fieldPathTypes.get(i).equals(potentialPrefixFieldTypes.get(i))) {
+            if (fieldPathOrdinals.get(i) != potentialPrefixFieldOrdinals.get(i)) {
                 return Optional.empty();
             }
         }

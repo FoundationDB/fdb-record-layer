@@ -283,55 +283,114 @@ public interface MatchCandidate {
         switch (indexType) {
             case IndexTypes.VALUE:
             case IndexTypes.VERSION:
-                expandIndexMatchCandidate(index,
-                    availableRecordTypeNames,
-                    availableRecordTypes,
-                    queriedRecordTypeNames,
-                    queriedRecordTypes,
-                    isReverse,
-                    commonPrimaryKeyForIndex,
-                    new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+                expandValueIndexMatchCandidate(
+                        index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex
+                ).ifPresent(resultBuilder::add);
                 break;
             case IndexTypes.RANK:
                 // For rank() we need to create at least two candidates. One for BY_RANK scans and one for BY_VALUE scans.
-                expandIndexMatchCandidate(index,
+                expandValueIndexMatchCandidate(
+                        index,
                         availableRecordTypeNames,
                         availableRecordTypes,
                         queriedRecordTypeNames,
                         queriedRecordTypes,
                         isReverse,
-                        commonPrimaryKeyForIndex,
-                        new ValueIndexExpansionVisitor(index, queriedRecordTypes)).ifPresent(resultBuilder::add);
+                        commonPrimaryKeyForIndex
+                ).ifPresent(resultBuilder::add);
 
-                expandIndexMatchCandidate(index,
+                expandIndexMatchCandidate(
+                        index,
                         availableRecordTypeNames,
                         availableRecordTypes,
                         queriedRecordTypeNames,
                         queriedRecordTypes,
                         isReverse,
                         commonPrimaryKeyForIndex,
-                        new WindowedIndexExpansionVisitor(index, queriedRecordTypes))
-                        .ifPresent(resultBuilder::add);
+                        new WindowedIndexExpansionVisitor(index, queriedRecordTypes)
+                ).ifPresent(resultBuilder::add);
                 break;
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
             case IndexTypes.SUM: // fallthrough
             case IndexTypes.COUNT: // fallthrough
             case IndexTypes.COUNT_NOT_NULL:
-                expandIndexMatchCandidate(index,
-                            availableRecordTypeNames,
-                            availableRecordTypes,
-                            queriedRecordTypeNames,
-                            queriedRecordTypes,
-                            isReverse,
-                            null,
-                            new AggregateIndexExpansionVisitor(index, queriedRecordTypes))
-                            .ifPresent(resultBuilder::add);
+                expandAggregateIndexMatchCandidate(
+                        index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse
+                ).ifPresent(resultBuilder::add);
+                break;
+            case IndexTypes.PERMUTED_MAX: // fallthrough
+            case IndexTypes.PERMUTED_MIN:
+                // For permuted min and max, we use the value index expansion for BY_VALUE scans and we use
+                // the aggregate index expansion for BY_GROUP scans
+                expandValueIndexMatchCandidate(
+                        index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex
+                ).ifPresent(resultBuilder::add);
+                expandAggregateIndexMatchCandidate(
+                        index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse
+                ).ifPresent(resultBuilder::add);
                 break;
             default:
                 break;
         }
         return resultBuilder.build();
+    }
+
+    private static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull final Index index,
+                                                                           @Nonnull final Set<String> availableRecordTypeNames,
+                                                                           @Nonnull final Collection<RecordType> availableRecordTypes,
+                                                                           @Nonnull final Set<String> queriedRecordTypeNames,
+                                                                           @Nonnull final Collection<RecordType> queriedRecordTypes,
+                                                                           final boolean isReverse,
+                                                                           @Nullable final KeyExpression commonPrimaryKeyForIndex) {
+        return expandIndexMatchCandidate(index,
+                availableRecordTypeNames,
+                availableRecordTypes,
+                queriedRecordTypeNames,
+                queriedRecordTypes,
+                isReverse,
+                commonPrimaryKeyForIndex,
+                new ValueIndexExpansionVisitor(index, queriedRecordTypes)
+        );
+    }
+
+    private static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull final Index index,
+                                                                               @Nonnull final Set<String> availableRecordTypeNames,
+                                                                               @Nonnull final Collection<RecordType> availableRecordTypes,
+                                                                               @Nonnull final Set<String> queriedRecordTypeNames,
+                                                                               @Nonnull final Collection<RecordType> queriedRecordTypes,
+                                                                               final boolean isReverse) {
+        return expandIndexMatchCandidate(index,
+                availableRecordTypeNames,
+                availableRecordTypes,
+                queriedRecordTypeNames,
+                queriedRecordTypes,
+                isReverse,
+                null,
+                new AggregateIndexExpansionVisitor(index, queriedRecordTypes)
+        );
     }
 
     @Nonnull

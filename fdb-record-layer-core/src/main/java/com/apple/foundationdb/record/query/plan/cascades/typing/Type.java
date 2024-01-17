@@ -607,6 +607,9 @@ public interface Type extends Narrowable<Type> {
             return Type.nullType();
         }
         if (object instanceof List) {
+            if (((List<?>)object).isEmpty()) {
+                return Type.noneType();
+            }
             return new Type.Array(Type.fromListObject((List<?>)object));
         }
         final var typeCode = typeCodeFromPrimitive(object);
@@ -660,7 +663,8 @@ public interface Type extends Narrowable<Type> {
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
         ARRAY(List.class, null, false, false),
-        RELATION(null, null, false, false);
+        RELATION(null, null, false, false),
+        NONE(null, null, false, false);
 
         /**
          * Java {@link Class} that corresponds to the {@link TypeCode}.
@@ -856,7 +860,7 @@ public interface Type extends Narrowable<Type> {
     class None implements Type {
         @Override
         public TypeCode getTypeCode() {
-            return TypeCode.ARRAY;
+            return TypeCode.NONE;
         }
 
         @Override
@@ -1990,7 +1994,7 @@ public interface Type extends Narrowable<Type> {
          *
          * @return <code>true</code> if the array type is erased, otherwise <code>false</code>.
          */
-        boolean isErased() {
+        public boolean isErased() {
             return getElementType() == null;
         }
 

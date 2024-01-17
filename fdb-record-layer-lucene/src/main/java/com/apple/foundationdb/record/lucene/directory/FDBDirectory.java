@@ -179,22 +179,21 @@ public class FDBDirectory extends Directory  {
 
     @VisibleForTesting
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
-        this(subspace, context, indexOptions, null, null, true, false);
+        this(subspace, indexOptions, null, null, true, AgilityContext.nonAgile(context));
     }
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
+    public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean deferDeleteToCompoundFile, boolean useAgileContext) {
-        this(subspace, context, indexOptions, sharedCacheManager, sharedCacheKey, useAgileContext,
+                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
-    private FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions,
-                 @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, boolean useAgileContext,
-                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
-                 boolean deferDeleteToCompoundFile) {
+    private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
+                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
+                         int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
+                         boolean deferDeleteToCompoundFile) {
         Verify.verify(subspace != null);
-        Verify.verify(context != null);
         this.indexOptions = indexOptions == null ? Collections.emptyMap() : indexOptions;
         this.subspace = subspace;
         final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
@@ -214,15 +213,15 @@ public class FDBDirectory extends Directory  {
                 .recordStats()
                 .build();
         this.fileSequenceCounter = new AtomicLong(-1);
-        this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
-        this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
+        this.compressionEnabled = Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
+        this.encryptionEnabled = Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_ENCRYPTION_ENABLED), false);
         this.fileReferenceMapSupplier = Suppliers.memoize(this::loadFileReferenceCacheForMemoization);
         this.sharedCacheManager = sharedCacheManager;
         this.sharedCacheKey = sharedCacheKey;
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
-        this.agilityContext = AgilityContext.factory(context, useAgileContext);
+        this.agilityContext = agilityContext;
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {

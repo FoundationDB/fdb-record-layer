@@ -24,20 +24,26 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -49,6 +55,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -194,6 +201,85 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
                 (type == Type.MIN ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN)
                         .with(props -> props.clearState().setReturnedRowLimit(1)));
         return scan.first().thenApply(first -> first.map(IndexEntry::getKey).orElse(null));
+    }
+
+    @Override
+    public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
+        return function.getName().equals(type.name().toLowerCase(Locale.ROOT))
+               && IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"}) // PMD cannot determine resource is closed
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull final IndexAggregateFunction function,
+                                                              @Nonnull final TupleRange range,
+                                                              @Nonnull final IsolationLevel isolationLevel) {
+        if (!canEvaluateAggregateFunction(function)) {
+            throw new RecordCoreArgumentException("Cannot execute aggregate function")
+                    .addLogInfo(LogMessageKeys.FUNCTION, function.getName())
+                    .addLogInfo(LogMessageKeys.KEY_EXPRESSION, function.getOperand())
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
+        }
+        final int valueStart = getGroupingCount() - permutedSize;
+        final int valueEnd = state.index.getColumnSize() - permutedSize;
+        ScanProperties scanProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(isolationLevel)
+                .build()
+                .asScanProperties(false);
+        TupleRange unpermutedRange = trimToUnpermutedPrefix(range);
+        RecordCursor<Tuple> cursor = null;
+        boolean asyncWork = false;
+        try {
+            RecordCursor<IndexEntry> entryCursor = scan(IndexScanType.BY_GROUP, unpermutedRange, null, scanProperties);
+            if (!unpermutedRange.equals(range)) {
+                entryCursor = entryCursor.filter(entry -> {
+                    Tuple groupPrefix = TupleHelpers.subTuple(entry.getKey(), 0, valueStart);
+                    Tuple groupSuffix = TupleHelpers.subTuple(entry.getKey(), valueEnd, entry.getKeySize());
+                    Tuple group = groupPrefix.addAll(groupSuffix);
+                    return range.contains(group);
+                });
+            }
+            cursor = entryCursor.map(entry -> TupleHelpers.subTuple(entry.getKey(), valueStart, valueEnd));
+            CompletableFuture<Tuple> valueFuture = cursor.reduce(null, (Tuple accum, Tuple value) -> {
+                if (accum == null) {
+                    return value;
+                } else {
+                    int comparison = value.compareTo(accum);
+                    if (comparison < 0 && type == Type.MIN || comparison > 0 && type == Type.MAX) {
+                        return value;
+                    } else {
+                        return accum;
+                    }
+                }
+            });
+            asyncWork = true;
+            final RecordCursor<Tuple> finalCursor = cursor;
+            return valueFuture.whenComplete((ignore, eignore) -> finalCursor.close());
+        } finally {
+            // Close the cursor in the case if an error creating the future.
+            if (cursor != null && !asyncWork) {
+                cursor.close();
+            }
+        }
+    }
+
+    @Nonnull
+    private TupleRange trimToUnpermutedPrefix(@Nonnull TupleRange range) {
+        int unpermutedSize = getGroupingCount() - permutedSize;
+        EndpointType lowEndpoint = range.getLowEndpoint();
+        @Nullable Tuple low = range.getLow();
+        if (lowEndpoint != EndpointType.TREE_START && low != null && low.size() > unpermutedSize) {
+            low = TupleHelpers.subTuple(low, 0, unpermutedSize);
+            lowEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        EndpointType highEndpoint = range.getHighEndpoint();
+        @Nullable Tuple high = range.getHigh();
+        if (highEndpoint != EndpointType.TREE_END && high != null && high.size() > unpermutedSize) {
+            high = TupleHelpers.subTuple(high, 0, unpermutedSize);
+            highEndpoint = EndpointType.RANGE_INCLUSIVE;
+        }
+        return new TupleRange(low, high, lowEndpoint, highEndpoint);
     }
 
     @Override
