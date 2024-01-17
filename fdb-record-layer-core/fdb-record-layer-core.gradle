@@ -59,11 +59,7 @@ dependencies {
 
 sourceSets {
     main {
-        java.srcDir "src/main/java-proto${protoMajorVersion}"
         java.srcDir ".out/generated/sources/annotationProcessor/java/main/"
-    }
-    test {
-        java.srcDir "src/test/java-proto${protoMajorVersion}"
     }
 }
 
@@ -142,7 +138,7 @@ publishing {
                 // Normally, the variable would be included within the string using variable expansion in a Groovy
                 // string. However, the "description" field must be a java.lang.String, hence the use of string
                 // concatenation here.
-                description = 'A record-oriented layer built for FoundationDB (proto' + project.protoMajorVersion + ').'
+                description = 'A record-oriented layer built for FoundationDB.'
             }
         }
     }

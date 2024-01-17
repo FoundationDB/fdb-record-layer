@@ -49,28 +49,6 @@ dependencies {
     testAnnotationProcessor "com.google.auto.service:auto-service:undefined"
 }
 
-if (protoMajorVersion == '2') {
-    protobuf {
-        generateProtoTasks {
-            all().each { task ->
-                task.doLast {
-                    task.outputs.getFiles().forEach {
-                        // Suppress redundant ByteString casting in proto-generated code in proto2
-                        ant.replace(dir: it, includes: "**/LuceneContinuationProto.java",
-                                token: "public int getSerializedSize() {\n",
-                                value: "@SuppressWarnings(\"cast\") public int getSerializedSize() {\n",
-                        )
-                        ant.replace(dir: it, includes: "**/LuceneContinuationProto.java",
-                                token: "public void writeTo(com.google.protobuf.CodedOutputStream output)\n",
-                                value: "@SuppressWarnings(\"cast\") public void writeTo(com.google.protobuf.CodedOutputStream output)\n",
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
 def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 test {
