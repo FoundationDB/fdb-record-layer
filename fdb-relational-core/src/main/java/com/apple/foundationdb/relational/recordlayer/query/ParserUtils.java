@@ -22,7 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RelationalRecordQueryPlanProto.PTautologicalValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -64,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -73,7 +78,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -909,7 +914,7 @@ public final class ParserUtils {
         return true;
     }
 
-    static final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
+    public static final class TautologicalValue extends AbstractValue implements BooleanValue, LeafValue {
 
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tautological-Value");
 
@@ -943,6 +948,44 @@ public final class ParserUtils {
         @Nonnull
         public static TautologicalValue getInstance() {
             return INSTANCE;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder()
+                    .setAdditionalValues(PlanSerialization.protoObjectToAny(serializationContext,
+                            toProto(serializationContext)))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PTautologicalValue toProto(@Nonnull final PlanSerializationContext planSerializationContext) {
+            return PTautologicalValue.newBuilder().build();
+        }
+
+        @Nonnull
+        public static TautologicalValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PTautologicalValue tautologicalValueProto) {
+            return getInstance();
+        }
+
+        @AutoService(PlanDeserializer.class)
+        @SuppressWarnings("unused")
+        public static class Deserializer implements PlanDeserializer<PTautologicalValue, TautologicalValue> {
+            @Nonnull
+            @Override
+            public Class<PTautologicalValue> getProtoMessageClass() {
+                return PTautologicalValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public TautologicalValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PTautologicalValue tautologicalValueProto) {
+                return TautologicalValue.fromProto(serializationContext, tautologicalValueProto);
+            }
         }
     }
 }

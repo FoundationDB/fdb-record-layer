@@ -265,7 +265,7 @@ public final class IndexGenerator {
                         ((ThenKeyExpression) groupedValue).ungrouped();
             }
         }
-        return Pair.of(keyExpression, ((IndexableAggregateValue) aggregateValue).getIndexName());
+        return Pair.of(keyExpression, ((IndexableAggregateValue) aggregateValue).getIndexTypeName());
     }
 
     @Nonnull

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.udf;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfValue;
@@ -28,6 +30,7 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -53,6 +56,19 @@ public final class ByteOperationsUdf extends UdfFunction {
         @Override
         public Value withChildren(Iterable<? extends Value> newChildren) {
             return new ByteOperationsValue( newChildren, getResultType());
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext planSerializationContext) {
+            throw new UnsupportedOperationException("plan serialization is not supported");
+
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext planSerializationContext) {
+            throw new UnsupportedOperationException("plan serialization is not supported");
         }
     }
 
