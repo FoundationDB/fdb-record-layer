@@ -158,7 +158,6 @@ tasks.withType(Test) { theTask ->
                     html.destination = htmlReportDir
                     xml.destination = xmlReportFile
                 }
-                project.sonar.properties["sonar.jacoco.reportPaths"] += xmlReportFile
                 doLast {
                     println("See jacoco report at: file://${htmlReportDir.toURI().path}index.html")
                 }

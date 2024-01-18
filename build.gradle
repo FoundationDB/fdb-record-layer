@@ -174,7 +174,6 @@ allprojects {
 }
 
 subprojects {
-    apply plugin: "org.sonarqube"
     apply from: rootProject.file('gradle/testing.gradle')
 
     sourceCompatibility = JavaVersion.VERSION_11
