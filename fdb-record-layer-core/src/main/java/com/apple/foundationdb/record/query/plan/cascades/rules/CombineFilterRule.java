@@ -117,6 +117,6 @@ public class CombineFilterRule extends CascadesRule<LogicalFilterExpression> {
                 lowerPreds.stream()
                         .map(lowerPred -> lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yield(new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred), newUpperQun));
+        call.yieldExpression(new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred), newUpperQun));
     }
 }

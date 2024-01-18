@@ -83,9 +83,9 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         final var root = bindings.get(rootMatcher);
         if (fieldPathOrdinals.size() == 1) {
             // just return the child
-            call.yield(column.getValue());
+            call.yieldExpression(column.getValue());
         } else {
-            call.yield(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)));
+            call.yieldExpression(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)));
         }
     }
 

@@ -92,10 +92,10 @@ public class EliminateArithmeticValueWithConstantRule extends ValueSimplificatio
 
         if (constantAliases.containsAll(children.get(0).getCorrelatedTo())) {
             // this first child is the constant one, the second child is not
-            call.yield(children.get(1));
+            call.yieldExpression(children.get(1));
         } else if (constantAliases.containsAll(children.get(1).getCorrelatedTo())) {
             // this second child is the constant one, the first child is not
-            call.yield(children.get(0));
+            call.yieldExpression(children.get(0));
         } // else they are both not constant
     }
 }

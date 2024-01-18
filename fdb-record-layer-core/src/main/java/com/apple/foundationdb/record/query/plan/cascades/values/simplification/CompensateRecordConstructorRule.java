@@ -81,6 +81,6 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
             }
         }
 
-        call.yield(recordConstructorValue, mergedMatchedValuesMap);
+        call.yieldValue(recordConstructorValue, mergedMatchedValuesMap);
     }
 }

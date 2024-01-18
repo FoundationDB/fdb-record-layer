@@ -86,6 +86,6 @@ public class ImplementDeleteRule extends CascadesRule<DeleteExpression> {
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yield(deleteExpression.toPlan(physicalQuantifier));
+        call.yieldExpression(deleteExpression.toPlan(physicalQuantifier));
     }
 }

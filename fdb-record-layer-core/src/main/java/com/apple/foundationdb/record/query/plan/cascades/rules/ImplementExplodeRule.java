@@ -47,6 +47,6 @@ public class ImplementExplodeRule extends CascadesRule<ExplodeExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var explodeExpression = call.get(root);
-        call.yield(new RecordQueryExplodePlan(explodeExpression.getCollectionValue()));
+        call.yieldExpression(new RecordQueryExplodePlan(explodeExpression.getCollectionValue()));
     }
 }

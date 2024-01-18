@@ -181,7 +181,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                                 .addQuantifier(dataAccessQuantifier)
                                 .build()
                                 .buildSelectWithResultValue(expression.getResultValue());
-                call.yield(compensatedDataAccessExpression);
+                call.yieldExpression(compensatedDataAccessExpression);
             }
         }
     }

@@ -96,11 +96,11 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yield(noTypeFilterNeeded);
+            call.yieldExpression(noTypeFilterNeeded);
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yield(
+            call.yieldExpression(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),

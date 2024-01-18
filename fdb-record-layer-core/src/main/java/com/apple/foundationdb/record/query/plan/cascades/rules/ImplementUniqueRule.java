@@ -69,6 +69,6 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
-        innerPlanPartitions.forEach(partition -> call.yield(partition.getPlans()));
+        innerPlanPartitions.forEach(partition -> call.yieldExpression(partition.getPlans()));
     }
 }

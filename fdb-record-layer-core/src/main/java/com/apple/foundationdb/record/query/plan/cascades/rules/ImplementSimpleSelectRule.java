@@ -97,7 +97,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         if (quantifier instanceof Quantifier.ForEach &&
                 predicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yield(referenceBuilder.members());
+            call.yieldExpression(referenceBuilder.members());
             return;
         }
 
@@ -116,7 +116,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .collect(ImmutableList.toImmutableList());
         if (nonTautologyPredicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yield(referenceBuilder.members());
+            call.yieldExpression(referenceBuilder.members());
             return;
         }
 
@@ -146,6 +146,6 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
             referenceBuilder = call.memoizePlansBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
         }
 
-        call.yield(referenceBuilder.members());
+        call.yieldExpression(referenceBuilder.members());
     }
 }
