@@ -2385,6 +2385,34 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void autoCompletePhraseSearchWithLeadingStopWords() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            final Index index = SIMPLE_TEXT_WITH_AUTO_COMPLETE;
+            final List<KeyExpression> storedFields = ImmutableList.of(SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+
+            addIndexAndSaveRecordsForAutoCompleteOfPhrase(context, index);
+
+            queryAndAssertAutoCompleteSuggestionsReturned(index,
+                    storedFields,
+                    "text",
+                    "\"of ameri\"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america",
+                            "united states is a country in the continent of america"));
+
+            queryAndAssertAutoCompleteSuggestionsReturned(index,
+                    storedFields,
+                    "text",
+                    "\"and of ameri\"",
+                    ImmutableList.of("united states of america",
+                            "welcome to the united states of america",
+                            "united states is a country in the continent of america"));
+
+            commit(context);
+        }
+    }
+
+    @Test
     void testAutoCompleteSearchMultipleResultsSingleDocument() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
