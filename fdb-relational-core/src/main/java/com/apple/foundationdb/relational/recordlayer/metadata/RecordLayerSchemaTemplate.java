@@ -276,6 +276,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     public static final class Builder {
+        private static final String TABLE_ALREADY_EXISTS = "table '%s' already exists";
+        private static final String TYPE_WITH_NAME_ALREADY_EXISTS = "type with name '%s' already exists";
+        private static final String TABLE_MISSING_RECORD_TYPE_PREFIX = "table '%s' primary key '%s' is missing record type prefix";
         private String name;
 
         private int version;
@@ -335,14 +338,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public Builder addTable(@Nonnull RecordLayerTable table) {
-            Assert.thatUnchecked(!tables.containsKey(table.getName()), String.format("table '%s' already exists", table.getName()),
-                    ErrorCode.INVALID_SCHEMA_TEMPLATE);
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(table.getName()), String.format("type with name '%s' already exists", table.getName()),
-                    ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            Assert.thatUnchecked(!tables.containsKey(table.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, table.getName());
+            Assert.thatUnchecked(!auxiliaryTypes.containsKey(table.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, table.getName());
             if (!intermingleTables) {
                 Assert.thatUnchecked(Key.Expressions.recordType().isPrefixKey(table.getPrimaryKey()),
-                        String.format("table '%s' primary key '%s' is missing record type prefix", table.getName(), table.getPrimaryKey()),
-                        ErrorCode.INTERNAL_ERROR);
+                        ErrorCode.INTERNAL_ERROR, TABLE_MISSING_RECORD_TYPE_PREFIX, table.getName(), table.getPrimaryKey());
             }
             tables.put(table.getName(), table);
             return this;
@@ -364,10 +364,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
          */
         @Nonnull
         public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
-            Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), String.format("a table with name '%s' already exists", auxiliaryType.getName()),
-                    ErrorCode.INVALID_SCHEMA_TEMPLATE);
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), String.format("type with name '%s' already exists", auxiliaryType.getName()),
-                    ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            Assert.thatUnchecked(!tables.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TABLE_ALREADY_EXISTS, auxiliaryType.getName());
+            Assert.thatUnchecked(!auxiliaryTypes.containsKey(auxiliaryType.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE, TYPE_WITH_NAME_ALREADY_EXISTS, auxiliaryType.getName());
             auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
             return this;
         }

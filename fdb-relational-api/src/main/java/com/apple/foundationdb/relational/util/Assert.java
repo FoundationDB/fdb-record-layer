@@ -102,6 +102,18 @@ public final class Assert {
         }
     }
 
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageTemplate, @Nonnull final Object messageValue) {
+        if (!mustBeTrue) {
+            throw new RelationalException(String.format(messageTemplate, messageValue), errorCodeIfNotTrue).toUncheckedWrappedException();
+        }
+    }
+
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageTemplate, @Nonnull final Object messageValue1, @Nonnull final Object messageValue2) {
+        if (!mustBeTrue) {
+            throw new RelationalException(String.format(messageTemplate, messageValue1, messageValue2), errorCodeIfNotTrue).toUncheckedWrappedException();
+        }
+    }
+
     public static <T> T notNullUnchecked(T object) {
         return notNullUnchecked(object, "unexpected null object");
     }
