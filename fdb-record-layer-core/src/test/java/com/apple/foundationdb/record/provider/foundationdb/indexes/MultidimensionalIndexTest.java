@@ -131,6 +131,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * Tests for multidimensional type indexes.
  */
 @Tag(Tags.RequiresFDB)
+@Tag(Tags.Slow)
 class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(MultidimensionalIndexTest.class);
 

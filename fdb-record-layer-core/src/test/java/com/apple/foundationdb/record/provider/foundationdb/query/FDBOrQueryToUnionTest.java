@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -95,6 +96,7 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.orPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
@@ -217,6 +219,13 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             return new OrQueryParams(deferFetch, omitPrimaryKeyInOrderingKey, sortReverse, newRemoveDuplicates);
         }
 
+        @Nonnull
+        public OrQueryParams withDeferFetch(boolean newDeferFetch) {
+            if (newDeferFetch == deferFetch) {
+                return this;
+            }
+            return new OrQueryParams(newDeferFetch, omitPrimaryKeyInOrderingKey, sortReverse, removeDuplicates);
+        }
     }
 
     static Stream<OrQueryParams> baseParams() {
@@ -232,6 +241,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
     static Stream<OrQueryParams> reverseParams() {
         return baseParams().map(baseParam -> baseParam.withSortReverse(true));
+    }
+
+    static Stream<OrQueryParams> baseForwardAndReverseParams() {
+        return baseParams().flatMap(p -> Stream.of(p.withSortReverse(false), p.withSortReverse(true)));
     }
 
     /**
@@ -1293,6 +1306,121 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest
+    @ParameterizedTest(name = "testNestedPredicates[{0}]")
+    @MethodSource("baseForwardAndReverseParams")
+    void testNestedPredicates(OrQueryParams orQueryParams) throws Exception {
+        final Index index = new Index("Reviewer$catgory_stats", concat(field("category"), field("stats").nest(concatenateFields("hometown", "start_date")), field("name")));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("RestaurantReviewer", index);
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context, hook);
+            orQueryParams.setPlannerConfiguration(this);
+            final RecordQuery query = orQueryParams.queryBuilder(concat(field("stats").nest("start_date"), field("name")))
+                    .setRecordType("RestaurantReviewer")
+                    .setFilter(Query.and(
+                            Query.field("category").equalsValue(0),
+                            Query.field("stats").matches(
+                                    Query.or(
+                                            Query.field("hometown").equalsParameter("town1"),
+                                            Query.field("hometown").equalsParameter("town2")
+                                    )
+                            )
+                    ))
+                    .setRequiredResults(List.of(field("stats").nest("start_date"), field("stats").nest("hometown"), field("id"), field("name")))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams,
+                        List.of(
+                                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town1]"))),
+                                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town2]")))
+                        ),
+                        useCascadesPlanner ? concat(field("stats").nest("start_date"), field("name"), field("stats").nest("hometown"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
+            assertMatchesExactly(plan, planMatcher);
+            assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
+            if (useCascadesPlanner) {
+                assertEquals(orQueryParams.isSortReverse() ? 1539265987 : 1539265954, plan.planHash(CURRENT_LEGACY));
+                assertEquals(orQueryParams.isSortReverse() ? 1716902313 : 1722622371, plan.planHash(CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(orQueryParams.isSortReverse() ? 1766220 : 1766187, plan.planHash(CURRENT_LEGACY));
+                if (orQueryParams.shouldDeferFetch()) {
+                    assertEquals(orQueryParams.isSortReverse() ? -207163713 : -201443655, plan.planHash(CURRENT_FOR_CONTINUATION));
+                } else {
+                    assertEquals(orQueryParams.isSortReverse() ? 22976319 : 28696377, plan.planHash(CURRENT_FOR_CONTINUATION));
+                }
+            }
+        }
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "testNestedPredicatesWithExtraUnorderedColumns[{0}]")
+    @MethodSource("baseForwardAndReverseParams")
+    void testNestedPredicatesWithExtraUnorderedColumns(OrQueryParams orQueryParams) throws Exception {
+        final Index index = new Index("Reviewer$catgory_stats", concat(field("category"), field("stats").nest(concatenateFields("hometown", "start_date")), field("name")));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("RestaurantReviewer", index);
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context, hook);
+            orQueryParams.setPlannerConfiguration(this);
+            final RecordQuery query = orQueryParams.queryBuilder(field("stats").nest("start_date"))
+                    .setRecordType("RestaurantReviewer")
+                    .setFilter(Query.and(
+                            Query.field("category").equalsValue(0),
+                            Query.field("stats").matches(
+                                    Query.or(
+                                            Query.field("hometown").equalsParameter("town1"),
+                                            Query.field("hometown").equalsParameter("town2")
+                                    )
+                            )
+                    ))
+                    .setRequiredResults(List.of(field("stats").nest("start_date"), field("stats").nest("hometown"), field("id"), field("name")))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher;
+            if (useCascadesPlanner || orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
+                planMatcher = unionPlanMatcher(orQueryParams,
+                        List.of(
+                                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town1]"))),
+                                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town2]")))
+                        ),
+                        useCascadesPlanner ? concat(field("stats").nest("start_date"), field("stats.hometown"), field("name"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
+            } else {
+                planMatcher = filterPlan(
+                        indexPlan()
+                                .where(indexName("stats$school"))
+                                .and(scanComparisons(unbounded()))
+                ).where(queryComponents(containsAll(Set.of(
+                        Query.or(
+                                Query.and(Query.field("category").equalsValue(0), Query.field("stats").matches(Query.field("hometown").equalsParameter("town1"))),
+                                Query.and(Query.field("category").equalsValue(0), Query.field("stats").matches(Query.field("hometown").equalsParameter("town2")))
+                        )
+                ))));
+            }
+            assertMatchesExactly(plan, planMatcher);
+            assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
+            if (useCascadesPlanner) {
+                assertEquals(orQueryParams.isSortReverse() ? 1541112037 : 1541112004, plan.planHash(CURRENT_LEGACY));
+                assertEquals(orQueryParams.isSortReverse() ? 1718748363 : 1724468421, plan.planHash(CURRENT_FOR_CONTINUATION));
+            } else {
+                if (orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
+                    assertEquals(orQueryParams.isSortReverse() ? 1766220 : 1766187, plan.planHash(CURRENT_LEGACY));
+                    if (orQueryParams.shouldDeferFetch()) {
+                        assertEquals(orQueryParams.isSortReverse() ? -207163713 : -201443655, plan.planHash(CURRENT_FOR_CONTINUATION));
+                    } else {
+                        assertEquals(orQueryParams.isSortReverse() ? 22976319 : 28696377, plan.planHash(CURRENT_FOR_CONTINUATION));
+                    }
+                } else {
+                    assertEquals(orQueryParams.isSortReverse() ? -2116497242 : -2116497243, plan.planHash(CURRENT_LEGACY));
+                    if (orQueryParams.shouldDeferFetch()) {
+                        assertEquals(orQueryParams.isSortReverse() ? -1600469760 : -1600463994, plan.planHash(CURRENT_FOR_CONTINUATION));
+                    } else {
+                        assertEquals(orQueryParams.isSortReverse() ? -1600469760 : -1600463994, plan.planHash(CURRENT_FOR_CONTINUATION));
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Test that an index with extra columns is rejected if one of those columns is repeated. This test case is
      * similar to {@link #testOrderedOrQueryWithIntermediateUnorderedColumn}, but the index should be rejected because
@@ -1316,7 +1444,6 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("even"),
                         Query.field("str_value_indexed").equalsValue("odd")
                 ))
-                .setSort(field("num_value_3_indexed"))
                 .build();
         orQueryParams.setPlannerConfiguration(this);
 
@@ -2193,9 +2320,19 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             );
             if (comparisonKey != null) {
                 List<BindingMatcher<? extends Value>> fieldValueMatchers = comparisonKey.normalizeKeyForPositions().stream()
-                        .map(childExpr -> {
+                        .flatMap(childExpr -> {
                             if (childExpr instanceof FieldKeyExpression) {
-                                return fieldValueWithFieldNames(((FieldKeyExpression)childExpr).getFieldName());
+                                return Stream.of(fieldValueWithFieldNames(((FieldKeyExpression)childExpr).getFieldName()));
+                            } else if (childExpr instanceof NestingKeyExpression) {
+                                String parent = ((NestingKeyExpression)childExpr).getParent().getFieldName();
+                                return ((NestingKeyExpression)childExpr).getChildren().stream()
+                                        .map(innerChild -> {
+                                            if (innerChild instanceof FieldKeyExpression) {
+                                                return fieldValueWithFieldNames(parent + "." + ((FieldKeyExpression)innerChild).getFieldName());
+                                            } else {
+                                                return fail("unexpected comparison key type: " + childExpr);
+                                            }
+                                        });
                             } else {
                                 return fail("unexpected comparison key type: " + childExpr);
                             }

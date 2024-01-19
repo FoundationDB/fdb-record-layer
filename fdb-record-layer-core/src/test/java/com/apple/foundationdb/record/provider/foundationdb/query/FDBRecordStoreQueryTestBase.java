@@ -474,7 +474,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected KeyExpression primaryKey(String recordType) {
-        return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+        return recordStore.getRecordMetaData().getRecordType(recordType).getPrimaryKey();
     }
 
     protected void clearStoreCounter(@Nonnull FDBRecordContext context) {
