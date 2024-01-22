@@ -170,7 +170,7 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
                 fieldInfosStorage.updateGlobalFieldInfos(globalFieldInfos);
             }
         }
-        fieldInfosStorage.setFieldInfoId(fileName, id, bitSet);
+        fieldInfosStorage.setFieldInfoId(directory, fileName, id, bitSet);
     }
 
     private Map<String, String> protoToLucene(final List<LuceneFieldInfosProto.Attribute> attributesList) {

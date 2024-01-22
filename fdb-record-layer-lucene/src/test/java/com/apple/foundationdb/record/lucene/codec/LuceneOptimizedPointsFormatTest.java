@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 
 import com.carrotsearch.randomizedtesting.annotations.Seed;
+import com.carrotsearch.randomizedtesting.annotations.Seeds;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
@@ -94,5 +95,11 @@ public class LuceneOptimizedPointsFormatTest extends BasePointsFormatTestCase {
     public void testOneDimTwoValues() throws Exception {
         TestFDBDirectory.allowAddIndexes();
         super.testOneDimTwoValues();
+    }
+
+    @Seeds({@Seed(), @Seed("FA63D2AE2DE7C6B0")})
+    @Override
+    public void testMultiValued() throws Exception {
+        super.testMultiValued();
     }
 }
