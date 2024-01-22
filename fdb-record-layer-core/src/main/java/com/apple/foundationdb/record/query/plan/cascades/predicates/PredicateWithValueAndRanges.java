@@ -83,7 +83,7 @@ import java.util.stream.Collectors;
  * particular attribute.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue {
+public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue, PredicateWithComparisons {
 
     /**
      * The value associated with the {@code ranges}.
@@ -148,6 +148,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return Streams.concat(value.getCorrelatedTo().stream(),
                 ranges.stream().flatMap(r -> r.getCorrelatedTo().stream()))
                 .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
+    @Override
+    public List<Comparisons.Comparison> getComparisons() {
+        return ranges.stream()
+                .flatMap(range -> range.getComparisons().stream())
+                .collect(ImmutableList.toImmutableList());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

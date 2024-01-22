@@ -25,11 +25,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Map used to specify translations.
@@ -147,7 +149,7 @@ public class TranslationMap {
         @Nonnull
         Value apply(@Nonnull CorrelationIdentifier sourceAlias,
                     @Nonnull CorrelationIdentifier targetAlias,
-                    @Nonnull LeafValue quantifiedValue);
+                    @Nonnull LeafValue leafValue);
     }
 
     /**
@@ -171,8 +173,13 @@ public class TranslationMap {
             return new When(sourceAlias);
         }
 
+        @Nonnull
+        public Builder.WhenAny whenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
+            return new WhenAny(sourceAliases);
+        }
+
         /**
-         * Class to provide fluent API, e.g. .when(...).then(...)
+         * Class to provide fluent API, e.g. {@code .when(...).then(...)}
          */
         public class When {
             @Nonnull
@@ -185,6 +192,26 @@ public class TranslationMap {
             @Nonnull
             public Builder then(@Nonnull CorrelationIdentifier targetAlias, @Nonnull TranslationFunction translationFunction) {
                 translationMapBuilder.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
+                return Builder.this;
+            }
+        }
+
+        /**
+         * Class to provide fluent API, e.g. {@code .when(...).then(...)}
+         */
+        public class WhenAny {
+            @Nonnull
+            private final Set<CorrelationIdentifier> sourceAliases;
+
+            public WhenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
+                this.sourceAliases = ImmutableSet.copyOf(sourceAliases);
+            }
+
+            @Nonnull
+            public Builder then(@Nonnull TranslationFunction translationFunction) {
+                for (final CorrelationIdentifier sourceAlias : sourceAliases) {
+                    translationMapBuilder.put(sourceAlias, new TranslationTarget(Quantifier.current(), translationFunction));
+                }
                 return Builder.this;
             }
         }

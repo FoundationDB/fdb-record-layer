@@ -65,7 +65,6 @@ import java.util.stream.Collectors;
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
-@SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
 public class FieldValue extends AbstractValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
@@ -78,7 +77,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     private final Supplier<List<String>> fieldNamesSupplier;
 
-    private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
+    private FieldValue(@Nonnull final Value childValue, @Nonnull final FieldPath fieldPath) {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
         fieldNamesSupplier = Suppliers.memoize(() ->
@@ -243,17 +242,16 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     @Override
     public PFieldValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        PFieldValue.Builder builder = PFieldValue.newBuilder();
-        builder.setChildValue(childValue.toValueProto(serializationContext));
-        builder.setFieldPath(fieldPath.toProto(serializationContext));
-        return builder.build();
+        return PFieldValue.newBuilder()
+                .setChildValue(childValue.toValueProto(serializationContext))
+                .setFieldPath(fieldPath.toProto(serializationContext))
+                .build();
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(specificValueProto).build();
+        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -491,6 +489,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             return subList(count, size());
         }
 
+        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
         public boolean isPrefixOf(@Nonnull final FieldPath otherFieldPath) {
             if (otherFieldPath.size() < size()) {
                 return false;

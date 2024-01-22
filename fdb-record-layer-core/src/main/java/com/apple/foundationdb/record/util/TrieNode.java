@@ -27,7 +27,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -89,7 +89,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     }
 
     @Nonnull
-    public Collection<T> values() {
+    public List<T> values() {
         return preOrderStream()
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());

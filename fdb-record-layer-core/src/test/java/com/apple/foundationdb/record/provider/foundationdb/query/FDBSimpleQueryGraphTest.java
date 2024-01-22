@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -516,6 +517,9 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
+
+        final var derivations = DerivationsProperty.evaluate(plan);
+        System.out.println(derivations);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
