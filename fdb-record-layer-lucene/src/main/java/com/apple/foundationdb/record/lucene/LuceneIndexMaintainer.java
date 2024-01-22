@@ -320,6 +320,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
+        if (oldRecord.getRecordType().isSynthetic()) {
+            throw new RuntimeException("Found synthetic test");
+        }
         // Extract information for grouping from old and new records
         final KeyExpression root = state.index.getRootExpression();
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> oldRecordFields = LuceneDocumentFromRecord.getRecordFields(root, oldRecord);
