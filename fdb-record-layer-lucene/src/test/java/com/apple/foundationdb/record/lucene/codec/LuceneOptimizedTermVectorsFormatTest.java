@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 
 import com.carrotsearch.randomizedtesting.annotations.Seed;
+import com.carrotsearch.randomizedtesting.annotations.Seeds;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.BaseFieldInfoFormatTestCase;
@@ -76,5 +77,11 @@ public class LuceneOptimizedTermVectorsFormatTest extends BaseTermVectorsFormatT
     @Override
     public void testMultiClose() throws IOException {
         BaseIndexFileFormatTestCaseUtils.testMultiClose(this);
+    }
+
+    @Seeds({@Seed(), @Seed("F007433804DC4123")})
+    @Override
+    public void testRandomExceptions() throws Exception {
+        super.testRandomExceptions();
     }
 }

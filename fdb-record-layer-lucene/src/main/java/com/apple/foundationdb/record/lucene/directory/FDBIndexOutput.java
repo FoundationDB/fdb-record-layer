@@ -102,9 +102,11 @@ public final class FDBIndexOutput extends IndexOutput {
             LOGGER.trace(getLogMessage("close()",
                     LuceneLogMessageKeys.RESOURCE, resourceDescription));
         }
-        flush();
-        buffer = null; // prevent writing after close
-        fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
+        if (buffer != null) {
+            flush();
+            buffer = null; // prevent writing after close
+            fdbDirectory.writeFDBLuceneFileReference(resourceDescription, new FDBLuceneFileReference(id, currentSize, actualSize, blockSize));
+        }
     }
 
     @Override

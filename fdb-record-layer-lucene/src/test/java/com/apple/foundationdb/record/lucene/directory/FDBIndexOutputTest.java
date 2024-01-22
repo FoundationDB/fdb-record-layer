@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
@@ -199,4 +200,10 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
 
     }
 
+    @Test
+    void testCloseTwice() {
+        FDBIndexOutput output = new FDBIndexOutput(FILE_NAME, directory);
+        output.close();
+        assertDoesNotThrow(output::close);
+    }
 }
