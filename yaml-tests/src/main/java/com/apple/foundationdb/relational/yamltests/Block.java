@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.util.Assert;
+
 import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
@@ -79,8 +80,8 @@ public abstract class Block {
         }
         final var entry = Matchers.firstEntry(blockObject, "config");
         final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
-        return blockObject.size() == 1 && (key.equals(ConfigBlock.CONFIG_BLOCK_SETUP)
-                || key.equals(ConfigBlock.CONFIG_BLOCK_DESTRUCT));
+        return blockObject.size() == 1 && (key.equals(ConfigBlock.CONFIG_BLOCK_SETUP) ||
+                key.equals(ConfigBlock.CONFIG_BLOCK_DESTRUCT));
     }
 
     public static boolean isTestBlock(@Nonnull Object document) {
@@ -185,7 +186,7 @@ public abstract class Block {
 
         @Override
         public void execute() {
-            for (var test: executableTests) {
+            for (var test : executableTests) {
                 try {
                     test.run();
                 } catch (Exception e) {
@@ -241,7 +242,7 @@ public abstract class Block {
             }
             final var tests = Matchers.arrayList(testsObject, "tests");
             executableTests.clear();
-            for (var testObject: tests) {
+            for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
                 final var testQuery = Matchers.firstEntry(Matchers.first(test, "test query"), "test query command");
                 final var resolvedCommand = Objects.requireNonNull(Command.resolve(getCommandString(testQuery)));

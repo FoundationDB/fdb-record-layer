@@ -851,14 +851,14 @@ public class PreparedStatementTests {
                         throw new RuntimeException(e);
                     }
                 }),
-//                enable once TODO (Make createArrayOf support custom types) is fixed.
-//                Arguments.of("STRUCT", "a4", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
-//                    try {
-//                        preparedStatement.setArray(1, connection.createArrayOf("STRUCT", new Object[]{}));
-//                    } catch (SQLException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                }),
+                //                enable once TODO (Make createArrayOf support custom types) is fixed.
+                //                Arguments.of("STRUCT", "a4", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
+                //                    try {
+                //                        preparedStatement.setArray(1, connection.createArrayOf("STRUCT", new Object[]{}));
+                //                    } catch (SQLException e) {
+                //                        throw new RuntimeException(e);
+                //                    }
+                //                }),
                 Arguments.of("empty binary list", "a5", (BiConsumer<PreparedStatement, Connection>) (preparedStatement, connection) -> {
                     try {
                         preparedStatement.setArray(1, connection.createArrayOf("BINARY", new Object[]{}));

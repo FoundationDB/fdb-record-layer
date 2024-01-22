@@ -136,9 +136,9 @@ public class QueryCommand extends Command {
 
     private void logAndThrowUnexpectedException(SQLException e, int lineNumber) {
         final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                        "%s%n" +
-                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                "%s%n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                 lineNumber, e.getMessage());
         logger.error(diffMessage);
         throw new RelationalException(e).toUncheckedWrappedException();
@@ -160,7 +160,7 @@ public class QueryCommand extends Command {
 
     private QueryConfigWithValue getQueryConfigWithValue(Object config) throws Exception {
         final var queryConfigAndValue = Matchers.firstEntry(config, "query configuration");
-        final var queryConfigLinedObject = ((CustomYamlConstructor.LinedObject) Matchers.notNull(queryConfigAndValue, "query configuration").getKey());
+        final var queryConfigLinedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(queryConfigAndValue, "query configuration").getKey();
         final var queryConfig = QueryConfig.resolve(
                 Matchers.notNull(Matchers.string(queryConfigLinedObject.getObject(), "query configuration"), "query configuration"));
         final var configVal = Matchers.notNull(queryConfigAndValue, "query configuration").getValue();
@@ -194,15 +194,15 @@ public class QueryCommand extends Command {
         final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.UNORDERED_RESULT);
         if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
             reportTestFailure(String.format("‼️ result mismatch at line %d:%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↪ expected result:%n" +
-                            queryConfigWithValue.valueString() + "%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↩ actual result:%n" +
-                            Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"),
-                            queryConfigWithValue.lineNumber));
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                    Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                    "↪ expected result:%n" +
+                    queryConfigWithValue.valueString() + "%n" +
+                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                    "↩ actual result:%n" +
+                    Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"),
+                    queryConfigWithValue.lineNumber));
         } else {
             logger.debug("✅ results match!");
         }

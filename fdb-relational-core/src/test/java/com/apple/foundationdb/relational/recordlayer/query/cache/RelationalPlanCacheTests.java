@@ -47,6 +47,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
 import com.google.common.testing.FakeTicker;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;

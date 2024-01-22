@@ -78,6 +78,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;

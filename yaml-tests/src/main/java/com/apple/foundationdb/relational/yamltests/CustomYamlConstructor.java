@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.common.collect.Iterables;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;

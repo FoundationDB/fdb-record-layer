@@ -70,6 +70,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
