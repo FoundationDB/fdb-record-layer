@@ -295,25 +295,21 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    @Disabled("The subquery-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void subqueryTests() throws Exception {
         super.subqueryTests();
     }
 
     @Override
-    @Disabled("The primary-key-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void primaryKey() throws Exception {
         super.primaryKey();
     }
 
     @Override
-    @Disabled("The boolean.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     void booleanTypes() throws Exception {
         super.booleanTypes();
     }
 
     @Override
-    @Disabled("The update-delete-returning.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
     public void updateDeleteReturning() throws Exception {
         doRun("update-delete-returning.yamsql");
     }
