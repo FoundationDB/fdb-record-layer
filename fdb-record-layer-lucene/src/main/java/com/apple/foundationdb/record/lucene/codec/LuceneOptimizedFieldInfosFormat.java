@@ -121,6 +121,7 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         write(directory, infos, fileName);
     }
 
+    @SuppressWarnings("java:S3776") // more complicated than sonarcloud wants, but not by enough to warrant creating new classes
     @VisibleForTesting
     public void write(final Directory directory, final FieldInfos infos, final String fileName) throws IOException {
         // Bitset to track what fields in the global info we are using
