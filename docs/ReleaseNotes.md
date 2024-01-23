@@ -15,8 +15,8 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `PlanOrderingKey` now can tolerate a field appearing in both the equality bound keys and the non-equality bound ones [(Issue #2462)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
+* **Bug fix** Normalization of the plan ordering keys now avoids breaking up columns coming from a `ListKeyExpression` [(Issue #2463)](https://github.com/FoundationDB/fdb-record-layer/issues/2463)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -25,7 +25,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** There is now a proto serialization of the `RecordQueryPlannerConfiguration` class to support planning with the same configuration with multiple JVMs [(Issue #2461)](https://github.com/FoundationDB/fdb-record-layer/issues/2461)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
