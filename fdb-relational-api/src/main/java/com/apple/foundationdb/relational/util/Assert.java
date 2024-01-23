@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
+import java.util.function.Supplier;
 
 /**
  * A set of helper methods for validating input, pre-conditions, ... etc.
@@ -111,6 +112,12 @@ public final class Assert {
     public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageTemplate, @Nonnull final Object messageValue1, @Nonnull final Object messageValue2) {
         if (!mustBeTrue) {
             throw new RelationalException(String.format(messageTemplate, messageValue1, messageValue2), errorCodeIfNotTrue).toUncheckedWrappedException();
+        }
+    }
+
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final Supplier<String> messageSupplier) {
+        if (!mustBeTrue) {
+            throw new RelationalException(messageSupplier.get(), errorCodeIfNotTrue).toUncheckedWrappedException();
         }
     }
 

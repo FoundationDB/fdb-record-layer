@@ -148,8 +148,8 @@ public final class IndexGenerator {
         final var simplifiedValues = collectResultValues(relationalExpression.getResultValue());
 
         final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).collect(toList());
-        Assert.thatUnchecked(unsupportedAggregates.isEmpty(), String.format("Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.",
-                unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))), ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                () -> String.format("Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
@@ -337,7 +337,7 @@ public final class IndexGenerator {
 
         // there must be exactly one type full-unordered-scan, no joins, no self-joins.
         final var numScans = expressionRefs.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
-        Assert.thatUnchecked(numScans == 1, String.format("Unsupported index definition, %s iteration generator found", numScans == 0 ? "no" : "more than one"), ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(numScans == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, %s iteration generator found", numScans == 0 ? "no" : "more than one");
 
         // there must be at most a single group by
         final var numGroupBy = expressionRefs.stream().filter(r -> r instanceof GroupByExpression).count();

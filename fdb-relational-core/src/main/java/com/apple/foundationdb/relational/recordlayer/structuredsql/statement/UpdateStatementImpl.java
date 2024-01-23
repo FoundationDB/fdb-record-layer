@@ -310,14 +310,16 @@ public class UpdateStatementImpl implements UpdateStatement {
         @Nonnull
         @Override
         public Builder setTable(@Nonnull final String table) {
-            final var normalizedTableName = Assert.notNullUnchecked(ParserUtils.normalizeString(table, isCaseSensitive));
+            final var normalizedTableName =
+                    Assert.notNullUnchecked(ParserUtils.normalizeString(table, isCaseSensitive));
             Optional<Table> maybeTable;
             try {
                 maybeTable = schemaTemplate.findTableByName(normalizedTableName);
             } catch (RelationalException e) {
                 throw e.toUncheckedWrappedException();
             }
-            Assert.thatUnchecked(maybeTable.isPresent(), String.format("table '%s' is not found", table), ErrorCode.UNDEFINED_TABLE);
+            Assert.thatUnchecked(
+                    maybeTable.isPresent(), ErrorCode.UNDEFINED_TABLE, "table '%s' is not found", table);
             this.originalTableName = table;
             this.table = maybeTable.get();
             return this;

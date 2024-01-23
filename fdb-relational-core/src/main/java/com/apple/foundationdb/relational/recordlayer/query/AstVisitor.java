@@ -205,9 +205,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 Assert.thatUnchecked(literal instanceof LiteralValue<?>);
                 final var continuationBytes = ((LiteralValue<?>) literal).getLiteralValue();
                 Assert.notNullUnchecked(continuationBytes);
-                Assert.thatUnchecked(continuationBytes instanceof ByteString,
-                        String.format("Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName()),
-                        ErrorCode.INVALID_CONTINUATION);
+                Assert.thatUnchecked(continuationBytes instanceof ByteString, ErrorCode.INVALID_CONTINUATION, "Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName());
                 return ((ByteString) continuationBytes).toByteArray();
             });
         } else {
@@ -215,9 +213,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 final var literal = visitChildren(ctx);
                 Assert.thatUnchecked(literal instanceof LiteralValue<?>);
                 final var continuationBytes = ((LiteralValue<?>) literal).getLiteralValue();
-                Assert.thatUnchecked(continuationBytes instanceof ByteString,
-                        String.format("Unexpected prepared continuation parameter of type %s", continuationBytes.getClass().getSimpleName()),
-                        ErrorCode.INVALID_CONTINUATION);
+                Assert.thatUnchecked(continuationBytes instanceof ByteString, ErrorCode.INVALID_CONTINUATION, "Unexpected prepared continuation parameter of type %s", continuationBytes.getClass().getSimpleName());
                 return ((ByteString) continuationBytes).toByteArray();
             });
         }
@@ -690,10 +686,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             hintedIndexes.addAll(visitIndexHint(indexHintContext));
         }
         // check if all hinted indexes exist
-        Assert.thatUnchecked(
-                Sets.difference(hintedIndexes, allIndexes).isEmpty(),
-                String.format("Unknown index(es) %s", String.join(",", Sets.difference(hintedIndexes, allIndexes))),
-                ErrorCode.UNDEFINED_INDEX);
+        Sets.SetView<String> difference = Sets.difference(hintedIndexes, allIndexes);
+        Assert.thatUnchecked(difference.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format("Unknown index(es) %s", String.join(",", difference)));
         Set<AccessHint> accessHintSet = hintedIndexes.stream().map(IndexAccessHint::new).collect(Collectors.toSet());
 
         final RelationalExpression from = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableName, context, scopes,
@@ -1228,7 +1222,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(!argExprs.isEmpty());
             final Typed className = context.withDisabledLiteralProcessing(() -> {
                 final var classNameObject = argExprs.get(0).accept(this);
-                Assert.thatUnchecked(classNameObject instanceof LiteralValue, String.format("attempt to invoke java_call with incorrect UDF '%s'", classNameObject), ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION);
+                Assert.thatUnchecked(classNameObject instanceof LiteralValue, ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION, "attempt to invoke java_call with incorrect UDF '%s'", classNameObject);
                 return (LiteralValue<?>) classNameObject;
             });
             final var remainingArguments = argExprs.stream().skip(1).map(arg -> (Typed) arg.accept(this));
@@ -1363,7 +1357,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
         final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
-        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), ErrorCode.INVALID_PATH, "invalid database path '%s'", ctx.path().getText());
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getCreateDatabaseConstantAction(URI.create(dbName), Options.NONE));
     }
 
@@ -1488,7 +1482,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(ctx.tableName());
         final var targetTypeName = Assert.notNullUnchecked(((QualifiedIdentifierValue) ctx.tableName().accept(this)).getLiteralValue());
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
-        Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
+        Assert.thatUnchecked(maybeTargetType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table '%s'", targetTypeName);
         final var targetType = (Type.Record) maybeTargetType.get();
 
         // (yhatem): we should reorganize the INSERT parser rules such that we can easily change the DQL/DML context _here_.
@@ -1637,7 +1631,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var rebaseMap = AliasMap.of(quantifier.getAlias(), filterQun.getAlias());
 
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
-        Assert.thatUnchecked(maybeTargetType.isPresent(), String.format("Unknown table '%s'", targetTypeName), ErrorCode.UNDEFINED_TABLE);
+        Assert.thatUnchecked(maybeTargetType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table '%s'", targetTypeName);
         final var targetType = (Type.Record) maybeTargetType.get();
         final var rebasedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
         for (final var item : transformMapBuilder.build().entrySet()) {
@@ -1731,7 +1725,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
         final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
-        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+        Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), ErrorCode.INVALID_PATH, "invalid database path '%s'", ctx.path().getText());
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return  ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropDatabaseConstantAction(URI.create(dbName), throwIfDoesNotExist, Options.NONE));
     }
@@ -1758,7 +1752,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         context.pushDdlContext();
         if (ctx.path() != null) {
             final String dbName = ParserUtils.safeCastLiteral(visit(ctx.path()), String.class);
-            Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), String.format("invalid database path '%s'", ctx.path().getText()), ErrorCode.INVALID_PATH);
+            Assert.thatUnchecked(ParserUtils.isProperDbUri(dbName, caseSensitive), ErrorCode.INVALID_PATH, "invalid database path '%s'", ctx.path().getText());
             return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(URI.create(dbName)));
         }
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListDatabasesQueryAction(dbUri));

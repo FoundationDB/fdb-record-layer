@@ -250,7 +250,7 @@ public final class RecordLayerTable implements Table {
 
         @Nonnull
         public Builder addIndex(@Nonnull final RecordLayerIndex index) {
-            Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())), String.format("attempt to add duplicate index '%s'", index.getName()), ErrorCode.INDEX_ALREADY_EXISTS);
+            Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())), ErrorCode.INDEX_ALREADY_EXISTS, "attempt to add duplicate index '%s'", index.getName());
             this.indexes.add(index);
             return this;
         }
@@ -263,8 +263,8 @@ public final class RecordLayerTable implements Table {
 
         @Nonnull
         public Builder addGeneration(int number, @Nonnull DescriptorProtos.FieldOptions options) {
-            Assert.thatUnchecked(!generations.containsKey(number), String.format("Duplicate field number %d for generation of Table %s", number, name), ErrorCode.TABLE_ALREADY_EXISTS);
-            Assert.thatUnchecked(!generations.containsValue(options), String.format("Duplicated options for different generations of Table %s", name), ErrorCode.TABLE_ALREADY_EXISTS);
+            Assert.thatUnchecked(!generations.containsKey(number), ErrorCode.TABLE_ALREADY_EXISTS, "Duplicate field number %d for generation of Table %s", number, name);
+            Assert.thatUnchecked(!generations.containsValue(options), ErrorCode.TABLE_ALREADY_EXISTS, "Duplicated options for different generations of Table %s", name);
             generations.put(number, options);
             return this;
         }
@@ -331,7 +331,7 @@ public final class RecordLayerTable implements Table {
 
             final var columnsList = normalize(columns.build());
 
-            Assert.thatUnchecked(!columnsList.isEmpty(), String.format("Attempting to create table %s without columns", name), ErrorCode.INVALID_TABLE_DEFINITION);
+            Assert.thatUnchecked(!columnsList.isEmpty(), ErrorCode.INVALID_TABLE_DEFINITION, "Attempting to create table %s without columns", name);
 
             final var indexesSet = ImmutableSet.copyOf(indexes);
 

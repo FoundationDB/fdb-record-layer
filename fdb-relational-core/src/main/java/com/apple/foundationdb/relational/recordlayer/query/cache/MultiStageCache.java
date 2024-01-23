@@ -113,10 +113,10 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
                               @Nullable final Executor executor,
                               @Nullable final Executor secondaryExecutor,
                               @Nullable final Ticker ticker) {
-        Assert.thatUnchecked(size > 0, String.format("Invalid cache size '%d'", size), ErrorCode.INTERNAL_ERROR);
-        Assert.thatUnchecked(secondarySize > 0, String.format("Invalid secondary cache size '%d'", secondarySize), ErrorCode.INTERNAL_ERROR);
-        Assert.thatUnchecked(ttl > 0, String.format("Invalid cache ttl '%d'", ttl), ErrorCode.INTERNAL_ERROR);
-        Assert.thatUnchecked(secondaryTtl > 0, String.format("Invalid secondary cache ttl '%d'", secondaryTtl), ErrorCode.INTERNAL_ERROR);
+        Assert.thatUnchecked(size > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache size '%d'", size);
+        Assert.thatUnchecked(secondarySize > 0, ErrorCode.INTERNAL_ERROR, "Invalid secondary cache size '%d'", secondarySize);
+        Assert.thatUnchecked(ttl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache ttl '%d'", ttl);
+        Assert.thatUnchecked(secondaryTtl > 0, ErrorCode.INTERNAL_ERROR, "Invalid secondary cache ttl '%d'", secondaryTtl);
 
         final var mainCacheBuilder = Caffeine.newBuilder().recordStats().maximumSize(size);
         mainCacheBuilder.expireAfterAccess(ttl, ttlTimeUnit);
@@ -370,14 +370,14 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         @Nonnull
         public B setSize(int size) {
-            Assert.thatUnchecked(size > 0, String.format("Invalid cache size '%d'", size), ErrorCode.INTERNAL_ERROR);
+            Assert.thatUnchecked(size > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache size '%d'", size);
             this.size = size;
             return self();
         }
 
         @Nonnull
         public B setSecondarySize(int secondarySize) {
-            Assert.thatUnchecked(secondarySize > 0, String.format("Invalid secondary cache size '%d'", secondarySize), ErrorCode.INTERNAL_ERROR);
+            Assert.thatUnchecked(secondarySize > 0, ErrorCode.INTERNAL_ERROR, "Invalid secondary cache size '%d'", secondarySize);
             this.secondarySize = secondarySize;
             return self();
         }
@@ -389,7 +389,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         @Nonnull
         public B setTtl(long ttl, @Nonnull final TimeUnit timeUnit) {
-            Assert.thatUnchecked(ttl > 0, String.format("Invalid cache ttl '%d'", ttl), ErrorCode.INTERNAL_ERROR);
+            Assert.thatUnchecked(ttl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache ttl '%d'", ttl);
             this.ttl = ttl;
             this.ttlTimeUnit = timeUnit;
             return self();
@@ -402,7 +402,7 @@ public class MultiStageCache<K, S, V> extends AbstractCache<K, S, V> {
 
         @Nonnull
         public B setSecondaryTtl(long secondaryTtl, @Nonnull final TimeUnit timeUnit) {
-            Assert.thatUnchecked(secondaryTtl > 0, String.format("Invalid cache secondaryTtl '%d'", secondaryTtl), ErrorCode.INTERNAL_ERROR);
+            Assert.thatUnchecked(secondaryTtl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache secondaryTtl '%d'", secondaryTtl);
             this.secondaryTtl = secondaryTtl;
             this.secondaryTtlTimeUnit = timeUnit;
             return self();

@@ -328,18 +328,30 @@ public class Scopes {
         }
 
         public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
-            Assert.thatUnchecked(column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue, "Arbitrary expressions are not allowed in order by clause", ErrorCode.SYNTAX_ERROR);
+            Assert.thatUnchecked(
+                    column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue,
+                    "Arbitrary expressions are not allowed in order by clause",
+                    ErrorCode.SYNTAX_ERROR);
             if (orderByCardinals.isEmpty()) {
                 isReverse = isDesc;
             } else {
-                Assert.thatUnchecked(isReverse == isDesc, "Combination of ASC and DESC directions in orderBy clauses is not supported", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(
+                        isReverse == isDesc,
+                        "Combination of ASC and DESC directions in orderBy clauses is not supported",
+                        ErrorCode.UNSUPPORTED_OPERATION);
             }
+
             if (!getProjectList().contains(column)) {
                 selectedColumnList.add(column);
             }
             var orderByCardinalInProjectionList = selectedColumnList.indexOf(column);
-            Assert.thatUnchecked(!orderByCardinals.contains(orderByCardinalInProjectionList),
-                    String.format("Order by column %s is duplicated in the order by clause", (column.getValue() instanceof VersionValue ? "version" : column.getField().getFieldName())), ErrorCode.COLUMN_ALREADY_EXISTS);
+            Assert.thatUnchecked(
+                    !orderByCardinals.contains(orderByCardinalInProjectionList),
+                    ErrorCode.COLUMN_ALREADY_EXISTS,
+                    "Order by column %s is duplicated in the order by clause",
+                    (column.getValue() instanceof VersionValue ?
+                            "version" :
+                            column.getField().getFieldName()));
             if (projectionValue != null) {
                 final var fields = ((Type.Record) (projectionValue.getResultType())).getFields();
                 for (int i = 0; i < fields.size(); i++) {

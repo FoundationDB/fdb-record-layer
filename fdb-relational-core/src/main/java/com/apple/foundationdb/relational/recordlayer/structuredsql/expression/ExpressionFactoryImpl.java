@@ -60,11 +60,23 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
         DataType current = type;
         final ImmutableList.Builder<String> normalizedFieldParts = ImmutableList.builder();
         for (final var fieldPart : fieldParts) {
-            Assert.thatUnchecked(current instanceof DataType.StructType, String.format("invalid field reference %s", fieldParts), ErrorCode.INVALID_COLUMN_REFERENCE);
+            Assert.thatUnchecked(
+                    current instanceof DataType.StructType,
+                    ErrorCode.INVALID_COLUMN_REFERENCE,
+                    "invalid field reference %s",
+                    fieldParts);
             final var normalizedFieldPart = Assert.notNullUnchecked(ParserUtils.normalizeString(fieldPart, caseSensitive));
             normalizedFieldParts.add(normalizedFieldPart);
-            final var result = ((DataType.StructType) current).getFields().stream().filter(f -> Assert.notNullUnchecked(f.getName()).equals(normalizedFieldPart)).findAny();
-            Assert.thatUnchecked(result.isPresent(), String.format("invalid field reference '%s'", StreamSupport.stream(fieldParts.spliterator(), false).collect(Collectors.joining("."))), ErrorCode.INVALID_COLUMN_REFERENCE);
+            final var result =
+                    ((DataType.StructType) current)
+                            .getFields().stream()
+                            .filter(f -> Assert.notNullUnchecked(f.getName()).equals(normalizedFieldPart))
+                            .findAny();
+            Assert.thatUnchecked(
+                    result.isPresent(),
+                    ErrorCode.INVALID_COLUMN_REFERENCE,
+                    "invalid field reference '%s'",
+                    StreamSupport.stream(fieldParts.spliterator(), false).collect(Collectors.joining(".")));
             current = result.get().getType();
         }
         return new FieldImpl<>(normalizedFieldParts.build(), this, current);

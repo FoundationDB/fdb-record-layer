@@ -226,7 +226,7 @@ public final class ParserUtils {
     @SuppressWarnings("unchecked")
     public static BuiltInFunction<? extends Value> getExplicitFunction(@Nonnull final String functionName) {
         final var result = FunctionCatalog.getFunctionSingleton(functionMap.get(functionName));
-        Assert.thatUnchecked(result.isPresent(), String.format("unsupported function '%s'", functionName), ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(result.isPresent(), ErrorCode.UNSUPPORTED_OPERATION, "unsupported function '%s'", functionName);
         return (BuiltInFunction<? extends Value>) result.get();
     }
 
@@ -376,7 +376,7 @@ public final class ParserUtils {
         {
             final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
@@ -399,7 +399,7 @@ public final class ParserUtils {
         // if we already find a matching field in current scope.
         {
             final var resolved = resolveField(currentScope.getForEachQuantifiers(), fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
@@ -409,7 +409,7 @@ public final class ParserUtils {
         {
             final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
@@ -533,7 +533,7 @@ public final class ParserUtils {
             final var allAvailableRecordTypes = meldTableTypes(context.asDql().getRecordLayerSchemaTemplate());
             final Set<String> allAvailableRecordTypeNames = context.asDql().getScannableRecordTypeNames();
             final Optional<Type> recordType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
-            Assert.thatUnchecked(recordType.isPresent(), String.format("Unknown table %s", recordTypeName), ErrorCode.UNDEFINED_TABLE);
+            Assert.thatUnchecked(recordType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table %s", recordTypeName);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
@@ -572,7 +572,7 @@ public final class ParserUtils {
     public static Pair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final String id, boolean caseSensitive) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            Assert.thatUnchecked(isProperDbUri(id, caseSensitive), String.format("invalid database path '%s'", id), ErrorCode.INVALID_PATH);
+            Assert.thatUnchecked(isProperDbUri(id, caseSensitive), ErrorCode.INVALID_PATH, "invalid database path '%s'", id);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return Pair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
@@ -684,9 +684,7 @@ public final class ParserUtils {
         final var iterator = value.filter(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue).iterator();
         Assert.thatUnchecked(iterator.hasNext(), "internal error"); // since it must be `value` itself.
         iterator.next();
-        Assert.thatUnchecked(!iterator.hasNext(),
-                String.format("nested aggregate '%s' is not supported", value),
-                ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(!iterator.hasNext(), ErrorCode.UNSUPPORTED_OPERATION, "nested aggregate '%s' is not supported", value);
     }
 
     public static boolean hasAggregation(@Nonnull final RelationalParser.SelectElementsContext selectElementsContext) {
