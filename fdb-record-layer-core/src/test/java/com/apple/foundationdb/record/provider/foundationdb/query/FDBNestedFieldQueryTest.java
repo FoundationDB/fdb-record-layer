@@ -47,26 +47,32 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
@@ -416,8 +422,10 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that AND clauses in queries on nested record stores are implemented so that the AND is expressed as a
      * condition on the parent field, rather than as an AND of separate nested conditions.
      */
+    @ParameterizedTest(name = "nestedWithAnd[normalizeNestedFields={0}]")
     @DualPlannerTest
-    void nestedWithAnd() throws Exception {
+    @BooleanSource
+    void nestedWithAnd(boolean normalizeNestedFields) throws Exception {
         nestedWithAndSetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -429,6 +437,7 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([0],>) | stats/{school_name EQUALS Human University}
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
@@ -469,19 +478,27 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(stats$school ([null],[1000]]) | stats/{And([school_name LESS_THAN University of Procrastination, hometown STARTS_WITH H])}
         // Index(stats$school ([null],[1000]]) | And([$85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.hometown STARTS_WITH H, $85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.school_name LESS_THAN University of Procrastination])
+        setNormalizeNestedFields(normalizeNestedFields);
         plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    filterPlan(
-                            indexPlan()
-                                    .where(indexName("stats$school"))
-                                    .and(scanComparisons(range("([null],[1000]]"))))
-                            .where(queryComponents(only(equalsObject(Query.field("stats").matches(
-                                    Query.and(Query.field("school_name").lessThan("University of Procrastination"),
-                                            Query.field("hometown").startsWith("H"))))))));
+            BindingMatcher<RecordQueryFilterPlan> filterPlanMatcher = filterPlan(
+                    indexPlan().where(indexName("stats$school")).and(scanComparisons(range("([null],[1000]]"))));
+            if (normalizeNestedFields) {
+                assertMatchesExactly(plan, filterPlanMatcher.where(queryComponents(containsAll(
+                        Set.of(Query.field("stats").matches(Query.field("school_name").lessThan("University of Procrastination")),
+                                Query.field("stats").matches(Query.field("hometown").startsWith("H")))))));
 
-            assertEquals(1700959433, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(336906555, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                assertEquals(808477706, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                assertEquals(-919574984, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertMatchesExactly(plan, filterPlanMatcher.where(queryComponents(containsAll(Set.of(
+                        Query.field("stats").matches(Query.and(
+                                Query.field("school_name").lessThan("University of Procrastination"),
+                                Query.field("hometown").startsWith("H"))))))));
+
+                assertEquals(1700959433, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                assertEquals(336906555, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     predicatesFilterPlan(

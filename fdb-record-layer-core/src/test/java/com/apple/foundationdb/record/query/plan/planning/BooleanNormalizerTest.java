@@ -54,6 +54,12 @@ public class BooleanNormalizerTest {
     @Nonnull
     private static final BooleanNormalizer REDUNDANCY_ELIMINATOR = BooleanNormalizer.forConfiguration(
             RecordQueryPlannerConfiguration.builder().setCheckForDuplicateConditions(true).build());
+    @Nonnull
+    private static final BooleanNormalizer NESTED_NORMALIZER = BooleanNormalizer.forConfiguration(
+            RecordQueryPlannerConfiguration.builder().setNormalizeNestedFields(true).build());
+    @Nonnull
+    private static final BooleanNormalizer NESTED_REDUNDANCY_ELIMINATOR = BooleanNormalizer.forConfiguration(
+            RecordQueryPlannerConfiguration.builder().setCheckForDuplicateConditions(true).setNormalizeNestedFields(true).build());
 
     static final QueryComponent P1 = Query.field("f").equalsValue(1);
     static final QueryComponent P2 = Query.field("f").equalsValue(2);
@@ -170,7 +176,7 @@ public class BooleanNormalizerTest {
     }
 
     @SuppressWarnings("unused") // arguments source for parameterized test
-    static Stream<Arguments> unnest() {
+    static Stream<Arguments> nestedFields() {
         return Stream.of(
                 Arguments.of(
                         Query.not(nest("a", nest("b", nest("c", P1)))),
@@ -218,10 +224,11 @@ public class BooleanNormalizerTest {
         );
     }
 
-    @ParameterizedTest(name = "unnest[{1}]")
+    @ParameterizedTest(name = "nestedFields[{1}]")
     @MethodSource
-    void unnest(QueryComponent expected, QueryComponent starting) {
-        assertExpectedNormalization(expected, starting);
+    void nestedFields(QueryComponent expected, QueryComponent starting) {
+        assertExpectedNormalization(NESTED_NORMALIZER, expected, starting);
+        assertExpectedNormalization(BooleanNormalizer.getDefaultInstance(), starting, starting);
     }
 
     /**
@@ -231,15 +238,15 @@ public class BooleanNormalizerTest {
     @Test
     void parentsTakenIntoAccountForRedundancyCheck() {
         // Validate the redundancy behavior on flat predicates
-        assertExpectedNormalization(REDUNDANCY_ELIMINATOR,
+        assertExpectedNormalization(NESTED_REDUNDANCY_ELIMINATOR,
                 Query.and(P1, P2, P3),
                 Query.or(Query.and(P1, P2, P3), Query.and(P1, P2, P3, P4)));
         // Add predicates with different parents. Here, the parent differences should result in all predicates sticking around
-        assertExpectedNormalization(REDUNDANCY_ELIMINATOR,
+        assertExpectedNormalization(NESTED_REDUNDANCY_ELIMINATOR,
                 Query.or(Query.and(nest("a", P1), nest("a", P2), nest("a", P3)), Query.and(nest("b", P1), nest("b", P2), nest("b", P3), nest("b", P4))),
                 Query.or(nest("a", Query.and(P1, P2, P3)), nest("b", Query.and(P1, P2, P3, P4))));
         // Nest both of the original predicates under the same parent. Here, the redundancy check should be performed like with the original case
-        assertExpectedNormalization(REDUNDANCY_ELIMINATOR,
+        assertExpectedNormalization(NESTED_REDUNDANCY_ELIMINATOR,
                 Query.and(nest(P1), nest(P2), nest(P3)),
                 Query.or(nest(Query.and(P1, P2, P3)), nest(Query.and(P1, P2, P3, P4))));
     }
@@ -255,7 +262,7 @@ public class BooleanNormalizerTest {
             conjuncts.add(Query.or(disjuncts));
         }
         final QueryComponent cnf = Query.and(conjuncts);
-        final QueryComponent dnf = assertNormalizeCnf(cnf, 5, 5);
+        final QueryComponent dnf = assertNormalizeCnf(BooleanNormalizer.getDefaultInstance(), cnf, 5, 5);
 
         // Assert that the DNF is an OR of ANDs of FieldWithComparisons
         assertThat(dnf, Matchers.instanceOf(OrComponent.class));
@@ -281,7 +288,7 @@ public class BooleanNormalizerTest {
             parent++;
         }
         final QueryComponent cnf = nest("p" + parent, Query.and(conjuncts));
-        final QueryComponent dnf = assertNormalizeCnf(cnf, 4, 3);
+        final QueryComponent dnf = assertNormalizeCnf(NESTED_NORMALIZER, cnf, 4, 3);
 
         // Assert that the DNF is an OR of ANDS of thrice nested field comparisons
         assertThat(dnf, Matchers.instanceOf(OrComponent.class));
@@ -299,15 +306,14 @@ public class BooleanNormalizerTest {
         }
     }
 
-    private static QueryComponent assertNormalizeCnf(QueryComponent cnf, int conjuncts, int disjuncts) {
-        final BooleanNormalizer normalizer = BooleanNormalizer.getDefaultInstance();
+    private static QueryComponent assertNormalizeCnf(BooleanNormalizer normalizer, QueryComponent cnf, int conjuncts, int disjuncts) {
         final QueryComponent normalized = normalizer.normalize(cnf);
         assertNotNull(normalized);
         assertNotEquals(cnf, normalized);
         assertEquals((int)Math.pow(disjuncts, conjuncts), normalizer.getNormalizedSize(cnf));
         assertEquals(numberOfTerms(normalized), normalizer.getNormalizedSize(cnf));
 
-        final BooleanNormalizer lowLimitNormalizer = BooleanNormalizer.withLimit(2);
+        final BooleanNormalizer lowLimitNormalizer = normalizer.withUpdatedLimit(numberOfTerms(normalized) - 1);
         assertThrows(BooleanNormalizer.DNFTooLargeException.class, () -> lowLimitNormalizer.normalize(cnf));
         assertEquals(cnf, lowLimitNormalizer.normalizeIfPossible(cnf));
 

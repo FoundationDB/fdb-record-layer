@@ -71,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for mutually building indexes {@link OnlineIndexer}.
  */
+@Tag(Tags.Slow)
 class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerMutualTest.class);
 

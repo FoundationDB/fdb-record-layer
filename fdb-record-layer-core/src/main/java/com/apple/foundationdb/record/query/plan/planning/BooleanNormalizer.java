@@ -69,14 +69,16 @@ public class BooleanNormalizer {
      * The default limit on the size of the DNF that will be produced by the normalizer.
      */
     public static final int DEFAULT_SIZE_LIMIT = 1_000_000;
-    private static final BooleanNormalizer DEFAULT = new BooleanNormalizer(DEFAULT_SIZE_LIMIT, false);
+    private static final BooleanNormalizer DEFAULT = new BooleanNormalizer(DEFAULT_SIZE_LIMIT, false, false);
 
     private final int sizeLimit;
-    private boolean checkForDuplicateConditions;
+    private final boolean checkForDuplicateConditions;
+    private final boolean normalizeNestedFields;
 
-    private BooleanNormalizer(int sizeLimit, boolean checkForDuplicateConditions) {
+    private BooleanNormalizer(int sizeLimit, boolean checkForDuplicateConditions, boolean normalizeNestedFields) {
         this.sizeLimit = sizeLimit;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
+        this.normalizeNestedFields = normalizeNestedFields;
     }
 
     /**
@@ -98,7 +100,15 @@ public class BooleanNormalizer {
         if (sizeLimit == DEFAULT_SIZE_LIMIT) {
             return DEFAULT;
         }
-        return new BooleanNormalizer(sizeLimit, false);
+        return new BooleanNormalizer(sizeLimit, false, false);
+    }
+
+    @Nonnull
+    public BooleanNormalizer withUpdatedLimit(int sizeLimit) {
+        if (sizeLimit == this.sizeLimit) {
+            return this;
+        }
+        return new BooleanNormalizer(sizeLimit, checkForDuplicateConditions, normalizeNestedFields);
     }
 
     /**
@@ -107,10 +117,10 @@ public class BooleanNormalizer {
      * @return a normalizer for the given planner configuration
      */
     public static BooleanNormalizer forConfiguration(RecordQueryPlannerConfiguration configuration) {
-        if (configuration.getComplexityThreshold() == DEFAULT_SIZE_LIMIT && !configuration.shouldCheckForDuplicateConditions()) {
+        if (configuration.getComplexityThreshold() == DEFAULT_SIZE_LIMIT && !configuration.shouldCheckForDuplicateConditions() && !configuration.shouldNormalizeNestedFields()) {
             return DEFAULT;
         }
-        return new BooleanNormalizer(configuration.getComplexityThreshold(), configuration.shouldCheckForDuplicateConditions());
+        return new BooleanNormalizer(configuration.getComplexityThreshold(), configuration.shouldCheckForDuplicateConditions(), configuration.shouldNormalizeNestedFields());
     }
 
     /**
@@ -189,7 +199,7 @@ public class BooleanNormalizer {
      * @return whether the depth meets or exceeds the target
      */
     private boolean depthAtLeast(@Nonnull final QueryComponent predicate, final int target, int booleanDepthSoFar) {
-        if (predicate instanceof BooleanComponent || predicate instanceof NestedField) {
+        if (predicate instanceof BooleanComponent || (normalizeNestedFields && predicate instanceof NestedField)) {
             int newDepth = booleanDepthSoFar + 1;
             if (newDepth >= target) {
                 return true;
@@ -228,7 +238,7 @@ public class BooleanNormalizer {
             return negate ? andToDNFSize(children, true) : orToDNFSize(children, false);
         } else if (predicate instanceof NotComponent) {
             return toDNFSize(((NotComponent)predicate).getChild(), !negate);
-        } else if (predicate instanceof NestedField) {
+        } else if (normalizeNestedFields && predicate instanceof NestedField) {
             return toDNFSize(((NestedField)predicate).getChild(), negate);
         } else {
             return 1;
@@ -277,7 +287,7 @@ public class BooleanNormalizer {
             return negate ? andToDNF(children, true, parentPath) : orToDNF(children, false, parentPath);
         } else if (predicate instanceof NotComponent) {
             return toDNF(((NotComponent)predicate).getChild(), !negate, parentPath);
-        } else if (predicate instanceof NestedField) {
+        } else if (normalizeNestedFields && predicate instanceof NestedField) {
             return nestedFieldToDNF((NestedField)predicate, negate, parentPath);
         } else {
             QueryComponent predicateForNormalization = predicate;

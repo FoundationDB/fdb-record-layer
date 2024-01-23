@@ -286,6 +286,10 @@ public class RecordQueryPlannerConfiguration {
         return proto.hasOrToUnionMaxNumConjuncts() ? proto.getOrToUnionMaxNumConjuncts() : PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
     }
 
+    public boolean shouldNormalizeNestedFields() {
+        return proto.getNormalizeNestedFields();
+    }
+
     /**
      * Return a protobuf representation of this configuration object. This can then be serialized and
      * returned along with, say, a plan continuation. If the original query is re-planned, the serialized
@@ -604,6 +608,12 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
             protoBuilder.setOrToUnionMaxNumConjuncts(orToUnionMaxNumConjuncts);
+            return this;
+        }
+
+        @Nonnull
+        public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
+            protoBuilder.setNormalizeNestedFields(normalizeNestedFields);
             return this;
         }
 

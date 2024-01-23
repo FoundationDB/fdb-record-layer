@@ -483,6 +483,12 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
+    protected void setNormalizeNestedFields(boolean normalizeNestedFields) {
+        if (planner instanceof RecordQueryPlanner) {
+            planner.setConfiguration(planner.getConfiguration().asBuilder().setNormalizeNestedFields(normalizeNestedFields).build());
+        }
+    }
+
     protected void setDeferFetchAfterUnionAndIntersection(boolean shouldDeferFetch) {
         if (planner instanceof RecordQueryPlanner) {
             RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;

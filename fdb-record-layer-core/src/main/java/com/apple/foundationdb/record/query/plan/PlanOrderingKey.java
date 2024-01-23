@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -65,6 +68,8 @@ public class PlanOrderingKey {
     private final int prefixSize;
     private final int primaryKeyStart;
     private final int primaryKeyTail;
+    @Nonnull
+    private final Set<Integer> equalityBound;
 
     public PlanOrderingKey(@Nonnull List<KeyExpression> keys, int prefixSize,
                            int primaryKeyStart, int primaryKeyTail) {
@@ -72,6 +77,15 @@ public class PlanOrderingKey {
         this.prefixSize = prefixSize;
         this.primaryKeyStart = primaryKeyStart;
         this.primaryKeyTail = primaryKeyTail;
+
+        ImmutableSet.Builder<Integer> equalityBoundBuilder = ImmutableSet.builder();
+        for (int pos = prefixSize; pos < keys.size(); pos++) {
+            final KeyExpression component = keys.get(pos);
+            if (keys.indexOf(component) < prefixSize) {
+                equalityBoundBuilder.add(pos);
+            }
+        }
+        this.equalityBound = equalityBoundBuilder.build();
     }
 
     @Nonnull
@@ -102,6 +116,10 @@ public class PlanOrderingKey {
      */
     public boolean isPrimaryKeyOrdered() {
         return prefixSize >= primaryKeyTail;
+    }
+
+    public boolean isEqualityBound(int componentIndex) {
+        return componentIndex < prefixSize || equalityBound.contains(componentIndex);
     }
 
     @Nullable
@@ -255,7 +273,7 @@ public class PlanOrderingKey {
                 if (pos < 0) {
                     return null;
                 }
-                if (pos < planOrderingKey.prefixSize) {
+                if (planOrderingKey.isEqualityBound(pos)) {
                     // Equality bound predicate. We're trivially ordered by it, so add it to the final key.
                     // When combining sub-plans, this can represent, slotting in all of the elements of one
                     // sub-plan before or after the elements of another sub-plan.
@@ -263,7 +281,7 @@ public class PlanOrderingKey {
                 } else if (pos == nextNonPrefix) {
                     // We're aligned with the next non-prefix position. Add it in to the final key
                     components.add(component);
-                    nextNonPrefix++;
+                    nextNonPrefix = advanceNextNonPrefix(planOrderingKey, nextNonPrefix);
                 } else {
                     // Not matched. Exit now
                     return null;
@@ -275,7 +293,7 @@ public class PlanOrderingKey {
         // needs to be maintained
         while (nextNonPrefix < planOrderingKey.getKeys().size()) {
             components.add(planOrderingKey.getKeys().get(nextNonPrefix));
-            nextNonPrefix++;
+            nextNonPrefix = advanceNextNonPrefix(planOrderingKey, nextNonPrefix);
         }
         return combine(components);
     }
@@ -293,7 +311,7 @@ public class PlanOrderingKey {
             if (pos < 0) {
                 return false;      // Not present at all.
             }
-            if (pos < planOrderingKey.prefixSize) {
+            if (planOrderingKey.isEqualityBound(pos)) {
                 // A prefix equality can be in the final key anyplace, we're trivially
                 // ordered by it.
                 continue;
@@ -302,9 +320,20 @@ public class PlanOrderingKey {
             if (pos != nextNonPrefix) {
                 return false;
             }
-            nextNonPrefix++;
+            nextNonPrefix = advanceNextNonPrefix(planOrderingKey, nextNonPrefix);
         }
         return true;
+    }
+
+    private static int advanceNextNonPrefix(@Nonnull PlanOrderingKey planOrderingKey, int nonPrefix) {
+        int next = nonPrefix + 1;
+        while (next < planOrderingKey.keys.size()) {
+            if (!planOrderingKey.isEqualityBound(next)) {
+                break;
+            }
+            next++;
+        }
+        return next;
     }
 
     /**
@@ -336,6 +365,13 @@ public class PlanOrderingKey {
     private static KeyExpression combine(@Nonnull List<KeyExpression> keys) {
         if (keys.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
+        } else if (keys.stream().anyMatch(key -> key.getColumnSize() > 1)) {
+            // If any of the keys have more than 1 column, then wrap the keys in a ListKeyExpression.
+            // Unlike a ThenKeyExpression, this preserves the relationship that each key in keys
+            // maps to exactly one column in the resulting expression. Because the key expression
+            // has been normalized, this should only come up if one of the original (pre-normalization)
+            // key expressions was a ListKeyExpression
+            return new ListKeyExpression(keys);
         } else if (keys.size() == 1) {
             return keys.get(0);
         } else {

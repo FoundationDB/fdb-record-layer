@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -48,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for building multi target indexes {@link OnlineIndexer}.
  */
+@Tag(Tags.Slow)
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
     private void populateOtherData(final long numRecords) {
