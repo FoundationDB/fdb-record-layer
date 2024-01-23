@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
@@ -40,7 +40,17 @@ public class RecordQueryPlannerSortConfiguration {
         return DEFAULT_INSTANCE;
     }
 
+    @Nonnull
+    private final RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration proto;
+
     protected RecordQueryPlannerSortConfiguration() {
+        this(RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration.newBuilder()
+                .setShouldAllowNonIndexSort(true)
+                .build());
+    }
+
+    private RecordQueryPlannerSortConfiguration(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration proto) {
+        this.proto = proto;
     }
 
     /**
@@ -49,11 +59,15 @@ public class RecordQueryPlannerSortConfiguration {
      * This method returns {@code true}.
      *
      * A subclass can override this method to use more complex criteria to decide.
-     * @param query the query that cannot be planned without a sort
      * @return whether to allow non-index sorting
      */
-    public boolean shouldAllowNonIndexSort(@Nonnull RecordQuery query) {
-        return true;
+    public boolean shouldAllowNonIndexSort() {
+        return proto.getShouldAllowNonIndexSort();
+    }
+
+    @Nonnull
+    public RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration toProto() {
+        return proto;
     }
 
     /**
@@ -69,5 +83,10 @@ public class RecordQueryPlannerSortConfiguration {
     @Nonnull
     public RecordQuerySortKey getSortKey(@Nonnull KeyExpression key, boolean reverse) {
         return new RecordQuerySortKey(key, reverse);
+    }
+
+    @Nonnull
+    public static RecordQueryPlannerSortConfiguration fromProto(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration proto) {
+        return new RecordQueryPlannerSortConfiguration(proto);
     }
 }

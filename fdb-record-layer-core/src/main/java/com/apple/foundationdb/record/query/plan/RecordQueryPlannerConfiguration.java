@@ -22,20 +22,20 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A set of configuration options for the {@link RecordQueryPlanner}.
@@ -43,62 +43,38 @@ import java.util.stream.Stream;
 @API(API.Status.MAINTAINED)
 public class RecordQueryPlannerConfiguration {
     @Nonnull
+    private static final BiMap<QueryPlanner.IndexScanPreference, RecordPlannerConfigurationProto.PlannerConfiguration.IndexScanPreference> SCAN_PREFERENCE_BI_MAP =
+            PlanSerialization.protoEnumBiMap(QueryPlanner.IndexScanPreference.class, RecordPlannerConfigurationProto.PlannerConfiguration.IndexScanPreference.class);
+    @Nonnull
+    private static final BiMap<IndexFetchMethod, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod> FETCH_METHOD_BI_MAP =
+            PlanSerialization.protoEnumBiMap(IndexFetchMethod.class, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod.class);
+    @Nonnull
     private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
     @Nonnull
-    private final QueryPlanner.IndexScanPreference indexScanPreference;
-    private final boolean attemptFailedInJoinAsOr;
-    private final int attemptFailedInJoinAsUnionMaxSize;
-    private final int complexityThreshold;
-    private final boolean checkForDuplicateConditions;
-    private final boolean deferFetchAfterUnionAndIntersection;
-    private final boolean deferFetchAfterInJoinAndInUnion;
-    private final boolean omitPrimaryKeyInUnionOrderingKey;
-    private final boolean optimizeForIndexFilters;
-    private final boolean optimizeForRequiredResults;
-    private final int maxTaskQueueSize;
-    private final int maxTotalTaskCount;
-    private final boolean useFullKeyForValueIndex;
-    private final int maxNumMatchesPerRuleCall;
-    @Nullable
-    private final RecordQueryPlannerSortConfiguration sortConfiguration;
+    private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
     @Nonnull
-    private final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules;
-    private final boolean deferCrossProducts;
+    private final QueryPlanner.IndexScanPreference indexScanPreference;
+    @Nonnull
     private final IndexFetchMethod indexFetchMethod;
-
+    @Nonnull
+    private final Set<String> disabledTransformationRules;
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
      * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
      */
+    @Nonnull
     private final Set<String> valueIndexesOverScanNeeded;
-    private final boolean planOtherAttemptWholeFilter;
-    private final int maxNumReplansForInToJoin;
-    private final int orToUnionMaxNumConjuncts;
+    @Nullable
+    private final RecordQueryPlannerSortConfiguration sortConfiguration;
 
-    private RecordQueryPlannerConfiguration(@Nonnull RecordQueryPlannerConfiguration.Builder builder) {
-        this.indexScanPreference = builder.indexScanPreference;
-        this.attemptFailedInJoinAsOr = builder.attemptFailedInJoinAsOr;
-        this.attemptFailedInJoinAsUnionMaxSize = builder.attemptFailedInJoinAsUnionMaxSize;
-        this.complexityThreshold = builder.complexityThreshold;
-        this.checkForDuplicateConditions = builder.checkForDuplicateConditions;
-        this.deferFetchAfterUnionAndIntersection = builder.deferFetchAfterUnionAndIntersection;
-        this.deferFetchAfterInJoinAndInUnion = builder.deferFetchAfterInJoinAndInUnion;
-        this.omitPrimaryKeyInUnionOrderingKey = builder.omitPrimaryKeyInUnionOrderingKey;
-        this.optimizeForIndexFilters = builder.optimizeForIndexFilters;
-        this.optimizeForRequiredResults = builder.optimizeForRequiredResults;
-        this.maxTaskQueueSize = builder.maxTaskQueueSize;
-        this.maxTotalTaskCount = builder.maxTotalTaskCount;
-        this.useFullKeyForValueIndex = builder.useFullKeyForValueIndex;
-        this.maxNumMatchesPerRuleCall = builder.maxNumMatchesPerRuleCall;
-        this.sortConfiguration = builder.sortConfiguration;
-        this.disabledTransformationRules = ImmutableSet.copyOf(builder.disabledTransformationRules);
-        this.deferCrossProducts = builder.deferCrossProducts;
-        this.indexFetchMethod = builder.indexFetchMethod;
-        this.valueIndexesOverScanNeeded = builder.valueIndexesOverScanNeeded;
-        this.planOtherAttemptWholeFilter = builder.planOtherAttemptWholeFilter;
-        this.maxNumReplansForInToJoin = builder.maxNumReplansForInToJoin;
-        this.orToUnionMaxNumConjuncts = builder.orToUnionMaxNumConjuncts;
+    private RecordQueryPlannerConfiguration(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
+        this.proto = proto;
+        this.indexScanPreference = SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference());
+        this.indexFetchMethod = FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod());
+        this.disabledTransformationRules = ImmutableSet.copyOf(proto.getDisabledTransformationRulesList());
+        this.valueIndexesOverScanNeeded = ImmutableSet.copyOf(proto.getValueIndexesOverScanNeededList());
+        this.sortConfiguration = sortConfiguration;
     }
 
     /**
@@ -122,7 +98,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner will transform IN predicates into ORs when they can't be planned as in-joins
      */
     public boolean shouldAttemptFailedInJoinAsOr() {
-        return attemptFailedInJoinAsOr;
+        return proto.getAttemptFailedInJoinAsOr();
     }
 
     /**
@@ -132,7 +108,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner will transform IN predicates into a dynamic union when they can't be planned as in-joins
      */
     public boolean shouldAttemptFailedInJoinAsUnion() {
-        return attemptFailedInJoinAsUnionMaxSize > 0;
+        return getAttemptFailedInJoinAsUnionMaxSize() > 0;
     }
 
     /**
@@ -143,7 +119,7 @@ public class RecordQueryPlannerConfiguration {
      * or {@code 0} if this transformation is not allowed.
      */
     public int getAttemptFailedInJoinAsUnionMaxSize() {
-        return attemptFailedInJoinAsUnionMaxSize;
+        return proto.getAttemptFailedInJoinAsUnionMaxSize();
     }
 
     /**
@@ -153,7 +129,7 @@ public class RecordQueryPlannerConfiguration {
      * See {@link QueryPlan#getComplexity} for a description of plan complexity.
      */
     public int getComplexityThreshold() {
-        return complexityThreshold;
+        return proto.hasComplexityThreshold() ? proto.getComplexityThreshold() : RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
     }
 
     /**
@@ -164,7 +140,7 @@ public class RecordQueryPlannerConfiguration {
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer#isCheckForDuplicateConditions
      */
     public boolean shouldCheckForDuplicateConditions() {
-        return checkForDuplicateConditions;
+        return proto.getCheckForDuplicateConditions();
     }
 
     /**
@@ -174,7 +150,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should delay the fetch of the whole record until after union, intersection, and primary key distinct operators
      */
     public boolean shouldDeferFetchAfterUnionAndIntersection() {
-        return deferFetchAfterUnionAndIntersection;
+        return proto.getDeferFetchAfterUnionAndIntersection();
     }
 
     /**
@@ -182,11 +158,11 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should delay the fetch of the whole record until after in-join or in union operators.
      */
     public boolean shouldDeferFetchAfterInJoinAndInUnion() {
-        return deferFetchAfterInJoinAndInUnion;
+        return proto.getDeferFetchAfterInJoinAndInUnion();
     }
 
     public boolean shouldOmitPrimaryKeyInUnionOrderingKey() {
-        return omitPrimaryKeyInUnionOrderingKey;
+        return proto.getOmitPrimaryKeyInUnionOrderingKey();
     }
 
     /**
@@ -195,7 +171,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should optimize for index filters
      */
     public boolean shouldOptimizeForIndexFilters() {
-        return optimizeForIndexFilters;
+        return proto.getOptimizeForIndexFilters();
     }
 
     /**
@@ -205,7 +181,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should optimize for the set of required results
      */
     public boolean shouldOptimizeForRequiredResults() {
-        return optimizeForRequiredResults;
+        return proto.getOptimizeForRequiredResults();
     }
 
     /**
@@ -213,7 +189,7 @@ public class RecordQueryPlannerConfiguration {
      * @return the maximum size of the queue. 0 means "unbound" (the default). Trying to add a task beyond the maximum size will fail the planning.
      */
     public int getMaxTaskQueueSize() {
-        return maxTaskQueueSize;
+        return proto.getMaxTaskQueueSize();
     }
 
     /**
@@ -221,7 +197,7 @@ public class RecordQueryPlannerConfiguration {
      * @return the maximum number of tasks. 0 means "unbound" (the default). Trying to execute a task after the maximum number was exceeded will fail the planning.
      */
     public int getMaxTotalTaskCount() {
-        return maxTotalTaskCount;
+        return proto.getMaxTotalTaskCount();
     }
 
     /**
@@ -229,7 +205,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether to include primary key in planning
      */
     public boolean shouldUseFullKeyForValueIndex() {
-        return useFullKeyForValueIndex;
+        return !proto.hasUseFullKeyForValueIndex() || proto.getUseFullKeyForValueIndex();
     }
 
     /**
@@ -237,7 +213,7 @@ public class RecordQueryPlannerConfiguration {
      * @return the maximum number of matches that are permitted per rule call within the Cascades planner
      */
     public int getMaxNumMatchesPerRuleCall() {
-        return maxNumMatchesPerRuleCall;
+        return proto.getMaxNumMatchesPerRuleCall();
     }
 
     /**
@@ -255,7 +231,7 @@ public class RecordQueryPlannerConfiguration {
      * @return {@code true} is enabled, {@code false} otherwise
      */
     public boolean isRuleEnabled(@Nonnull CascadesRule<?> rule) {
-        return !disabledTransformationRules.contains(rule.getClass());
+        return !disabledTransformationRules.contains(rule.getClass().getSimpleName());
     }
 
     /**
@@ -275,7 +251,7 @@ public class RecordQueryPlannerConfiguration {
      *         them like other joins.
      */
     public boolean shouldDeferCrossProducts() {
-        return deferCrossProducts;
+        return !proto.hasDeferCrossProducts() || proto.getDeferCrossProducts();
     }
 
     /**
@@ -294,11 +270,11 @@ public class RecordQueryPlannerConfiguration {
     }
 
     public boolean shouldPlanOtherAttemptWholeFilter() {
-        return planOtherAttemptWholeFilter;
+        return proto.getPlanOtherAttemptWholeFilter();
     }
 
     public int getMaxNumReplansForInToJoin() {
-        return maxNumReplansForInToJoin;
+        return proto.getMaxNumReplansForInToJoin();
     }
 
     /**
@@ -307,7 +283,20 @@ public class RecordQueryPlannerConfiguration {
      * @return the maximum number of conjuncts
      */
     public int getOrToUnionMaxNumConjuncts() {
-        return orToUnionMaxNumConjuncts;
+        return proto.hasOrToUnionMaxNumConjuncts() ? proto.getOrToUnionMaxNumConjuncts() : PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
+    }
+
+    /**
+     * Return a protobuf representation of this configuration object. This can then be serialized and
+     * returned along with, say, a plan continuation. If the original query is re-planned, the serialized
+     * planner configuration object can be used to ensure (as much as possible) that the same plan is
+     * generated for the same query.
+     *
+     * @return a protobuf representation of this configuration object
+     */
+    @Nonnull
+    public RecordPlannerConfigurationProto.PlannerConfiguration toProto() {
+        return proto;
     }
 
     @Nonnull
@@ -326,106 +315,88 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
+     * Deserialize a configuration object from its protobuf representation. This can be used (along with
+     * {@link #toProto()}) to ensure that the same configuration is used for the same query, potentially
+     * across different JVMs.
+     *
+     * @param proto a protobuf representation of a {@code RecordQueryPlannerConfiguration}
+     * @return a {@code RecordQueryPlannerConfiguration} with the same configuration as the proto object
+     */
+    @Nonnull
+    public static RecordQueryPlannerConfiguration fromProto(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto) {
+        @Nullable RecordQueryPlannerSortConfiguration sortConfiguration = proto.hasSortConfiguration() ? RecordQueryPlannerSortConfiguration.fromProto(proto.getSortConfiguration()) : null;
+        return new RecordQueryPlannerConfiguration(proto, sortConfiguration);
+    }
+
+    /**
      * A builder for {@link RecordQueryPlannerConfiguration}.
      */
     public static class Builder {
         @Nonnull
-        private QueryPlanner.IndexScanPreference indexScanPreference = QueryPlanner.IndexScanPreference.PREFER_SCAN;
-        private boolean attemptFailedInJoinAsOr = false;
-        private int attemptFailedInJoinAsUnionMaxSize = 0;
-        private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
-        private boolean checkForDuplicateConditions = false;
-        private boolean deferFetchAfterUnionAndIntersection = false;
-        private boolean deferFetchAfterInJoinAndInUnion = false;
-        private boolean omitPrimaryKeyInUnionOrderingKey = false;
-        private boolean optimizeForIndexFilters = false;
-        private boolean optimizeForRequiredResults = false;
-        private int maxTaskQueueSize = 0;
-        private int maxTotalTaskCount = 0;
-        private boolean useFullKeyForValueIndex = true;
-        private int maxNumMatchesPerRuleCall = 0;
+        private final RecordPlannerConfigurationProto.PlannerConfiguration.Builder protoBuilder;
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
-        private boolean deferCrossProducts = true;
-        @Nonnull
-        private Set<Class<? extends CascadesRule<?>>> disabledTransformationRules = Sets.newHashSet();
-        @Nonnull
-        private IndexFetchMethod indexFetchMethod = IndexFetchMethod.SCAN_AND_FETCH;
-
-        @Nonnull
-        private Set<String> valueIndexesOverScanNeeded = Sets.newHashSet();
-        private boolean planOtherAttemptWholeFilter;
-        private int maxNumReplansForInToJoin = 0;
-
-        private int orToUnionMaxNumConjuncts = PredicateToLogicalUnionRule.DEFAULT_MAX_NUM_CONJUNCTS;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
-            this.indexScanPreference = configuration.indexScanPreference;
-            this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
-            this.attemptFailedInJoinAsUnionMaxSize = configuration.attemptFailedInJoinAsUnionMaxSize;
-            this.complexityThreshold = configuration.complexityThreshold;
-            this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
-            this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
-            this.deferFetchAfterInJoinAndInUnion = configuration.deferFetchAfterInJoinAndInUnion;
-            this.omitPrimaryKeyInUnionOrderingKey = configuration.omitPrimaryKeyInUnionOrderingKey;
-            this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
-            this.optimizeForRequiredResults = configuration.optimizeForRequiredResults;
-            this.maxTaskQueueSize = configuration.maxTaskQueueSize;
-            this.maxTotalTaskCount = configuration.maxTotalTaskCount;
-            this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
-            this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
+            this.protoBuilder = configuration.toProto().toBuilder();
             this.sortConfiguration = configuration.sortConfiguration;
-            this.disabledTransformationRules = configuration.disabledTransformationRules;
-            this.indexFetchMethod = configuration.indexFetchMethod;
-            this.valueIndexesOverScanNeeded = configuration.valueIndexesOverScanNeeded;
-            this.orToUnionMaxNumConjuncts = configuration.orToUnionMaxNumConjuncts;
         }
 
         public Builder() {
+            this.protoBuilder = RecordPlannerConfigurationProto.PlannerConfiguration.newBuilder();
         }
 
+        @Nonnull
         public Builder setIndexScanPreference(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference) {
-            this.indexScanPreference = indexScanPreference;
+            protoBuilder.setIndexScanPreference(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference));
             return this;
         }
 
+        @Nonnull
         public Builder setAttemptFailedInJoinAsOr(boolean attemptFailedInJoinAsOr) {
-            this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
+            protoBuilder.setAttemptFailedInJoinAsOr(attemptFailedInJoinAsOr);
             return this;
         }
 
+        @Nonnull
         public Builder setAttemptFailedInJoinAsUnionMaxSize(int attemptFailedInJoinAsUnionMaxSize) {
-            this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
+            protoBuilder.setAttemptFailedInJoinAsUnionMaxSize(attemptFailedInJoinAsUnionMaxSize);
             return this;
         }
 
+        @Nonnull
         public Builder setComplexityThreshold(final int complexityThreshold) {
-            this.complexityThreshold = complexityThreshold;
+            protoBuilder.setComplexityThreshold(complexityThreshold);
             return this;
         }
 
+        @Nonnull
         public Builder setCheckForDuplicateConditions(final boolean checkForDuplicateConditions) {
-            this.checkForDuplicateConditions = checkForDuplicateConditions;
+            protoBuilder.setCheckForDuplicateConditions(checkForDuplicateConditions);
             return this;
         }
 
+        @Nonnull
         public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
-            this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+            protoBuilder.setDeferFetchAfterUnionAndIntersection(deferFetchAfterUnionAndIntersection);
             return this;
         }
 
+        @Nonnull
         public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
-            this.deferFetchAfterInJoinAndInUnion = deferFetchAfterInJoinAndInUnion;
+            protoBuilder.setDeferFetchAfterInJoinAndInUnion(deferFetchAfterInJoinAndInUnion);
             return this;
         }
 
+        @Nonnull
         public Builder setOmitPrimaryKeyInUnionOrderingKey(boolean omitPrimaryKeyInUnionOrderingKey) {
-            this.omitPrimaryKeyInUnionOrderingKey = omitPrimaryKeyInUnionOrderingKey;
+            protoBuilder.setOmitPrimaryKeyInUnionOrderingKey(omitPrimaryKeyInUnionOrderingKey);
             return this;
         }
 
+        @Nonnull
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
-            this.optimizeForIndexFilters = optimizeForIndexFilters;
+            protoBuilder.setOptimizeForIndexFilters(optimizeForIndexFilters);
             return this;
         }
 
@@ -436,8 +407,9 @@ public class RecordQueryPlannerConfiguration {
          * @param optimizeForRequiredResults set the optimizeForRequiredResults parameter
          * @return this builder
          */
+        @Nonnull
         public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
-            this.optimizeForRequiredResults = optimizeForRequiredResults;
+            protoBuilder.setOptimizeForRequiredResults(optimizeForRequiredResults);
             return this;
         }
 
@@ -448,8 +420,9 @@ public class RecordQueryPlannerConfiguration {
          * @param maxTaskQueueSize the maximum size of the queue.
          * @return this builder
          */
+        @Nonnull
         public Builder setMaxTaskQueueSize(final int maxTaskQueueSize) {
-            this.maxTaskQueueSize = maxTaskQueueSize;
+            protoBuilder.setMaxTaskQueueSize(maxTaskQueueSize);
             return this;
         }
 
@@ -460,8 +433,9 @@ public class RecordQueryPlannerConfiguration {
          * @param maxTotalTaskCount the maximum number of tasks.
          * @return this builder
          */
+        @Nonnull
         public Builder setMaxTotalTaskCount(final int maxTotalTaskCount) {
-            this.maxTotalTaskCount = maxTotalTaskCount;
+            protoBuilder.setMaxTotalTaskCount(maxTotalTaskCount);
             return this;
         }
 
@@ -470,8 +444,9 @@ public class RecordQueryPlannerConfiguration {
          * @param useFullKeyForValueIndex whether to include primary key in planning
          * @return this builder
          */
+        @Nonnull
         public Builder setUseFullKeyForValueIndex(final boolean useFullKeyForValueIndex) {
-            this.useFullKeyForValueIndex = useFullKeyForValueIndex;
+            protoBuilder.setUseFullKeyForValueIndex(useFullKeyForValueIndex);
             return this;
         }
 
@@ -481,8 +456,9 @@ public class RecordQueryPlannerConfiguration {
          * @param maxNumMatchesPerRuleCall the desired maximum number of matches that are permitted per rule call
          * @return {@code this}
          */
+        @Nonnull
         public Builder setMaxNumMatchesPerRuleCall(final int maxNumMatchesPerRuleCall) {
-            this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
+            protoBuilder.setMaxNumMatchesPerRuleCall(maxNumMatchesPerRuleCall);
             return this;
         }
 
@@ -491,7 +467,13 @@ public class RecordQueryPlannerConfiguration {
          * @param sortConfiguration configuration to use for planning non-index sorting, or {@code null} to never allow it
          * @return this builder
          */
-        public Builder setSortConfiguration(final RecordQueryPlannerSortConfiguration sortConfiguration) {
+        @Nonnull
+        public Builder setSortConfiguration(@Nullable final RecordQueryPlannerSortConfiguration sortConfiguration) {
+            if (sortConfiguration == null) {
+                protoBuilder.clearSortConfiguration();
+            } else {
+                protoBuilder.setSortConfiguration(sortConfiguration.toProto());
+            }
             this.sortConfiguration = sortConfiguration;
             return this;
         }
@@ -501,6 +483,7 @@ public class RecordQueryPlannerConfiguration {
          * @param allowNonIndexSort whether to allow non-index sorting
          * @return this builder
          */
+        @Nonnull
         public Builder setAllowNonIndexSort(final boolean allowNonIndexSort) {
             setSortConfiguration(allowNonIndexSort ? RecordQueryPlannerSortConfiguration.getDefaultInstance() : null);
             return this;
@@ -513,7 +496,10 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
-            this.disabledTransformationRules = Sets.newHashSet(disabledTransformationRules);
+            protoBuilder.clearDisabledTransformationRules();
+            for (Class<? extends CascadesRule<?>> rule : disabledTransformationRules) {
+                protoBuilder.addDisabledTransformationRules(rule.getSimpleName());
+            }
             return this;
         }
 
@@ -525,14 +511,10 @@ public class RecordQueryPlannerConfiguration {
          * @param plannerRuleSet a {@link PlannerRuleSet} that is used to resolve the rule name to a rule class
          * @return this builder
          */
-        @SuppressWarnings("unchecked")
         @Nonnull
         public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlannerRuleSet plannerRuleSet) {
-            final Stream<? extends CascadesRule<?>> allRules = plannerRuleSet.getAllRules();
-            this.disabledTransformationRules =
-                    allRules.map(rule -> (Class<? extends CascadesRule<?>>)rule.getClass())
-                            .filter(ruleClass -> disabledTransformationRuleNames.contains(ruleClass.getSimpleName()))
-                            .collect(Collectors.toSet());
+            protoBuilder.clearDisabledTransformationRules()
+                    .addAllDisabledTransformationRules(disabledTransformationRuleNames);
             return this;
         }
 
@@ -543,7 +525,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
-            this.disabledTransformationRules.add(ruleClass);
+            protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
             return this;
         }
 
@@ -559,10 +541,11 @@ public class RecordQueryPlannerConfiguration {
          * Unfortunately, there are cases, however, where it may be beneficial to treat a cross product like any other
          * join in a query.
          * @param deferCrossProducts indicator if the planner should defer cross products
-         * @return whether the planner will defer cross products or plan them like other joins
+         * @return this builder
          */
+        @Nonnull
         public Builder setDeferCrossProducts(final boolean deferCrossProducts) {
-            this.deferCrossProducts = deferCrossProducts;
+            protoBuilder.setDeferCrossProducts(deferCrossProducts);
             return this;
         }
 
@@ -574,14 +557,16 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
+        @Nonnull
         public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
-            this.indexFetchMethod = indexFetchMethod;
+            protoBuilder.setIndexFetchMethod(FETCH_METHOD_BI_MAP.get(indexFetchMethod));
             return this;
         }
 
         @API(API.Status.EXPERIMENTAL)
+        @Nonnull
         public Builder addValueIndexOverScanNeeded(@Nonnull final String indexName) {
-            this.valueIndexesOverScanNeeded.add(indexName);
+            protoBuilder.addValueIndexesOverScanNeeded(indexName);
             return this;
         }
 
@@ -591,8 +576,9 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
+        @Nonnull
         public Builder setPlanOtherAttemptWholeFilter(final boolean planOtherAttemptWholeFilter) {
-            this.planOtherAttemptWholeFilter = planOtherAttemptWholeFilter;
+            protoBuilder.setPlanOtherAttemptWholeFilter(planOtherAttemptWholeFilter);
             return this;
         }
 
@@ -603,8 +589,9 @@ public class RecordQueryPlannerConfiguration {
          *        replanning attempts
          * @return this builder
          */
+        @Nonnull
         public Builder setMaxNumReplansForInToJoin(final int maxNumReplansForInToJoin) {
-            this.maxNumReplansForInToJoin = maxNumReplansForInToJoin;
+            protoBuilder.setMaxNumReplansForInToJoin(maxNumReplansForInToJoin);
             return this;
         }
 
@@ -614,13 +601,14 @@ public class RecordQueryPlannerConfiguration {
          * @param orToUnionMaxNumConjuncts the maximum number of conjuncts
          * @return this builder
          */
+        @Nonnull
         public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
-            this.orToUnionMaxNumConjuncts = orToUnionMaxNumConjuncts;
+            protoBuilder.setOrToUnionMaxNumConjuncts(orToUnionMaxNumConjuncts);
             return this;
         }
 
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(this);
+            return new RecordQueryPlannerConfiguration(protoBuilder.build(), sortConfiguration);
         }
     }
 }

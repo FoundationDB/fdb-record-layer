@@ -300,7 +300,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 throw new RecordCoreException("Unexpected failure to plan without sort");
             }
             final RecordQueryPlannerSortConfiguration sortConfiguration = configuration.getSortConfiguration();
-            if (sortConfiguration != null && sortConfiguration.shouldAllowNonIndexSort(query)) {
+            if (sortConfiguration != null && sortConfiguration.shouldAllowNonIndexSort()) {
                 final PlanContext withoutSort = new PlanContext(query.toBuilder().setSort(null).build(),
                         planContext.indexes, planContext.commonPrimaryKey);
                 plan = plan(withoutSort, filter, null, false);
