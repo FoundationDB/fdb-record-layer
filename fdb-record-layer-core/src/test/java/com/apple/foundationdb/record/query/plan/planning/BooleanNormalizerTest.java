@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests for {@link BooleanNormalizer}.
  */
-public class BooleanNormalizerTest {
+class BooleanNormalizerTest {
     @Nonnull
     private static final BooleanNormalizer REDUNDANCY_ELIMINATOR = BooleanNormalizer.forConfiguration(
             RecordQueryPlannerConfiguration.builder().setCheckForDuplicateConditions(true).build());
@@ -252,7 +252,7 @@ public class BooleanNormalizerTest {
     }
 
     @Test
-    public void cnf() {
+    void cnf() {
         List<QueryComponent> conjuncts = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             List<QueryComponent> disjuncts = new ArrayList<>();
@@ -275,7 +275,7 @@ public class BooleanNormalizerTest {
     }
 
     @Test
-    public void cnfWithNesteds() {
+    void cnfWithNesteds() {
         int parent = 0;
         List<QueryComponent> conjuncts = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -321,7 +321,7 @@ public class BooleanNormalizerTest {
     }
 
     @Test
-    public void bigNonCnf() {
+    void bigNonCnf() {
         final QueryComponent cnf = Query.and(
                 IntStream.rangeClosed(1, 9).boxed().map(i ->
                         Query.or(IntStream.rangeClosed(1, 9).boxed()
@@ -336,7 +336,7 @@ public class BooleanNormalizerTest {
     }
 
     @Test
-    public void bigCnfThatWouldOverflow() {
+    void bigCnfThatWouldOverflow() {
         // A CNF who's DNF size doesn't fit in an int.
         List<QueryComponent> conjuncts = new ArrayList<>();
         for (int i = 0; i < 32; i++) {
