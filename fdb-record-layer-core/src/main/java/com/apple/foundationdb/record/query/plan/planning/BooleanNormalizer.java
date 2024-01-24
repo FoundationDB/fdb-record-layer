@@ -342,7 +342,7 @@ public class BooleanNormalizer {
 
     @Nonnull
     private List<List<QueryComponent>> nestedFieldToDNF(@Nonnull final NestedField nestedField, final boolean negate, @Nonnull final Deque<String> parentPath) {
-        // And the parent field to the parent path. Pop from the stack after normalizing the children
+        // Add the parent field to the parent path. Pop from the stack after normalizing the children
         final String parentField = nestedField.getFieldName();
         parentPath.addLast(parentField);
         List<List<QueryComponent>> dnf = toDNF(nestedField.getChild(), negate, parentPath);

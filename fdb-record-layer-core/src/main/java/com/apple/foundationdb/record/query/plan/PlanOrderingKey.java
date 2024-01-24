@@ -68,8 +68,9 @@ public class PlanOrderingKey {
     private final int prefixSize;
     private final int primaryKeyStart;
     private final int primaryKeyTail;
+    // Keep a set of positions that are equality bound but are not in the prefix. (All components in the prefix are equality bound.)
     @Nonnull
-    private final Set<Integer> equalityBound;
+    private final Set<Integer> equalityBoundInTail;
 
     public PlanOrderingKey(@Nonnull List<KeyExpression> keys, int prefixSize,
                            int primaryKeyStart, int primaryKeyTail) {
@@ -85,7 +86,7 @@ public class PlanOrderingKey {
                 equalityBoundBuilder.add(pos);
             }
         }
-        this.equalityBound = equalityBoundBuilder.build();
+        this.equalityBoundInTail = equalityBoundBuilder.build();
     }
 
     @Nonnull
@@ -119,7 +120,7 @@ public class PlanOrderingKey {
     }
 
     public boolean isEqualityBound(int componentIndex) {
-        return componentIndex < prefixSize || equalityBound.contains(componentIndex);
+        return componentIndex < prefixSize || equalityBoundInTail.contains(componentIndex);
     }
 
     @Nullable
