@@ -74,6 +74,8 @@ public class ArithmeticValue extends AbstractValue {
     private final Value leftChild;
     @Nonnull
     private final Value rightChild;
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
     @Nonnull
     private static final Supplier<Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator>> operatorMapSupplier =
@@ -119,9 +121,14 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
+    private Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(leftChild, rightChild);
+    }
+
+    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(leftChild, rightChild);
+        return childrenSupplier.get();
     }
 
     @Nonnull
