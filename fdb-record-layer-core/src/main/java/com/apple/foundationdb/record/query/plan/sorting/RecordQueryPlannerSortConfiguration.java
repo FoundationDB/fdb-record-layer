@@ -36,10 +36,6 @@ import javax.annotation.Nonnull;
 public class RecordQueryPlannerSortConfiguration {
     private static final RecordQueryPlannerSortConfiguration DEFAULT_INSTANCE = new RecordQueryPlannerSortConfiguration();
 
-    public static RecordQueryPlannerSortConfiguration getDefaultInstance() {
-        return DEFAULT_INSTANCE;
-    }
-
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration.SortConfiguration proto;
 
@@ -83,6 +79,11 @@ public class RecordQueryPlannerSortConfiguration {
     @Nonnull
     public RecordQuerySortKey getSortKey(@Nonnull KeyExpression key, boolean reverse) {
         return new RecordQuerySortKey(key, reverse);
+    }
+
+    @Nonnull
+    public static RecordQueryPlannerSortConfiguration getDefaultInstance() {
+        return DEFAULT_INSTANCE;
     }
 
     @Nonnull
