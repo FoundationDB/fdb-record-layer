@@ -51,6 +51,19 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
+    // Masks used for encoding multiple Boolean flags into a single long
+    private static final long ATTEMPT_FAILED_IN_JOIN_AS_OR_MASK = 1L;
+    private static final long CHECK_FOR_DUPLICATE_CONDITIONS_MASK = 1L << 1;
+    private static final long DEFER_FETCH_AFTER_UNION_AND_INTERSECTION_MASK = 1L << 2;
+    private static final long DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK = 1L << 3;
+    private static final long OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK = 1L << 4;
+    private static final long OPTIMIZE_FOR_INDEX_FILTERS_MASK = 1L << 5;
+    private static final long OPTIMIZE_FOR_REQUIRED_RESULTS_MASK = 1L << 6;
+    private static final long DONT_USE_FULL_KEY_FOR_VALUE_INDEX_MASK = 1L << 7;
+    private static final long DONT_DEFER_CROSS_PRODUCTS_MASK = 1L << 8;
+    private static final long PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK = 1L << 9;
+    private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
+
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
     @Nonnull
@@ -68,6 +81,7 @@ public class RecordQueryPlannerConfiguration {
     @Nullable
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
 
+
     private RecordQueryPlannerConfiguration(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
         this.proto = proto;
         this.indexScanPreference = SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference());
@@ -75,6 +89,10 @@ public class RecordQueryPlannerConfiguration {
         this.disabledTransformationRules = ImmutableSet.copyOf(proto.getDisabledTransformationRulesList());
         this.valueIndexesOverScanNeeded = ImmutableSet.copyOf(proto.getValueIndexesOverScanNeededList());
         this.sortConfiguration = sortConfiguration;
+    }
+
+    private boolean flagSet(long mask) {
+        return (proto.getFlags() & mask) != 0;
     }
 
     /**
@@ -98,7 +116,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner will transform IN predicates into ORs when they can't be planned as in-joins
      */
     public boolean shouldAttemptFailedInJoinAsOr() {
-        return proto.getAttemptFailedInJoinAsOr();
+        return flagSet(ATTEMPT_FAILED_IN_JOIN_AS_OR_MASK);
     }
 
     /**
@@ -140,7 +158,7 @@ public class RecordQueryPlannerConfiguration {
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer#isCheckForDuplicateConditions
      */
     public boolean shouldCheckForDuplicateConditions() {
-        return proto.getCheckForDuplicateConditions();
+        return flagSet(CHECK_FOR_DUPLICATE_CONDITIONS_MASK);
     }
 
     /**
@@ -150,7 +168,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should delay the fetch of the whole record until after union, intersection, and primary key distinct operators
      */
     public boolean shouldDeferFetchAfterUnionAndIntersection() {
-        return proto.getDeferFetchAfterUnionAndIntersection();
+        return flagSet(DEFER_FETCH_AFTER_UNION_AND_INTERSECTION_MASK);
     }
 
     /**
@@ -158,11 +176,11 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should delay the fetch of the whole record until after in-join or in union operators.
      */
     public boolean shouldDeferFetchAfterInJoinAndInUnion() {
-        return proto.getDeferFetchAfterInJoinAndInUnion();
+        return flagSet(DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
     }
 
     public boolean shouldOmitPrimaryKeyInUnionOrderingKey() {
-        return proto.getOmitPrimaryKeyInUnionOrderingKey();
+        return flagSet(OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
     }
 
     /**
@@ -171,7 +189,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should optimize for index filters
      */
     public boolean shouldOptimizeForIndexFilters() {
-        return proto.getOptimizeForIndexFilters();
+        return flagSet(OPTIMIZE_FOR_INDEX_FILTERS_MASK);
     }
 
     /**
@@ -181,7 +199,7 @@ public class RecordQueryPlannerConfiguration {
      * @return whether the planner should optimize for the set of required results
      */
     public boolean shouldOptimizeForRequiredResults() {
-        return proto.getOptimizeForRequiredResults();
+        return flagSet(OPTIMIZE_FOR_REQUIRED_RESULTS_MASK);
     }
 
     /**
@@ -205,7 +223,8 @@ public class RecordQueryPlannerConfiguration {
      * @return whether to include primary key in planning
      */
     public boolean shouldUseFullKeyForValueIndex() {
-        return !proto.hasUseFullKeyForValueIndex() || proto.getUseFullKeyForValueIndex();
+        // Value defaults to true, so return *false* if the flag is set
+        return !flagSet(DONT_USE_FULL_KEY_FOR_VALUE_INDEX_MASK);
     }
 
     /**
@@ -251,7 +270,8 @@ public class RecordQueryPlannerConfiguration {
      *         them like other joins.
      */
     public boolean shouldDeferCrossProducts() {
-        return !proto.hasDeferCrossProducts() || proto.getDeferCrossProducts();
+        // Value defaults to true, so return *false* if the flag is set
+        return !flagSet(DONT_DEFER_CROSS_PRODUCTS_MASK);
     }
 
     /**
@@ -270,7 +290,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     public boolean shouldPlanOtherAttemptWholeFilter() {
-        return proto.getPlanOtherAttemptWholeFilter();
+        return flagSet(PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK);
     }
 
     public int getMaxNumReplansForInToJoin() {
@@ -287,7 +307,7 @@ public class RecordQueryPlannerConfiguration {
     }
 
     public boolean shouldNormalizeNestedFields() {
-        return proto.getNormalizeNestedFields();
+        return flagSet(NORMALIZE_NESTED_FIELDS_MASK);
     }
 
     /**
@@ -340,10 +360,12 @@ public class RecordQueryPlannerConfiguration {
         private final RecordPlannerConfigurationProto.PlannerConfiguration.Builder protoBuilder;
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
+        private long flags;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.protoBuilder = configuration.toProto().toBuilder();
             this.sortConfiguration = configuration.sortConfiguration;
+            this.flags = protoBuilder.getFlags();
         }
 
         public Builder() {
@@ -356,9 +378,13 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        private void updateFlags(boolean value, long mask) {
+            flags = value ? (flags | mask) : (flags & ~mask);
+        }
+
         @Nonnull
         public Builder setAttemptFailedInJoinAsOr(boolean attemptFailedInJoinAsOr) {
-            protoBuilder.setAttemptFailedInJoinAsOr(attemptFailedInJoinAsOr);
+            updateFlags(attemptFailedInJoinAsOr, ATTEMPT_FAILED_IN_JOIN_AS_OR_MASK);
             return this;
         }
 
@@ -376,31 +402,31 @@ public class RecordQueryPlannerConfiguration {
 
         @Nonnull
         public Builder setCheckForDuplicateConditions(final boolean checkForDuplicateConditions) {
-            protoBuilder.setCheckForDuplicateConditions(checkForDuplicateConditions);
+            updateFlags(checkForDuplicateConditions, CHECK_FOR_DUPLICATE_CONDITIONS_MASK);
             return this;
         }
 
         @Nonnull
         public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
-            protoBuilder.setDeferFetchAfterUnionAndIntersection(deferFetchAfterUnionAndIntersection);
+            updateFlags(deferFetchAfterUnionAndIntersection, DEFER_FETCH_AFTER_UNION_AND_INTERSECTION_MASK);
             return this;
         }
 
         @Nonnull
         public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
-            protoBuilder.setDeferFetchAfterInJoinAndInUnion(deferFetchAfterInJoinAndInUnion);
+            updateFlags(deferFetchAfterInJoinAndInUnion, DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
             return this;
         }
 
         @Nonnull
         public Builder setOmitPrimaryKeyInUnionOrderingKey(boolean omitPrimaryKeyInUnionOrderingKey) {
-            protoBuilder.setOmitPrimaryKeyInUnionOrderingKey(omitPrimaryKeyInUnionOrderingKey);
+            updateFlags(omitPrimaryKeyInUnionOrderingKey, OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
             return this;
         }
 
         @Nonnull
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
-            protoBuilder.setOptimizeForIndexFilters(optimizeForIndexFilters);
+            updateFlags(optimizeForIndexFilters, OPTIMIZE_FOR_INDEX_FILTERS_MASK);
             return this;
         }
 
@@ -413,7 +439,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
-            protoBuilder.setOptimizeForRequiredResults(optimizeForRequiredResults);
+            updateFlags(optimizeForRequiredResults, OPTIMIZE_FOR_REQUIRED_RESULTS_MASK);
             return this;
         }
 
@@ -450,7 +476,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder setUseFullKeyForValueIndex(final boolean useFullKeyForValueIndex) {
-            protoBuilder.setUseFullKeyForValueIndex(useFullKeyForValueIndex);
+            updateFlags(!useFullKeyForValueIndex, DONT_USE_FULL_KEY_FOR_VALUE_INDEX_MASK);
             return this;
         }
 
@@ -549,7 +575,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder setDeferCrossProducts(final boolean deferCrossProducts) {
-            protoBuilder.setDeferCrossProducts(deferCrossProducts);
+            updateFlags(!deferCrossProducts, DONT_DEFER_CROSS_PRODUCTS_MASK);
             return this;
         }
 
@@ -582,7 +608,7 @@ public class RecordQueryPlannerConfiguration {
         @API(API.Status.EXPERIMENTAL)
         @Nonnull
         public Builder setPlanOtherAttemptWholeFilter(final boolean planOtherAttemptWholeFilter) {
-            protoBuilder.setPlanOtherAttemptWholeFilter(planOtherAttemptWholeFilter);
+            updateFlags(planOtherAttemptWholeFilter, PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK);
             return this;
         }
 
@@ -613,11 +639,14 @@ public class RecordQueryPlannerConfiguration {
 
         @Nonnull
         public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
-            protoBuilder.setNormalizeNestedFields(normalizeNestedFields);
+            updateFlags(normalizeNestedFields, NORMALIZE_NESTED_FIELDS_MASK);
             return this;
         }
 
         public RecordQueryPlannerConfiguration build() {
+            if (protoBuilder.getFlags() != flags) {
+                protoBuilder.setFlags(flags);
+            }
             return new RecordQueryPlannerConfiguration(protoBuilder.build(), sortConfiguration);
         }
     }

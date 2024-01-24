@@ -40,27 +40,17 @@ message PlannerConfiguration {
         optional bool shouldAllowNonIndexSort = 1;
     }
 
-    optional IndexScanPreference indexScanPreference = 1;
-    optional bool attemptFailedInJoinAsOr = 2;
+    optional int64 flags = 1; // used to collect multiple Boolean configuration flags
+    optional IndexScanPreference indexScanPreference = 2;
     optional int32 attemptFailedInJoinAsUnionMaxSize = 3;
     optional int32 complexityThreshold = 4;
-    optional bool checkForDuplicateConditions = 5;
-    optional bool deferFetchAfterUnionAndIntersection = 6;
-    optional bool deferFetchAfterInJoinAndInUnion = 7;
-    optional bool omitPrimaryKeyInUnionOrderingKey = 8;
-    optional bool optimizeForIndexFilters = 9;
-    optional bool optimizeForRequiredResults = 10;
-    optional int32 maxTaskQueueSize = 11;
-    optional int32 maxTotalTaskCount = 12;
-    optional bool useFullKeyForValueIndex = 13;
-    optional int32 maxNumMatchesPerRuleCall = 14;
-    optional SortConfiguration sortConfiguration = 15;
-    repeated string disabledTransformationRules = 16;
-    optional bool deferCrossProducts = 17;
-    optional IndexFetchMethod indexFetchMethod = 18;
-    repeated string valueIndexesOverScanNeeded = 19;
-    optional bool planOtherAttemptWholeFilter = 20;
-    optional int32 maxNumReplansForInToJoin = 21;
-    optional int32 orToUnionMaxNumConjuncts = 22;
-    optional bool normalizeNestedFields = 23;
+    optional int32 maxTaskQueueSize = 5;
+    optional int32 maxTotalTaskCount = 6;
+    optional int32 maxNumMatchesPerRuleCall = 7;
+    optional SortConfiguration sortConfiguration = 8;
+    repeated string disabledTransformationRules = 9;
+    optional IndexFetchMethod indexFetchMethod = 10;
+    repeated string valueIndexesOverScanNeeded = 11;
+    optional int32 maxNumReplansForInToJoin = 12;
+    optional int32 orToUnionMaxNumConjuncts = 13;
 }
