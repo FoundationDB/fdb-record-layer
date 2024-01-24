@@ -84,7 +84,7 @@ public class VariadicFunctionValue extends AbstractValue {
     public VariadicFunctionValue(@Nonnull PhysicalOperator operator,
                                  @Nonnull List<Value> children) {
         this.operator = operator;
-        this.children = children;
+        this.children = ImmutableList.copyOf(children);
     }
 
     @Nullable
@@ -109,7 +109,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return ImmutableList.copyOf(children);
+        return children;
     }
 
     @Nonnull

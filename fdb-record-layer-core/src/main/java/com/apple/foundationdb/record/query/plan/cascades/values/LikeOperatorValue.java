@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -53,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -66,6 +68,9 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     private final Value srcChild;
     @Nonnull
     private final Value patternChild;
+
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
     /**
      * Constructs a new instance of {@link LikeOperatorValue}.
@@ -107,9 +112,14 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
+    private Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(srcChild, patternChild);
+    }
+
+    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(srcChild, patternChild);
+        return childrenSupplier.get();
     }
 
     @Nonnull

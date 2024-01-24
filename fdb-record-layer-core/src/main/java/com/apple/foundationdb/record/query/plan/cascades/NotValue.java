@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A value that flips the output of its boolean child.
@@ -67,12 +69,16 @@ public class NotValue extends AbstractValue implements BooleanValue {
     @Nonnull
     private final Value child;
 
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier;
+
     /**
      * Constructs a new {@link NotValue} instance.
      * @param child The child expression.
      */
     public NotValue(@Nonnull final Value child) {
         this.child = child;
+        this.childrenSupplier = Suppliers.memoize(() -> List.of(this.child));
     }
 
     @Override
@@ -99,7 +105,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
     @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(child);
+        return childrenSupplier.get();
     }
 
     @Nonnull

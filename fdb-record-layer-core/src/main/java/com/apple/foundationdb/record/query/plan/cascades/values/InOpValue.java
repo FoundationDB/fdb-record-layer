@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A {@link Value} that checks if the left child is in the list of values.
@@ -67,6 +69,9 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     @Nonnull
     private final Value inArrayValue;
 
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
+
     /**
      * Creates a new instance of {@link InOpValue}.
      * @param probeValue The left child in `IN` operator
@@ -79,12 +84,14 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
+    private Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(probeValue, inArrayValue);
+    }
+
+    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        final var builder = new ImmutableList.Builder<Value>();
-        builder.add(probeValue);
-        builder.add(inArrayValue);
-        return builder.build();
+        return childrenSupplier.get();
     }
 
     @Nonnull

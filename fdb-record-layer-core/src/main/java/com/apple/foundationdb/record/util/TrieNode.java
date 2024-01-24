@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -30,6 +32,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -44,6 +47,8 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     private final T value;
     @Nullable
     private final Map<D, N> childrenMap;
+    @Nonnull
+    private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
     public TrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
         this.value = value;
@@ -61,9 +66,14 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     }
 
     @Nonnull
+    private Iterable<N> computeChildren() {
+        return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+    }
+
+    @Nonnull
     @Override
     public Iterable<N> getChildren() {
-        return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+        return childrenSupplier.get();
     }
 
     @Nonnull
