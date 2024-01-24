@@ -79,10 +79,19 @@ public class PlanOrderingKey {
         this.primaryKeyStart = primaryKeyStart;
         this.primaryKeyTail = primaryKeyTail;
 
+        // Look through the components in the (non-equality bound) suffix of the
+        // plan ordering key. If any key appears first in the equality-bound prefix,
+        // make a note of that so that we can skip over that key when trying to match
+        // a key against the next non-equality bound component during ordering matching
         ImmutableSet.Builder<Integer> equalityBoundBuilder = ImmutableSet.builder();
         for (int pos = prefixSize; pos < keys.size(); pos++) {
             final KeyExpression component = keys.get(pos);
-            if (keys.indexOf(component) < prefixSize) {
+            int firstIndex = keys.indexOf(component);
+            if (firstIndex >= 0 && firstIndex < prefixSize) {
+                // Note: firstIndex should always be greater than or equal to 0, because
+                // the index should be at least equal to pos. However, just to
+                // guard against .equals() not working, require that firstIndex >= 0 before
+                // adding the position to the set
                 equalityBoundBuilder.add(pos);
             }
         }
@@ -119,7 +128,7 @@ public class PlanOrderingKey {
         return prefixSize >= primaryKeyTail;
     }
 
-    public boolean isEqualityBound(int componentIndex) {
+    private boolean isEqualityBound(int componentIndex) {
         return componentIndex < prefixSize || equalityBoundInTail.contains(componentIndex);
     }
 
