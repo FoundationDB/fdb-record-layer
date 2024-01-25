@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.google.common.base.Objects;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,6 +60,7 @@ import java.util.stream.IntStream;
 @Fork(value = 1)
 @Warmup(iterations = 5, timeUnit = TimeUnit.MILLISECONDS, time = 5000)
 @Measurement(iterations = 5, timeUnit = TimeUnit.MILLISECONDS, time = 5000)
+@SuppressWarnings("deprecation")
 public class PreOrderPerformance {
 
     @Nonnull
@@ -105,10 +108,11 @@ public class PreOrderPerformance {
     @Benchmark
     @BenchmarkMode(Mode.All)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    public void measureOld() {
-        final List<Iterable<? extends TreeNode>> result = new ArrayList<>(1000000);
-        for (int i = 0; i < 1000000; ++i) {
-            final var x = tree.inPreOrder();
+    public void measureNew() {
+        final List<Iterable<? extends TreeNode>> result = new ArrayList<>(100000);
+        for (int i = 0; i < 100000; ++i) {
+            List<TreeNode> x = new ArrayList<>();
+            tree.iterator().forEachRemaining(x::add);
             result.add(x);
         }
     }
@@ -116,11 +120,10 @@ public class PreOrderPerformance {
     @Benchmark
     @BenchmarkMode(Mode.All)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    public void measureNew() {
+    public void measureOld() {
         final List<Iterable<? extends TreeNode>> result = new ArrayList<>(1000000);
         for (int i = 0; i < 1000000; ++i) {
-            List<TreeNode> x = new ArrayList<>();
-            tree.iterator().forEachRemaining(x::add);
+            final var x = tree.inPreOrder();
             result.add(x);
         }
     }
