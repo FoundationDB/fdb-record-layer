@@ -95,11 +95,11 @@ public final class LuceneRecordContextProperties {
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_AGILE_DISABLE_AGILITY_CONTEXT = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.agile.disabled", false);
     /**
-     * Number of documents to move from a partition when its size exceeds {@see com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
+     * Number of documents to move from a partition when its size exceeds {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 10);
     /**
-     * Fallback value of high watermark document count in a partition. This is used when {@see com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK} isn't defined for an index.
+     * Fallback value of high watermark document count in a partition. This is used when {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK} isn't defined for an index.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_PARTITION_HIGH_WATERMARK = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.partition.high.watermark", 400_000);
 }
