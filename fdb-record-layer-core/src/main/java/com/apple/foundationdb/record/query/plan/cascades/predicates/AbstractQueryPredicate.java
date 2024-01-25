@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 /**
  * Abstract implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
@@ -45,6 +47,8 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> semanticHashCodeSupplier;
 
+    private final Supplier<Integer> heightSupplier;
+
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
                                      @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
@@ -56,6 +60,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         this.isAtomic = isAtomic;
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+        this.heightSupplier = Suppliers.memoize(this::computeHeight);
     }
 
     @Nonnull
@@ -87,6 +92,15 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     }
 
     protected abstract int computeSemanticHashCode();
+
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    private int computeHeight() {
+        return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
+    }
 
     @Override
     public int hashCodeWithoutChildren() {

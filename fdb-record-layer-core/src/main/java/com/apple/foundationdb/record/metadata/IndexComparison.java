@@ -85,14 +85,13 @@ public abstract class IndexComparison {
      */
     public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
         return comparison instanceof Comparisons.SimpleComparison ||
-               comparison instanceof Comparisons.NullComparison ||
-               (comparison instanceof Comparisons.ValueComparison &&
-                StreamSupport.stream(((Comparisons.ValueComparison)comparison)
-                        .getComparandValue()
-                        .filter(value -> !(value instanceof Value.RangeMatchableValue))
-                        .spliterator(), false)
-                        .findAny()
-                        .isEmpty());
+                comparison instanceof Comparisons.NullComparison ||
+                (comparison instanceof Comparisons.ValueComparison &&
+                         ((Comparisons.ValueComparison)comparison).getComparandValue()
+                                 .stream()
+                                 .filter(value -> !(value instanceof Value.RangeMatchableValue))
+                                 .findAny()
+                                 .isEmpty());
     }
 
     /**

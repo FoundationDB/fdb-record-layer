@@ -95,10 +95,9 @@ public class PushReferencedFieldsThroughSelectRule extends CascadesRule<SelectEx
      * @return a set of {@link FieldValue}s
      */
     private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
-        return StreamSupport.stream(selectExpression
-                        .getResultValue()
-                        .filter(value -> value instanceof FieldValue)
-                        .spliterator(), false)
+        return selectExpression.getResultValue()
+                .stream()
+                .filter(FieldValue.class::isInstance)
                 .map(value -> (FieldValue)value)
                 .collect(ImmutableSet.toImmutableSet());
     }

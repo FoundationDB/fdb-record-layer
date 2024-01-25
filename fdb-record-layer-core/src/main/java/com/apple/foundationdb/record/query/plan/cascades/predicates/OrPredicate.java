@@ -228,16 +228,15 @@ public class OrPredicate extends AndOrPredicate {
 
         if (mappingsOptional.isEmpty() && candidatePredicate instanceof Placeholder) {
             final var candidateValue = ((Placeholder)candidatePredicate).getValue();
-            final var anyMatchingLeafPredicate =
-                    Streams.stream(inPreOrder())
-                            .filter(predicate -> predicate instanceof LeafQueryPredicate)
-                            .anyMatch(predicate -> {
-                                if (predicate instanceof PredicateWithValue) {
-                                    final var queryValue = ((ValuePredicate)predicate).getValue();
-                                    return queryValue.semanticEquals(candidateValue, aliasMap);
-                                }
-                                return false;
-                            });
+            final var anyMatchingLeafPredicate = stream()
+                    .filter(LeafQueryPredicate.class::isInstance)
+                    .anyMatch(predicate -> {
+                        if (predicate instanceof PredicateWithValue) {
+                            final var queryValue = ((ValuePredicate)predicate).getValue();
+                            return queryValue.semanticEquals(candidateValue, aliasMap);
+                        }
+                        return false;
+                    });
             if (anyMatchingLeafPredicate) {
                 //
                 // There is a sub-term that could be matched if the OR was broken into a UNION. Mark this as a

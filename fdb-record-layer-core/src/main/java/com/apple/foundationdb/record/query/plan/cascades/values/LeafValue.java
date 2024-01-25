@@ -58,4 +58,9 @@ public interface LeafValue extends Value {
     default Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         throw new RecordCoreException("implementor must override");
     }
+
+    @Override
+    default int height() {
+        return 1;
+    }
 }

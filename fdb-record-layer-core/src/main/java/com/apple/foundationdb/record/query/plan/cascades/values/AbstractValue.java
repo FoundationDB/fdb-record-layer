@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -29,6 +30,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 /**
  * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets.
@@ -36,13 +38,19 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValue implements Value {
 
+    @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
+    @Nonnull
     private final Supplier<Integer> semanticHashCodeSupplier;
+
+    @Nonnull
+    private final Supplier<Integer> heightSupplier;
 
     protected AbstractValue() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+        this.heightSupplier = Suppliers.memoize(this::computeHeight);
     }
 
     @Nonnull
@@ -76,5 +84,14 @@ public abstract class AbstractValue implements Value {
     private int computeSemanticHashCode() {
         return fold(Value::hashCodeWithoutChildren,
                 (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
+    }
+
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    private int computeHeight() {
+        return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
     }
 }
