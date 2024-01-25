@@ -41,7 +41,7 @@ import java.util.function.UnaryOperator;
  * {@link T}.
  * @param <T> type parameter of the node
  */
-public interface TreeLike<T extends TreeLike<T>> {
+public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
 
     /**
      * Method to get a {@code T}-typed {@code this}. This is the equivalent of Scala's typed self. Java's type inference
@@ -250,6 +250,16 @@ public interface TreeLike<T extends TreeLike<T>> {
             }
             return t;
         });
+    }
+
+    /**
+     * Returns an iterator that traverse the nodes in pre-order.
+     * @return an iterator that traverse the nodes in pre-order.
+     */
+    @Override
+    @Nonnull
+    default Iterator<T> iterator() {
+        return PreOrderIterator.over(getThis());
     }
 
     /**

@@ -48,6 +48,8 @@ public class TreeLikeTest {
         final ImmutableList<? extends TreeNode> traversed = ImmutableList.copyOf(t.inPreOrder());
         assertEquals(ImmutableList.of("a", "b", "c"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
+        assertEquals(ImmutableList.of("a", "b", "c"),
+                StreamSupport.stream(t.spliterator(), false).map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -62,6 +64,42 @@ public class TreeLikeTest {
         final ImmutableList<? extends TreeNode> traversed = ImmutableList.copyOf(t.inPreOrder());
         assertEquals(ImmutableList.of("a", "b", "c", "d", "e"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
+        assertEquals(ImmutableList.of("a", "b", "c", "d", "e"),
+                StreamSupport.stream(t.spliterator(), false).map(item -> item.contents).collect(Collectors.toList()));
+    }
+
+    @Test
+    void testPreOrder3() {
+        final TreeNode t =
+                node("a",
+                        node("b",
+                                node("c"),
+                                node("d")),
+                        node("e",
+                                node("f",
+                                    node("g"),
+                                    node("h")),
+                                node("i")));
+
+        final ImmutableList<? extends TreeNode> traversed = ImmutableList.copyOf(t.inPreOrder());
+        assertEquals(ImmutableList.of("a", "b", "c", "d", "e", "f", "g", "h", "i"),
+                traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
+        assertEquals(ImmutableList.of("a", "b", "c", "d", "e", "f", "g", "h", "i"),
+                StreamSupport.stream(t.spliterator(), false).map(item -> item.contents).collect(Collectors.toList()));
+    }
+
+    @Test
+    void testPreOrder4() {
+        final TreeNode t =
+                node("a",
+                        node("b",
+                                node("c")));
+
+        final ImmutableList<? extends TreeNode> traversed = ImmutableList.copyOf(t.inPreOrder());
+        assertEquals(ImmutableList.of("a", "b", "c"),
+                traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
+        assertEquals(ImmutableList.of("a", "b", "c"),
+                StreamSupport.stream(t.spliterator(), false).map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -71,6 +109,8 @@ public class TreeLikeTest {
         final ImmutableList<? extends TreeNode> traversed = ImmutableList.copyOf(t.inPreOrder());
         assertEquals(ImmutableList.of("a"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
+        assertEquals(ImmutableList.of("a"),
+                StreamSupport.stream(t.spliterator(), false).map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
