@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -566,8 +565,11 @@ public class LucenePartitioner {
                                                   @Nonnull final Tuple groupingKey,
                                                   int count) {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
+        ScanComparisons comparisons = groupingKey.isEmpty() ?
+                                      ScanComparisons.EMPTY :
+                                      Objects.requireNonNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, groupingKey.get(0))));
         LuceneScanParameters scan = new LuceneScanQueryParameters(
-                Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, groupingKey.get(0)))),
+                comparisons,
                 new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
                 new Sort(new SortField(partitionTimestampFieldName, SortField.Type.LONG, false)),
                 null,
