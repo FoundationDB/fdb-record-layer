@@ -506,6 +506,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         }
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testReverseDirectoryCacheLookup() throws Exception {
         FDBReverseDirectoryCache reverseDirectoryCache = fdb.getReverseDirectoryCache();

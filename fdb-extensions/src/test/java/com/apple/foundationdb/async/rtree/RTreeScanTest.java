@@ -65,6 +65,7 @@ import java.util.stream.Stream;
  * Tests for scanning {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
+@Tag(Tags.Slow)
 public class RTreeScanTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(RTreeScanTest.class);
 

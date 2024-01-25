@@ -474,12 +474,18 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected KeyExpression primaryKey(String recordType) {
-        return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
+        return recordStore.getRecordMetaData().getRecordType(recordType).getPrimaryKey();
     }
 
     protected void clearStoreCounter(@Nonnull FDBRecordContext context) {
         if (context.getTimer() != null) {
             context.getTimer().reset();
+        }
+    }
+
+    protected void setNormalizeNestedFields(boolean normalizeNestedFields) {
+        if (planner instanceof RecordQueryPlanner) {
+            planner.setConfiguration(planner.getConfiguration().asBuilder().setNormalizeNestedFields(normalizeNestedFields).build());
         }
     }
 

@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for building unique indexes with {@link OnlineIndexer}.
  */
 public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
+    @Tag(Tags.Slow)
     @Test
     void uniquenessViolations() {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj(val ->

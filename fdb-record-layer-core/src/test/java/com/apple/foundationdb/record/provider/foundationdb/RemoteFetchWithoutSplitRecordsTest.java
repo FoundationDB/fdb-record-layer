@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Extends {@link RemoteFetchTest} and change the configurartion to run all tests with split=false.
  */
+@Tag(Tags.Slow)
 public class RemoteFetchWithoutSplitRecordsTest extends RemoteFetchTest {
     @BeforeEach
     @Override

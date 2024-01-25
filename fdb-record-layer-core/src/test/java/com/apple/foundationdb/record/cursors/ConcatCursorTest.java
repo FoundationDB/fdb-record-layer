@@ -106,6 +106,7 @@ public class ConcatCursorTest {
         }
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void simpleTimeLimitTest() {
 
