@@ -30,18 +30,16 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Stack;
 
 /**
  * An iterator that accesses all elements of a {@link TreeLike} object in pre-order fashion.
- * It attempts to reduce the number of memory allocations as much as possible, and does so
- * by implementing a mix of level-based traversal and pre-order traversal; a {@link Stack} is used
- * to enable depth first search, however instead of maintaining individual {@link TreeLike} node in
- * each stack frame the entire list of (amortized) children is stored along with an index pointing out
- * to the current element that is returned to the user.
+ * It attempts to reduce the number of memory allocations while still being performant. It does so
+ * by implementing a mix of level-based traversal and pre-order traversal, where a {@link Deque} is used
+ * (as a stack) to enable depth first search, however instead of maintaining individual {@link TreeLike} node in
+ * each stack frame the entire list of node's children is stored instead in addition to an index pointing out
+ * to the current element that is returned by the stream.
  *
  * @param <T> The type of the iterator element.
  */
@@ -54,6 +52,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
     private static final int INITIAL_POSITION = -1;
 
     private PreOrderIterator(@Nonnull final T traversable) {
+        // initialize the stack with the {@link TreeLike}'s depth as capacity to avoid resizing.
         stack = new ArrayDeque<>(traversable.height());
         // this is the only list allocation done to put the root in the stack.
         // all the remaining lists added to the stack are references to children

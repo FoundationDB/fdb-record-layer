@@ -35,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
 
 /**
  * A (relational) expression that has a predicate on it.

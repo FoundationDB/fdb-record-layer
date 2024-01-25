@@ -30,7 +30,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.stream.StreamSupport;
 
 /**
  * This is a simple PoJo hierarchy representing SerDe operations on a predicate comparison of a sparse {@link Index}.
