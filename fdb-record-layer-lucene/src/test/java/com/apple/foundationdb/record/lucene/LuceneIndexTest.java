@@ -351,6 +351,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
             )).groupBy(field("complex").nest("group")), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp"));
 
+    private static final Index JOINED_INDEX_NOGROUP = new Index("joinNestedConcat", concat(
+            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+            field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
+            )), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp"));
+
     protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                   "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
                                                   "'No, no,' said the hardware engineer. 'That will take far too long, and that method has never worked before. In no time at all, I can strip down the car's braking system, isolate the fault, fix it, and we can be on our way.'" +
@@ -763,20 +768,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX);
+    }
+
+    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX_NOGROUP);
+    }
+
+    private static JoinedRecordTypeBuilder joinedMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         //set up the joined index
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
         joined.addConstituent("complex", "ComplexDocument");
         joined.addConstituent("simple", "SimpleDocument");
         joined.addJoin("simple", field("group"), "complex", field("group"));
-
-        metaDataBuilder.addIndex(joined, JOINED_INDEX);
         metaDataBuilder.addIndex("SimpleDocument", "simple$group", field("group"));
+        return joined;
+
     }
 
     @Test
     void partitionedJoinedIndexTest() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, LuceneIndexTest::joinedPartitionedLuceneIndexMetadataHook);
+            openRecordStore(context, LuceneIndexTest::joinedPartitionedUngroupedLuceneIndexMetadataHook);
 
             TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
                     .setGroup(42)
