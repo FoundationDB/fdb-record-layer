@@ -20,13 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Stack;
@@ -45,12 +49,12 @@ import java.util.Stack;
 public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T> {
 
     @Nonnull
-    private final Stack<Pair<Iterable<? extends T>, Integer>> stack;
+    private final Deque<Pair<Iterable<? extends T>, Integer>> stack;
 
     private static final int INITIAL_POSITION = -1;
 
     private PreOrderIterator(@Nonnull final T traversable) {
-        stack = new Stack<>();
+        stack = new ArrayDeque<>(traversable.height());
         // this is the only list allocation done to put the root in the stack.
         // all the remaining lists added to the stack are references to children
         // lists (copy by reference).
@@ -60,11 +64,12 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
     @Override
     public boolean hasNext() {
         while (true) {
-            if (stack.empty()) {
+            if (stack.isEmpty()) {
                 return false;
             }
-            final var currentLevelIndex = stack.peek().getRight();
-            final var currentLevelItemsCount = Iterables.size(stack.peek().getLeft());
+            final var top = Verify.verifyNotNull(stack.peekLast());
+            final var currentLevelIndex = top.getRight();
+            final var currentLevelItemsCount = Iterables.size(top.getLeft());
             if (currentLevelIndex + 1 < currentLevelItemsCount) {
                 return true;
             } else {
@@ -72,7 +77,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
                 // by looking into previous levels in reverse (stack) order, progressively
                 // do so until either an item is found, or the stack becomes empty, and no item
                 // is to be found meaning that the traversal is complete.
-                stack.pop();
+                stack.removeLast();
             }
         }
     }
@@ -82,8 +87,9 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
         if (!hasNext()) {
             throw new NoSuchElementException("no more elements");
         }
-        final var currentIndexPosition = stack.peek().getRight();
-        final var currentLevelItems = stack.peek().getLeft();
+        final var top = Verify.verifyNotNull(stack.peekLast());
+        final var currentIndexPosition = top.getRight();
+        final var currentLevelItems = top.getLeft();
         final var nextItemIndex = currentIndexPosition + 1;
 
         // mark the next item as the current one in this stack frame, note that
@@ -91,12 +97,12 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
         // makes sure that, if there is a next element, it modifies the stack index such
         // that incrementing it would lead to finding that next element correctly.
         final var result = Iterables.get(currentLevelItems, nextItemIndex);
-        stack.peek().setValue(nextItemIndex);
+        top.setValue(nextItemIndex);
         final var resultChildren = result.getChildren();
 
-        // descend into the children (if any) to conform to pre-order FDF semantics.
+        // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
         if (!Iterables.isEmpty(resultChildren)) {
-            stack.push(MutablePair.of(resultChildren, INITIAL_POSITION));
+            stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
         }
         return result;
     }

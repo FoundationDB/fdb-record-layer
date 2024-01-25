@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * Basic trie implementation that stores values at the trie's leaves.
@@ -48,10 +49,13 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     private final Map<D, N> childrenMap;
     @Nonnull
     private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
+    @Nonnull
+    private final Supplier<Integer> heightSupplier;
 
     public TrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
         this.value = value;
         this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
+        this.heightSupplier = Suppliers.memoize(this::computeHeight);
     }
 
     @Nullable
@@ -75,6 +79,15 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
         return childrenSupplier.get();
     }
 
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    private int computeHeight() {
+        return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
+    }
+
     @Nonnull
     @Override
     public N withChildren(final Iterable<? extends N> newChildren) {
@@ -83,7 +96,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
 
     @Nonnull
     public Collection<T> values() {
-        return Streams.stream(inPreOrder())
+        return stream()
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
     }

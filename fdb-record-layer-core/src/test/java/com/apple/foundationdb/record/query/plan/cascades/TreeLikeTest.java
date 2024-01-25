@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link TreeLike}.
  */
+@SuppressWarnings("deprecation") // this is due to testing the deprecated {@code TreeLike#inPreOrder} for correctness.
 public class TreeLikeTest {
 
     @Test
@@ -281,10 +284,12 @@ public class TreeLikeTest {
     private static class TreeNode implements TreeLike<TreeNode> {
         private final String contents;
         private final List<TreeNode> children;
+        private final Supplier<Integer> heightSupplier;
 
         public TreeNode(@Nonnull final String contents, final Iterable<? extends TreeNode> children) {
             this.contents = contents;
             this.children = ImmutableList.copyOf(children);
+            this.heightSupplier = Suppliers.memoize(this::computeHeight);
         }
 
         @Nonnull
@@ -308,6 +313,15 @@ public class TreeLikeTest {
         @Override
         public TreeNode withChildren(@Nonnull final Iterable<? extends TreeNode> newChildren) {
             return new TreeNode(this.contents, newChildren);
+        }
+
+        private int computeHeight() {
+            return 1 + children.stream().mapToInt(TreeLike::height).max().orElse(0);
+        }
+
+        @Override
+        public int height() {
+            return heightSupplier.get();
         }
 
         @Override

@@ -99,16 +99,12 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                                                               @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
-                .flatMap(predicate -> {
-                    final Iterable<? extends QueryPredicate> filters =
-                            predicate.filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p));
-                    return StreamSupport.stream(filters.spliterator(), false)
-                            .map(p -> (PredicateWithValue)p)
-                            .flatMap(predicateWithValue ->
-                                    StreamSupport.stream(predicateWithValue.getValue()
-                                            .filter(v -> v instanceof FieldValue).spliterator(), false))
-                            .map(value -> (FieldValue)value);
-                })
+                .flatMap(predicate -> predicate
+                        .stream()
+                        .filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p))
+                        .map(p -> (PredicateWithValue)p)
+                        .flatMap(predicateWithValue -> predicateWithValue.getValue().stream().filter(FieldValue.class::isInstance))
+                        .map(value -> (FieldValue)value))
                 .map(fieldValue -> {
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
                     // TODO make better as the field can currently only handle exactly one correlated alias
