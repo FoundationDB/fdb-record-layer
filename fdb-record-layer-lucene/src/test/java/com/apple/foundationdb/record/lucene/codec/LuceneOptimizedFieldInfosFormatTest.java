@@ -38,6 +38,8 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.MergeInfo;
+import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.hamcrest.Matchers;
@@ -55,6 +57,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -304,6 +307,31 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 });
     }
 
+    @ParameterizedTest
+    @BooleanSource
+    void nrtCachingDirectory(boolean oneTransaction) throws Exception {
+        var fieldInfos = singleFieldInfos("foo", 0);
+        final var segment = new LightSegmentInfo();
+        final Function<FDBRecordContext, NRTCachingDirectory> createDirectory =
+                context -> new NRTCachingDirectory(createDirectory(context), 20_000, 20_000);
+        final IOContext ioContext = new IOContext(new MergeInfo(2, 200, true, 3));
+        try (FDBRecordContext context = openContext()) {
+            final Directory directory = createDirectory.apply(context);
+            write(directory, segment, fieldInfos, ioContext);
+            if (oneTransaction) {
+                assertFieldInfosEqual(fieldInfos, read(directory, segment, ioContext));
+            }
+            context.commit();
+        }
+        if (!oneTransaction) {
+            try (FDBRecordContext context = openContext()) {
+                final Directory directory = createDirectory.apply(context);
+                assertFieldInfosEqual(fieldInfos, read(directory, segment, ioContext));
+                context.commit();
+            }
+        }
+    }
+
     private Stream<Boolean> trueOrFalse() {
         return Stream.of(true, false);
     }
@@ -357,12 +385,20 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private FieldInfos read(final FDBDirectory directory, final LightSegmentInfo segment) throws IOException {
-        return format.read(directory, segment.create(directory), "", IOContext.DEFAULT);
+    private FieldInfos read(final Directory directory, final LightSegmentInfo segment) throws IOException {
+        return read(directory, segment, IOContext.DEFAULT);
     }
 
-    private void write(final FDBDirectory directory, final LightSegmentInfo segment, final FieldInfos fieldInfos) throws IOException {
-        format.write(directory, segment.create(directory), "", fieldInfos, IOContext.DEFAULT);
+    private FieldInfos read(final Directory directory, final LightSegmentInfo segment, final IOContext ioContext) throws IOException {
+        return format.read(directory, segment.create(directory), "", ioContext);
+    }
+
+    private void write(final Directory directory, final LightSegmentInfo segment, final FieldInfos fieldInfos) throws IOException {
+        write(directory, segment, fieldInfos, IOContext.DEFAULT);
+    }
+
+    private void write(final Directory directory, final LightSegmentInfo segment, final FieldInfos fieldInfos, final IOContext ioContext) throws IOException {
+        format.write(directory, segment.create(directory), "", fieldInfos, ioContext);
     }
 
     @Nonnull
