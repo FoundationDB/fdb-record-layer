@@ -68,9 +68,9 @@ public class PlanOrderingKey {
     private final int prefixSize;
     private final int primaryKeyStart;
     private final int primaryKeyTail;
-    // Keep a set of positions that are equality bound but are not in the prefix. (All components in the prefix are equality bound.)
+    // Keep a set of positions that are duplicates of previous key components
     @Nonnull
-    private final Set<Integer> equalityBoundInTail;
+    private final Set<Integer> duplicatePositions;
 
     public PlanOrderingKey(@Nonnull List<KeyExpression> keys, int prefixSize,
                            int primaryKeyStart, int primaryKeyTail) {
@@ -83,19 +83,19 @@ public class PlanOrderingKey {
         // plan ordering key. If any key appears first in the equality-bound prefix,
         // make a note of that so that we can skip over that key when trying to match
         // a key against the next non-equality bound component during ordering matching
-        ImmutableSet.Builder<Integer> equalityBoundBuilder = ImmutableSet.builder();
-        for (int pos = prefixSize; pos < keys.size(); pos++) {
+        ImmutableSet.Builder<Integer> duplicatesBuilder = ImmutableSet.builder();
+        for (int pos = 0; pos < keys.size(); pos++) {
             final KeyExpression component = keys.get(pos);
             int firstIndex = keys.indexOf(component);
-            if (firstIndex >= 0 && firstIndex < prefixSize) {
+            if (firstIndex >= 0 && firstIndex < pos) {
                 // Note: firstIndex should always be greater than or equal to 0, because
                 // the index should be at least equal to pos. However, just to
                 // guard against .equals() not working, require that firstIndex >= 0 before
                 // adding the position to the set
-                equalityBoundBuilder.add(pos);
+                duplicatesBuilder.add(pos);
             }
         }
-        this.equalityBoundInTail = equalityBoundBuilder.build();
+        this.duplicatePositions = duplicatesBuilder.build();
     }
 
     @Nonnull
@@ -128,10 +128,6 @@ public class PlanOrderingKey {
         return prefixSize >= primaryKeyTail;
     }
 
-    private boolean isEqualityBound(int componentIndex) {
-        return componentIndex < prefixSize || equalityBoundInTail.contains(componentIndex);
-    }
-
     @Nullable
     public static PlanOrderingKey forPlan(@Nonnull RecordMetaData metaData, @Nonnull RecordQueryPlan queryPlan,
                                           @Nullable KeyExpression primaryKey) {
@@ -159,12 +155,19 @@ public class PlanOrderingKey {
             int pkeyStart = keys.size();
             int pKeyTail = pkeyStart;
             // Primary keys come after index value keys, unless they were already part of it.
-            for (KeyExpression pkey : primaryKey.normalizeKeyForPositions()) {
-                int pos = keys.indexOf(pkey);
-                if (pos < 0) {
-                    keys.add(pkey);
-                } else if (pkeyStart > pos) {
-                    pkeyStart = pos;
+            int[] primaryKeyComponentPositions = index.getPrimaryKeyComponentPositions();
+            final List<KeyExpression> primaryKeyComponents = primaryKey.normalizeKeyForPositions();
+            if (primaryKeyComponentPositions == null) {
+                keys.addAll(primaryKeyComponents);
+            } else {
+                for (int i = 0; i < primaryKeyComponentPositions.length; i++) {
+                    int pos = primaryKeyComponentPositions[i];
+                    if (pos < 0) {
+                        // Primary key component not in previous keys. Add to the end
+                        keys.add(primaryKeyComponents.get(i));
+                    } else if (pkeyStart > pos) {
+                        pkeyStart = pos;
+                    }
                 }
             }
             final int prefixSize;
@@ -283,10 +286,18 @@ public class PlanOrderingKey {
                 if (pos < 0) {
                     return null;
                 }
-                if (planOrderingKey.isEqualityBound(pos)) {
-                    // Equality bound predicate. We're trivially ordered by it, so add it to the final key.
-                    // When combining sub-plans, this can represent, slotting in all of the elements of one
-                    // sub-plan before or after the elements of another sub-plan.
+                if (pos < nextNonPrefix) {
+                    // Two possibilities:
+                    // 1. This key component appears in the equality bound prefix. If that's the
+                    //    case, then we're trivially ordered by it
+                    // 2. This key component appears in the non-equality bound tail, and we've already
+                    //    matched this key.
+                    // In either case, the ordering key is already satisfied, so we can add it to the
+                    // final component list.
+                    //
+                    // Note that we can get an already bound equality predicate if when combining sub-plans,
+                    // we need to slot in all the results from one sub-plan before or after the elements of
+                    // another sub-plan in order to satisfy the plans overall ordering requirement.
                     components.add(component);
                 } else if (pos == nextNonPrefix) {
                     // We're aligned with the next non-prefix position. Add it in to the final key
@@ -321,9 +332,10 @@ public class PlanOrderingKey {
             if (pos < 0) {
                 return false;      // Not present at all.
             }
-            if (planOrderingKey.isEqualityBound(pos)) {
-                // A prefix equality can be in the final key anyplace, we're trivially
-                // ordered by it.
+            if (pos < nextNonPrefix) {
+                // The key is either equality bound or we've already matched it earlier
+                // in the non-equality bound tail. In either case, we already satsify
+                // the ordering
                 continue;
             }
             // Otherwise, components need to be in order.
@@ -338,7 +350,7 @@ public class PlanOrderingKey {
     private static int advanceNextNonPrefix(@Nonnull PlanOrderingKey planOrderingKey, int nonPrefix) {
         int next = nonPrefix + 1;
         while (next < planOrderingKey.keys.size()) {
-            if (!planOrderingKey.isEqualityBound(next)) {
+            if (!planOrderingKey.duplicatePositions.contains(next)) {
                 break;
             }
             next++;

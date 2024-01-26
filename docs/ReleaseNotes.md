@@ -18,7 +18,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Bug fix** Sync files referencing FieldInfosId [(Issue #2455)](https://github.com/FoundationDB/fdb-record-layer/issues/2455)
 * **Bug fix** Support closing FDBIndexOutput [(Issue #2457)](https://github.com/FoundationDB/fdb-record-layer/issues/2457)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `PlanOrderingKey` can now handle multiple instances of the same expression appearing within the same key [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
