@@ -329,7 +329,6 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // 2. handle group by expression.
         Quantifier groupByQuantifier;
         Type groupByExpressionType;
-        Optional<List<Column<? extends Value>>> orderByColumns = Optional.empty();
         {
             final var scope = scopes.getCurrentScope();
             scope.setFlag(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE); // set this flag, so we can resolve grouping identifiers correctly.
@@ -338,10 +337,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             if (havingClauseContext != null) {
                 context.withDisabledLiteralProcessing(() -> havingClauseContext.accept(this));
             }
-            // (yhatem) resolve order-by columns _now_ because we need them to build using the same resolution rules for group by
             if (orderByClause != null) {
-                // currently this is not supported. (TODO)
-                Assert.failUnchecked("order by clause in conjunction with group by is not currently supported", ErrorCode.UNSUPPORTED_OPERATION);
+                orderByClause.orderByExpression().forEach(orderByExpression -> orderByExpression.accept(this));
             }
             // (yhatem) it is possible to pull the aggregation values from the projection list e.g. via TreeLike.filter
             // but this is dangerous since we rely on two different visitation methods to give us back some children
@@ -374,7 +371,13 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             if (havingClauseContext != null) {
                 visit(havingClauseContext);
             }
-            orderByColumns.ifPresent(columns -> columns.forEach(column -> scope.addOrderByColumn(column, false)));
+            if (orderByClause != null) {
+                for (RelationalParser.OrderByExpressionContext orderByExpression : orderByClause.orderByExpression()) {
+                    boolean isReverse = (orderByExpression.ASC() == null) && (orderByExpression.DESC() != null);
+                    Column<? extends Value> column = ParserUtils.toColumn((Value) orderByExpression.expression().accept(this));
+                    scope.addOrderByColumn(column, isReverse);
+                }
+            }
             if (limitClause != null) {
                 visit(limitClause);
             }
@@ -1289,8 +1292,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var scope = scopes.getCurrentScope();
         if (scope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING)) {
             final var groupByQuantifier = QuantifiedObjectValue.of(Objects.requireNonNull(scope.getGroupByQuantifierCorrelation()), Objects.requireNonNull(scope.getGroupByType()));
-            final var aggExprSelector = FieldValue.ofOrdinalNumber(groupByQuantifier, ParserUtils.getLastFieldIndex(groupByQuantifier.getResultType()));
-            final var aggregationReference = FieldValue.ofOrdinalNumber(aggExprSelector, scope.getAggregateReferences().get(scope.getAggregateCounter()));
+            final var aggExprSelector = FieldValue.ofOrdinalNumberAndFuseIfPossible(groupByQuantifier, ParserUtils.getLastFieldIndex(groupByQuantifier.getResultType()));
+            final var aggregationReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(aggExprSelector, scope.getAggregateReferences().get(scope.getAggregateCounter()));
             scope.increaseAggCounter();
             return aggregationReference;
         } else {

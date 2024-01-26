@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.collect.ImmutableMap;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Objects;
 
 public final class RecordLayerIndex implements Index  {
@@ -43,7 +46,8 @@ public final class RecordLayerIndex implements Index  {
     @Nonnull
     private final KeyExpression keyExpression;
 
-    private final boolean isUnique;
+    @Nonnull
+    private final Map<String, String> options;
 
     @Nullable
     private final RecordMetaDataProto.Predicate predicate;
@@ -52,14 +56,14 @@ public final class RecordLayerIndex implements Index  {
                              @Nonnull final String indexType,
                              @Nonnull final String name,
                              @Nonnull final KeyExpression keyExpression,
-                             @Nonnull final RecordMetaDataProto.Predicate predicate,
-                             boolean isUnique) {
+                             @Nullable final RecordMetaDataProto.Predicate predicate,
+                             @Nonnull final Map<String, String> options) {
         this.tableName = tableName;
         this.indexType = indexType;
         this.name = name;
         this.keyExpression = keyExpression;
         this.predicate = predicate;
-        this.isUnique = isUnique;
+        this.options = ImmutableMap.copyOf(options);
     }
 
     @Nonnull
@@ -68,14 +72,16 @@ public final class RecordLayerIndex implements Index  {
         return tableName;
     }
 
+    @Nonnull
     @Override
-    public @Nonnull String getIndexType() {
+    public String getIndexType() {
         return indexType;
     }
 
     @Override
     public boolean isUnique() {
-        return isUnique;
+        @Nullable String uniqueOption = options.get(IndexOptions.UNIQUE_OPTION);
+        return Boolean.parseBoolean(uniqueOption);
     }
 
     @Override
@@ -100,13 +106,18 @@ public final class RecordLayerIndex implements Index  {
     }
 
     @Nonnull
+    public Map<String, String> getOptions() {
+        return options;
+    }
+
+    @Nonnull
     public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
         return newBuilder().setName(index.getName())
                 .setIndexType(index.getType())
                 .setTableName(tableName)
                 .setKeyExpression(index.getRootExpression())
                 .setPredicate(index.toProto().getPredicate())
-                .setUnique(index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false))
+                .setOptions(index.getOptions())
                 .build();
     }
 
@@ -119,17 +130,17 @@ public final class RecordLayerIndex implements Index  {
             return false;
         }
         RecordLayerIndex that = (RecordLayerIndex) o;
-        return isUnique == that.isUnique &&
-                Objects.equals(tableName, that.tableName) &&
+        return Objects.equals(tableName, that.tableName) &&
                 Objects.equals(indexType, that.indexType) &&
                 Objects.equals(name, that.name) &&
                 Objects.equals(keyExpression, that.keyExpression) &&
-                Objects.equals(predicate, that.predicate);
+                Objects.equals(predicate, that.predicate) &&
+                Objects.equals(options, that.options);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tableName, indexType, name, keyExpression, isUnique, predicate);
+        return Objects.hash(tableName, indexType, name, keyExpression, options, predicate);
     }
 
     public static class Builder {
@@ -137,11 +148,11 @@ public final class RecordLayerIndex implements Index  {
         private String indexType;
         private String name;
         private KeyExpression keyExpression;
+        @Nullable
+        private ImmutableMap.Builder<String, String> optionsBuilder;
 
         @Nullable
         private RecordMetaDataProto.Predicate predicate;
-
-        private boolean isUnique;
 
         @Nonnull
         public Builder setTableName(String tableName) {
@@ -168,15 +179,40 @@ public final class RecordLayerIndex implements Index  {
         }
 
         @Nonnull
-        public Builder setUnique(boolean isUnique) {
-            this.isUnique = isUnique;
+        public Builder setPredicate(@Nullable final RecordMetaDataProto.Predicate predicate) {
+            this.predicate = predicate;
             return this;
         }
 
         @Nonnull
-        public Builder setPredicate(@Nullable final RecordMetaDataProto.Predicate predicate) {
-            this.predicate = predicate;
+        public Builder setUnique(boolean isUnique) {
+            return setOption(IndexOptions.UNIQUE_OPTION, isUnique);
+        }
+
+        @Nonnull
+        public Builder setOptions(@Nonnull final Map<String, String> options) {
+            optionsBuilder = ImmutableMap.builderWithExpectedSize(options.size());
+            optionsBuilder.putAll(options);
             return this;
+        }
+
+        @Nonnull
+        public Builder setOption(@Nonnull final String optionKey, @Nonnull final String optionValue) {
+            if (optionsBuilder == null) {
+                optionsBuilder = ImmutableMap.builder();
+            }
+            optionsBuilder.put(optionKey, optionValue);
+            return this;
+        }
+
+        @Nonnull
+        public Builder setOption(@Nonnull final String optionKey, int optionValue) {
+            return setOption(optionKey, Integer.toString(optionValue));
+        }
+
+        @Nonnull
+        public Builder setOption(@Nonnull final String optionKey, boolean optionValue) {
+            return setOption(optionKey, Boolean.toString(optionValue));
         }
 
         @Nonnull
@@ -185,7 +221,7 @@ public final class RecordLayerIndex implements Index  {
             Assert.notNullUnchecked(tableName, "table name is not set");
             Assert.notNullUnchecked(indexType, "index type is not set");
             Assert.notNullUnchecked(keyExpression, "index key expression is not set");
-            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate, isUnique);
+            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate, optionsBuilder == null ? ImmutableMap.of() : optionsBuilder.build());
         }
     }
 

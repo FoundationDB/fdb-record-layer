@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -65,7 +66,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -80,6 +80,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -173,35 +174,90 @@ public final class IndexGenerator {
             }
         } else {
             Assert.thatUnchecked(aggregateValues.size() == 1, "Unsupported index definition, multiple group by aggregations found", ErrorCode.UNSUPPORTED_OPERATION);
-            if (!orderByValues.isEmpty() && !orderByValues.containsAll(fieldValues)) {
-                Assert.failUnchecked("Unsupported index definition, attempt to create a covering aggregate index", ErrorCode.UNSUPPORTED_OPERATION);
-            }
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
+            int aggregateOrderIndex = -1;
+            if (!orderByValues.isEmpty()) {
+                boolean inOrder = true;
+                Iterator<Value> fieldIterator = fieldValues.iterator();
+                for (int i = 0; i < orderByValues.size(); i++) {
+                    Value value = orderByValues.get(i);
+                    if (value.equals(aggregateValue)) {
+                        if (aggregateOrderIndex >= 0) {
+                            Assert.failUnchecked("Unsupported index definition, aggregate can appear only once in ordering clause", ErrorCode.UNSUPPORTED_OPERATION);
+                        }
+                        aggregateOrderIndex = i;
+                    } else if (fieldIterator.hasNext()) {
+                        Value expectedField = fieldIterator.next();
+                        if (!value.equals(expectedField)) {
+                            inOrder = false;
+                            break;
+                        }
+                    } else {
+                        inOrder = false;
+                        break;
+                    }
+                }
+                if (fieldIterator.hasNext() || !inOrder) {
+                    Assert.failUnchecked("Unsupported index definition, attempt to create a covering aggregate index", ErrorCode.UNSUPPORTED_OPERATION);
+                }
+            }
             final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues));
             final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
-            indexBuilder.setIndexType(indexExpressionAndType.getRight());
+            final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
+            indexBuilder.setIndexType(indexType);
             indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNonNullableArray)));
+            if (indexType.equals(IndexTypes.PERMUTED_MIN) || indexType.equals(IndexTypes.PERMUTED_MAX)) {
+                int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
+                indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
+            } else if (aggregateOrderIndex >= 0) {
+                Assert.failUnchecked("Unsupported index definition. Cannot order " + indexType + " index by aggregate value", ErrorCode.UNSUPPORTED_OPERATION);
+            }
         }
         return indexBuilder.build();
     }
 
     @Nonnull
     private List<Value> collectResultValues(@Nonnull final Value value) {
-        final var resultValue = simplify(value);
-        // if the final result value contains nothing but the aggregation value, add the grouping values to it.
-        final var isSingleAggregation = resultValue.size() == 1 && resultValue.get(0) instanceof IndexableAggregateValue;
+        final var resultValues = simplify(value);
+        final var isSingleAggregation = resultValues.size() == 1 && resultValues.get(0) instanceof IndexableAggregateValue;
         final var maybeGroupBy = relationalExpressions.stream().filter(exp -> exp instanceof GroupByExpression).findFirst();
-        if (maybeGroupBy.isPresent() && isSingleAggregation) {
+        if (maybeGroupBy.isPresent()) {
+            // if the final result value contains nothing but the aggregation value, add the grouping values to it.
             final var groupBy = maybeGroupBy.get();
             final var groupingValues = ((GroupByExpression) groupBy).getGroupingValue();
-            if (groupingValues == null) {
-                return resultValue;
+            if (isSingleAggregation) {
+                if (groupingValues == null) {
+                    return resultValues;
+                } else {
+                    final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of()));
+                    return Stream.concat(resultValues.stream(), simplifiedGroupingValues).collect(toList());
+                }
             } else {
-                final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of()));
-                return Stream.concat(resultValue.stream(), simplifiedGroupingValues).collect(toList());
+                // Make sure the grouping values and the result values are consistent
+                if (groupingValues == null) {
+                    // This shouldn't happen unless there's more than one indexable aggregate value
+                    Assert.failUnchecked("Grouping values absent from aggregate result value", ErrorCode.UNSUPPORTED_OPERATION);
+                }
+                final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of())).iterator();
+                for (Value resultValue : resultValues) {
+                    if (resultValue instanceof IndexableAggregateValue) {
+                        continue;
+                    }
+                    if (!simplifiedGroupingValues.hasNext()) {
+                        Assert.failUnchecked("Aggregate result value contains values missing from the grouping expression", ErrorCode.UNSUPPORTED_OPERATION);
+                    }
+                    Value groupingValue = simplifiedGroupingValues.next();
+                    if (!resultValue.equals(groupingValue)) {
+                        Assert.failUnchecked("Aggregate result value does not align with grouping value", ErrorCode.UNSUPPORTED_OPERATION);
+                    }
+                }
+                if (simplifiedGroupingValues.hasNext()) {
+                    Assert.failUnchecked("Grouping value absent from aggregate result value", ErrorCode.UNSUPPORTED_OPERATION);
+                }
+                return resultValues;
             }
         } else {
-            return resultValue;
+            return resultValues;
         }
     }
 

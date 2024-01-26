@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -38,7 +37,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 
 public class RecordMetadataSerializer extends SkeletonVisitor {
 
@@ -79,7 +77,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
                 new Index(index.getName(),
                         recLayerIndex.getKeyExpression(),
                         index.getIndexType(),
-                        Map.of(IndexOptions.UNIQUE_OPTION, Boolean.toString(index.isUnique())),
+                        recLayerIndex.getOptions(),
                         recLayerIndex.getPredicate() == null ? null : IndexPredicate.fromProto(recLayerIndex.getPredicate())));
     }
 
