@@ -25,16 +25,11 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -60,48 +55,47 @@ public class ValueMaxMatchTest {
         final BiMap<Equivalence.Wrapper<Value>, Value> result = HashBiMap.create();
         final var boundIdentitiesMap = AliasMap.identitiesFor(source.getCorrelatedTo());
         final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(boundIdentitiesMap);
-        final var translatedSource = source.replaceSubTreesPreorder(value -> valueMap.getOrDefault(boundEquivalence.wrap(value), value));
+        final var translatedSource = Verify.verifyNotNull(source.replace(value -> valueMap.getOrDefault(boundEquivalence.wrap(value), value)));
         // Now that the source is translated, we can look up the max match between the translated source
         // and the value.
-        final Boolean[] descendSourceChildren = new Boolean[] {true};
-        translatedSource.inPreOrder( needle -> {
+        translatedSource.pruningIterator(needle -> {
             final var pulledUpSourceMap = translatedSource.pullUp(List.of(needle), boundIdentitiesMap, Set.of(), sourceAlias);
             final var toBeMappedSource = pulledUpSourceMap.get(needle);
             final var sourceIdentitiesMap = boundIdentitiesMap.combine(AliasMap.identitiesFor(Set.of(sourceAlias)));
             final Correlated.BoundEquivalence<Value> sourceIdentitiesEquivalence = new Correlated.BoundEquivalence<>(sourceIdentitiesMap);
             System.out.println("------------------------------");
+            System.out.println("Checking cache: ");
             if (result.containsKey(sourceIdentitiesEquivalence.wrap(toBeMappedSource))) {
-                System.out.println("retracting because I already found " + sourceIdentitiesEquivalence.wrap(toBeMappedSource) + " before!!");
+                // A match has been already established for a semantically-identical source Value
+                // encountered previously in pre-order traversal.
+                System.out.println("<-- retracting because I already found " + sourceIdentitiesEquivalence.wrap(toBeMappedSource) + " before!!");
                 return false;
             } else {
-                System.out.println("--> could not find " + sourceIdentitiesEquivalence.wrap(toBeMappedSource) + " in " + result);
+                System.out.println("--> could not find " + sourceIdentitiesEquivalence.wrap(toBeMappedSource) + " in " + result + " ... search continues");
             }
             System.out.println("SOURCE: visiting -> " + needle);
-            target.findInPreOrder(haystack -> {
-                System.out.println("   TARGET: visiting -> " + haystack);
-                if (needle.semanticEquals(haystack, boundIdentitiesMap)) {
-
-                    final var pulledUpTargetMap = target.pullUp(List.of(haystack), boundIdentitiesMap, Set.of(), targetAlias);
-                    final var toBeMappedTarget = pulledUpTargetMap.get(haystack);
-                    if (toBeMappedTarget == null) {
-                        throw new RecordCoreException("could not pull up the target value");
-                    }
-                    result.put(sourceIdentitiesEquivalence.wrap(toBeMappedSource), toBeMappedTarget);
-                    descendSourceChildren[0] = false;
-                    System.out.println("found match for " + needle + " which is " + haystack);
-                    return true; // do not descend in children, we're done
-                }
-                return false; // look into children, maybe we find max match there.
-            });
-            if (descendSourceChildren[0]) {
+            final var found = target.stream().filter(targetItem -> needle.semanticEquals(targetItem, boundIdentitiesMap)).findAny();
+            if (found.isEmpty()) {
                 System.out.println("could not find matches for " + needle + " therefor I will descend into the children");
-                return true;
+
+                if (Iterables.isEmpty(needle.getChildren())) {
+                    throw new RecordCoreException(String.format("Could not find a match for value %s", needle));
+                } else {
+                    // Could not find a match for the current node, break it down and search for matches to its constituents.
+                    return true;
+                }
             } else {
-                System.out.println("found match for " + needle + " returning false so we avoid delving into descendants unnecessarily");
-                descendSourceChildren[0] = true;
-                return false;
+                final var haystack = found.get();
+                final var pulledUpTargetMap = target.pullUp(List.of(haystack), boundIdentitiesMap, Set.of(), targetAlias);
+                final var toBeMappedTarget = pulledUpTargetMap.get(haystack);
+                if (toBeMappedTarget == null) {
+                    throw new RecordCoreException("could not pull up the target value");
+                }
+                result.put(sourceIdentitiesEquivalence.wrap(toBeMappedSource), toBeMappedTarget);
+                System.out.println("found match for " + needle + " which is " + haystack);
+                return false; // prune children of needle, because a match is already found!
             }
-        });
+        }).forEachRemaining(v -> { });
         return result;
     }
 
@@ -194,20 +188,20 @@ public class ValueMaxMatchTest {
 
         final var pv = rcv(
                 add(fv(t, "a", "q"),
-                        fv(t, "a", "r")),
+                    fv(t, "a", "r")),
                 rcv(fv(t, "b", "t")),
                 fv(t, "j", "s")
         );
 
         final var p_v = rcv(
                 rcv(fv(t_, "a", "q"),
-                        fv(t_, "a", "r")),
+                    fv(t_, "a", "r")),
                 rcv(fv(t_, "b", "t"),
-                        fv(t_, "b", "m")),
+                    fv(t_, "b", "m")),
                 fv(t_, "j", "s"),
                 rcv(add(fv(t_, "a", "q"),
-                                fv(t_, "a", "r")),
-                        fv(t_, "b", "m")),
+                        fv(t_, "a", "r")),
+                    fv(t_, "b", "m")),
                 fv(t_, "j", "q"),
                 fv(t_, "b", "t"),
                 fv(t_, "b", "m")
@@ -226,8 +220,57 @@ public class ValueMaxMatchTest {
         final var p_ = qov("p_", p_v.getResultType());
 
         final var expectedMapping = Map.of(
-                be.wrap(fv(p, 0)), /* -> */ fv(p_, 0, 0),
-                be.wrap(fv(p, 1)), /* -> */ fv(p_, 2));
+                be.wrap(fv(p, 0)), /* -> */ fv(p_, 3, 0),
+                be.wrap(fv(p, 1, 0)), /* -> */ fv(p_, 1, 0),
+                be.wrap(fv(p, 2)), /* -> */ fv(p_, 2));
+
+        Assertions.assertEquals(expectedMapping, result);
+    }
+
+    @Test
+    public void testValueTranslation4() throws Exception {
+        final var t = qov("T", getTType());
+        final var s = qov("S", getSType());
+        final var t_ = qov("T'", getTType());
+        final var s_ = qov("S'", getSType());
+
+        final var pv = rcv(
+                add(fv(t, "a", "q"),
+                    fv(s, "x2", "z2")),
+                rcv(fv(t, "b", "t")),
+                fv(s, "x1", "z1")
+        );
+
+        final var p_v = rcv(
+                rcv(fv(t_, "a", "q"),
+                    fv(t_, "a", "r")),
+                rcv(fv(t_, "b", "t"),
+                    fv(t_, "b", "m")),
+                fv(t_, "j", "s"),
+                rcv(add(fv(t_, "a", "q"),
+                        fv(s_, "x2", "z2")),
+                    fv(t_, "b", "m")),
+                fv(s_, "x1", "z1"),
+                fv(t_, "b", "t"),
+                fv(t_, "b", "m")
+        );
+
+        final var boundIdentitiesMap = AliasMap.identitiesFor(pv.getCorrelatedTo());
+        final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(boundIdentitiesMap);
+
+        final var result = translate(pv, CorrelationIdentifier.of("p"), p_v, CorrelationIdentifier.of("p_"), Map.of(boundEquivalence.wrap(t), t_, boundEquivalence.wrap(s), s_));
+
+        final var expectedBoundAliasMap = boundIdentitiesMap.combine(AliasMap.of(CorrelationIdentifier.of("p"), CorrelationIdentifier.of("p")));
+        final Correlated.BoundEquivalence<Value> be = new Correlated.BoundEquivalence<>(expectedBoundAliasMap);
+
+        // let's verify
+        final var p = qov("p", pv.getResultType());
+        final var p_ = qov("p_", p_v.getResultType());
+
+        final var expectedMapping = Map.of(
+                be.wrap(fv(p, 0)), /* -> */ fv(p_, 3, 0),
+                be.wrap(fv(p, 1, 0)), /* -> */ fv(p_, 1, 0),
+                be.wrap(fv(p, 2)), /* -> */ fv(p_, 4));
 
         Assertions.assertEquals(expectedMapping, result);
     }
@@ -253,6 +296,15 @@ public class ValueMaxMatchTest {
                 f("a", r("q", "r")),
                 f("b", r("t", "m")),
                 f("j", r("s", "q"))
+        );
+    }
+
+    @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
+    private static Type.Record getSType() {
+        return r(
+                f("x1", r("y1", "z1")),
+                f("x2", r("y2", "z2"))
         );
     }
 
