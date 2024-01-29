@@ -339,7 +339,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = planGraph(
+        final var plannedPlan = cascadesPlanner.planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -373,7 +373,12 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                });
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+
+        final var plan = verifySerialization(plannedPlan);
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -385,6 +390,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
         assertMatchesExactly(plan, planMatcher);
+
+        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = DerivationsProperty.computeFieldAccesses(simplifiedLocalValues);
+        System.out.println(fieldAccesses);
     }
     
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -518,8 +528,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
 
-        final var derivations = DerivationsProperty.evaluate(plan);
-        System.out.println(derivations);
+        final var derivations = DerivationsProperty.evaluateDerivations(plan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = DerivationsProperty.computeFieldAccesses(simplifiedLocalValues);
+        System.out.println(fieldAccesses);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

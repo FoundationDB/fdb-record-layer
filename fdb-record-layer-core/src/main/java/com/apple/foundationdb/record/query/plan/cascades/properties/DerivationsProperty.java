@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -33,8 +34,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ResolvedAccessor;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
@@ -80,12 +85,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -133,8 +144,10 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
                 }
 
                 final var resultsTranslationMap = TranslationMap.builder()
-                        .when(rangesOver.getAlias()).then(Quantifier.current(), ((sourceAlias, targetAlias, leafValue) -> childResultValue))
-                        .when(Quantifier.current()).then(Quantifier.current(), (sourceAlias, targetAlias, leafValue) -> new QueriedValue(leafValue.getResultType()))
+                        .when(rangesOver.getAlias()).then(Quantifier.current(),
+                                ((sourceAlias, targetAlias, leafValue) -> childResultValue))
+                        .when(Quantifier.current()).then(Quantifier.current(),
+                                (sourceAlias, targetAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(updatePlan.getTargetRecordType())))
                         .build();
                 resultValuesBuilder.add(computationValue.translateCorrelations(resultsTranslationMap));
             }
@@ -216,7 +229,8 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-            return visitPlanWithComparisons(aggregateIndexPlan);
+            final var matchCandidate = aggregateIndexPlan.getMatchCandidate();
+            return visitPlanWithComparisons(aggregateIndexPlan, matchCandidate.getQueriedRecordTypeNames());
         }
 
         @Nonnull
@@ -306,7 +320,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             for (final var childResultValue : childResultValues) {
                 final var resultsTranslationMap = TranslationMap.builder()
                         .when(rangesOver.getAlias()).then(Quantifier.current(), ((sourceAlias, targetAlias, leafValue) -> childResultValue))
-                        .when(Quantifier.current()).then(Quantifier.current(), (sourceAlias, targetAlias, leafValue) -> new QueriedValue(leafValue.getResultType()))
+                        .when(Quantifier.current()).then(Quantifier.current(), (sourceAlias, targetAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(insertPlan.getTargetRecordType())))
                         .build();
                 resultValuesBuilder.add(computationValue.translateCorrelations(resultsTranslationMap));
             }
@@ -328,16 +342,21 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
-            return visitPlanWithComparisons(indexPlan);
+            final var matchCandidate = indexPlan.getMatchCandidate();
+            return visitPlanWithComparisons(indexPlan, matchCandidate.getQueriedRecordTypeNames());
         }
 
         @Nonnull
-        private Derivations visitPlanWithComparisons(@Nonnull final RecordQueryPlanWithComparisons planWithComparisons) {
+        private Derivations visitPlanWithComparisons(@Nonnull final RecordQueryPlanWithComparisons planWithComparisons,
+                                                     @Nonnull final Iterable<String> recordTypeNames) {
             final var comparisons = planWithComparisons.getComparisons();
             final var comparisonValues = comparisons.stream()
                     .flatMap(comparison -> comparison.getValues().stream())
                     .collect(ImmutableList.toImmutableList());
-            return new Derivations(ImmutableList.of(planWithComparisons.getResultValue()), comparisonValues);
+            final var resultValueFromPlan = planWithComparisons.getResultValue();
+            final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
+
+            return new Derivations(ImmutableList.of(resultValue), comparisonValues);
         }
 
         @Nonnull
@@ -431,7 +450,33 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
-            return derivationsFromSingleChild(typeFilterPlan);
+            final var childDerivations = derivationsFromSingleChild(typeFilterPlan);
+            final var childResultValues = childDerivations.getResultValues();
+
+            // change all QueriedValues by restricting their record type names
+            final var resultValuesBuilder = ImmutableList.<Value>builder();
+            final var filteredRecordTypeNames = ImmutableSet.copyOf(typeFilterPlan.getRecordTypes());
+            for (final Value childResultValue : childResultValues) {
+                final var replacedChildResultValueOptional =
+                        childResultValue.replaceLeavesMaybe(value -> {
+                            if (value instanceof QueriedValue) {
+                                final var queriedValue = (QueriedValue)value;
+                                final var childRecordTypeNames = queriedValue.getRecordTypeNames();
+                                if (childRecordTypeNames == null) {
+                                    return value;
+                                }
+                                final var intersectedRecordTypeNames =
+                                        childRecordTypeNames.stream()
+                                                .filter(filteredRecordTypeNames::contains)
+                                                .collect(ImmutableList.toImmutableList());
+                                return new QueriedValue(typeFilterPlan.getResultValue().getResultType(), intersectedRecordTypeNames);
+                            }
+                            return value;
+                        });
+                Verify.verify(replacedChildResultValueOptional.isPresent());
+                resultValuesBuilder.add(replacedChildResultValueOptional.get());
+            }
+            return new Derivations(resultValuesBuilder.build(), childDerivations.getLocalValues());
         }
 
         @Nonnull
@@ -593,7 +638,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         @Override
         public Derivations visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
-            return visitPlanWithComparisons(scanPlan);
+            return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(scanPlan.getRecordTypes()));
         }
 
         @Nonnull
@@ -697,8 +742,110 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         }
     }
 
-    public static Derivations evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
+    @Nonnull
+    public static Derivations evaluateDerivations(@Nonnull RecordQueryPlan recordQueryPlan) {
         return DERIVATIONS.createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static Map<String /* RecordTypeName */, FieldAccessTrie> computeFieldAccesses(@Nonnull final List<Value> derivationValues) {
+        final var buildersMap = Maps.<String /* RecordTypeName */, FieldAccessTrieBuilder>newLinkedHashMap();
+        derivationValues.forEach(derivationValue -> computeFieldAccessForDerivation(buildersMap, derivationValue));
+        final var resultMapBuilder = ImmutableMap.<String, FieldAccessTrie>builder();
+        for (final var entry : buildersMap.entrySet()) {
+            resultMapBuilder.put(entry.getKey(), entry.getValue().build());
+        }
+        return resultMapBuilder.build();
+    }
+
+    @Nonnull
+    private static List<FieldAccessTrieBuilder> computeFieldAccessForDerivation(@Nonnull final Map<String /* RecordTypeName */, FieldAccessTrieBuilder> recordTypeNameTrieBuilderMap,
+                                                                                @Nonnull final Value derivationValue) {
+        if (derivationValue instanceof QueriedValue) {
+            final var queriedValue = (QueriedValue)derivationValue;
+            final var recordTypeNames = queriedValue.getRecordTypeNames();
+            if (recordTypeNames != null) {
+                final var resultTrieBuilders = ImmutableList.<FieldAccessTrieBuilder>builder();
+                for (final String recordTypeName : recordTypeNames) {
+                    final var trieBuilder =
+                            recordTypeNameTrieBuilderMap.computeIfAbsent(recordTypeName, rTN -> new FieldAccessTrieBuilder(queriedValue.getResultType()));
+                    resultTrieBuilders.add(trieBuilder);
+                }
+                return resultTrieBuilders.build();
+            }
+            return ImmutableList.of();
+        }
+
+        if (derivationValue instanceof LeafValue) {
+            return ImmutableList.of();
+        }
+
+        final var nestedResultsbuilder = ImmutableList.<List<FieldAccessTrieBuilder>>builder();
+        for (final Value child : derivationValue.getChildren()) {
+            nestedResultsbuilder.add(computeFieldAccessForDerivation(recordTypeNameTrieBuilderMap, child));
+        }
+        final var nestedResults = nestedResultsbuilder.build();
+
+        if (derivationValue instanceof FieldValue) {
+            Verify.verify(nestedResults.size() == 1);
+            final var nestedTrieBuilders = nestedResults.get(0);
+            final var fieldValue = (FieldValue)derivationValue;
+            final var fieldPath = fieldValue.getFieldPath();
+            final var resultTrieBuilders = ImmutableList.<FieldAccessTrieBuilder>builder();
+            for (final var nestedTrieBuilder : nestedTrieBuilders) {
+                var currentTrieBuilder = nestedTrieBuilder;
+                for (final var fieldAccessor : fieldPath.getFieldAccessors()) {
+                    var type = currentTrieBuilder.getType();
+                    while (type.isArray()) {
+                        type = Objects.requireNonNull(((Type.Array)type).getElementType());
+                    }
+                    Verify.verify(type.isRecord());
+                    final var field = ((Type.Record)type).getField(fieldAccessor.getOrdinal());
+                    currentTrieBuilder =
+                            currentTrieBuilder.compute(ResolvedAccessor.of(field.getFieldName(), fieldAccessor.getOrdinal(), fieldAccessor.getType()),
+                                    (resolvedAccessor, oldTrieBuilder) -> {
+                                        if (oldTrieBuilder == null) {
+                                            return new FieldAccessTrieBuilder(null, null, field.getFieldType());
+                                        }
+                                        if (oldTrieBuilder.getValue() != null && oldTrieBuilder.getValue()) {
+                                            return oldTrieBuilder;
+                                        }
+                                        oldTrieBuilder.setValue(null);
+                                        return oldTrieBuilder;
+                                    });
+                }
+                resultTrieBuilders.add(currentTrieBuilder);
+            }
+            return resultTrieBuilders.build();
+        }
+
+        if (derivationValue instanceof FirstOrDefaultValue) {
+            Verify.verify(nestedResults.size() == 2);
+            return nestedResults.get(0);
+        }
+
+        //
+        // For other values we need to decide if they constitute as type-sensitive or not.
+        //
+        if (derivationValue instanceof RecordConstructorValue) {
+            terminateBuilders(nestedResults, false);
+            return ImmutableList.of();
+        }
+
+        //
+        // default case
+        //
+        terminateBuilders(nestedResults, true);
+        return ImmutableList.of();
+    }
+
+    private static void terminateBuilders(@Nonnull final ImmutableList<List<FieldAccessTrieBuilder>> nestedResults,
+                                          final boolean isTypeSensitive) {
+        for (final var nestedResult : nestedResults) {
+            for (final var nestedTrieBuilder : nestedResult) {
+                nestedTrieBuilder.setValue(isTypeSensitive);
+            }
+        }
     }
 
     /**
@@ -707,7 +854,9 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
     public static class Derivations {
         private static final Derivations EMPTY = new Derivations(ImmutableList.of(), ImmutableList.of());
 
+        @Nonnull
         private final List<Value> resultValues;
+        @Nonnull
         private final List<Value> localValues;
 
         public Derivations(final List<Value> resultValues, final List<Value> localValues) {
@@ -715,16 +864,99 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             this.localValues = ImmutableList.copyOf(localValues);
         }
 
+        @Nonnull
         public List<Value> getResultValues() {
             return resultValues;
         }
 
+        @Nonnull
         public List<Value> getLocalValues() {
             return localValues;
         }
 
+        @Nonnull
+        public List<Value> simplifyLocalValues() {
+            final var simplifiedLocalValuesBuilder = ImmutableList.<Value>builder();
+            for (final var localValue : getLocalValues()) {
+                final var aliasMap = AliasMap.identitiesFor(localValue.getCorrelatedTo());
+                simplifiedLocalValuesBuilder.add(localValue.simplify(aliasMap, ImmutableSet.of()));
+            }
+            return simplifiedLocalValuesBuilder.build();
+        }
+
+        @Nonnull
         public static Derivations empty() {
             return EMPTY;
+        }
+    }
+
+    /**
+     * TBD.
+     */
+    public static class FieldAccessTrieBuilder extends TrieNode.AbstractTrieNodeBuilder<ResolvedAccessor, Boolean, FieldAccessTrieBuilder> {
+        @Nonnull
+        private final Type type;
+
+        public FieldAccessTrieBuilder(@Nonnull final Type type) {
+            this(null, null, type);
+        }
+
+        public FieldAccessTrieBuilder(@Nullable final Boolean isTypeDependent,
+                                      @Nullable final Map<ResolvedAccessor, FieldAccessTrieBuilder> childrenMap,
+                                      @Nonnull final Type type) {
+            super(isTypeDependent, childrenMap);
+            this.type = type;
+        }
+
+        @Nonnull
+        @Override
+        public FieldAccessTrieBuilder getThis() {
+            return this;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Nonnull
+        public FieldAccessTrie build() {
+            if (getChildrenMap() != null) {
+                final var childrenMapBuilder = ImmutableMap.<ResolvedAccessor, FieldAccessTrie>builder();
+                for (final Map.Entry<ResolvedAccessor, FieldAccessTrieBuilder> entry : getChildrenMap().entrySet()) {
+                    childrenMapBuilder.put(entry.getKey(), entry.getValue().build());
+                }
+                return new FieldAccessTrie(null, childrenMapBuilder.build(), getType());
+            } else {
+                // an non-terinated trie is auto-terminated here
+                return new FieldAccessTrie(false, null, getType());
+            }
+        }
+    }
+
+    /**
+     * TBD.
+     */
+    public static class FieldAccessTrie extends TrieNode.AbstractTrieNode<ResolvedAccessor, Boolean, FieldAccessTrie> {
+        @Nonnull
+        private final Type type;
+
+        public FieldAccessTrie(@Nullable final Boolean isTypeDependent,
+                               @Nullable final Map<ResolvedAccessor, FieldAccessTrie> childrenMap,
+                               @Nonnull final Type type) {
+            super(isTypeDependent, childrenMap);
+            this.type = type;
+        }
+
+        @Nonnull
+        @Override
+        public FieldAccessTrie getThis() {
+            return this;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
         }
     }
 }

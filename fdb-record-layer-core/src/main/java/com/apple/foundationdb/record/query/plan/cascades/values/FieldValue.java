@@ -629,10 +629,11 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         final int ordinal;
 
-        @Nonnull
+        @Nullable
         private final Type type;
 
-        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nullable final Type type) {
+            Preconditions.checkArgument(ordinal >= 0);
             this.name = name;
             this.ordinal = ordinal;
             this.type = type;
@@ -649,7 +650,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         public Type getType() {
-            return type;
+            return Objects.requireNonNull(type);
         }
 
         @Override
@@ -675,15 +676,22 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
             builder.setName(name);
             builder.setOrdinal(ordinal);
-            builder.setType(type.toTypeProto(serializationContext));
+            if (type != null) {
+                builder.setType(type.toTypeProto(serializationContext));
+            }
             return builder.build();
         }
 
         @Nonnull
         public static ResolvedAccessor fromProto(@Nonnull PlanSerializationContext serializationContext,
                                                  @Nonnull final PResolvedAccessor resolvedAccessorProto) {
-            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(),
-                    Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType()));
+            final Type type;
+            if (resolvedAccessorProto.hasType()) {
+                type = Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType());
+            } else {
+                type = null;
+            }
+            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(), type);
         }
 
         @Nonnull
@@ -693,8 +701,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
-            Preconditions.checkArgument(ordinalFieldNumber >= 0);
             return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber) {
+            return new ResolvedAccessor(fieldName, ordinalFieldNumber, null);
         }
     }
 
