@@ -32,6 +32,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Predicate;
 
 /**
  * An iterator that accesses all elements of a {@link TreeLike} object in pre-order fashion.
@@ -44,20 +45,28 @@ import java.util.NoSuchElementException;
  * @param <T> The type of the iterator element.
  */
 @NotThreadSafe
-public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T> {
+public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Iterator<T> {
 
     @Nonnull
     private final Deque<Pair<Iterable<? extends T>, Integer>> stack;
 
+    @Nonnull
+    private final Predicate<T> descendInChildren;
+
     private static final int INITIAL_POSITION = -1;
 
-    private PreOrderIterator(@Nonnull final T traversable) {
+    private PreOrderPruningIterator(@Nonnull final T traversable) {
+        this(traversable, ignored -> true);
+    }
+
+    private PreOrderPruningIterator(@Nonnull final T traversable, @Nonnull final Predicate<T> descendInChildren) {
         // initialize the stack with the {@link TreeLike}'s depth as capacity to avoid resizing.
         stack = new ArrayDeque<>(traversable.height());
         // this is the only list allocation done to put the root in the stack.
         // all the remaining lists added to the stack are references to children
         // lists (copy by reference).
         stack.push(MutablePair.of(List.of(traversable.getThis()), INITIAL_POSITION));
+        this.descendInChildren = descendInChildren;
     }
 
     @Override
@@ -97,17 +106,42 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
         // that incrementing it would lead to finding that next element correctly.
         final var result = Iterables.get(currentLevelItems, nextItemIndex);
         top.setValue(nextItemIndex);
-        final var resultChildren = result.getChildren();
 
-        // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
-        if (!Iterables.isEmpty(resultChildren)) {
-            stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
+        // test whether we should descend into the children of the current node or prune them
+        // and continue to the next unexplored node in pre-order.
+        if (descendInChildren.test(result)) {
+            final var resultChildren = result.getChildren();
+
+            // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
+            if (!Iterables.isEmpty(resultChildren)) {
+                stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
+            }
         }
         return result;
     }
 
+    /**
+     * Retuns an iterator that traverses {@code traversable} in pre-order.
+     * @param traversable a {@link TreeLike} traversable.
+     * @param <T> The type of {@code traversable} items.
+     * @return an iterator that traverses the items in pre-order.
+     */
     @Nonnull
-    public static <T extends TreeLike<T>> PreOrderIterator<T> over(@Nonnull final T traversable) {
-        return new PreOrderIterator<>(traversable);
+    public static <T extends TreeLike<T>> PreOrderPruningIterator<T> over(@Nonnull final T traversable) {
+        return new PreOrderPruningIterator<>(traversable);
+    }
+
+    /**
+     * Retuns an iterator that traverses {@code traversable} in pre-order with a children-pruning condition.
+     * @param traversable a {@link TreeLike} traversable.
+     * @param descendInChildren a condition that determines whether, for the currently visited node, the iterator
+     *                          should descend to the children or not.
+     * @param <T> The type of {@code traversable} items.
+     * @return an iterator that traverses the items in pre-order.
+     */
+    @Nonnull
+    public static <T extends TreeLike<T>> PreOrderPruningIterator<T> overWithPruningPredicate(@Nonnull final T traversable,
+                                                                                              @Nonnull Predicate<T> descendInChildren) {
+        return new PreOrderPruningIterator<>(traversable, descendInChildren);
     }
 }
