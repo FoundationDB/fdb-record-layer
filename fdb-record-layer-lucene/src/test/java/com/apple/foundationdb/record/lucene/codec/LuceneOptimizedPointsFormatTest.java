@@ -91,14 +91,46 @@ public class LuceneOptimizedPointsFormatTest extends BasePointsFormatTestCase {
     }
 
     @Override
+    public void testAllEqual() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
+        super.testAllEqual();
+    }
+
+    @Override
     public void testOneDimTwoValues() throws Exception {
         TestFDBDirectory.allowAddIndexes();
         super.testOneDimTwoValues();
     }
 
+    @Override
+    public void testOneDimEqual() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
+        super.testOneDimEqual();
+    }
+
     @Seeds({@Seed(), @Seed("FA63D2AE2DE7C6B0")})
     @Override
     public void testMultiValued() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
         super.testMultiValued();
+    }
+
+    @Override
+    public void testRandomBinaryTiny() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
+        super.testRandomBinaryTiny();
+    }
+
+    @Override
+    public void testRandomBinaryMedium() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
+        super.testRandomBinaryMedium();
+    }
+
+    @Override
+    @Nightly
+    public void testRandomBinaryBig() throws Exception {
+        TestFDBDirectory.allowAddIndexes();
+        super.testRandomBinaryBig();
     }
 }
