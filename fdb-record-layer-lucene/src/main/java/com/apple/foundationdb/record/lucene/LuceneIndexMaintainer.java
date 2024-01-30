@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -37,12 +39,15 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
@@ -85,6 +90,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -311,8 +317,36 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public CompletableFuture<Void> mergeIndex() {
-        return partitioner.rebalancePartitions()
+        return rebalancePartitions()
                 .thenCompose(ignored -> directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer("")));
+    }
+
+    public CompletableFuture<Void> rebalancePartitions() {
+        if (!partitioner.isPartitioningEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
+        FDBDatabaseRunner runner = state.context.newRunner();
+        final Index index = state.index;
+        AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
+        return AsyncUtil.whileTrue(() -> {
+            return runner.runAsync(context -> {
+                return storeBuilder.openAsync().thenCompose(store -> {
+                    return ((LuceneIndexMaintainer)store.getIndexMaintainer(index))
+                            .partitioner.rebalancePartitions(continuation.get())
+                            .thenApply(newContinuation -> {
+                                if (newContinuation.isEnd()) {
+                                    return false;
+                                } else {
+                                    continuation.set(newContinuation);
+                                    return true;
+                                }
+                            });
+                });
+            });
+        }).whenComplete((result, exception) -> {
+            runner.close();
+        });
     }
 
     @Nonnull

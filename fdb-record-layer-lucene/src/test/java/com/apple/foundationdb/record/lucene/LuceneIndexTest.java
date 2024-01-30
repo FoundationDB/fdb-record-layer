@@ -230,7 +230,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
                     INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
-    protected static final Index COMPLEX_PARTITIONED_NOGROUP = new Index("Complex$partitioned",
+    protected static final Index COMPLEX_PARTITIONED_NOGROUP = new Index("Complex$partitioned_noGroup",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
@@ -748,7 +748,63 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }).collect(Collectors.toSet()));
+        }).collect(Collectors.toSet()),
+                () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
+    }
+
+    @ParameterizedTest
+    @MethodSource("repartitionGroupedTest")
+    void                                                                                                                repartitionAndMerge(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
+        Index index = indexAndGroupingKey.getLeft();
+        Tuple groupingKey = indexAndGroupingKey.getRight();
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 10)
+                .build();
+
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        int transactionCount = 100;
+        int docsPerTransaction = 5;
+        // create/save documents
+        long id = 0;
+        List<Long> allIds = new ArrayList<>();
+        for (int i = 0; i < transactionCount; i++) {
+            try (FDBRecordContext context = openContext(contextProps)) {
+                schemaSetup.accept(context);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                long start = Instant.now().toEpochMilli();
+                for (int j = 0; j < docsPerTransaction; j++) {
+                    id++;
+                    recordStore.saveRecord(createComplexDocument(id, ENGINEER_JOKE, docGroupFieldValue, start + id));
+                    allIds.add(id);
+                }
+                commit(context);
+            }
+        }
+
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            validateDocsInPartition(index, 0, groupingKey, 10,
+                    allIds.stream()
+                            .skip(490)
+                            .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+                            .collect(Collectors.toSet()));
+            for (int i = 1; i < 50; i++) {
+                // 0 should have the newest
+                // everyone else should increase
+                validateDocsInPartition(index, i, groupingKey, 10,
+                        allIds.stream().skip((i - 1) * 10)
+                                .limit(10)
+                                .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+                                .collect(Collectors.toSet()));
+            }
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                    groupingKey, contextProps, schemaSetup);
+            assertEquals(50, partitionInfos.size());
+        }
     }
 
     @Test
@@ -824,7 +880,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .build()) {
                 indexBuilder.mergeIndex();
             }
-            commit(context);
+            //commit(context);
         }
     }
 
@@ -835,7 +891,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) recordStore.getIndexMaintainer(index);
-            Range range = indexMaintainer.getIndexSubspace().subspace(Tuple.from(groupingKey, PARTITION_META_SUBSPACE)).range();
+            Range range = indexMaintainer.getIndexSubspace().subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
             final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos =  AsyncUtil.collect(rangeIterable)
                     .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList())).join();
@@ -1102,7 +1158,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setId(partitionId)
                 .build();
 
-        byte[] primaryKey = recordStore.indexSubspace(index).pack(Tuple.from(groupKey, PARTITION_META_SUBSPACE, fromTimestamp));
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(groupKey.add(PARTITION_META_SUBSPACE).add(fromTimestamp));
         recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
     }
 
