@@ -106,7 +106,9 @@ public interface Correlated<S extends Correlated<S>> {
     Set<CorrelationIdentifier> getCorrelatedTo();
 
     /**
-     * Test is the current correlated object is correlated to a {@link CorrelationIdentifier} passed in.
+     * Test if the current correlated object is correlated to a {@link CorrelationIdentifier} passed in.
+     * @param alias a {@link CorrelationIdentifier}
+     * @return {@code true} if this object is correlated to {@code alias}, {@code false} otherwise
      */
     default boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
         return getCorrelatedTo().contains(alias);

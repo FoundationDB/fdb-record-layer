@@ -35,13 +35,14 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * A value .
+ * A value that throws an exception if it gets executed.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ThrowsValue extends AbstractValue implements LeafValue {
@@ -57,6 +58,12 @@ public class ThrowsValue extends AbstractValue implements LeafValue {
     @Override
     public Type getResultType() {
         return resultType;
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Override

@@ -26,8 +26,8 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * Tag class to announce that the implementing class can provide
- * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} upon request.
+ * Tag interface to announce that the implementing class can provide
+ * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}s upon request.
  */
 public interface PredicateWithComparisons {
     /**

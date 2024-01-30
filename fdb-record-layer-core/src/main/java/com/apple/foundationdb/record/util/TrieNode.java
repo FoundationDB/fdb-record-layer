@@ -1,9 +1,9 @@
 /*
- * AbstractTrieNode.java
+ * TrieNode.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,16 +69,17 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         private final T value;
         @Nullable
         private final Map<D, N> childrenMap;
-    @Nonnull
-    private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
-    @Nonnull
-    private final Supplier<Integer> heightSupplier;
+        @Nonnull
+        private final Supplier<Iterable<N>> childrenSupplier;
+        @Nonnull
+        private final Supplier<Integer> heightSupplier;
 
         public AbstractTrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
-        this.value = value;
-        this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-        this.heightSupplier = Suppliers.memoize(TreeLike.super::height);
-    }
+            this.value = value;
+            this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
+            this.childrenSupplier = Suppliers.memoize(this::computeChildren);
+            this.heightSupplier = Suppliers.memoize(TrieNode.super::height);
+        }
 
         @Nullable
         @Override
@@ -96,7 +96,17 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         @Nonnull
         @Override
         public Iterable<N> getChildren() {
+            return childrenSupplier.get();
+        }
+
+        @Nonnull
+        private Iterable<N> computeChildren() {
             return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+        }
+
+        @Override
+        public int height() {
+            return heightSupplier.get();
         }
 
         @Nonnull
@@ -108,7 +118,7 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         @Nonnull
         @Override
         public List<T> values() {
-            return Streams.stream(inPreOrder())
+            return preOrderStream()
                     .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                     .collect(ImmutableList.toImmutableList());
         }
@@ -126,7 +136,7 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             }
             final AbstractTrieNode<?, ?, ?> otherTrieNode = (AbstractTrieNode<?, ?, ?>)other;
             return Objects.equals(getValue(), otherTrieNode.getValue()) &&
-                   Objects.equals(getChildrenMap(), otherTrieNode.getChildrenMap());
+                    Objects.equals(getChildrenMap(), otherTrieNode.getChildrenMap());
         }
 
         @Override
@@ -190,20 +200,10 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         }
 
         @Nonnull
-        private Iterable<N> computeChildren() {
-        return childrenMap == null ? ImmutableList.of() : childrenMap.values();
-    }
-
-    @Nonnull
-    @Override
-    public Iterable<N> getChildren() {
-        return childrenSupplier.get();
-    }
-
-    @Override
-    public int height() {
-        return heightSupplier.get();
-    }
+        @Override
+        public Iterable<N> getChildren() {
+            return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+        }
 
         @Nonnull
         @Override

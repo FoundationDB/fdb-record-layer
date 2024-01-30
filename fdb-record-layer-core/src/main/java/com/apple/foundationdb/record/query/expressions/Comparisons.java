@@ -1149,6 +1149,7 @@ public class Comparisons {
             return internal == Bindings.Internal.CORRELATION;
         }
 
+        @Override
         public boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
             if (!isCorrelation()) {
                 return false;

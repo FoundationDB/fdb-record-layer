@@ -632,7 +632,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Nullable
         private final Type type;
 
-        private ResolvedAccessor(@Nullable final String name, final int ordinal, @Nullable final Type type) {
+        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nullable final Type type) {
             Preconditions.checkArgument(ordinal >= 0);
             this.name = name;
             this.ordinal = ordinal;
@@ -668,6 +668,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Override
         public int hashCode() {
             return Objects.hash(getOrdinal());
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return name + ';' + ordinal + ';' + type;
         }
 
         @Nonnull

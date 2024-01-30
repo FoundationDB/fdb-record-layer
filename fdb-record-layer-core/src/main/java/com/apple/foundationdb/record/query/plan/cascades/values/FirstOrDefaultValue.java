@@ -44,7 +44,8 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * A value .
+ * A value that returns the first element of the input array passed in. If there is no such element, that is the array
+ * is empty, a default value of the same type is returned.
  */
 @API(API.Status.EXPERIMENTAL)
 public class FirstOrDefaultValue extends AbstractValue {
@@ -72,7 +73,7 @@ public class FirstOrDefaultValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public List<? extends Value> getChildren() {
+    public List<? extends Value> computeChildren() {
         return childrenSupplier.get();
     }
 

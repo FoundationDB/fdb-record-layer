@@ -179,6 +179,16 @@ message PTransformationTrieNode {
   optional PValue value = 3;
 }
 
+message PFieldAccessTrieNode {
+  message PResolvedAccessorChildPair {
+    optional PFieldPath.PResolvedAccessor resolved_accessor = 1;
+    optional PFieldAccessTrieNode child_field_access_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated PResolvedAccessorChildPair child_pair = 2;
+  optional PType type = 3;
+}
+
 //
 // Values
 //
@@ -947,6 +957,8 @@ message PQueryPredicate {
       POrPredicate or_predicate = 6;
       PPredicateWithValueAndRanges predicate_with_value_and_ranges = 7;
       PValuePredicate value_predicate = 8;
+      PCompatibleTypeEvolutionPredicate compatible_type_evolution_predicate = 9;
+      PDatabaseObjectDependenciesPredicate database_object_dependencies_predicate = 10;
   }
 }
 
@@ -963,9 +975,25 @@ message PAndPredicate {
   optional PAndOrPredicate super = 1;
 }
 
+message PCompatibleTypeEvolutionPredicate {
+  message PRecordTypeNameFieldAccessPair {
+    optional string record_type_name = 1;
+    optional PFieldAccessTrieNode field_access_trie_node = 2;
+  }
+  repeated PRecordTypeNameFieldAccessPair record_type_name_field_access_pairs = 1;
+}
+
 message PConstantPredicate {
   optional PAbstractQueryPredicate super = 1;
   optional bool value = 2;
+}
+
+message PDatabaseObjectDependenciesPredicate {
+  message PUsedIndex {
+    optional string name = 1;
+    optional int32 last_modified_version = 3;
+  }
+  repeated PUsedIndex used_indexes = 1;
 }
 
 message PExistsPredicate {

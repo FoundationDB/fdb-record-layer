@@ -1,5 +1,5 @@
 /*
- * OrderingProperty.java
+ * DerivationsProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,12 +34,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ResolvedAccessor;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
@@ -85,22 +81,24 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
-import com.apple.foundationdb.record.util.TrieNode;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
- * A property used for the derivations of data flowing in a plan.
+ * A property used to create and collect the derivations of data flowing in a plan. A derivation is a {@link Value}-tree
+ * that is not correlated to anything. This is achieved by exhaustively inlining the producer of a correlation into the
+ * consumer of a correlation. Executing these value trees that are obtained by doing this are not really producing
+ * anything useful. A derivation helps the planner to statically infer useful properties by understanding what
+ * operations happen in what order starting from a base table access.
+ * <br>
+ * In particular, a {@link Value}-tree that somewhere appears in a plan as part of a {@link QueryPredicate}, or other
+ * expression, is guaranteed to be part of a derivation which is not correlated.
  */
 public class DerivationsProperty implements PlanProperty<DerivationsProperty.Derivations> {
     public static final DerivationsProperty DERIVATIONS = new DerivationsProperty();
@@ -117,7 +115,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
     }
 
     /**
-     * A property that determines the ordering of a {@link RecordQueryPlan}.
+     * A visitor that determines the derivations of a {@link RecordQueryPlan}.
      */
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
@@ -747,107 +745,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         return DERIVATIONS.createVisitor().visit(recordQueryPlan);
     }
 
-    @Nonnull
-    public static Map<String /* RecordTypeName */, FieldAccessTrie> computeFieldAccesses(@Nonnull final List<Value> derivationValues) {
-        final var buildersMap = Maps.<String /* RecordTypeName */, FieldAccessTrieBuilder>newLinkedHashMap();
-        derivationValues.forEach(derivationValue -> computeFieldAccessForDerivation(buildersMap, derivationValue));
-        final var resultMapBuilder = ImmutableMap.<String, FieldAccessTrie>builder();
-        for (final var entry : buildersMap.entrySet()) {
-            resultMapBuilder.put(entry.getKey(), entry.getValue().build());
-        }
-        return resultMapBuilder.build();
-    }
-
-    @Nonnull
-    private static List<FieldAccessTrieBuilder> computeFieldAccessForDerivation(@Nonnull final Map<String /* RecordTypeName */, FieldAccessTrieBuilder> recordTypeNameTrieBuilderMap,
-                                                                                @Nonnull final Value derivationValue) {
-        if (derivationValue instanceof QueriedValue) {
-            final var queriedValue = (QueriedValue)derivationValue;
-            final var recordTypeNames = queriedValue.getRecordTypeNames();
-            if (recordTypeNames != null) {
-                final var resultTrieBuilders = ImmutableList.<FieldAccessTrieBuilder>builder();
-                for (final String recordTypeName : recordTypeNames) {
-                    final var trieBuilder =
-                            recordTypeNameTrieBuilderMap.computeIfAbsent(recordTypeName, rTN -> new FieldAccessTrieBuilder(queriedValue.getResultType()));
-                    resultTrieBuilders.add(trieBuilder);
-                }
-                return resultTrieBuilders.build();
-            }
-            return ImmutableList.of();
-        }
-
-        if (derivationValue instanceof LeafValue) {
-            return ImmutableList.of();
-        }
-
-        final var nestedResultsbuilder = ImmutableList.<List<FieldAccessTrieBuilder>>builder();
-        for (final Value child : derivationValue.getChildren()) {
-            nestedResultsbuilder.add(computeFieldAccessForDerivation(recordTypeNameTrieBuilderMap, child));
-        }
-        final var nestedResults = nestedResultsbuilder.build();
-
-        if (derivationValue instanceof FieldValue) {
-            Verify.verify(nestedResults.size() == 1);
-            final var nestedTrieBuilders = nestedResults.get(0);
-            final var fieldValue = (FieldValue)derivationValue;
-            final var fieldPath = fieldValue.getFieldPath();
-            final var resultTrieBuilders = ImmutableList.<FieldAccessTrieBuilder>builder();
-            for (final var nestedTrieBuilder : nestedTrieBuilders) {
-                var currentTrieBuilder = nestedTrieBuilder;
-                for (final var fieldAccessor : fieldPath.getFieldAccessors()) {
-                    var type = currentTrieBuilder.getType();
-                    while (type.isArray()) {
-                        type = Objects.requireNonNull(((Type.Array)type).getElementType());
-                    }
-                    Verify.verify(type.isRecord());
-                    final var field = ((Type.Record)type).getField(fieldAccessor.getOrdinal());
-                    currentTrieBuilder =
-                            currentTrieBuilder.compute(ResolvedAccessor.of(field.getFieldName(), fieldAccessor.getOrdinal(), fieldAccessor.getType()),
-                                    (resolvedAccessor, oldTrieBuilder) -> {
-                                        if (oldTrieBuilder == null) {
-                                            return new FieldAccessTrieBuilder(null, null, field.getFieldType());
-                                        }
-                                        if (oldTrieBuilder.getValue() != null && oldTrieBuilder.getValue()) {
-                                            return oldTrieBuilder;
-                                        }
-                                        oldTrieBuilder.setValue(null);
-                                        return oldTrieBuilder;
-                                    });
-                }
-                resultTrieBuilders.add(currentTrieBuilder);
-            }
-            return resultTrieBuilders.build();
-        }
-
-        if (derivationValue instanceof FirstOrDefaultValue) {
-            Verify.verify(nestedResults.size() == 2);
-            return nestedResults.get(0);
-        }
-
-        //
-        // For other values we need to decide if they constitute as type-sensitive or not.
-        //
-        if (derivationValue instanceof RecordConstructorValue) {
-            terminateBuilders(nestedResults, false);
-            return ImmutableList.of();
-        }
-
-        //
-        // default case
-        //
-        terminateBuilders(nestedResults, true);
-        return ImmutableList.of();
-    }
-
-    private static void terminateBuilders(@Nonnull final ImmutableList<List<FieldAccessTrieBuilder>> nestedResults,
-                                          final boolean isTypeSensitive) {
-        for (final var nestedResult : nestedResults) {
-            for (final var nestedTrieBuilder : nestedResult) {
-                nestedTrieBuilder.setValue(isTypeSensitive);
-            }
-        }
-    }
-
     /**
      * Cases class to capture the derivations that are being collected by the visitor.
      */
@@ -887,76 +784,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         @Nonnull
         public static Derivations empty() {
             return EMPTY;
-        }
-    }
-
-    /**
-     * TBD.
-     */
-    public static class FieldAccessTrieBuilder extends TrieNode.AbstractTrieNodeBuilder<ResolvedAccessor, Boolean, FieldAccessTrieBuilder> {
-        @Nonnull
-        private final Type type;
-
-        public FieldAccessTrieBuilder(@Nonnull final Type type) {
-            this(null, null, type);
-        }
-
-        public FieldAccessTrieBuilder(@Nullable final Boolean isTypeDependent,
-                                      @Nullable final Map<ResolvedAccessor, FieldAccessTrieBuilder> childrenMap,
-                                      @Nonnull final Type type) {
-            super(isTypeDependent, childrenMap);
-            this.type = type;
-        }
-
-        @Nonnull
-        @Override
-        public FieldAccessTrieBuilder getThis() {
-            return this;
-        }
-
-        @Nonnull
-        public Type getType() {
-            return type;
-        }
-
-        @Nonnull
-        public FieldAccessTrie build() {
-            if (getChildrenMap() != null) {
-                final var childrenMapBuilder = ImmutableMap.<ResolvedAccessor, FieldAccessTrie>builder();
-                for (final Map.Entry<ResolvedAccessor, FieldAccessTrieBuilder> entry : getChildrenMap().entrySet()) {
-                    childrenMapBuilder.put(entry.getKey(), entry.getValue().build());
-                }
-                return new FieldAccessTrie(null, childrenMapBuilder.build(), getType());
-            } else {
-                // an non-terinated trie is auto-terminated here
-                return new FieldAccessTrie(false, null, getType());
-            }
-        }
-    }
-
-    /**
-     * TBD.
-     */
-    public static class FieldAccessTrie extends TrieNode.AbstractTrieNode<ResolvedAccessor, Boolean, FieldAccessTrie> {
-        @Nonnull
-        private final Type type;
-
-        public FieldAccessTrie(@Nullable final Boolean isTypeDependent,
-                               @Nullable final Map<ResolvedAccessor, FieldAccessTrie> childrenMap,
-                               @Nonnull final Type type) {
-            super(isTypeDependent, childrenMap);
-            this.type = type;
-        }
-
-        @Nonnull
-        @Override
-        public FieldAccessTrie getThis() {
-            return this;
-        }
-
-        @Nonnull
-        public Type getType() {
-            return type;
         }
     }
 }
