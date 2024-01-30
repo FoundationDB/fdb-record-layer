@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -152,6 +153,12 @@ public class PlanOrderingKey {
             final RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)queryPlan;
             final Index index = metaData.getIndex(indexPlan.getIndexName());
             final List<KeyExpression> keys = new ArrayList<>(index.getRootExpression().normalizeKeyForPositions());
+            if (index.getRootExpression() instanceof KeyWithValueExpression) {
+                int splitPoint = ((KeyWithValueExpression)index.getRootExpression()).getSplitPoint();
+                while (keys.size() > splitPoint) {
+                    keys.remove(keys.size() - 1);
+                }
+            }
             int pkeyStart = keys.size();
             int pKeyTail = pkeyStart;
             // Primary keys come after index value keys, unless they were already part of it.
