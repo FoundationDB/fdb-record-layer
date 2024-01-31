@@ -44,7 +44,7 @@ public class RelationalLoggingUtil {
             message.addKeyAndValue("plan", plan.explain());
         }
         if (e != null) {
-            logger.info(message, e);
+            logger.error(message, e);
         } else if (logQuery || isSlow) {
             logger.info(message);
         } else if (logger.isDebugEnabled()) {
