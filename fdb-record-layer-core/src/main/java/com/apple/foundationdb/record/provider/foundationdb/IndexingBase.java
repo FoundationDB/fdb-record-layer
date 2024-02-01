@@ -735,6 +735,11 @@ public abstract class IndexingBase {
                 .thenCompose(ignore ->
                         AsyncUtil.whileTrue(() -> cursor.onNext()
                                 .thenCompose(result ->
+                                        policy.isReverseScanOrder() ?
+                                        iterateCursorOnlyReverse(store, result,
+                                                getRecordToIndex, nextResultCont,
+                                                recordsScannedCounter, hasMore, isIdempotent)
+                                        :
                                         iterateCursorOnly(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
                                                 recordsScannedCounter, hasMore, isIdempotent)
@@ -755,6 +760,7 @@ public abstract class IndexingBase {
                 });
     }
 
+    @SuppressWarnings("squid:S00107") // too many parameters
     private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
                                                              @Nonnull RecordCursorResult<T> rangeCursor,
                                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
@@ -825,6 +831,58 @@ public abstract class IndexingBase {
                                     .thenApply(shouldCommit -> {
                                         if (shouldCommit) {
                                             nextResultCont.set(nextResult.get());
+                                            hasMore.set(true);
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                    );
+                });
+    }
+
+    @SuppressWarnings("squid:S00107") // too many parameters
+    private <T> CompletableFuture<Boolean> iterateCursorOnlyReverse(@Nonnull FDBRecordStore store,
+                                                                    @Nonnull RecordCursorResult<T> rangeCursor,
+                                                                    @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                                    @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                                    @Nonnull AtomicLong recordsScannedCounter,
+                                                                    @Nonnull AtomicBoolean hasMore,
+                                                                    final boolean isIdempotent) {
+        // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
+        // the 'lastResultCont' item should be processed
+
+        if (!rangeCursor.hasNext()) {
+            timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+            if (rangeCursor.getNoNextReason().isSourceExhausted()) {
+                timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
+                hasMore.set(false);
+            } else {
+                hasMore.set(true);
+            }
+            return AsyncUtil.READY_FALSE; // all done
+        }
+        RecordCursorResult<T> currResult = rangeCursor;
+        // here: currResult must have value
+        timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+        recordsScannedCounter.incrementAndGet();
+        nextResultCont.set(currResult);
+
+        return getRecordToIndex.apply(store, currResult)
+                .thenCompose(rec -> {
+                    if (null == rec) {
+                        return AsyncUtil.READY_TRUE;
+                    }
+                    // This record should be indexed. Add it to the transaction.
+                    if (isIdempotent) {
+                        store.addRecordReadConflict(rec.getPrimaryKey());
+                    }
+                    timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
+                    return updateMaintainer.thenCompose(vignore ->
+                            hadTransactionReachedLimits(store)
+                                    .thenApply(shouldCommit -> {
+                                        if (shouldCommit) {
                                             hasMore.set(true);
                                             return false;
                                         }
@@ -981,17 +1039,18 @@ public abstract class IndexingBase {
                 isIdempotent ?
                 IsolationLevel.SNAPSHOT :
                 IsolationLevel.SERIALIZABLE;
-
+        final boolean isReverse = policy.isReverseScanOrder();
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
+                .setReturnedRowLimit(getLimit() + (isReverse ? 0 : 1)); // always respect limit in this path; +1 allows a continuation item in forward scan
 
-        return new ScanProperties(executeProperties.build());
+        return new ScanProperties(executeProperties.build(), isReverse);
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
+        validateOrThrowEx(!policy.isReverseScanOrder(), "rebuild do not support reverse scan order");
         return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
             // Insert the full range into the range set. (The internal rebuild method only indexes the records and
             // does not update the range set.) This is important because if marking the index as readable fails (for

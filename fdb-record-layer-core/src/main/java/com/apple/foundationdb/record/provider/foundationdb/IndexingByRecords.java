@@ -499,7 +499,7 @@ public class IndexingByRecords extends IndexingBase {
         if (respectLimit) {
             executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
         }
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build(), policy.isReverseScanOrder());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
