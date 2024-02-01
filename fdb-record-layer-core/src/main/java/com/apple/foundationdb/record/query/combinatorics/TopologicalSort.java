@@ -516,7 +516,7 @@ public class TopologicalSort {
         @Nonnull
         @SuppressWarnings("java:S3398")
         private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
-            final HashMap<T, Integer> result = Maps.newHashMapWithExpectedSize(partiallyOrderedSet.size());
+            final HashMap<T, Integer> result = Maps.newLinkedHashMapWithExpectedSize(partiallyOrderedSet.size());
             partiallyOrderedSet.getSet().forEach(element -> result.put(element, 0));
 
             for (final Map.Entry<T, T> entry : partiallyOrderedSet.getDependencyMap().entries()) {
