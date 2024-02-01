@@ -328,10 +328,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         final Index index = state.index;
+        return rebalancePartitions(runner, storeBuilder, index);
+    }
+
+    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
         return AsyncUtil.whileTrue(() -> {
             return runner.runAsync(context -> {
-                return storeBuilder.openAsync().thenCompose(store -> {
+                return storeBuilder.setContext(context).openAsync().thenCompose(store -> {
+                    store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                     return ((LuceneIndexMaintainer)store.getIndexMaintainer(index))
                             .partitioner.rebalancePartitions(continuation.get())
                             .thenApply(newContinuation -> {

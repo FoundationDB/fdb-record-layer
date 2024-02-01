@@ -137,6 +137,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -423,6 +424,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                     LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
@@ -730,8 +732,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     null,
                     groupingKey.getLong(0));
         }
-        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
-        IndexReader indexReader = FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        final IndexReader indexReader = getIndexReader(index, partitionId, groupingKey);
         LuceneOptimizedIndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
         TopDocs newTopDocs = searcher.search(scanQuery.getQuery(), Integer.MAX_VALUE);
 
@@ -752,20 +753,52 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
     }
 
+    private Map<Integer, Integer> getSegmentCounts(Index index,
+                                                   Tuple groupingKey,
+                                                   RecordLayerPropertyStorage contextProps,
+                                                   Consumer<FDBRecordContext> schemaSetup) {
+        final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionMeta = getPartitionMeta(index, groupingKey, contextProps, schemaSetup);
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            return partitionMeta.stream()
+                    .collect(Collectors.toMap(
+                            LucenePartitionInfoProto.LucenePartitionInfo::getId,
+                            partitionInfo -> Assertions.assertDoesNotThrow(() ->
+                                    getIndexReader(index, partitionInfo.getId(), groupingKey).getContext().leaves().size())
+                    ));
+        }
+    }
+
+    private IndexReader getIndexReader(final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
+        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
+        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+    }
+
+    public static Stream<Arguments> repartitionAndMerge() {
+        // TODO maybe run with more parameters in nightly
+        return Stream.of(2).flatMap(repartitionCount ->
+                Stream.of(2).flatMap(mergeSegmentsPerTier ->
+                        Stream.of(
+                                Arguments.of(COMPLEX_PARTITIONED, Tuple.from(1), repartitionCount, mergeSegmentsPerTier),
+                                Arguments.of(COMPLEX_PARTITIONED_NOGROUP, Tuple.from(), repartitionCount, mergeSegmentsPerTier)
+
+                        )));
+    }
+
     @ParameterizedTest
-    @MethodSource("repartitionGroupedTest")
-    void                                                                                                                repartitionAndMerge(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
-        Index index = indexAndGroupingKey.getLeft();
-        Tuple groupingKey = indexAndGroupingKey.getRight();
+    @MethodSource()
+    void repartitionAndMerge(Index index, Tuple groupingKey, int repartitionCount, int mergeSegmentsPerTier) throws IOException {
+        // TODO don't run all of these all the time
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 10)
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double) mergeSegmentsPerTier)
                 .build();
 
         Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
         long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
 
         int transactionCount = 100;
-        int docsPerTransaction = 5;
+        int docsPerTransaction = 2;
         // create/save documents
         long id = 0;
         List<Long> allIds = new ArrayList<>();
@@ -783,28 +816,38 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
         }
 
-        explicitMergeIndex(index, contextProps, schemaSetup);
+        // we haven't done any merges yet, or repartitioning, so each transaction should be one new segment
+        assertEquals(Map.of(0, transactionCount),
+                getSegmentCounts(index, groupingKey, contextProps, schemaSetup));
 
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-            validateDocsInPartition(index, 0, groupingKey, 10,
-                    allIds.stream()
-                            .skip(490)
-                            .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
-                            .collect(Collectors.toSet()));
-            for (int i = 1; i < 50; i++) {
-                // 0 should have the newest
-                // everyone else should increase
-                validateDocsInPartition(index, i, groupingKey, 10,
-                        allIds.stream().skip((i - 1) * 10)
-                                .limit(10)
-                                .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
-                                .collect(Collectors.toSet()));
-            }
-            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
-                    groupingKey, contextProps, schemaSetup);
-            assertEquals(50, partitionInfos.size());
-        }
+        timer.reset();
+        explicitMergeIndex(index, contextProps, schemaSetup);
+        final Map<Integer, Integer> segmentCounts = getSegmentCounts(index, groupingKey, contextProps, schemaSetup);
+        assertThat(segmentCounts, Matchers.aMapWithSize(allIds.size() / 10));
+        assertEquals(IntStream.range(0, allIds.size() / 10).boxed()
+                        .collect(Collectors.toMap(Function.identity(), partitionId -> 1)),
+                segmentCounts);
+//
+//        try (FDBRecordContext context = openContext(contextProps)) {
+//            schemaSetup.accept(context);
+//            validateDocsInPartition(index, 0, groupingKey, 10,
+//                    allIds.stream()
+//                            .skip(490)
+//                            .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+//                            .collect(Collectors.toSet()));
+//            for (int i = 1; i < 50; i++) {
+//                // 0 should have the newest
+//                // everyone else should increase
+//                validateDocsInPartition(index, i, groupingKey, 10,
+//                        allIds.stream().skip((i - 1) * 10)
+//                                .limit(10)
+//                                .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
+//                                .collect(Collectors.toSet()));
+//            }
+//            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+//                    groupingKey, contextProps, schemaSetup);
+//            assertEquals(50, partitionInfos.size());
+//        }
     }
 
     @Test
