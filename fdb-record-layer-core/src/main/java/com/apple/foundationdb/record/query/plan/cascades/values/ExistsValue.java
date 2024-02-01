@@ -138,6 +138,12 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
                 Objects.requireNonNull(existsValueProto.getChild())));
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     /**
      * A function that checks whether an item exists in a {@link RelationalExpression}.
      */

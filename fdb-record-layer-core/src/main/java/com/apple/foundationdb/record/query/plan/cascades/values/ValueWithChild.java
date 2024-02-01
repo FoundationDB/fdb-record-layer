@@ -34,16 +34,6 @@ import java.util.List;
 public interface ValueWithChild extends Value {
 
     /**
-     * Method to retrieve a list of children values.
-     * @return a list of children
-     */
-    @Nonnull
-    @Override
-    default List<? extends Value> getChildren() {
-        return ImmutableList.of(getChild());
-    }
-
-    /**
      * Method to retrieve the only child value.
      * @return this child {@link Value}
      */

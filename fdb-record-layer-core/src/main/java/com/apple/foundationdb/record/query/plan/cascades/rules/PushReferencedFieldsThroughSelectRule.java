@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -94,8 +95,7 @@ public class PushReferencedFieldsThroughSelectRule extends CascadesRule<SelectEx
      * @return a set of {@link FieldValue}s
      */
     private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
-        return selectExpression.getResultValue()
-                .stream()
+        return Streams.stream(selectExpression.getResultValue().preOrderIterator())
                 .filter(FieldValue.class::isInstance)
                 .map(value -> (FieldValue)value)
                 .collect(ImmutableSet.toImmutableSet());

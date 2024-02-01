@@ -112,14 +112,9 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    private Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(srcChild, patternChild);
-    }
-
-    @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(srcChild, patternChild);
     }
 
     @Nonnull

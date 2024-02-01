@@ -228,6 +228,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return ImmutableList.of(getChild());
+        }
+
+        @Nonnull
+        @Override
         public PMinEverLongValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PMinEverLongValue.newBuilder()
                     .setSuper(toIndexOnlyAggregateValueProto(serializationContext))
@@ -304,6 +310,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         @Override
         public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MaxEverLongValue(operator, rebasedChild);
+        }
+
+        @Nonnull
+        @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return ImmutableList.of(getChild());
         }
 
         @Nonnull

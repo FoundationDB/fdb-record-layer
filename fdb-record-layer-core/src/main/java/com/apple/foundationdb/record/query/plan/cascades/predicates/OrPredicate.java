@@ -40,6 +40,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -227,7 +228,7 @@ public class OrPredicate extends AndOrPredicate {
 
         if (mappingsOptional.isEmpty() && candidatePredicate instanceof Placeholder) {
             final var candidateValue = ((Placeholder)candidatePredicate).getValue();
-            final var anyMatchingLeafPredicate = stream()
+            final var anyMatchingLeafPredicate = Streams.stream(preOrderIterator())
                     .filter(LeafQueryPredicate.class::isInstance)
                     .anyMatch(predicate -> {
                         if (predicate instanceof PredicateWithValue) {

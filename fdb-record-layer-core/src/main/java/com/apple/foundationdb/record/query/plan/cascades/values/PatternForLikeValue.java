@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,7 +49,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
@@ -65,8 +63,6 @@ public class PatternForLikeValue extends AbstractValue {
     private final Value patternChild;
     @Nonnull
     private final Value escapeChild;
-    @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier;
 
     /**
      * Constructs a new instance of {@link PatternForLikeValue}.
@@ -76,7 +72,6 @@ public class PatternForLikeValue extends AbstractValue {
     public PatternForLikeValue(@Nonnull final Value patternChild, @Nonnull final Value escapeChild) {
         this.patternChild = patternChild;
         this.escapeChild = escapeChild;
-        this.childrenSupplier = Suppliers.memoize(() -> List.of(patternChild, escapeChild));
     }
 
     @Nullable
@@ -106,8 +101,8 @@ public class PatternForLikeValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
+    protected Iterable<? extends Value> computeChildren() {
+        return  ImmutableList.of(patternChild, escapeChild);
     }
 
     @Nonnull

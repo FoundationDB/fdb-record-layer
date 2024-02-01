@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -37,11 +36,6 @@ public interface LeafValue extends Value {
      * Method to retrieve a list of children values.
      * @return a list of children
      */
-    @Nonnull
-    @Override
-    default Iterable<? extends Value> getChildren() {
-        return ImmutableList.of();
-    }
 
     @Nonnull
     @Override

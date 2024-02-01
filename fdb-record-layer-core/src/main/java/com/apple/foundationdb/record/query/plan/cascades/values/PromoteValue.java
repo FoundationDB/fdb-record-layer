@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -199,6 +200,12 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     @Override
     public PromoteValue withNewChild(@Nonnull final Value newChild) {
         return new PromoteValue(newChild, promoteToType, promotionTrie);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     @Nullable

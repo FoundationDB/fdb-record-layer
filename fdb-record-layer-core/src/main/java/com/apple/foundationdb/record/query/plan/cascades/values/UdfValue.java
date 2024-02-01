@@ -65,7 +65,7 @@ public abstract class UdfValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 

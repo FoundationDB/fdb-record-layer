@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -55,7 +54,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * A {@link Value} that applies conjunction/disjunction on its boolean children, and if possible, simplifies its boolean children.
@@ -69,8 +67,6 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     private final Value leftChild;
     @Nonnull
     private final Value rightChild;
-    @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
     @Nonnull
     private final Operator operator;
 
@@ -143,14 +139,9 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    private Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(leftChild, rightChild);
-    }
-
-    @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(leftChild, rightChild);
     }
 
     @Override

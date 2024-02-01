@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -38,7 +37,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -53,9 +51,6 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Nonnull
     private final List<Value> argumentValues;
-
-    @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
     protected WindowedValue(@Nonnull final PlanSerializationContext serializationContext,
                             @Nonnull final PWindowedValue windowedValueProto) {
@@ -87,14 +82,9 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    private Iterable<? extends Value> computeChildren() {
-        return ImmutableList.<Value>builder().addAll(partitioningValues).addAll(argumentValues).build();
-    }
-
-    @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.<Value>builder().addAll(partitioningValues).addAll(argumentValues).build();
     }
 
     @Nonnull

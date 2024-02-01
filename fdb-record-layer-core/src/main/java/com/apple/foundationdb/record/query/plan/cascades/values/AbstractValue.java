@@ -47,10 +47,14 @@ public abstract class AbstractValue implements Value {
     @Nonnull
     private final Supplier<Integer> heightSupplier;
 
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier;
+
     protected AbstractValue() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
         this.heightSupplier = Suppliers.memoize(this::computeHeight);
+        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
     }
 
     @Nonnull
@@ -94,4 +98,13 @@ public abstract class AbstractValue implements Value {
     private int computeHeight() {
         return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
     }
+
+    @Nonnull
+    @Override
+    public Iterable<? extends Value> getChildren() {
+        return childrenSupplier.get();
+    }
+
+    @Nonnull
+    protected abstract Iterable<? extends Value> computeChildren();
 }

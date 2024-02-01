@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -53,7 +52,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BinaryOperator;
-import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 /**
@@ -67,8 +65,6 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     protected final PhysicalOperator operator;
     @Nullable
     private final Value child;
-    @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
     @Nonnull
     private final String indexTypeName;
@@ -139,18 +135,13 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     }
 
     @Nonnull
-    private Iterable<? extends Value> computeChildren() {
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
         if (child != null) {
             return ImmutableList.of(child);
         } else {
             return ImmutableList.of();
         }
-    }
-
-    @Nonnull
-    @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
     }
 
     @Nonnull

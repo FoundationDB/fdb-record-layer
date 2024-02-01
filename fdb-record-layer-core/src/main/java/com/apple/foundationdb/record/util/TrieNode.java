@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -95,7 +96,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
 
     @Nonnull
     public Collection<T> values() {
-        return stream()
+        return Streams.stream(preOrderIterator())
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
     }

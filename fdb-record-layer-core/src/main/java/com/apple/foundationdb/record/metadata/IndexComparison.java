@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -86,8 +87,7 @@ public abstract class IndexComparison {
         return comparison instanceof Comparisons.SimpleComparison ||
                 comparison instanceof Comparisons.NullComparison ||
                 (comparison instanceof Comparisons.ValueComparison &&
-                         ((Comparisons.ValueComparison)comparison).getComparandValue()
-                                 .stream()
+                         Streams.stream(((Comparisons.ValueComparison)comparison).getComparandValue().preOrderIterator())
                                  .filter(value -> !(value instanceof Value.RangeMatchableValue))
                                  .findAny()
                                  .isEmpty());

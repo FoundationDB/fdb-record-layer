@@ -355,6 +355,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         return Optional.of(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size()));
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     /**
      * A list of fields forming a path.
      */

@@ -24,6 +24,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,14 +36,13 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * Interface for tree-like structures and helpers for folds and traversals on these tree-like structures of node type
  * {@link T}.
  * @param <T> type parameter of the node
  */
-public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
+public interface TreeLike<T extends TreeLike<T>> {
 
     /**
      * Method to get a {@code T}-typed {@code this}. This is the equivalent of Scala's typed self. Java's type inference
@@ -71,15 +71,26 @@ public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
     T withChildren(Iterable<? extends T> newChildren);
 
     /**
-     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
-     * @return an {@link Iterable} of nodes
-     * @deprecated this is deprecated for performance reasons, to apply a filter, get a {@link TreeLike#iterator()} which
-     *             returns an {@link Iterator} with pre-order traversal.
+     * Returns an iterator that traverse the nodes in pre-order.
+     * @return an iterator that traverse the nodes in pre-order.
      */
     @Nonnull
-    @Deprecated
-    default Iterable<? extends T> inPreOrder() {
-        return inPreOrder(self -> true);
+    default Iterator<T> preOrderIterator() {
+        return PreOrderIterator.over(getThis());
+    }
+
+    @Nonnull
+    default Stream<T> stream() {
+        return Streams.stream(preOrderIterator());
+    }
+
+    /**
+     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
+     * @return an {@link Iterable} of nodes
+     */
+    @Nonnull
+    default Iterable<? extends T> preOrderIterable() {
+        return preOrderIterable(self -> true);
     }
 
     /**
@@ -87,18 +98,15 @@ public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
      * @param descentIntoPredicate a predicate that determines of the traversal enters the subtree underneath the
      *        current node
      * @return an {@link Iterable} of nodes
-     * @deprecated this is deprecated for performance reasons, to apply a filter, get a {@link TreeLike#iterator()} which
-     *             returns an {@link Iterator} with pre-order traversal.
      */
     @Nonnull
-    @Deprecated
-    default Iterable<? extends T> inPreOrder(@Nonnull final Predicate<T> descentIntoPredicate) {
+    default Iterable<? extends T> preOrderIterable(@Nonnull final Predicate<T> descentIntoPredicate) {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         final var self = getThis();
         iterablesBuilder.add(ImmutableList.of(self));
         if (descentIntoPredicate.test(self)) {
             for (final T child : getChildren()) {
-                iterablesBuilder.add(child.inPreOrder());
+                iterablesBuilder.add(child.preOrderIterable());
             }
         }
         return Iterables.concat(iterablesBuilder.build());
@@ -109,28 +117,26 @@ public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
-    default Iterable<? extends T> inPostOrder() {
+    default Iterable<? extends T> postOrderIterable() {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         for (final T child : getChildren()) {
-            iterablesBuilder.add(child.inPostOrder());
+            iterablesBuilder.add(child.postOrderIterable());
         }
         iterablesBuilder.add(ImmutableList.of(getThis()));
         return Iterables.concat(iterablesBuilder.build());
     }
 
     /**
-     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like that
+     * Method that returns an {@link Iterator} of nodes as encountered in pre-order traversal of this tree-like that
      * are filtered by a {@link Predicate} that filters out every node for which {@code predicate} returns {@code false}.
      * @param predicate a {@link Predicate} that is evaluated per encountered node during pre-order traversal of
      *        the tree-like rooted at {@code this}
      * @return an {@link Iterable} of nodes satisfying the predicate passed in
-     * @deprecated this is deprecated for performance reasons, to apply a filter, get a {@link TreeLike#stream()} and
-     *             use {@link Stream#filter(Predicate)} instead.
      */
     @Nonnull
     @Deprecated
-    default Iterable<? extends T> filter(@Nonnull final Predicate<T> predicate) {
-        return Iterables.filter(inPreOrder(), predicate::test);
+    default Stream<? extends T> filter(@Nonnull final Predicate<T> predicate) {
+        return Streams.stream(preOrderIterator()).filter(predicate);
     }
 
     /**
@@ -247,21 +253,6 @@ public interface TreeLike<T extends TreeLike<T>> extends Iterable<T> {
             }
             return t;
         });
-    }
-
-    /**
-     * Returns an iterator that traverse the nodes in pre-order.
-     * @return an iterator that traverse the nodes in pre-order.
-     */
-    @Override
-    @Nonnull
-    default Iterator<T> iterator() {
-        return PreOrderIterator.over(getThis());
-    }
-
-    @Nonnull
-    default Stream<T> stream() {
-        return StreamSupport.stream(spliterator(), false);
     }
 
     int height();
