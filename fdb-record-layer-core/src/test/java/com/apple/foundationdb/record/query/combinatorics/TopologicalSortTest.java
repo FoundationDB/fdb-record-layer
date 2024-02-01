@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -375,7 +376,7 @@ public class TopologicalSortTest {
     }
 
     @Test
-    public void testTopologicalSortStability() {
+    public void testAnyTopologicalSortStability() {
         final Map<TestClass, Set<TestClass>> dependencies = ImmutableMap.of();
         for (int i = 0; i < 100; i++) {
             // it is important to create the objects inside the loop, so they get a different hash code each time.
@@ -387,6 +388,24 @@ public class TopologicalSortTest {
                             id -> dependencies.getOrDefault(id, ImmutableSet.of()));
             Assertions.assertTrue(topSortListMaybe.isPresent());
             Assertions.assertEquals(List.of(a, b, c), topSortListMaybe.get());
+        }
+    }
+
+    @Test
+    public void testTopologicalSortStability() {
+        final Map<TestClass, Set<TestClass>> dependencies = ImmutableMap.of();
+        for (int i = 0; i < 1000; i++) {
+            // it is important to create the objects inside the loop, so they get a different hash code each time.
+            final TestClass a = TestClass.of("a");
+            final TestClass b = TestClass.of("b");
+            final TestClass c = TestClass.of("c");
+            // this tests the backing iterator since there are no dependencies.
+            final EnumeratingIterable<TestClass> topSortIterable =
+                    TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
+                            id -> dependencies.getOrDefault(id, ImmutableSet.of()));
+            List<List<TestClass>> result = new ArrayList<>();
+            topSortIterable.forEach(result::add);
+            Assertions.assertEquals(List.of(List.of(a, b, c), List.of(a, c, b), List.of(b, a, c), List.of(b, c, a), List.of(c, a, b), List.of(c, b, a)), result);
         }
     }
 }
