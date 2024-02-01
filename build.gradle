@@ -236,6 +236,9 @@ subprojects {
 
                 //enable incremental compilation
                 options.incremental = true
+
+                //target byte-code compatibility with Java 11 (regardless of build JDK)
+                options.release = 11
             }
         }
     }
