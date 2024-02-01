@@ -825,7 +825,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final Map<Integer, Integer> segmentCounts = getSegmentCounts(index, groupingKey, contextProps, schemaSetup);
         assertThat(segmentCounts, Matchers.aMapWithSize(allIds.size() / 10));
         assertEquals(IntStream.range(0, allIds.size() / 10).boxed()
-                        .collect(Collectors.toMap(Function.identity(), partitionId -> 1)),
+                        .collect(Collectors.toMap(Function.identity(), partitionId -> 2)),
                 segmentCounts);
 //
 //        try (FDBRecordContext context = openContext(contextProps)) {

@@ -26,6 +26,7 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.KeyRange;
@@ -37,7 +38,9 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Key;
@@ -47,6 +50,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -167,7 +171,7 @@ public class LucenePartitioner {
     @Nullable
     public LucenePartitionInfoProto.LucenePartitionInfo selectQueryPartition(@Nonnull Tuple groupKey) {
         return isPartitioningEnabled() ?
-               state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey))
+               state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey, state.context, state.indexSubspace))
                :
                null;
     }
@@ -292,7 +296,11 @@ public class LucenePartitioner {
      */
     @Nonnull
     byte[] partitionMetadataKeyFromTimestamp(@Nonnull Tuple groupKey, long timestamp) {
-        return state.indexSubspace.pack(groupKey.add(PARTITION_META_SUBSPACE).add(timestamp));
+        return state.indexSubspace.pack(partitionMetadataKeyTuple(groupKey, timestamp));
+    }
+
+    private static Tuple partitionMetadataKeyTuple(final @Nonnull Tuple groupKey, final long timestamp) {
+        return groupKey.add(PARTITION_META_SUBSPACE).add(timestamp);
     }
 
     /**
@@ -304,14 +312,19 @@ public class LucenePartitioner {
     void savePartitionMetadata(@Nonnull Tuple groupKey, @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo.Builder builder) {
         LucenePartitionInfoProto.LucenePartitionInfo updatedPartition = builder.build();
         state.context.ensureActive().set(
-                partitionMetadataKeyFromTimestamp(groupKey, Tuple.fromBytes(builder.getFrom().toByteArray()).getLong(0)),
+                partitionMetadataKeyFromTimestamp(groupKey, getTimestampFromPartitionInfo(builder)),
                 updatedPartition.toByteArray());
+    }
+
+    private static long getTimestampFromPartitionInfo(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfoOrBuilder builder) {
+        // TODO I think we just want the `from` as a sub-tuple
+        return Tuple.fromBytes(builder.getFrom().toByteArray()).getLong(0);
     }
 
     @Nonnull
     CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> findPartitionInfo(@Nonnull Tuple groupKey, long timestamp) {
         Range range = new Range(state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).pack(),
-                state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE).add(timestamp)).pack());
+                state.indexSubspace.subspace(partitionMetadataKeyTuple(groupKey, timestamp)).pack());
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
@@ -358,7 +371,7 @@ public class LucenePartitioner {
     @Nonnull
     private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> assignPartitionInternal(@Nonnull Tuple groupKey, long timestamp, boolean createIfNotExists) {
         Range range = new Range(state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).pack(),
-                                state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE).add(timestamp + 1)).pack());
+                                state.indexSubspace.subspace(partitionMetadataKeyTuple(groupKey, timestamp + 1)).pack());
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
@@ -423,11 +436,14 @@ public class LucenePartitioner {
      * get most recent partition's info.
      *
      * @param groupKey group key
+     * @param context the context in which to execute; should generally be {@code state.context}
+     * @param indexSubspace the index subspace; should generally be {@code state.indexSubspace}
      * @return partition metadata future
      */
     @Nonnull
-    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getNewestPartition(@Nonnull Tuple groupKey) {
-        return getEdgePartition(groupKey, true);
+    private static CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getNewestPartition(
+            @Nonnull Tuple groupKey, @Nonnull final FDBRecordContext context, @Nonnull final Subspace indexSubspace) {
+        return getEdgePartition(groupKey, true, context, indexSubspace);
     }
 
     /**
@@ -438,7 +454,7 @@ public class LucenePartitioner {
      */
     @Nonnull
     private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getOldestPartition(@Nonnull Tuple groupKey) {
-        return getEdgePartition(groupKey, false);
+        return getEdgePartition(groupKey, false, state.context, state.indexSubspace);
     }
 
     /**
@@ -446,12 +462,16 @@ public class LucenePartitioner {
      *
      * @param groupKey group key
      * @param reverse scan order, (get earliest if false, most recent if true)
+     * @param context the context in which to execute; should generally be {@code state.context}
+     * @param indexSubspace the index subspace; should generally be {@code state.indexSubspace}
      * @return partition metadata future
      */
     @Nonnull
-    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getEdgePartition(@Nonnull Tuple groupKey, boolean reverse) {
-        Range range = state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).range();
-        final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, reverse, StreamingMode.WANT_ALL);
+    private static CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getEdgePartition(
+            @Nonnull Tuple groupKey, boolean reverse, @Nonnull final FDBRecordContext context,
+            @Nonnull final Subspace indexSubspace) {
+        Range range = indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).range();
+        final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, reverse, StreamingMode.WANT_ALL);
         return AsyncUtil.collect(rangeIterable).thenApply(all -> all.isEmpty() ? null : partitionInfoFromKV(all.get(0)));
     }
 
@@ -502,7 +522,6 @@ public class LucenePartitioner {
      */
     @Nonnull
     public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start) {
-        LOGGER.info("rebalance with " + start);
         // This function will iterate the grouping keys
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
                 props -> props.clearState().setReturnedRowLimit(1));
@@ -541,7 +560,6 @@ public class LucenePartitioner {
                         final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
                         return processPartitionRebalancing(groupingKey)
                                 .thenCompose(repartitionResult -> {
-                                    LOGGER.info("Repartition result" + cursorResult.get() + ":" + repartitionResult);
                                     if (repartitionResult.getLeft() > 0) {
                                         // we did something
                                         if (repartitionResult.getRight() > 0) {
@@ -714,7 +732,11 @@ public class LucenePartitioner {
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
-                LOGGER.info("Moving records from " + groupingKey + ":" + partitionInfo.getId() + "__" + partitionInfo.getCount() + " - " + records.size());
+                LOGGER.info(KeyValueLogMessage.of("Repartioning Records",
+                                LuceneLogMessageKeys.GROUP, groupingKey,
+                                LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
+                                LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
+                                LuceneLogMessageKeys.COUNT, records.size()));
 
                 // value of the "destination" partition's `from` timestamp
                 final long overflowPartitionFromTimestamp = getPartitioningTimestampValue(records.get(0));
@@ -743,5 +765,23 @@ public class LucenePartitioner {
         Range range = state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
         return AsyncUtil.collect(rangeIterable).thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList()));
+    }
+
+    public static CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getNextPartitionInfo(
+            @Nonnull final FDBRecordContext context,
+            @Nonnull final Tuple groupingKey,
+            @Nullable final LucenePartitionInfoProto.LucenePartitionInfo previous,
+            @Nonnull final Subspace indexSubspace) {
+        if (previous == null) {
+            return getNewestPartition(groupingKey, context, indexSubspace);
+        } else {
+            final Range range = new TupleRange(groupingKey.add(PARTITION_META_SUBSPACE), partitionMetadataKeyTuple(groupingKey, getTimestampFromPartitionInfo(previous)),
+                    EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE)
+                    .toRange(indexSubspace);
+            final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
+            return AsyncUtil.collect(rangeIterable)
+                    .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).findFirst().orElse(null));
+        }
+
     }
 }
