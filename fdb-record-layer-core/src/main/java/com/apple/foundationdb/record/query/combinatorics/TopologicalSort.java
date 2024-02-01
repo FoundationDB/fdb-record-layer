@@ -35,6 +35,8 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Utility class to provide helpers related to topological sorts.
@@ -517,6 +520,12 @@ public class TopologicalSort {
         @SuppressWarnings("java:S3398")
         private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
             final HashMap<T, Integer> result = Maps.newHashMapWithExpectedSize(partiallyOrderedSet.size());
+//            // this is to illustrate the issue with getting a "random" order coming from result by force
+//            // adding the items in reverse order.
+//            final var list = new ArrayList<>(partiallyOrderedSet.getSet());
+//            Collections.reverse(list);
+//            list.forEach(element -> result.put(element, 0));
+
             partiallyOrderedSet.getSet().forEach(element -> result.put(element, 0));
 
             for (final Map.Entry<T, T> entry : partiallyOrderedSet.getDependencyMap().entries()) {
