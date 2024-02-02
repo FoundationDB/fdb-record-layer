@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -123,7 +124,8 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
-    @Test
+    @ParameterizedTest
+    @BooleanSource
     void testIndexFromIndexContinuation() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
@@ -1045,6 +1047,36 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(tgtIndex);
+    }
+
+    @Test
+    void testIndexFromIndexRebuildReverseScanException() {
+        // assert failure for reverse scan
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 80;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex("src_index")
+                            .forbidRecordScan()
+                            .setReverseScanOrder(true)
+                            .build())
+                    .build()) {
+                assertThrows(RecordCoreException.class, () -> indexBuilder.rebuildIndex(recordStore));
+            }
+            context.commit();
+        }
     }
 
     @Test

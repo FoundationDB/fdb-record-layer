@@ -78,6 +78,7 @@ public class IndexingByRecords extends IndexingBase {
         super(common, policy);
         final TupleRange range = common.computeRecordsRange();
         this.recordsRange = range == null ? TupleRange.ALL : range;
+        validateOrThrowEx(!policy.isReverseScanOrder(), "(Old) indexing by records does not support reverse scan order");
     }
 
     @Override
@@ -499,7 +500,7 @@ public class IndexingByRecords extends IndexingBase {
         if (respectLimit) {
             executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
         }
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build(), policy.isReverseScanOrder());
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 

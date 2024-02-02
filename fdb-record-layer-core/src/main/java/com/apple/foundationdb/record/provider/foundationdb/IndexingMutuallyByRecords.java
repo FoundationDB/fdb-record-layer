@@ -114,7 +114,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                      @Nullable List<Tuple> fragmentBoundaries) {
         super(common, policy);
         this.fragmentBoundaries = fragmentBoundaries;
-        validateOrThrowEx(!policy.isReverseScanOrder(), "Mutual indexing do not support reverse scan order");
+        validateOrThrowEx(!policy.isReverseScanOrder(), "Mutual indexing does not support reverse scan order");
     }
 
     @Override

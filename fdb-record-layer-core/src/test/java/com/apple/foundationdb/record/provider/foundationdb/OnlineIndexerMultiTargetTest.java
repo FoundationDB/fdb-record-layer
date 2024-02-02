@@ -365,8 +365,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testMultiTargetContinueAfterCrash() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    void testMultiTargetContinueAfterCrash(int reverseSeed) {
         // Crash, then continue successfully
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -385,14 +386,20 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
+        // test all 4 reverse combinations
+        boolean reverse1 = 0 != (reverseSeed & 1);
+        boolean reverse2 = 0 != (reverseSeed & 2);
+
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 5, timer, newIndexerBuilder(indexes));
+        buildIndexAndCrashHalfway(chunkSize, 5, timer, newIndexerBuilder(indexes).setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setReverseScanOrder(reverse1)));
 
         // 2. continue and done
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setLimit(chunkSize)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setReverseScanOrder(reverse2)
                         .build())
                 .build()) {
 

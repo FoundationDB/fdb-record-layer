@@ -849,8 +849,7 @@ public abstract class IndexingBase {
                                                                     @Nonnull AtomicBoolean hasMore,
                                                                     final boolean isIdempotent) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
-        // the 'lastResultCont' item should be processed
-
+        // the 'lastResultCont' item should also be processed
         if (!rangeCursor.hasNext()) {
             timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
             if (rangeCursor.getNoNextReason().isSourceExhausted()) {
@@ -861,16 +860,16 @@ public abstract class IndexingBase {
             }
             return AsyncUtil.READY_FALSE; // all done
         }
-        RecordCursorResult<T> currResult = rangeCursor;
-        // here: currResult must have value
+
+        // here: rangeCursor must have value
         timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
         recordsScannedCounter.incrementAndGet();
-        nextResultCont.set(currResult);
+        nextResultCont.set(rangeCursor);
 
-        return getRecordToIndex.apply(store, currResult)
+        return getRecordToIndex.apply(store, rangeCursor)
                 .thenCompose(rec -> {
                     if (null == rec) {
-                        return AsyncUtil.READY_TRUE;
+                        return AsyncUtil.READY_TRUE; // next
                     }
                     // This record should be indexed. Add it to the transaction.
                     if (isIdempotent) {
