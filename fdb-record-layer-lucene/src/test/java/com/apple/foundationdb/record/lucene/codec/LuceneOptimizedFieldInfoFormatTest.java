@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 
-import com.carrotsearch.randomizedtesting.annotations.Seed;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.BaseFieldInfoFormatTestCase;
@@ -42,7 +41,6 @@ import java.io.IOException;
 // You can add
 // @Seed("C185081D42F0F43C")
 // to rerun the test class with the same seed. That will work even if you then only run one of the tests
-@Seed("C185081D42F0F43C")
 @ThreadLeakFilters(defaultFilters = true, filters = {
         FDBThreadFilter.class
 })
