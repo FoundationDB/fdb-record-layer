@@ -123,6 +123,7 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -712,19 +713,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
 
-            validateDocsInPartition(index, 0, groupingKey, 8, makeKeyTuples(docGroupFieldValue, 1012, 1019));
-            validateDocsInPartition(index, 2, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1006, 1011));
-            validateDocsInPartition(index, 1, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1000, 1005));
+            validateDocsInPartition(index, 0, groupingKey, 8, makeKeyTuples(docGroupFieldValue, 1012, 1019), "text:propose");
+            validateDocsInPartition(index, 2, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1006, 1011), "text:propose");
+            validateDocsInPartition(index, 1, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1000, 1005), "text:propose");
         }
     }
 
-    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey, int expectedHitCount, Set<Tuple> expectedIds) throws IOException {
+    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey, int expectedHitCount,
+                                         Set<Tuple> expectedIds, final String universalSearch) throws IOException {
         LuceneScanQuery scanQuery;
         if (groupingKey.isEmpty()) {
-            scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, "text:propose", null);
+            scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
         } else {
             scanQuery = (LuceneScanQuery) groupedSortedTextSearch(index,
-                    "text:propose",
+                    universalSearch,
                     null,
                     groupingKey.getLong(0));
         }
@@ -758,6 +760,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final int totalDocCount = 20;
         Consumer<FDBRecordContext> schemaSetup = context -> openRecordStore(context, LuceneIndexTest::joinedPartitionedLuceneIndexMetadataHook);
 
+        List<Tuple> ids = new ArrayList<>();
         // create/save documents
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
@@ -771,30 +774,44 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .build();
                 TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
                         .setGroup(42)
-                        .setText("Four score and seven years ago our fathers brought forth")
+                        .setText("Four score and seven years ago our fathers brought forth propose")
                         .build();
-                recordStore.saveRecord(cd);
-                recordStore.saveRecord(sd);
+                final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
+                        .getSyntheticRecordType("luceneJoinedPartitionedIdx")
+                        .getRecordTypeKeyTuple();
+                ids.add(Tuple.from(syntheticRecordTypeKey.getItems().get(0),
+                        recordStore.saveRecord(cd).getPrimaryKey().getItems(),
+                        recordStore.saveRecord(sd).getPrimaryKey().getItems()));
             }
             commit(context);
         }
 
         // initially, all documents are saved into one partition
+        final Tuple groupingKey = Tuple.from(42);
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(JOINED_INDEX,
-                Tuple.from(42), contextProps, schemaSetup);
+                groupingKey, contextProps, schemaSetup);
         assertEquals(1, partitionInfos.size());
         assertEquals(totalDocCount, partitionInfos.get(0).getCount());
 
         // run re-partitioning
         explicitMergeIndex(JOINED_INDEX, contextProps, schemaSetup);
         partitionInfos = getPartitionMeta(JOINED_INDEX,
-                Tuple.from(42), contextProps, schemaSetup);
+                groupingKey, contextProps, schemaSetup);
         // now there should be 2 partitions: partition 0 with (totalDocCount - 6) docs, and partition 1 with 6 docs
         assertEquals(2, partitionInfos.size());
         assertEquals(0, partitionInfos.get(0).getId());
         assertEquals(totalDocCount - 6, partitionInfos.get(0).getCount());
         assertEquals(1, partitionInfos.get(1).getId());
         assertEquals(6, partitionInfos.get(1).getCount());
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+
+            validateDocsInPartition(JOINED_INDEX, 0, groupingKey,
+                    totalDocCount - 6, Set.copyOf(ids.subList(6, totalDocCount)), "simple_text:propose");
+            validateDocsInPartition(JOINED_INDEX, 1, groupingKey,
+                    6, Set.copyOf(ids.subList(0, 6)), "simple_text:propose");
+        }
     }
 
     private void explicitMergeIndex(Index index, RecordLayerPropertyStorage contextProps, Consumer<FDBRecordContext> schemaSetup) {

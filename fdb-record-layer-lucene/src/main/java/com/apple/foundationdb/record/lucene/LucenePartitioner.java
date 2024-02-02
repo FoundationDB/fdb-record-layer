@@ -631,10 +631,16 @@ public class LucenePartitioner {
         }
 
         return fetchedRecordsFuture.thenCompose(records -> {
-            if (records.size() > 0) {
+            if (records.size() > 1) { // one record to update the boundary, and one to move
                 // the newest record is the one we intend to leave in the current partition; we need it in order to set this partition's new
                 // `from` value.
                 final long newBoundaryTimestamp = getPartitioningTimestampValue(records.get(records.size() - 1));
+                if (newBoundaryTimestamp == getPartitioningTimestampValue(records.get(records.size() - 2))) {
+                    throw new RecordCoreException("Documents to be repartitioned have same timestamp")
+                            .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey)
+                            .addLogInfo(LuceneLogMessageKeys.PARTITION, partitionInfo.getId())
+                            .addLogInfo(LuceneLogMessageKeys.RECORD_TIMESTAMP, newBoundaryTimestamp);
+                }
 
                 // remove the (n + 1)th record from the records to be moved
                 records.remove(records.size() - 1);
