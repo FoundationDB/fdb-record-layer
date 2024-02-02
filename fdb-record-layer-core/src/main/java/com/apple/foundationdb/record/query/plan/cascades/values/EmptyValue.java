@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class EmptyValue extends AbstractValue implements LeafValue {
+    public static final EmptyValue EMPTY = new EmptyValue();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Value");
 
     @Nullable
