@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -45,7 +44,7 @@ import java.util.Objects;
  * A value that evaluates to empty.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NullValue extends AbstractValue implements LeafValue {
+public class NullValue extends AbstractLeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Value");
 
     @Nonnull
@@ -78,15 +77,9 @@ public class NullValue extends AbstractValue implements LeafValue {
         return false;
     }
 
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
-    }
-
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 

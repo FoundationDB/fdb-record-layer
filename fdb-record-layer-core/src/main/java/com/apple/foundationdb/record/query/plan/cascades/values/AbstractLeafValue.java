@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -30,31 +31,36 @@ import javax.annotation.Nonnull;
  * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface LeafValue extends Value {
+public abstract class AbstractLeafValue extends AbstractValue {
 
     /**
      * Method to retrieve a list of children values.
      * @return a list of children
      */
-
     @Nonnull
     @Override
-    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    public AbstractLeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
         return this;
     }
 
     @Nonnull
-    default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
+    }
+
+    @Nonnull
+    public Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Nonnull
-    default Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Override
-    default int height() {
+    public int height() {
         return 1;
     }
 }

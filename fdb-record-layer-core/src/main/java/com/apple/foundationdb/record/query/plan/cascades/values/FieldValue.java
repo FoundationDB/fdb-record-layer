@@ -67,11 +67,9 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue extends AbstractValue implements ValueWithChild {
+public class FieldValue extends AbstractValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
-    @Nonnull
-    private final Value childValue;
     @Nonnull
     private final FieldPath fieldPath;
 
@@ -79,7 +77,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     private final Supplier<List<String>> fieldNamesSupplier;
 
     private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
-        this.childValue = childValue;
+        super(childValue);
         this.fieldPath = fieldPath;
         fieldNamesSupplier = Suppliers.memoize(() ->
                 fieldPath.getOptionalFieldNames()
@@ -131,19 +129,13 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public Value getChild() {
-        return childValue;
-    }
-
-    @Nonnull
-    @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
         return new FieldValue(child, fieldPath);
     }
 
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var childResult = childValue.eval(store, context);
+        final var childResult = getChild().eval(store, context);
         if (!(childResult instanceof Message)) {
             return null;
         }
@@ -179,13 +171,13 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!ValueWithChild.super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 
         final var that = (FieldValue)other;
         return fieldPath.equals(that.fieldPath) &&
-               childValue.semanticEquals(that.childValue, equivalenceMap);
+                getChild().semanticEquals(that.getChild(), equivalenceMap);
     }
 
     @Override
@@ -199,7 +191,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
         final var otherFieldValue = (FieldValue)other;
         return fieldPath.getFieldOrdinals().equals(otherFieldValue.getFieldPath().getFieldOrdinals()) &&
-                childValue.subsumedBy(otherFieldValue.childValue, equivalenceMap);
+                getChild().subsumedBy(otherFieldValue.getChild(), equivalenceMap);
     }
 
     @Override
@@ -215,17 +207,17 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Override
     public String toString() {
         final var fieldPathString = fieldPath.toString();
-        if (childValue instanceof QuantifiedValue || childValue instanceof ObjectValue) {
-            return childValue + fieldPathString;
+        if (getChild() instanceof QuantifiedValue || getChild() instanceof ObjectValue) {
+            return getChild() + fieldPathString;
         } else {
-            return "(" + childValue + ")" + fieldPathString;
+            return "(" + getChild() + ")" + fieldPathString;
         }
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return childValue.explain(formatter) + fieldPath;
+        return getChild().explain(formatter) + fieldPath;
     }
 
     @Override
@@ -237,14 +229,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(childValue.getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.identitiesFor(getChild().getCorrelatedTo()));
     }
 
     @Nonnull
     @Override
     public PFieldValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PFieldValue.Builder builder = PFieldValue.newBuilder();
-        builder.setChildValue(childValue.toValueProto(serializationContext));
+        builder.setChildValue(getChild().toValueProto(serializationContext));
         builder.setFieldPath(fieldPath.toProto(serializationContext));
         return builder.build();
     }
@@ -353,12 +345,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             }
         }
         return Optional.of(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size()));
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(getChild());
     }
 
     /**

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractLeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
@@ -75,7 +75,7 @@ public class TranslationMap {
 
     @Nonnull
     public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
-                                          @Nonnull final LeafValue leafValue) {
+                                          @Nonnull final AbstractLeafValue leafValue) {
         final var translationTarget = Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias));
         return translationTarget.getTranslationFunction().apply(sourceAlias, translationTarget.getTargetAlias(), leafValue);
     }
@@ -147,7 +147,7 @@ public class TranslationMap {
         @Nonnull
         Value apply(@Nonnull CorrelationIdentifier sourceAlias,
                     @Nonnull CorrelationIdentifier targetAlias,
-                    @Nonnull LeafValue quantifiedValue);
+                    @Nonnull AbstractLeafValue quantifiedValue);
     }
 
     /**

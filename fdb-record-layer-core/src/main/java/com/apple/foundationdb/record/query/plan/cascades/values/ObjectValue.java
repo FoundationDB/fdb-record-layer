@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -51,7 +50,7 @@ import java.util.Set;
  * For example, this is used to represent non-quantifiable data (e.g. within an expression).
  */
 @API(API.Status.EXPERIMENTAL)
-public class ObjectValue extends AbstractValue implements LeafValue {
+public class ObjectValue extends AbstractLeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Object-Value");
 
     @Nonnull
@@ -74,12 +73,6 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(alias);
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
     }
 
     @Nonnull

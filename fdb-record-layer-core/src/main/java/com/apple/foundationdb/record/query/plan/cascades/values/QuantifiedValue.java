@@ -32,19 +32,29 @@ import java.util.Set;
  * A scalar value type that is directly derived from an alias.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QuantifiedValue extends LeafValue {
+public abstract class QuantifiedValue extends AbstractLeafValue {
 
-    CorrelationIdentifier getAlias();
+    @Nonnull
+    private final CorrelationIdentifier alias;
+
+    protected QuantifiedValue(@Nonnull final CorrelationIdentifier alias) {
+        this.alias = alias;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getAlias() {
+        return alias;
+    }
 
     @Nonnull
     @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(getAlias());
     }
 
     @Override
-    default boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
+    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
+        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 

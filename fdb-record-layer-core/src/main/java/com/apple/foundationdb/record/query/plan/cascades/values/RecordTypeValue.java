@@ -36,27 +36,22 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A value which is unique for each record type produced by its quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
+public class RecordTypeValue extends QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
 
-    @Nonnull
-    private final CorrelationIdentifier alias;
-
     public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
-        this.alias = alias;
+        super(alias);
     }
     
     @Nonnull
@@ -68,7 +63,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final QueryResult binding = (QueryResult)context.getBinding(alias);
+        final QueryResult binding = (QueryResult)context.getBinding(getAlias());
 
         final var messageOptional = binding.getMessageMaybe();
         if (!(binding instanceof Message)) {
@@ -78,24 +73,6 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
         return messageOptional.map(message ->
                         store.getRecordMetaData().getRecordType(message.getDescriptorForType().getName()).getRecordTypeKey())
                 .orElse(null);
-    }
-
-    @Override
-    @Nonnull
-    public CorrelationIdentifier getAlias() {
-        return alias;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
     }
 
     @Override
@@ -117,7 +94,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(getAlias())));
     }
 
     @Override
@@ -142,13 +119,13 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
 
     @Override
     public String toString() {
-        return "recordType(" + alias + ")";
+        return "recordType(" + getAlias() + ")";
     }
 
     @Nonnull
     @Override
     public PRecordTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordTypeValue.newBuilder().setAlias(alias.getId()).build();
+        return PRecordTypeValue.newBuilder().setAlias(getAlias().getId()).build();
     }
 
     @Nonnull

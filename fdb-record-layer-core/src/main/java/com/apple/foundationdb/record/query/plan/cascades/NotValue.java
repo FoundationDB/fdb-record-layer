@@ -36,13 +36,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -55,29 +54,24 @@ import java.util.Optional;
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue extends AbstractValue implements BooleanValue {
+public class NotValue extends AbstractValueWithChild implements BooleanValue {
     /**
      * The hash value of this expression.
      */
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Value");
 
     /**
-     * The child expression.
-     */
-    @Nonnull
-    private final Value child;
-
-    /**
      * Constructs a new {@link NotValue} instance.
      * @param child The child expression.
      */
     public NotValue(@Nonnull final Value child) {
-        this.child = child;
+        super(child);
     }
 
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
+        final var child = getChild();
         Verify.verify(child instanceof BooleanValue);
         final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(typeRepository, innermostAlias);
         if (predicateOptional.isPresent()) {
@@ -98,22 +92,15 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(this.child);
-    }
-
-    @Nonnull
-    @Override
-    public NotValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        return new NotValue(Iterables.get(newChildren, 0));
+    public NotValue withNewChild(@Nonnull final Value newChild) {
+        return new NotValue(newChild);
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
-        final Object result = child.eval(store, context);
+        final Object result = getChild().eval(store, context);
         if (result == null) {
             return null;
         }
@@ -127,18 +114,18 @@ public class NotValue extends AbstractValue implements BooleanValue {
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "not(" + child.explain(formatter) + ")";
+        return "not(" + getChild().explain(formatter) + ")";
     }
 
     @Override
     public String toString() {
-        return "not(" + child + ")";
+        return "not(" + getChild() + ")";
     }
 
     @Override
@@ -156,7 +143,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
     @Nonnull
     @Override
     public PNotValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PNotValue.newBuilder().setChild(child.toValueProto(serializationContext)).build();
+        return PNotValue.newBuilder().setChild(getChild().toValueProto(serializationContext)).build();
     }
 
     @Nonnull

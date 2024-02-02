@@ -37,37 +37,27 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A value representing a version stamp derived from a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue extends AbstractValue implements QuantifiedValue {
+public class VersionValue extends QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
-    @Nonnull
-    private final CorrelationIdentifier baseAlias;
-
     public VersionValue(@Nonnull CorrelationIdentifier baseAlias) {
-        this.baseAlias = baseAlias;
-    }
-
-    @Override
-    public CorrelationIdentifier getAlias() {
-        return baseAlias;
+        super(baseAlias);
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        QueryResult binding = (QueryResult) context.getBinding(baseAlias);
+        QueryResult binding = (QueryResult) context.getBinding(getAlias());
         return binding.getQueriedRecordMaybe()
                 .map(FDBRecord::getVersion)
                 .orElse(null);
@@ -81,12 +71,6 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
-    }
-
-    @Nonnull
-    @Override
     public String explain(@Nonnull final Formatter formatter) {
         return toString();
     }
@@ -94,7 +78,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Nonnull
     @Override
     public String toString() {
-        return "version(" + baseAlias + ")";
+        return "version(" + getAlias() + ")";
     }
 
     @Nonnull
@@ -115,12 +99,6 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
             return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
         }
         return false;
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
     }
 
     @Override
@@ -154,7 +132,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
     @Nonnull
     @Override
     public PVersionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PVersionValue.newBuilder().setBaseAlias(baseAlias.getId()).build();
+        return PVersionValue.newBuilder().setBaseAlias(getAlias().getId()).build();
     }
 
     @Nonnull

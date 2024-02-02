@@ -264,8 +264,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
         return replaceLeavesMaybe(value -> {
-            if (value instanceof LeafValue) {
-                final var leafValue = (LeafValue)value;
+            if (value instanceof AbstractLeafValue) {
+                final var leafValue = (AbstractLeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
                 if (correlatedTo.isEmpty()) {
                     return leafValue;

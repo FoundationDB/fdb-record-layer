@@ -54,13 +54,11 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
+public class ExistsValue extends AbstractValueWithChild implements BooleanValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
-    @Nonnull
-    private final QuantifiedObjectValue child;
 
     public ExistsValue(@Nonnull QuantifiedObjectValue child) {
-        this.child = child;
+        super(child);
     }
 
     @Override
@@ -68,18 +66,13 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
-        return Optional.of(new ExistsPredicate(child.getAlias()));
+        return Optional.of(new ExistsPredicate(((QuantifiedObjectValue)getChild()).getAlias()));
     }
+
 
     @Nonnull
     @Override
-    public Value getChild() {
-        return child;
-    }
-
-    @Nonnull
-    @Override
-    public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+    public ExistsValue withNewChild(@Nonnull final Value newChild) {
         Verify.verify(newChild instanceof QuantifiedObjectValue);
         return new ExistsValue((QuantifiedObjectValue)newChild);
     }
@@ -91,18 +84,18 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "exists(" + child.explain(formatter) + ")";
+        return "exists(" + getChild().explain(formatter) + ")";
     }
 
     @Override
     public String toString() {
-        return "exists(" + child + ")";
+        return "exists(" + getChild() + ")";
     }
 
     @Override
@@ -121,7 +114,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     @Override
     public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PExistsValue.newBuilder()
-                .setChild(child.toProto(serializationContext))
+                .setChild(((QuantifiedObjectValue)getChild()).toProto(serializationContext))
                 .build();
     }
 
@@ -136,12 +129,6 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
                                         @Nonnull final PExistsValue existsValueProto) {
         return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
                 Objects.requireNonNull(existsValueProto.getChild())));
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of(getChild());
     }
 
     /**

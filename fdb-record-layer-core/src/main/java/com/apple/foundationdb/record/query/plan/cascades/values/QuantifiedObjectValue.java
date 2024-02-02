@@ -37,29 +37,25 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A value representing the quantifier as an object. For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedObjectValue extends AbstractValue implements QuantifiedValue {
+public class QuantifiedObjectValue extends QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
-    @Nonnull
-    private final CorrelationIdentifier alias;
     @Nonnull
     private final Type resultType;
 
     private QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
-        this.alias = alias;
+        super(alias);
         this.resultType = resultType;
     }
 
@@ -85,7 +81,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
-        final var binding = (QueryResult)context.getBinding(alias);
+        final var binding = (QueryResult)context.getBinding(getAlias());
         if (resultType.isRecord()) {
             return binding.getDatum() == null ? null : binding.getMessage();
         } else {
@@ -95,26 +91,8 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
-    public CorrelationIdentifier getAlias() {
-        return alias;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
-    }
-
-    @Nonnull
-    @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return formatter.getQuantifierName(alias);
+        return formatter.getQuantifierName(getAlias());
     }
 
     @Override
@@ -129,7 +107,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Override
     public String toString() {
-        return alias.equals(Quantifier.current()) ? "_" : "$" + alias;
+        return getAlias().equals(Quantifier.current()) ? "_" : "$" + getAlias();
     }
 
     @Override
@@ -141,7 +119,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(getAlias())));
     }
 
     @Override
@@ -162,7 +140,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public PQuantifiedObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PQuantifiedObjectValue.Builder builder = PQuantifiedObjectValue.newBuilder();
-        builder.setAlias(alias.getId());
+        builder.setAlias(getAlias().getId());
         builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
