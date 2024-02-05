@@ -622,7 +622,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex)idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
         );
     }
 
@@ -635,7 +635,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex)idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
         );
     }
 
@@ -648,7 +648,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex)idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
         );
     }
 
@@ -661,7 +661,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("1", ((RecordLayerIndex)idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("1", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
         );
     }
 

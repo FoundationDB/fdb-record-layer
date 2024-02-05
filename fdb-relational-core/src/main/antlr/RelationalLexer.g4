@@ -1280,7 +1280,7 @@ STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
 
 
 QUESTION:                            '?';
-NAMED_PARAMETER:                     '?'[A-Za-z][A-Za-z0-9_/]*;
+NAMED_PARAMETER:                     [?$][A-Za-z][A-Za-z0-9_/]*;
 
 // Identifiers
 

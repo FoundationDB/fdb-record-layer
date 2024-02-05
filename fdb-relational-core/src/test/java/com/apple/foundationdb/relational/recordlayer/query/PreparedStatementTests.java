@@ -216,6 +216,32 @@ public class PreparedStatementTests {
     }
 
     @Test
+    void parameterizedQueryQuestionAndDollarParameter() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (10, 'testName')");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO = ?rest_no AND NAME = $name")) {
+                ps.setLong("rest_no", 10);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+                ps.setLong("rest_no", 10);
+                ps.setString("name", "TEST");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+                ps.setLong("rest_no", 0);
+                ps.setString("name", "testName");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void parameterizedQueryMissingNamedParameters() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
