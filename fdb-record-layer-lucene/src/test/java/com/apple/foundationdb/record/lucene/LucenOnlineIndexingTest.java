@@ -29,7 +29,9 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -48,6 +50,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
@@ -111,7 +114,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void luceneOnlineIndexingTestSimple(boolean preventMergeDuringIndexing) {
         Index index = SIMPLE_TEXT_SUFFIXES;
         disableIndex(index, SIMPLE_DOC);
@@ -267,7 +270,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void luceneOnlineIndexingTestMulti(boolean preventMergeDuringIndexing) {
         int numRecords = 47;
         int transactionLimit = 10;
@@ -356,7 +359,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             assertTrue(allFiles.length < 12);
         }
     }
-
 
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
@@ -848,7 +850,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void testRecordUpdateReducedMergeForcingAgileSizeQuota(boolean disableAgilityContext) {
         // emulate repeating merge until until unchanged, with a tiny size quota
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
@@ -936,6 +938,87 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         assertTrue(newLength < oldLength);
         assertTrue(timeCommitCount > 0);
+    }
+
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+    @ParameterizedTest
+    @BooleanSource
+    void luceneOnlineIndexingByIndexTest(boolean preventMergeDuringIndexing) {
+        int numRecords = 47;
+        int transactionLimit = 10;
+        int groupingCount = 1;
+        final Random rn = new Random();
+        rn.nextInt();
+        Index srcIndex = new Index("src_index", field("doc_id"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index(
+                "Map_with_auto_complete$entry-value",
+                new GroupingKeyExpression(field("entry",
+                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTest.keys)), groupingCount + 1),
+                LuceneIndexTypes.LUCENE,
+                ImmutableMap.of());
+
+        long[] docIds = new long[numRecords * 2];
+        for (int i = 0; i < numRecords * 2; i ++) {
+            docIds[i] = rn.nextLong();
+        }
+        int middle = 1 + rn.nextInt(numRecords - 2);
+        // write records
+        RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex(MAP_DOC, srcIndex);
+            metaDataBuilder.addIndex(MAP_DOC, tgtIndex);
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+        };
+        try (final FDBRecordContext context = openContext()) {
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            for (int i = 0; i < numRecords; i ++) {
+                long docId = docIds[i];
+                recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
+            }
+            context.commit();
+        }
+        // overwrite some records (to enforce merge), write others as new
+        try (final FDBRecordContext context = openContext()) {
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            for (int i = 0; i < middle; i ++) {
+                long docId = docIds[i];
+                recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
+            }
+            for (int i = middle; i < numRecords; i ++) {
+                long docId = docIds[numRecords + i];
+                recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
+            }
+            context.commit();
+        }
+        try (final FDBRecordContext context = openContext()) {
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore.markIndexDisabled(tgtIndex).join();
+            context.commit();
+        }
+        // build the index ..
+        try (final FDBRecordContext context = openContext()) {
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .addTargetIndex(tgtIndex)
+                    .setLimit(transactionLimit)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing)
+                            .setSourceIndex(srcIndex.getName())
+                            .build())
+                    .build()) {
+                assertTrue(recordStore.isIndexDisabled(tgtIndex));
+                indexBuilder.buildIndex(true);
+            }
+        }
+        // .. and assert readable mode
+        try (final FDBRecordContext context = openContext()) {
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            assertTrue(recordStore.isIndexReadable(tgtIndex));
+        }
+        // assert number of segments
+        String[] allFiles = listFiles(tgtIndex);
+        assertTrue(allFiles.length < 12);
     }
 }
 
