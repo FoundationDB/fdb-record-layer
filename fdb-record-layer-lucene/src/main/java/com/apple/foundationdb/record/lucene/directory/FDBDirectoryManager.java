@@ -134,12 +134,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private static CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
-                                                                @Nonnull Subspace subspace,
-                                                                @Nonnull KeyRange range,
-                                                                @Nonnull Optional<Tuple> lastTuple,
-                                                                @Nonnull ScanProperties scanProperties,
-                                                                int groupingCount) {
+    public static CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
+                                                               @Nonnull Subspace subspace,
+                                                               @Nonnull KeyRange range,
+                                                               @Nonnull Optional<Tuple> lastTuple,
+                                                               @Nonnull ScanProperties scanProperties,
+                                                               int groupingCount) {
         KeyValueCursor.Builder cursorBuilder =
                 KeyValueCursor.Builder.withSubspace(subspace)
                         .setContext(context)

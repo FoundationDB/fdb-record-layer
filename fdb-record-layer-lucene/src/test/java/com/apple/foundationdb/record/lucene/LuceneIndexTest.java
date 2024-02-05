@@ -20,6 +20,11 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
+import com.apple.foundationdb.StreamingMode;
+import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -36,8 +41,10 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
@@ -59,6 +66,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -91,10 +99,14 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.TopDocs;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -111,6 +123,7 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -123,16 +136,19 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_TIMESTAMP;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
+import static com.apple.foundationdb.record.lucene.LucenePartitioner.PARTITION_META_SUBSPACE;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.group;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -211,7 +227,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                 IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    INDEX_PARTITION_BY_TIMESTAMP, "timestamp"));
+                    INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+                    INDEX_PARTITION_HIGH_WATERMARK, "10"));
+
+    protected static final Index COMPLEX_PARTITIONED_NOGROUP = new Index("Complex$partitioned",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                    INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+                    INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     private static final List<KeyExpression> COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS = ImmutableList.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
     private static final Index COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE = new Index("Complex$text_multiple_grouped_autocomplete",
@@ -338,6 +363,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
+
+    private static final Index JOINED_INDEX = new Index("joinNestedConcat", concat(
+            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+            field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
+            )).groupBy(field("complex").nest("group")), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+                            INDEX_PARTITION_HIGH_WATERMARK, "10"));
+
+    private static final Index JOINED_INDEX_NOGROUP = new Index("joinNestedConcat", concat(
+            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+            field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
+            )), LuceneIndexTypes.LUCENE, ImmutableMap.of(
+                    INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+                    INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                   "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -581,28 +620,253 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition1Subspace, context, "_0.cfs");
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED, partition2Subspace, context, "_0.cfs");
         }
+    }
 
+    @Test
+    void basicNonGroupedPartitionedTest() {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+
+            // should find matches for ENGINEER_JOKE
+            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 7777L), Tuple.from(1, 6666L)),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED_NOGROUP, fullTextSearch(COMPLEX_PARTITIONED_NOGROUP, "text:propose"), null, ScanProperties.FORWARD_SCAN));
+            assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+
+            // now delete ENGINEER_JOKE and verify
+            recordStore.deleteRecord(Tuple.from(1, 6666L));
+            assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 7777L)),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED_NOGROUP, fullTextSearch(COMPLEX_PARTITIONED_NOGROUP, "text:propose"), null, ScanProperties.FORWARD_SCAN));
+
+            final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED_NOGROUP).subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+
+            validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED_NOGROUP, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    static Stream<Pair<Index, Tuple>> repartitionGroupedTest() {
+        return Stream.of(Pair.of(COMPLEX_PARTITIONED, Tuple.from(1L)), Pair.of(COMPLEX_PARTITIONED_NOGROUP, Tuple.from()));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void repartitionGroupedTest(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
+        Index index = indexAndGroupingKey.getLeft();
+        Tuple groupingKey = indexAndGroupingKey.getRight();
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .build();
+
+        final int totalDocCount = 20;
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // create/save documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            long start = Instant.now().toEpochMilli();
+            for (int i = 0; i < totalDocCount; i++) {
+                recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, docGroupFieldValue, start + i * 100));
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                groupingKey, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(totalDocCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+        partitionInfos = getPartitionMeta(index,
+                groupingKey, contextProps, schemaSetup);
+        // now there should be 2 partitions: partition 0 with (totalDocCount - 6) docs, and partition 1 with 6 docs
+        assertEquals(2, partitionInfos.size());
+        assertEquals(0, partitionInfos.get(0).getId());
+        assertEquals(totalDocCount - 6, partitionInfos.get(0).getCount());
+        assertEquals(1, partitionInfos.get(1).getId());
+        assertEquals(6, partitionInfos.get(1).getCount());
+
+        // run re-partitioning again
+        explicitMergeIndex(index, contextProps, schemaSetup);
+        partitionInfos = getPartitionMeta(index,
+                groupingKey, contextProps, schemaSetup);
+        // now there should be 3 partitions: partition 0 with (totalDocCount - 12) docs, partition 2 with 6 docs,
+        // and partition 1 with 6 docs
+        assertEquals(3, partitionInfos.size());
+        assertEquals(0, partitionInfos.get(0).getId());
+        assertEquals(totalDocCount - 12, partitionInfos.get(0).getCount());
+        assertEquals(2, partitionInfos.get(1).getId());
+        assertEquals(6, partitionInfos.get(1).getCount());
+        assertEquals(1, partitionInfos.get(2).getId());
+        assertEquals(6, partitionInfos.get(2).getCount());
+
+        // partition metadata validated above. now validate that the documents have indeed been
+        // moved.
+        // expected: docs 1000-1005 -> partition 1 (oldest)
+        //                1006-1011 -> partition 2 (middle)
+        //                1012-1019 -> partition 0 (newest)
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+
+            validateDocsInPartition(index, 0, groupingKey, 8, makeKeyTuples(docGroupFieldValue, 1012, 1019), "text:propose");
+            validateDocsInPartition(index, 2, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1006, 1011), "text:propose");
+            validateDocsInPartition(index, 1, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1000, 1005), "text:propose");
+        }
+    }
+
+    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey, int expectedHitCount,
+                                         Set<Tuple> expectedIds, final String universalSearch) throws IOException {
+        LuceneScanQuery scanQuery;
+        if (groupingKey.isEmpty()) {
+            scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
+        } else {
+            scanQuery = (LuceneScanQuery) groupedSortedTextSearch(index,
+                    universalSearch,
+                    null,
+                    groupingKey.getLong(0));
+        }
+        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
+        IndexReader indexReader = FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        LuceneOptimizedIndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
+        TopDocs newTopDocs = searcher.search(scanQuery.getQuery(), Integer.MAX_VALUE);
+
+        assertNotNull(newTopDocs);
+        assertNotNull(newTopDocs.scoreDocs);
+        assertEquals(expectedHitCount, newTopDocs.scoreDocs.length);
+
+        Set<String> fields = Sets.newHashSet(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+        assertEquals(expectedIds, Arrays.stream(newTopDocs.scoreDocs).map(scoreDoc -> {
+            try {
+                Document document = searcher.doc(scoreDoc.doc, fields);
+                IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+                return Tuple.fromBytes(primaryKey.binaryValue().bytes);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toSet()));
+    }
+
+    @Test
+    void repartitionSyntheticGroupedTest() throws IOException {
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .build();
+
+        final int totalDocCount = 20;
+        Consumer<FDBRecordContext> schemaSetup = context -> openRecordStore(context, LuceneIndexTest::joinedPartitionedLuceneIndexMetadataHook);
+
+        List<Tuple> ids = new ArrayList<>();
+        // create/save documents
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            long start = Instant.now().toEpochMilli();
+            for (int i = 0; i < totalDocCount; i++) {
+                TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+                        .setGroup(42)
+                        .setDocId(1000L + i)
+                        .setIsSeen(true)
+                        .setTimestamp(start + i * 100)
+                        .build();
+                TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+                        .setGroup(42)
+                        .setText("Four score and seven years ago our fathers brought forth propose")
+                        .build();
+                final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
+                        .getSyntheticRecordType("luceneJoinedPartitionedIdx")
+                        .getRecordTypeKeyTuple();
+                ids.add(Tuple.from(syntheticRecordTypeKey.getItems().get(0),
+                        recordStore.saveRecord(cd).getPrimaryKey().getItems(),
+                        recordStore.saveRecord(sd).getPrimaryKey().getItems()));
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        final Tuple groupingKey = Tuple.from(42);
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(JOINED_INDEX,
+                groupingKey, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(totalDocCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(JOINED_INDEX, contextProps, schemaSetup);
+        partitionInfos = getPartitionMeta(JOINED_INDEX,
+                groupingKey, contextProps, schemaSetup);
+        // now there should be 2 partitions: partition 0 with (totalDocCount - 6) docs, and partition 1 with 6 docs
+        assertEquals(2, partitionInfos.size());
+        assertEquals(0, partitionInfos.get(0).getId());
+        assertEquals(totalDocCount - 6, partitionInfos.get(0).getCount());
+        assertEquals(1, partitionInfos.get(1).getId());
+        assertEquals(6, partitionInfos.get(1).getCount());
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+
+            validateDocsInPartition(JOINED_INDEX, 0, groupingKey,
+                    totalDocCount - 6, Set.copyOf(ids.subList(6, totalDocCount)), "simple_text:propose");
+            validateDocsInPartition(JOINED_INDEX, 1, groupingKey,
+                    6, Set.copyOf(ids.subList(0, 6)), "simple_text:propose");
+        }
+    }
+
+    private void explicitMergeIndex(Index index, RecordLayerPropertyStorage contextProps, Consumer<FDBRecordContext> schemaSetup) {
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setTimer(timer)
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+            commit(context);
+        }
+    }
+
+    private List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
+                                                                                Tuple groupingKey,
+                                                                                RecordLayerPropertyStorage contextProps,
+                                                                                Consumer<FDBRecordContext> schemaSetup) {
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) recordStore.getIndexMaintainer(index);
+            Range range = indexMaintainer.getIndexSubspace().subspace(Tuple.from(groupingKey, PARTITION_META_SUBSPACE)).range();
+            final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos =  AsyncUtil.collect(rangeIterable)
+                    .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList())).join();
+            commit(context);
+            return partitionInfos;
+        }
     }
 
     private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX);
+    }
+
+    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX_NOGROUP);
+    }
+
+    private static JoinedRecordTypeBuilder joinedMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         //set up the joined index
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
         joined.addConstituent("complex", "ComplexDocument");
         joined.addConstituent("simple", "SimpleDocument");
         joined.addJoin("simple", field("group"), "complex", field("group"));
-
-        metaDataBuilder.addIndex(joined, new Index("joinNestedConcat", concat(
-                field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
-                field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
-                )
-        ), LuceneIndexTypes.LUCENE, ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp")));
         metaDataBuilder.addIndex("SimpleDocument", "simple$group", field("group"));
+        return joined;
+
     }
 
     @Test
     void partitionedJoinedIndexTest() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, LuceneIndexTest::joinedPartitionedLuceneIndexMetadataHook);
+            openRecordStore(context, LuceneIndexTest::joinedPartitionedUngroupedLuceneIndexMetadataHook);
 
             TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
                     .setGroup(42)
@@ -659,7 +923,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             createDualPartitionsWithComplexDocs(15);
 
             // get 20 records (15 from partition 1, and 5 from partition 0)
-            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 1000, 1014, 0, 4), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).build().asScanProperties(false)));
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1L, 1000, 1014, 0, 4), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).build().asScanProperties(false)));
 
             validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
         }
@@ -676,7 +940,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             createDualPartitionsWithComplexDocs(30);
 
             // 25 messages from partition 0 (all partition 1 skipped)
-            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 5, 29), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setSkip(35).build().asScanProperties(false)));
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1L, 5, 29), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setSkip(35).build().asScanProperties(false)));
 
             validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
         }
@@ -693,7 +957,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             createDualPartitionsWithComplexDocs(30);
 
             // 20 messages from partition 0 (all partition 1 skipped)
-            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1, 5, 24), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).setSkip(35).build().asScanProperties(false)));
+            assertIndexEntryPrimaryKeyTuples(makeKeyTuples(1L, 5, 24), recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, "text:propose", 1), null, ExecuteProperties.newBuilder().setReturnedRowLimit(20).setSkip(35).build().asScanProperties(false)));
 
             validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
         }
@@ -732,7 +996,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(0, parsed2.getPartitionId());
 
             // assert we got the right docs
-            assertEquals(makeKeyTuples(1, 1005, 1009, 0, 4), entries2.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+            assertEquals(makeKeyTuples(1L, 1005, 1009, 0, 4), entries2.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
 
             validatePartitionSegmentIntegrity(COMPLEX_PARTITIONED, context, 1, 0, 1);
         }
@@ -838,7 +1102,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setId(partitionId)
                 .build();
 
-        byte[] primaryKey = recordStore.indexSubspace(index).pack(Tuple.from(groupKey, LucenePartitioner.PARTITION_META_SUBSPACE, fromTimestamp));
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(Tuple.from(groupKey, PARTITION_META_SUBSPACE, fromTimestamp));
         recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
     }
 

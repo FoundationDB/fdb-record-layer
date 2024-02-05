@@ -15,19 +15,19 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fixe Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Sync files referencing FieldInfosId [(Issue #2455)](https://github.com/FoundationDB/fdb-record-layer/issues/2455)
+* **Bug fix** Support closing FDBIndexOutput [(Issue #2457)](https://github.com/FoundationDB/fdb-record-layer/issues/2457)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix topological sort instability [(Issue #2476)](https://github.com/FoundationDB/fdb-record-layer/pull/2476)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Allow running Lucene's tests with a random seed & multiple iterations [(Issue #2479)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Add map supportfor Maps in Lucene [(Issue #2488)](https://github.com/FoundationDB/fdb-record-layer/issues/2488)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support rearranging documents between Lucene partitions [(Issue #2465)](https://github.com/FoundationDB/fdb-record-layer/issues/2465)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +38,13 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 
 // end next release
 -->
+
+### 3.4.451.0
+
+* **Bug fix** The `PlanOrderingKey` now can tolerate a field appearing in both the equality bound keys and the non-equality bound ones [(Issue #2462)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
+* **Bug fix** Normalization of the plan ordering keys now avoids breaking up columns coming from a `ListKeyExpression` [(Issue #2463)](https://github.com/FoundationDB/fdb-record-layer/issues/2463)
+* **Performance** Boolean normalization now handles (non-repeated) nested fields allowing for additional query plans to be matched [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2452)
+* **Feature** There is now a proto serialization of the `RecordQueryPlannerConfiguration` class to support planning with the same configuration with multiple JVMs [(Issue #2461)](https://github.com/FoundationDB/fdb-record-layer/issues/2461)
 
 ### 3.4.450.0
 

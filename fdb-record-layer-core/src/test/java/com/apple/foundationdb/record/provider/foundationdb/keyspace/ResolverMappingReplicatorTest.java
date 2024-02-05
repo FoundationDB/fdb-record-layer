@@ -100,6 +100,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
         assertContainsMappings(replica, dirLayerMappings);
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testCopyWithMultipleTransactions() {
         Map<String, ResolverResult> dirLayerMappings;
@@ -138,6 +139,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
         }
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testPickupFromIncompleteCopy() {
         Map<String, ResolverResult> dirLayerMappings;
@@ -194,6 +196,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
         assertContainsMappings(replica, dirLayerMappings);
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testCopyWithConcurrentAccess() throws Exception {
         Map<String, ResolverResult> dirLayerMappings;
@@ -223,6 +226,7 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
         assertContainsMappings(primary, concurrentlyAddedMappings);
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testDigestsMatch() {
         try (FDBRecordContext context = database.openContext()) {

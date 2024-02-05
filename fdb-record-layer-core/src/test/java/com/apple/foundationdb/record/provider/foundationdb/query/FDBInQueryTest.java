@@ -798,8 +798,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with an IN on the second nested field of a multi-index for which there is also a first nested
      * field is translated into an appropriate index scan.
      */
+    @ParameterizedTest(name = "testInWithNesting[normalizeNestedFields={0}]")
     @DualPlannerTest
-    void testInWithNesting() throws Exception {
+    @BooleanSource
+    void testInWithNesting(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -820,6 +822,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
@@ -828,7 +831,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             .and(RecordQueryPlanMatchers.scanComparisons(range("[EQUALS 1, EQUALS $__in_path__0]")))
                     ).where(inValuesList(equalsObject(ls))));
             assertEquals(1075889283, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            if (normalizeNestedFields) {
+                assertEquals(1870256531, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
@@ -849,8 +856,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a query with multiple INs is translated into an index scan within multiple IN joins.
      */
+    @ParameterizedTest(name = "testMultipleInQueryIndex[normalizeNestedFields={0}]")
     @DualPlannerTest
-    void testMultipleInQueryIndex() throws Exception {
+    @BooleanSource
+    void testMultipleInQueryIndex(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -871,6 +880,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_rec_no__0, EQUALS $__in_path__1]) WHERE __in_path__1 IN [String6, String25, String1, String34] WHERE __in_rec_no__0 IN [1, 4]
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher =
@@ -887,7 +897,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     ).where(inValuesList(equalsObject(stringList)))));
 
             assertEquals(-1869764109, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1234840472, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            if (normalizeNestedFields) {
+                assertEquals(-1019951714, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(1234840472, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
@@ -914,8 +928,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a query with multiple INs is translated into an index scan within multiple IN joins, when the query
      * sort order is compatible with the nesting of the IN joins.
      */
+    @ParameterizedTest(name = "testInWithNesting[normalizeNestedFields={0}]" )
     @DualPlannerTest
-    void testMultipleInQueryIndexSorted() throws Exception {
+    @BooleanSource
+    void testMultipleInQueryIndexSorted(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -935,6 +951,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_rec_no__1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String25, String34, String6] SORTED WHERE __in_rec_no__1 IN [1, 4] SORTED
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
         List<String> sortedStringList = asList("String1", "String25", "String34", "String6");
         List<Long> sortedLongList = asList(1L, 4L);
@@ -947,7 +964,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             ).where(inValuesList(equalsObject(sortedStringList)))
                     ).where(inValuesList(equalsObject(sortedLongList))));
             assertEquals(303286809, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1661991116, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            if (normalizeNestedFields) {
+                assertEquals(378183994, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(-1661991116, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
@@ -972,8 +993,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN join is executed correctly when the number of records to retrieve is limited.
      */
+    @ParameterizedTest(name = "testInWithLimit[normalizeNestedFields={0}]")
     @DualPlannerTest
-    void testInWithLimit() throws Exception {
+    @BooleanSource
+    void testInWithLimit(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -994,6 +1017,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
 
         if (planner instanceof RecordQueryPlanner) {
@@ -1002,7 +1026,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             indexPlan().where(indexName("ind")).and(scanComparisons(range("[EQUALS 1, EQUALS $__in_path__0]")))
                     ).where(inValuesList(equalsObject(ls))));
             assertEquals(1075889283, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            if (normalizeNestedFields) {
+                assertEquals(1870256531, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(1864715405, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
@@ -1025,8 +1053,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN join is executed correctly when continuations are used.
      */
+    @ParameterizedTest(name = "testInWithContinuation[normalizeNestedFields={0}]")
     @DualPlannerTest
-    void testInWithContinuation() throws Exception {
+    @BooleanSource
+    void testInWithContinuation(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("str_value"));
@@ -1047,6 +1077,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String6, String25, String11]
+        setNormalizeNestedFields(normalizeNestedFields);
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
@@ -1054,7 +1085,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             indexPlan().where(indexName("ind")).and(scanComparisons(range("[EQUALS 1, EQUALS $__in_path__0]")))
                     ).where(inValuesList(equalsObject(ls))));
             assertEquals(1075745133, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1864571255, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            if (normalizeNestedFields) {
+                assertEquals(1870112381, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(1864571255, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(

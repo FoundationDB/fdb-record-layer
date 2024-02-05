@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -39,7 +38,6 @@ import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.codecs.TermVectorsFormat;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -211,14 +209,11 @@ public class TestingCodec extends Codec {
         if (allowRandomCompoundFiles) {
             return new LuceneOptimizedCompoundFormat(((LuceneOptimizedCompoundFormat)underlying.compoundFormat()).underlying) {
                 @Override
-                protected void copyFieldInfos(final SegmentInfo si, final Set<String> filesForAfter, final FDBDirectory directory) {
+                protected void copyFieldInfosId(final Directory dir, final Set<String> filesForAfter, final String entriesFile) throws IOException {
                     // copy the id, only if it's present
                     final Optional<String> fieldInfosName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst();
                     if (fieldInfosName.isPresent()) {
-                        final String fieldInfosFileName = fieldInfosName.orElseThrow();
-                        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
-                        String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
-                        directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
+                        super.copyFieldInfosId(dir, filesForAfter, entriesFile);
                     }
                 }
 
