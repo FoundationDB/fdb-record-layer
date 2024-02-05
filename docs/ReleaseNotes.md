@@ -18,7 +18,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Bug fix** Sync files referencing FieldInfosId [(Issue #2455)](https://github.com/FoundationDB/fdb-record-layer/issues/2455)
 * **Bug fix** Support closing FDBIndexOutput [(Issue #2457)](https://github.com/FoundationDB/fdb-record-layer/issues/2457)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `FDBExceptions` now correctly wraps `InterruptedExceptions` instead of throwing an `IllegalArgumentException` [(Issue #2485)](https://github.com/FoundationDB/fdb-record-layer/issues/2485)
 * **Bug fix** Fix topological sort instability [(Issue #2476)](https://github.com/FoundationDB/fdb-record-layer/pull/2476)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
