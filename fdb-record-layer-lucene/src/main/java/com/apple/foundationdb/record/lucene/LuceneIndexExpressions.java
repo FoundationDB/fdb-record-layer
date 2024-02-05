@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
@@ -45,6 +47,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * The root expression of a {@code LUCENE} index specifies how select fields of a record are mapped to fields of a Lucene document.
@@ -99,7 +102,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFielsSuffix, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -114,14 +117,23 @@ public class LuceneIndexExpressions {
         private final List<String> recordFieldPath;
         @Nonnull
         private final DocumentFieldType type;
+        // TRUE when we have overridden the field name and replaced the original field with another
+        private final boolean fieldNameOverride;
+        // The replaced field name suffix (this has replaced the original in the documentField)
+        @Nullable
+        private final String namedFieldSuffix;
         private final boolean stored;
         private final boolean sorted;
 
         public DocumentFieldDerivation(@Nonnull String documentField, @Nonnull List<String> recordFieldPath,
-                                       @Nonnull DocumentFieldType type, boolean stored, boolean sorted) {
+                                       @Nonnull DocumentFieldType type,
+                                       boolean fieldNameOverride, @Nullable String namedFieldSuffix,
+                                       boolean stored, boolean sorted) {
             this.documentField = documentField;
             this.recordFieldPath = recordFieldPath;
             this.type = type;
+            this.fieldNameOverride = fieldNameOverride;
+            this.namedFieldSuffix = namedFieldSuffix;
             this.stored = stored;
             this.sorted = sorted;
         }
@@ -139,6 +151,15 @@ public class LuceneIndexExpressions {
         @Nonnull
         public DocumentFieldType getType() {
             return type;
+        }
+
+        public boolean isFieldNameOverride() {
+            return fieldNameOverride;
+        }
+
+        @Nullable
+        public String getNamedFieldSuffix() {
+            return namedFieldSuffix;
         }
 
         public boolean isStored() {
@@ -202,15 +223,21 @@ public class LuceneIndexExpressions {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     List<String> path = new ArrayList<>();
                     for (MetaDataSource metaDataSource = source; metaDataSource != null; metaDataSource = metaDataSource.getParent()) {
                         if (metaDataSource.getField() != null) {
                             path.add(0, metaDataSource.getField());
                         }
                     }
-                    path.add((String)value);
-                    DocumentFieldDerivation derivation = new DocumentFieldDerivation(fieldName, path, type, stored, sorted);
+                    // Use the override path in case we are overriding the field name
+                    if (fieldNameOverride && (namedFieldPath != null)) {
+                        path.addAll(namedFieldPath);
+                    } else {
+                        path.add((String)value);
+                    }
+
+                    DocumentFieldDerivation derivation = new DocumentFieldDerivation(fieldName, path, type, fieldNameOverride, namedFieldSuffix, stored, sorted);
                     fields.put(fieldName, derivation);
                 }, null);
         return fields;
@@ -254,7 +281,7 @@ public class LuceneIndexExpressions {
         Iterable<T> getChildren(@Nonnull FieldKeyExpression parentExpression);
 
         @Nonnull
-        Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression);
+        Iterable<Object> getValues(@Nonnull KeyExpression keyExpression);
     }
 
     /**
@@ -262,8 +289,25 @@ public class LuceneIndexExpressions {
      * @param <T> the actual type of the source
      */
     public interface DocumentDestination<T extends RecordSource<T>> {
+        /**
+         * Add fields to the destination of the "getFields" traversal.
+         * @param source the RecordSource for the field to be added
+         * @param fieldName the (full) field name
+         * @param value the last element of the field name
+         * @param type the type of the field
+         * @param fieldNameOverride whether we are overriding field names (map support)
+         * @param namedFieldPath the relative path to teh field (from the source)
+         * @param namedFieldSuffix the replaced suffix for teh field (the map-replaced part)
+         * @param stored whether the field has stored data
+         * @param sorted whether the field has sorted data
+         * @param overriddenKeyRanges -
+         * @param groupingKeyIndex -
+         * @param keyIndex -
+         * @param fieldConfigs -
+         */
         @SuppressWarnings("java:S107")
         void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
+                      boolean fieldNameOverride, @Nullable List<String> namedFieldPath, @Nullable String namedFieldSuffix,
                       boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex, @Nonnull Map<String, Object> fieldConfigs);
     }
 
@@ -310,19 +354,28 @@ public class LuceneIndexExpressions {
 
         String fieldNameSuffix = null;
         boolean suffixOverride = false;
+        // Non null when using LuceneFieldName, will then contain the relative path to the field from the name expression (the replacement name)
+        List<String> namedFieldPath = null;
         if (expression instanceof LuceneFunctionKeyExpression.LuceneFieldName) {
             LuceneFunctionKeyExpression.LuceneFieldName fieldNameExpression = (LuceneFunctionKeyExpression.LuceneFieldName)expression;
             KeyExpression nameExpression = fieldNameExpression.getNameExpression();
             if (nameExpression instanceof LiteralKeyExpression) {
                 fieldNameSuffix = (String)((LiteralKeyExpression<?>)nameExpression).getValue();
             } else if (nameExpression instanceof FieldKeyExpression) {
-                Iterator<Object> names = source.getValues((FieldKeyExpression)nameExpression).iterator();
+                Iterator<Object> names = source.getValues(nameExpression).iterator();
                 if (names.hasNext()) {
                     fieldNameSuffix = (String)names.next();
                     if (names.hasNext()) {
                         throw new RecordCoreException("Lucene field name override should evaluate to single value");
                     }
+                    // Use the only name in the expression for the path
+                    namedFieldPath = Collections.singletonList(fieldNameSuffix);
                 }
+            } else if (nameExpression instanceof NestingKeyExpression) {
+                // Get the nameField suffix and path to be used in replacing the namedField and path
+                final Iterable<Object> values = source.getValues(nameExpression);
+                namedFieldPath = Streams.stream(values).map(String.class::cast).collect(Collectors.toList());
+                fieldNameSuffix = String.join("_", namedFieldPath);
             } else {
                 throw new RecordCoreException("Lucene field name override should be a literal or a field");
             }
@@ -418,7 +471,7 @@ public class LuceneIndexExpressions {
                 }
             }
             for (Object value : source.getValues(fieldExpression)) {
-                destination.addField(source, fieldName, value, fieldType, fieldStored, fieldSorted,
+                destination.addField(source, fieldName, value, fieldType, suffixOverride, namedFieldPath, fieldNameSuffix, fieldStored, fieldSorted,
                         overriddenKeyRanges, keyIndex < groupingCount ? keyIndex : -1, keyIndex, configs);
             }
             if (suffixOverride) {
@@ -501,9 +554,23 @@ public class LuceneIndexExpressions {
         }
 
         @Override
-        public Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression) {
-            return Collections.singletonList(fieldExpression.getFieldName());
+        public Iterable<Object> getValues(@Nonnull KeyExpression keyExpression) {
+            List<Object> result = new ArrayList<>();
+            KeyExpression current = keyExpression;
+            while (current != null) {
+                if (current instanceof NestingKeyExpression) {
+                    NestingKeyExpression expression = (NestingKeyExpression)current;
+                    result.add(expression.getParent().getFieldName());
+                    current = expression.getChild();
+                } else if (current instanceof FieldKeyExpression) {
+                    result.add(((FieldKeyExpression)current).getFieldName());
+                    current = null;
+                } else {
+                    throw new RecordCoreArgumentException("Nested key type not supported for values")
+                            .addLogInfo("keyType", current.getClass().getName());
+                }
+            }
+            return result;
         }
     }
-
 }

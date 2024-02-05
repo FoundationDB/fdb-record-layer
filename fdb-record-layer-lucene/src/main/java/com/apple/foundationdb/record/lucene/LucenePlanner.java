@@ -271,6 +271,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         } else if (filter instanceof FieldWithComparison) {
             return getQueryForFieldWithComparison(queryType, state, (FieldWithComparison) filter, parentFieldPath, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
+            // This is where we can tell whether the query is for map-has-key (only one value) or map-has-entry (two values)
+            // TODO: detect the map-has-entry and throw an exception
             return getQueryForNestedField(queryType, state, (OneOfThemWithComponent)filter, true, parentFieldPath, filterMask);
         } else if (filter instanceof NestedField) {
             return getQueryForNestedField(queryType, state, (NestedField) filter, false, parentFieldPath, filterMask);
@@ -432,7 +434,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
         try {
             return LuceneQueryFieldComparisonClause.create(queryType, fieldDerivation.getDocumentField(),
-                    fieldDerivation.getType(), filter.getComparison());
+                    fieldDerivation.getType(), fieldDerivation.isFieldNameOverride(), fieldDerivation.getNamedFieldSuffix(), filter.getComparison());
         } catch (RecordCoreException ex) {
             if (logger.isDebugEnabled()) {
                 logger.debug("no query for comparison " + filter, ex);

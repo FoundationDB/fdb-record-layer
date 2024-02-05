@@ -1,0 +1,393 @@
+/*
+ * FDBLuceneMapQueryTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.lucene;
+
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
+import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.text.TextSamples;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.Tags;
+import com.google.common.collect.Sets;
+import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+/**
+ * Queries that involve maps of non-text fields.
+ */
+@Tag(Tags.RequiresFDB)
+public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
+    private static final String MAP_DOC = "MapDocument";
+
+    private static final List<KeyExpression> keys = List.of(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")));
+    private static final KeyExpression mainExpression = field("entry", KeyExpression.FanType.FanOut).nest(concat(keys));
+    private static final KeyExpression mapString2LongIndexExpression = field("stringToLongMap").nest(
+            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                    concat(
+                            field("values", KeyExpression.FanType.FanOut).nest(
+                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                                            concat(
+                                                    field("value"),
+                                                    field("key")))),
+                            value(null))));
+    private static final KeyExpression mapStringWrapper2LongIndexExpression = field("stringWrapperToLongMap").nest(
+            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                    concat(
+                            field("values", KeyExpression.FanType.FanOut).nest(
+                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                                            concat(
+                                                    field("value"),
+                                                    field("key").nest("value")))),
+                            value(null))));
+    private static final KeyExpression mapString2LongWrapperIndexExpression = field("stringToLongWrapperMap").nest(
+            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                    concat(
+                            field("values", KeyExpression.FanType.FanOut).nest(
+                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                                            concat(
+                                                    field("value").nest("value"),
+                                                    field("key")))),
+                            value(null))));
+    private static final KeyExpression mapString2IntIndexExpression = field("stringToIntMap").nest(
+            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                    concat(
+                            field("values", KeyExpression.FanType.FanOut).nest(
+                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                                            concat(
+                                                    field("value"),
+                                                    field("key")))),
+                            value(null))));
+    private static final KeyExpression mapString2DoubleIndexExpression = field("stringToDoubleMap").nest(
+            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                    concat(
+                            field("values", KeyExpression.FanType.FanOut).nest(
+                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                                            concat(
+                                                    field("value"),
+                                                    field("key")))),
+                            value(null))));
+
+    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_STRING_2_LONG_LUCENE_INDEX = new Index("MapField$string2long", concat(mapString2LongIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_STRING_WRAPPER_TO_LONG_LUCENE_INDEX = new Index("MapField$stringWrapper2long", concat(mapStringWrapper2LongIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_STRING_2_LONG_WRAPPER_LUCENE_INDEX = new Index("MapField$string2longWrapper", concat(mapString2LongWrapperIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_STRING_2_INT_LUCENE_INDEX = new Index("MapField$string2int", concat(mapString2IntIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+    private static final Index MAP_STRING_2_DOUBLE_LUCENE_INDEX = new Index("MapField$string2double", concat(mapString2DoubleIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
+
+    @BeforeAll
+    public static void setup() {
+        //set up the English Synonym Map so that we don't spend forever setting it up for every test, because this takes a long time
+        SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
+    }
+
+    final List<String> textSamples = Arrays.asList(
+            TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+            TextSamples.AETHELRED,
+            TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+            TextSamples.ANGSTROM,
+            TextSamples.AETHELRED,
+            TextSamples.FRENCH
+    );
+
+    private final List<TestRecordsTextProto.MapDocument> mapDocuments = IntStream.range(0, textSamples.size() / 2)
+            .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
+                    .setDocId(i)
+                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
+                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
+                    .setStringToLongMap(TestRecordsTextProto.MapDocument.String2Long.newBuilder()
+                            .addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
+                                    .setKey("d")
+                                    .setValue(i)))
+                    .setStringWrapperToLongMap(TestRecordsTextProto.MapDocument.StringWrapper2Long.newBuilder()
+                            .addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
+                                    .setKey(TestRecordsTextProto.MapDocument.StringWrapper.newBuilder()
+                                            .setValue("c")
+                                            .setFlags(5))
+                                    .setValue(i)))
+                    .setStringToLongWrapperMap(TestRecordsTextProto.MapDocument.String2LongWrapper.newBuilder()
+                            .addValues(TestRecordsTextProto.MapDocument.String2LongWrapperPair.newBuilder()
+                                    .setKey("e")
+                                    .setValue(TestRecordsTextProto.MapDocument.LongWrapper.newBuilder()
+                                            .setValue(i)
+                                            .setFlags(5))))
+                    .setStringToIntMap(TestRecordsTextProto.MapDocument.String2Int.newBuilder()
+                            .addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
+                                    .setKey("f")
+                                    .setValue(i)))
+                    .setStringToDoubleMap(TestRecordsTextProto.MapDocument.String2Double.newBuilder()
+                            .addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()
+                                    .setKey("g")
+                                    .setValue(7.8)))
+                    .setGroup(i % 2)
+                    .build()
+            )
+            .collect(Collectors.toList());
+
+
+    private ExecutorService executorService = null;
+
+    @Override
+    public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
+        if (indexTypes == null) {
+            indexTypes = new PlannableIndexTypes(
+                    Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                    Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                    Sets.newHashSet(IndexTypes.TEXT),
+                    Sets.newHashSet(LuceneIndexTypes.LUCENE)
+            );
+        }
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+    }
+
+    @Override
+    protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
+        return super.addDefaultProps(props)
+                .addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService);
+    }
+
+    protected void openRecordStore(FDBRecordContext context) {
+        openRecordStore(context, md -> {
+        }, SIMPLE_TEXT_SUFFIXES);
+    }
+
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
+        metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
+        if (simpleDocIndex != null) {
+            metaDataBuilder.removeIndex("SimpleDocument$text");
+            metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, simpleDocIndex);
+        }
+        metaDataBuilder.addIndex(MAP_DOC, MAP_ON_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_AND_FIELD_ON_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_LONG_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_WRAPPER_TO_LONG_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_LONG_WRAPPER_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_INT_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_DOUBLE_LUCENE_INDEX);
+        hook.apply(metaDataBuilder);
+        recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
+                .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
+                .createOrOpen();
+        setupPlanner(null);
+    }
+
+    private void initializeNested() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            mapDocuments.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "d, true",
+            "Blah, false",
+            "c, false"
+    })
+    void mapStringToLong(String value, boolean found) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "c, true",
+            "Blah, false",
+            "d, false"
+    })
+    void mapStringWrapperToLong(String value, boolean found) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(value)))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "e, true",
+            "Blah, false",
+            "d, false"
+    })
+    void mapStringToLongWrapper(String value, boolean found) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringToLongWrapperMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "f, true",
+            "Blah, false",
+            "d, false"
+    })
+    void mapStringToInt(String value, boolean found) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "g, true",
+            "Blah, false",
+            "d, false"
+    })
+    void mapStringToDouble(String value, boolean found) throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+    @Test
+    void mapStringToLongNonStringKey() throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    // Note the "6L" as a comparand
+                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(6L))))
+                    .build();
+            Assertions.assertThrows(RecordCoreException.class, () -> planQuery(query));
+        }
+    }
+
+    @Test
+    void mapStringToLongValueSearch() throws Exception {
+        initializeNested();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("value").equalsValue(1L))))
+                    .build();
+            RecordQueryPlan plan = planQuery(query);
+            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
+                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+                final Set<Long> expected = Set.of(1L);
+                assertEquals(expected, Set.copyOf(primaryKeys));
+            }
+        }
+    }
+
+}

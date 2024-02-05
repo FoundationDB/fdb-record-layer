@@ -46,6 +46,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermRangeQuery;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -137,6 +138,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     public static LuceneQueryFieldComparisonClause create(@Nonnull final LuceneQueryType queryType,
                                                           @Nonnull final String field,
                                                           @Nonnull final LuceneIndexExpressions.DocumentFieldType fieldType,
+                                                          final boolean fieldNameOverride, @Nullable final String namedFieldSuffix,
                                                           @Nonnull final Comparisons.Comparison comparison) {
         switch (comparison.getType()) {
             case NOT_NULL:
@@ -168,19 +170,50 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
             default:
                 throw new RecordCoreException("comparison type not supported for Lucene: " + comparison.getType());
         }
+
+        // At this point we assume that if fieldNameOverride is TRUE, then the query is modifying the original field name
+        // (adding a value for map support).
+        // The resulting Lucene query will use the comparand against the field name, with "any" value for the field's value.
+        // TODO: In the future this would need to be changed to support comparing both field name and value.
+
+        // Change the field name to contain the value instead of the suffix, if necessary
+        final String appliedFieldName = applyFieldNameConversion(fieldNameOverride, field, namedFieldSuffix, comparison);
+        // Field names are compared with NOT_NULL (unary) comparison where the given comparand is added to the field name
+        final Comparisons.Comparison appliedComparison = (fieldNameOverride) ? new Comparisons.NullComparison(Comparisons.Type.NOT_NULL) : comparison;
+
         switch (fieldType) {
             case STRING:
             case TEXT:
                 return new StringQuery(queryType, field, fieldType, comparison);
             case INT:
-                return new IntQuery(queryType, field, fieldType, comparison);
+                return new IntQuery(queryType, appliedFieldName, fieldType, appliedComparison);
             case LONG:
-                return new LongQuery(queryType, field, fieldType, comparison);
+                return new LongQuery(queryType, appliedFieldName, fieldType, appliedComparison);
             case DOUBLE:
-                return new DoubleQuery(queryType, field, fieldType, comparison);
+                return new DoubleQuery(queryType, appliedFieldName, fieldType, appliedComparison);
             default:
                 throw new RecordCoreException("unsupported Lucene index field type: " + fieldType);
         }
+    }
+
+    private static String applyFieldNameConversion(final boolean fieldNameOverride, final String field, final String namedFieldSuffix, final Comparisons.Comparison comparison) {
+        if ( ! fieldNameOverride) {
+            return field;
+        }
+        int location = field.lastIndexOf(namedFieldSuffix);
+        if (location == -1) {
+            throw new RecordCoreArgumentException("Cannot find the replacement suffix in Lucene field name")
+                    .addLogInfo("fieldName", field)
+                    .addLogInfo("suffix", namedFieldSuffix);
+        }
+        Object comparand = comparison.getComparand();
+        if (! (comparand instanceof String)) {
+            throw new RecordCoreArgumentException("Comparand type for Lucene field comparison must be a String")
+                    .addLogInfo("fieldName", field)
+                    // TODO: Can the comparand be null?
+                    .addLogInfo("comparandType", comparand.getClass().getName());
+        }
+        return field.substring(0, location) + comparand;
     }
 
     protected static Query negate(@Nonnull Query query) {
@@ -294,7 +327,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if (comparand == null) {
+            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
@@ -317,6 +350,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     return toBoundQuery(IntPoint.newRangeQuery(field, (Integer)comparand, Integer.MAX_VALUE));
                 case IN:
                     return toBoundQuery(IntPoint.newSetQuery(field, ((List<Integer>)comparand)));
+                case NOT_NULL:
+                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, Integer.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Integer: " + comparison.getType());
             }
@@ -332,7 +367,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if (comparand == null) {
+            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
@@ -355,6 +390,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     return toBoundQuery(LongPoint.newRangeQuery(field, (Long)comparand, Long.MAX_VALUE));
                 case IN:
                     return toBoundQuery(LongPoint.newSetQuery(field, ((List<Long>)comparand)));
+                case NOT_NULL:
+                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, Long.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Long: " + comparison.getType());
             }
@@ -370,7 +407,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if (comparand == null) {
+            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
             switch (comparison.getType()) {
@@ -393,6 +430,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     return toBoundQuery(DoublePoint.newRangeQuery(field, (Double)comparand, Double.MAX_VALUE));
                 case IN:
                     return toBoundQuery(DoublePoint.newSetQuery(field, ((List<Double>)comparand)));
+                case NOT_NULL:
+                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, Double.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Double: " + comparison.getType());
             }
