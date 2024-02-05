@@ -18,42 +18,23 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
-import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.CliCommand;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
-import com.apple.foundationdb.relational.cli.CliConfigCommand;
-import com.apple.foundationdb.relational.cli.CommandGroupVisitor;
-import com.apple.foundationdb.relational.cli.RelationalScriptProcessor;
 import com.apple.foundationdb.relational.jdbc.JDBCURI;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 
-import javax.annotation.Nonnull;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.Collections;
-import java.util.List;
-import java.util.ServiceLoader;
 
 /**
  * Like {@link YamlIntegrationTests} only it runs the YAML via the fdb-relational-jdbc client
@@ -62,207 +43,46 @@ import java.util.ServiceLoader;
 public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     private static final Logger LOG = LogManager.getLogger(JDBCYamlIntegrationTests.class);
 
-    /**
-     * Creates an in-process server per invocation.
-     */
-    private static final class JDBCCommandFactory implements CliCommandFactory {
-        /**
-         * An inprocess server started on construction and closed out in {@link #close()}.
-         */
-        final InProcessRelationalServer server;
-        /**
-         * Loaded Relational JDBC Driver.
-         */
-        final Driver driver;
-        private final boolean usePreparedStatements;
-        /**
-         * Current, live connection.
-         * We do one-at-a-time only.
-         */
-        private RelationalConnection connection;
+    @Nullable
+    private static Driver driver;
+    @Nullable
+    private static InProcessRelationalServer server;
 
-        // Load up our JDBC Driver. Run all registered ServiceLaoders.
-        static {
-            // Load ServiceLoader Services.
-            for (Driver value : ServiceLoader.load(Driver.class)) {
-                // Intentionally empty
-            }
-        }
-
-        private JDBCCommandFactory(boolean usePreparedStatements) throws SQLException {
-            // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
-            // more specific about where we want to connect to.
-            this.driver = DriverManager.getDriver("jdbc:relational:///");
-            this.usePreparedStatements = usePreparedStatements;
-            try {
-                this.server = new InProcessRelationalServer().start();
-            } catch (IOException e) {
-                throw new SQLException(e);
-            }
-        }
-
-        @Override
-        public void close() throws Exception {
-            try {
-                closeConnection();
-            } finally {
-                if (this.server != null) {
-                    this.server.close();
-                }
-            }
-        }
-
-        private void closeConnection() throws SQLException {
-            if (this.connection != null) {
-                this.connection.close();
-                this.connection = null;
-            }
-        }
-
-        @Override
-        public CliCommand<Void> getConfigureCommand(String configName, String configValue) {
-            return new CliConfigCommand(null, configName, configValue);
-        }
-
-        @Override
-        public CliCommand<Void> getConnectCommand(@Nonnull URI connectPath) {
-            return () -> {
-                closeConnection();
-                // Add name of the inprocess running server to the connectPath.
-                URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath,
-                        JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, this.server.getServerName());
-                String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-                LOG.info("Rewrote {} as {}", connectPath, uriStr);
-                this.connection = this.driver.connect(uriStr, null)
-                        .unwrap(RelationalConnection.class);
-                return null;
-            };
-        }
-
-        @Override
-        public CliCommand<RelationalConnection> getConnection() {
-            return () -> this.connection;
-        }
-
-        @Override
-        public CliCommand<ResultSet> getShowConnectionCommand() {
-            // Copied from DbStateCommandFactory.
-            return () -> {
-                List<Row> output;
-                if (this.connection == null) {
-                    output = Collections.emptyList();
-                } else {
-                    output = List.of(new ArrayRow(new Object[]{connection.getPath().toString()}));
-                }
-                StructMetaData smd = new RelationalStructMetaData(
-                        FieldDescription.primitive("Path", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-                );
-
-                return new IteratorResultSet(smd, output.iterator(), 0);
-            };
-        }
-
-        @Override
-        public CliCommand<Void> getDisconnectCommand() {
-            return () -> {
-                closeConnection();
-                return null;
-            };
-        }
-
-        @Override
-        public CliCommand<ResultSet> getShowDatabasesCommand() {
-            return () -> {
-                boolean changeSchema = false;
-                String oldSchema = this.connection.getSchema();
-                try {
-                    changeSchema = !"CATALOG".equals(oldSchema);
-                    if (changeSchema) {
-                        this.connection.setSchema("CATALOG");
-                        changeSchema = true;
-                    }
-                    try (RelationalStatement vs = this.connection.createStatement()) {
-                        return vs.executeQuery("Select * from \"DATABASES\"");
-                    }
-                } finally {
-                    if (changeSchema) {
-                        this.connection.setSchema(oldSchema);
-                    }
-                }
-            };
-        }
-
-        @Override
-        public CliCommand<Void> getSetSchemaCommand(String schemaName) {
-            return () -> {
-                this.connection.setSchema(schemaName);
-                return null;
-            };
-        }
-
-        @Override
-        public CliCommand<ResultSet> getShowSchemasCommand() {
-            return () -> this.connection.getMetaData().getSchemas();
-        }
-
-        @Override
-        public CliCommand<ResultSet> getShowTablesCommand() {
-            return () -> {
-                if (this.connection.getSchema() == null) {
-                    throw new SQLException("Cannot get tables without a Schema",
-                            ErrorCode.UNDEFINED_SCHEMA.getErrorCode());
-                }
-                return this.connection.getMetaData().getTables(this.connection.getPath().getPath(),
-                        this.connection.getSchema(), null, null);
-            };
-        }
-
-        @Override
-        public CliCommand<Object> getQueryCommand(String command) {
-            return () -> {
-                if (usePreparedStatements) {
-                    try (RelationalPreparedStatement ps = this.connection.prepareStatement(command)) {
-                        boolean hasResults = ps.execute();
-                        return hasResults ? ps.getResultSet() : ps.getUpdateCount();
-                    }
-                } else {
-                    try (RelationalStatement s = this.connection.createStatement()) {
-                        boolean hasResults = s.execute(command);
-                        return hasResults ? s.getResultSet() : s.getUpdateCount();
-                    }
-                }
-            };
-        }
-
-        @Override
-        public CliCommand<CommandGroupVisitor.CommandGroup> getExecuteCommand(String command) {
-            return () -> {
-                try {
-                    return RelationalScriptProcessor.parseFromFile(null, command);
-                } catch (FileNotFoundException fnfe) {
-                    throw new SQLException(fnfe.getMessage(), ErrorCode.UNDEFINED_FILE.getErrorCode());
-                } catch (IOException e) {
-                    //TODO(bfines) have this throw a more precise error code
-                    throw new SQLException(e.getMessage(), ErrorCode.INTERNAL_ERROR.getErrorCode(), e);
-                }
-            };
-        }
-
-        @Override
-        public <T> CliCommand<T> error(ErrorCode syntaxError, String errorMsg) {
-            return () -> {
-                throw new RelationalException(errorMsg, syntaxError).toSqlException();
-            };
+    @BeforeAll
+    public static void beforeAll() {
+        // Use ANY valid URl to get hold of the driver. When we 'connect' we'll
+        // more specific about where we want to connect to.
+        try {
+            driver = DriverManager.getDriver("jdbc:relational:///");
+            server = new InProcessRelationalServer().start();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    @Override
-    CliCommandFactory createCliCommandFactory(boolean usePreparedStatements) throws RelationalException {
-        try {
-            return new JDBCCommandFactory(usePreparedStatements);
-        } catch (SQLException e) {
-            throw new RelationalException(e);
+    @AfterAll
+    public static void afterAll() {
+        if (server != null) {
+            try {
+                server.close();
+                server = null;
+            } catch (Exception e) {
+                throw new RelationalException(e.getMessage(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+            }
         }
+        driver = null;
+
+    }
+
+    @Override
+    YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        return connectPath -> {
+            // Add name of the in-process running server to the connectPath.
+            URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
+            String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
+            LOG.info("Rewrote {} as {}", connectPath, uriStr);
+            return driver.connect(uriStr, null).unwrap(RelationalConnection.class);
+        };
     }
 
     @Override

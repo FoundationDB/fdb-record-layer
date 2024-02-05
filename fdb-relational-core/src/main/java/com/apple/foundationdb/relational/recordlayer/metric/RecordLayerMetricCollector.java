@@ -26,11 +26,13 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -82,14 +84,20 @@ public class RecordLayerMetricCollector implements MetricCollector {
 
     @Override
     public long getCountsForCounter(@Nonnull RelationalMetric.RelationalCount count) {
-        final var maybeCounter = getUnderlyingStoreTimer().getCounter(count);
-        if (null == maybeCounter) {
-            throw new RelationalException(String.format("Cannot find metrics associated for requested event: %s", count.title()), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-        }
-        if (maybeCounter.getTimeNanos() != 0) {
-            throw new RelationalException(String.format("Event: %s records time and is probably a event timer", count.title()), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-        }
-        return maybeCounter.getCount();
+        Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR, () -> String.format("Cannot find metrics associated for requested event: %s", count.title()));
+        final var counter = getCounter(count);
+        Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR, () -> String.format("Event: %s records time and is probably a event timer", count.title()));
+        return counter.getCount();
+    }
+
+    @Override
+    public boolean hasCounter(@Nonnull RelationalMetric.RelationalCount count) {
+        return getCounter(count) != null;
+    }
+
+    @Nullable
+    private StoreTimer.Counter getCounter(@Nonnull RelationalMetric.RelationalCount count) {
+        return getUnderlyingStoreTimer().getCounter(count);
     }
 
     @Nonnull

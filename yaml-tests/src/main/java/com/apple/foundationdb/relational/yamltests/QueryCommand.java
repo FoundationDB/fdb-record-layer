@@ -24,36 +24,34 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.cli.formatters.ResultSetFormat;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import com.github.difflib.text.DiffRow;
-import com.github.difflib.text.DiffRowGenerator;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @SuppressWarnings({"PMD.GuardLogStatement"})
 // It already is, but PMD is confused and reporting error in unrelated locations.
 public class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
+
+    boolean checkCache;
 
     public static class ExplainMismatchError extends AssertionFailedError {
 
@@ -81,48 +79,30 @@ public class QueryCommand extends Command {
         }
     }
 
-    public enum QueryConfig {
-        RESULT("result"),
-        UNORDERED_RESULT("unorderedResult"),
-        EXPLAIN("explain"),
-        EXPLAIN_CONTAINS("explainContains"),
-        COUNT("count"),
-        ERROR("error"),
-        PLAN_HASH("planHash");
-
-        @Nonnull
-        private final String label;
-
-        QueryConfig(@Nonnull final String label) {
-            this.label = label;
-        }
-
-        public String getLabel() {
-            return this.label;
-        }
-
-        @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
-        @Nonnull
-        public static QueryConfig resolve(@Nonnull final String label) throws Exception {
-            final var maybeConfig = Arrays.stream(values()).filter(val -> val.label.equals(label)).findFirst();
-            if (maybeConfig.isPresent()) {
-                return maybeConfig.get();
-            }
-            Assert.fail(String.format("‼️ '%s' is not a valid configuration, available configuration(s): '%s'",
-                    label, Arrays.stream(values()).map(v -> v.label).collect(Collectors.joining(","))));
-            return null;
-        }
-    }
-
-    private static class QueryConfigWithValue {
+    public static final class QueryConfigWithValue {
         private final QueryConfig config;
         private final Object val;
         private final int lineNumber;
+        private final String configName;
 
-        QueryConfigWithValue(@Nonnull QueryConfig config, @Nonnull Object val, int lineNumber) {
+        private QueryConfigWithValue(@Nonnull QueryConfig config, @Nonnull Object val, int lineNumber,
+                                     @Nullable String configName) {
             this.config = config;
             this.val = val;
             this.lineNumber = lineNumber;
+            this.configName = configName;
+        }
+
+        public int getLineNumber() {
+            return lineNumber;
+        }
+
+        public Object getVal() {
+            return val;
+        }
+
+        public QueryConfig getConfig() {
+            return config;
         }
 
         public String valueString() {
@@ -134,37 +114,17 @@ public class QueryCommand extends Command {
         }
     }
 
-    private void logAndThrowUnexpectedException(SQLException e, int lineNumber) {
-        final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                "%s%n" +
-                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                lineNumber, e.getMessage());
-        logger.error(diffMessage);
-        throw new RelationalException(e).toUncheckedWrappedException();
+    QueryCommand(boolean checkCache) {
+        this.checkCache = checkCache;
     }
 
-    private void executeWithNoConfig(@Nonnull String queryString, int lineNumber, @Nonnull final CliCommandFactory factory)
-            throws Exception {
-        final var queryResults = executeQuery(queryString, lineNumber, factory, null);
-        if (queryResults instanceof RelationalResultSet) {
-            final var resultSet = (RelationalResultSet) queryResults;
-            // slurp
-            boolean valid = true;
-            while (valid) { // suppress check style
-                valid = ((RelationalResultSet) queryResults).next();
-            }
-            resultSet.close();
-        }
-    }
-
-    private QueryConfigWithValue getQueryConfigWithValue(Object config) throws Exception {
-        final var queryConfigAndValue = Matchers.firstEntry(config, "query configuration");
+    private QueryConfigWithValue getQueryConfigWithValue(Object config) {
+        final var queryConfigAndValue = Matchers.firstEntry(config, "query configuration and value");
         final var queryConfigLinedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(queryConfigAndValue, "query configuration").getKey();
-        final var queryConfig = QueryConfig.resolve(
-                Matchers.notNull(Matchers.string(queryConfigLinedObject.getObject(), "query configuration"), "query configuration"));
+        final var queryConfigString = Matchers.notNull(Matchers.string(queryConfigLinedObject.getObject(), "query configuration"), "query configuration");
         final var configVal = Matchers.notNull(queryConfigAndValue, "query configuration").getValue();
-        return new QueryConfigWithValue(queryConfig, configVal, queryConfigLinedObject.getStartMark().getLine() + 1);
+        return new QueryConfigWithValue(QueryConfig.resolve(queryConfigString), configVal,
+                queryConfigLinedObject.getStartMark().getLine() + 1, queryConfigString);
     }
 
     private String appendWithContinuationIfPresent(String queryString, Continuation continuation) {
@@ -178,221 +138,8 @@ public class QueryCommand extends Command {
         return currentQuery;
     }
 
-    private void checkCount(Object actual, QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
-        logger.debug("⛳️ Matching count of update query '{}'", query);
-        if (!Matchers.matches(queryConfigWithValue.val, actual)) {
-            reportTestFailure(String.format("‼️ Expected count value %d, but got %d at line %d",
-                    (Integer) queryConfigWithValue.val, (Integer) actual, queryConfigWithValue.lineNumber));
-        } else {
-            logger.debug("✅ results match!");
-        }
-    }
-
-    private Continuation checkForResult(Object queryResults, QueryConfigWithValue queryConfigWithValue, String query) throws Exception {
-        logger.debug("⛳️ Matching results of query '{}'", query);
-        final var resultSet = (RelationalResultSet) queryResults;
-        final var matchResult = Matchers.matchResultSet(queryConfigWithValue.val, resultSet, queryConfigWithValue.config != QueryConfig.UNORDERED_RESULT);
-        if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
-            reportTestFailure(String.format("‼️ result mismatch at line %d:%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "↪ expected result:%n" +
-                    queryConfigWithValue.valueString() + "%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "↩ actual result:%n" +
-                    Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"),
-                    queryConfigWithValue.lineNumber));
-        } else {
-            logger.debug("✅ results match!");
-        }
-        return resultSet.getContinuation();
-    }
-
-    private void checkExplain(@Nonnull Object queryResults,
-                              @Nonnull final QueryConfigWithValue queryConfigWithValue,
-                              @Nonnull final String query) throws Exception {
-        logger.debug("⛳️ Matching plan for query '{}'", query);
-        final var resultSet = (RelationalResultSet) queryResults;
-        resultSet.next();
-        String actualPlan = resultSet.getString(1);
-        boolean success = false;
-        if (queryConfigWithValue.config == QueryConfig.EXPLAIN) {
-            success = queryConfigWithValue.val.equals(actualPlan);
-        } else if (queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
-            success = actualPlan.contains((String) queryConfigWithValue.val);
-        }
-        if (success) {
-            logger.debug("✅️ plan match!");
-        } else {
-            final var expectedPlan = queryConfigWithValue.val.toString();
-            final var diffGenerator = DiffRowGenerator.create()
-                    .showInlineDiffs(true)
-                    .inlineDiffByWord(true)
-                    .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
-                    .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
-                    .build();
-            final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
-                    Collections.singletonList(expectedPlan),
-                    Collections.singletonList(actualPlan));
-            final var planDiffs = new StringBuilder();
-            for (final var diffRow : diffRows) {
-                planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
-            }
-            final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    planDiffs +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "↪ expected plan %s:%n" +
-                    queryConfigWithValue.val + "%n" +
-                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                    "↩ actual plan:%n" +
-                    actualPlan,
-                    queryConfigWithValue.lineNumber,
-                    (queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS ? " fragment" : ""));
-            reportTestFailure(diffMessage, new ExplainMismatchError(diffMessage, expectedPlan, actualPlan));
-        }
-
-        // Should be all done, and should not have any more rows
-        Assertions.assertFalse(resultSet.next(), "‼️ No more result expected at line " + queryConfigWithValue.lineNumber);
-        Assertions.assertEquals(RelationalResultSet.NoNextRowReason.NO_MORE_ROWS, resultSet.noNextRowReason(), "‼️ No rows reason expected to be no more rows at line " + queryConfigWithValue.lineNumber);
-    }
-
-    private void checkForPlanHash(@Nonnull final Object queryResults, @Nonnull QueryConfigWithValue queryConfigWithValue,
-                                  @Nonnull String query) throws Exception {
-        logger.debug("⛳️ Matching plan hash of query '{}'", query);
-        final var resultSet = (RelationalResultSet) queryResults;
-
-        if (!Matchers.matches(queryConfigWithValue.val, resultSet.getPlanHash())) {
-            reportTestFailure("‼️ Incorrect plan hash at line " + queryConfigWithValue.lineNumber);
-        }
-        logger.debug("✅️ plan hash matches!");
-    }
-
-    private void checkForError(Object queryResults, SQLException sqlException, String expectedErrorCode,
-                                       int lineNumber, String query) throws Exception {
-        if (queryResults != null) {
-            Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
-            if (queryResults instanceof ErrorCapturingResultSet) {
-                Matchers.printRemaining((ErrorCapturingResultSet) queryResults, resultSetPrettyPrinter);
-                reportTestFailure(String.format(
-                        "‼️ expecting statement to throw an error, however it returned a result set at line %d%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "%s%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                        lineNumber, resultSetPrettyPrinter));
-            } else if (queryResults instanceof Integer) {
-                reportTestFailure(String.format(
-                        "‼️ expecting statement to throw an error, however it returned a count at line %d%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "%s%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                        lineNumber, queryResults));
-            } else {
-                reportTestFailure(String.format("‼️ unexpected query result of type '%s' (expecting '%s') at line %d%n",
-                        queryResults.getClass().getSimpleName(),
-                        ErrorCapturingResultSet.class.getSimpleName(),
-                        lineNumber));
-            }
-        }
-        logger.debug("⛳️ checking error code resulted from executing '{}'", query);
-        if (sqlException == null) {
-            if (expectedErrorCode != null) {
-                reportTestFailure("‼️ unexpected NULL SQLException at line " + lineNumber + "!");
-            }
-        } else if (!sqlException.getSQLState().equals(expectedErrorCode)) {
-            reportTestFailure(String.format("‼️ expecting '%s' error code, got '%s' instead at line %d!",
-                    expectedErrorCode, sqlException.getSQLState(), lineNumber));
-        } else {
-            logger.debug("✅ error codes '{}' match!", expectedErrorCode);
-        }
-    }
-
-    private void reportTestFailure(@Nonnull String message) {
-        reportTestFailure(message, null);
-    }
-
-    private void reportTestFailure(@Nonnull String message, @Nullable AssertionFailedError error) {
-        logger.error(message);
-        if (error == null) {
-            Assertions.fail(message);
-        } else {
-            throw error;
-        }
-    }
-
-    private Continuation executeWithAConfig(@Nonnull String queryString, @Nonnull final CliCommandFactory factory,
-                                            @Nonnull QueryConfigWithValue queryConfigWithValue) throws Exception {
-
-        final var config = queryConfigWithValue.config;
-        Continuation continuation = ContinuationImpl.END;
-        switch (config) {
-            case COUNT:
-                checkCount(executeQuery(queryString, queryConfigWithValue.lineNumber, factory, config),
-                        queryConfigWithValue, queryString);
-                break;
-            case RESULT:
-            case UNORDERED_RESULT:
-                continuation = checkForResult(executeQuery(queryString, queryConfigWithValue.lineNumber, factory, config),
-                        queryConfigWithValue, queryString);
-                break;
-            case EXPLAIN:
-            case EXPLAIN_CONTAINS:
-                checkExplain(executeQuery(queryString, queryConfigWithValue.lineNumber, factory, config),
-                        queryConfigWithValue, queryString);
-                break;
-            case ERROR:
-                final var exceptionOrQueryResult = executeQuery(queryString, queryConfigWithValue.lineNumber, factory, config, false);
-                checkForError(exceptionOrQueryResult.getRight(), exceptionOrQueryResult.getLeft(),
-                        Matchers.string(queryConfigWithValue.val, "expected error code"), queryConfigWithValue.lineNumber, queryString);
-                break;
-            case PLAN_HASH:
-                checkForPlanHash(executeQuery(queryString, queryConfigWithValue.lineNumber, factory, config),
-                        queryConfigWithValue, queryString);
-                break;
-            default:
-                Assert.fail(String.format("‼️ No handler for query configuration '%s'", queryConfigWithValue.config.label));
-                break;
-        }
-        return continuation;
-    }
-
-    private Object executeQuery(@Nonnull String queryString, int lineNumber, @Nonnull CliCommandFactory factory,
-                                                 @Nullable QueryConfig config) {
-        return executeQuery(queryString, lineNumber, factory, config, true).getRight();
-    }
-
-    private Pair<SQLException, Object> executeQuery(@Nonnull String queryString, int lineNumber, @Nonnull CliCommandFactory factory,
-                                                    @Nullable QueryConfig config, boolean throwException) {
-        logger.debug("⏳ Executing query '{}'", queryString);
-        Object queryResults = null;
-        SQLException sqlException = null;
-
-        final var savedDebugger = Debugger.getDebugger();
-        if ((config == QueryConfig.EXPLAIN || config == QueryConfig.EXPLAIN_CONTAINS) && Debugger.getDebugger() == null) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-            Debugger.setup();
-        }
-        try {
-            queryResults = factory.getQueryCommand(queryString).call();
-        } catch (SQLException se) {
-            sqlException = se;
-        } finally {
-            Debugger.setDebugger(savedDebugger);
-        }
-        logger.debug("👍 Finished executing query '{}'", queryString);
-        if (sqlException != null) {
-            if (throwException) {
-                logAndThrowUnexpectedException(sqlException, lineNumber);
-            } else {
-                return Pair.of(sqlException, null);
-            }
-        }
-        return Pair.of(null, queryResults);
-    }
-
     @Override
-    public void invoke(@Nonnull final List<?> region, @Nonnull final CliCommandFactory factory) throws Exception {
+    public void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection) throws SQLException, RelationalException {
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
         }
@@ -405,26 +152,26 @@ public class QueryCommand extends Command {
         var queryConfigWithValuesIterator = queryConfigsWithValue.listIterator();
         while (queryConfigWithValuesIterator.hasNext()) {
             var queryConfigWithValue = getQueryConfigWithValue(queryConfigWithValuesIterator.next());
-            if (queryConfigWithValue.config == QueryConfig.PLAN_HASH) {
+            if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfigWithValue.configName)) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
-                executeWithAConfig(Objects.requireNonNull(queryString), factory, queryConfigWithValue);
-            } else if (queryConfigWithValue.config == QueryConfig.EXPLAIN || queryConfigWithValue.config == QueryConfig.EXPLAIN_CONTAINS) {
-                Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
-                executeWithAConfig("explain " + queryString, factory, queryConfigWithValue);
+                executeConfig(queryString, queryConfigWithValue, false, connection);
+            } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfigWithValue.configName) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfigWithValue.configName)) {
+                Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
+                executeConfig("explain " + queryString, queryConfigWithValue, true, connection);
             } else {
-                if (queryConfigWithValue.config == QueryConfig.ERROR) {
+                if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfigWithValue.configName)) {
                     Assert.that(!queryConfigWithValuesIterator.hasNext(), "ERROR config should be the last config specified.");
                 }
 
                 final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
-                if (continuation != null && continuation.atEnd() && queryConfigWithValue.config == QueryConfig.RESULT) {
+                if (continuation != null && continuation.atEnd() && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfigWithValue.configName)) {
                     Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch at line %d%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfigWithValue.lineNumber, queryConfigWithValue));
                 }
-                continuation = executeWithAConfig(currentQueryString, factory, queryConfigWithValue);
+                continuation = executeConfig(currentQueryString, queryConfigWithValue, false, connection);
 
                 if (continuation == null || continuation.atEnd() || !queryConfigWithValuesIterator.hasNext()) {
                     queryHasRun = true;
@@ -436,7 +183,73 @@ public class QueryCommand extends Command {
         }
 
         if (!queryHasRun) {
-            executeWithNoConfig(queryString, ((CustomYamlConstructor.LinedObject) queryCommand.getKey()).getStartMark().getLine() + 1, factory);
+            final var lineNumber = ((CustomYamlConstructor.LinedObject) queryCommand.getKey()).getStartMark().getLine() + 1;
+            final var queryConfigWithValue = new QueryConfigWithValue(QueryConfig.resolve(null), queryString, lineNumber, null);
+            executeConfig(queryString, queryConfigWithValue, false, connection);
+        }
+    }
+
+    private Continuation executeConfig(@Nonnull String queryString, @Nonnull QueryConfigWithValue configWithValue,
+                                      boolean isExplain, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+        logger.debug("⏳ Executing query '{}'", queryString);
+        final var savedDebugger = Debugger.getDebugger();
+        if (isExplain && Debugger.getDebugger() == null) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+            Debugger.setup();
+        }
+        Continuation continuation = ContinuationImpl.END;
+        try {
+            try (var s = connection.createStatement()) {
+                final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, queryString, configWithValue.getLineNumber());
+                configWithValue.getConfig().checkResult(queryResult, queryString, configWithValue);
+                if (queryResult instanceof RelationalResultSet) {
+                    continuation = ((RelationalResultSet) queryResult).getContinuation();
+                }
+            }
+        } catch (SQLException sqle) {
+            configWithValue.getConfig().checkError(sqle, queryString, configWithValue);
+        } finally {
+            Debugger.setDebugger(savedDebugger);
+        }
+        logger.debug("👍 Finished executing query '{}'", queryString);
+        return continuation;
+    }
+
+    private Object executeQueryAndCheckCacheIfNeeded(@Nonnull RelationalStatement s, @Nonnull RelationalConnection connection,
+                                                     @Nonnull String queryString, int lineNumber) throws SQLException, RelationalException {
+        if (!checkCache) {
+            return executeQuery(s, queryString);
+        }
+        Assumptions.assumeTrue(connection instanceof EmbeddedRelationalConnection, "Not possible to check for cache hit!");
+        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
+        final var preValue = embeddedRelationalConnection.getMetricCollector() != null &&
+                embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) ?
+                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) : 0;
+        final var toReturn = executeQuery(s, queryString);
+        final var postValue = embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) ?
+                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) : 0;
+        if (preValue + 1 != postValue) {
+            reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
+        } else {
+            logger.debug("🎁 Retrieved the plan from the cache!");
+        }
+        return toReturn;
+    }
+
+    private static Object executeQuery(@Nonnull RelationalStatement s, @Nonnull String queryString) throws SQLException {
+        return s.execute(queryString) ? s.getResultSet() : s.getUpdateCount();
+    }
+
+    static void reportTestFailure(@Nonnull String message) {
+        reportTestFailure(message, null);
+    }
+
+    static void reportTestFailure(@Nonnull String message, @Nullable Throwable throwable) {
+        logger.error(message);
+        if (throwable == null) {
+            Assertions.fail(message);
+        } else {
+            Assertions.fail(message, throwable);
         }
     }
 }

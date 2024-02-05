@@ -19,13 +19,15 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists temp
-  - query: drop schema template if exists temp1
-  - query: drop schema template if exists temp2
-  - query: drop database if exists /frl/DB
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists temp
+    - query: drop schema template if exists temp1
+    - query: drop schema template if exists temp2
+    - query: drop database if exists /frl/DB
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -38,11 +40,14 @@ test_block:
       - error: "42F63"
 ---
 setup:
-  - query: drop schema template if exists temp
-  - query: drop database if exists /frl/DB
-  - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists temp
+    - query: drop database if exists /frl/DB
+    - query: create schema template temp1 create table T1(a1 bigint, primary key(a1))
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -52,9 +57,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: drop schema template temp1
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template temp1
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -64,9 +72,12 @@ test_block:
       - result: [{0}]
 ---
 setup:
-  - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -76,9 +87,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: create database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -88,9 +102,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: drop database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -100,9 +117,12 @@ test_block:
       - result: [{0}]
 ---
 setup:
-  - query: create database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -112,9 +132,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: drop database if exists /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database if exists /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -124,9 +147,12 @@ test_block:
       - result: [{0}]
 ---
 setup:
-  - query: create database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -136,9 +162,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: create schema /frl/db/s1 with template temp2
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: create schema /frl/db/s1 with template temp2
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -148,9 +177,12 @@ test_block:
       - result: [{1}]
 ---
 setup:
-  - query: drop database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -163,12 +195,15 @@ test_block:
       - result: [{0}]
 ---
 setup:
-  - query: drop database if exists /frl/db
-  - query: create database /frl/db
-  - query: create schema /frl/db/s1 with template temp2
-  - query: create schema /frl/db/s2 with template temp2
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database if exists /frl/db
+    - query: create database /frl/db
+    - query: create schema /frl/db/s1 with template temp2
+    - query: create schema /frl/db/s2 with template temp2
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -181,9 +216,12 @@ test_block:
       - result: [{2}]
 ---
 setup:
-  - query: drop database /frl/db
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /frl/db
 ---
 test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
   options:
     mode: ordered
     repetition: 1
@@ -196,7 +234,7 @@ test_block:
       - result: [{0}]
 ---
 setup:
-  - query: drop schema template temp2
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template temp2
 ...
-
-

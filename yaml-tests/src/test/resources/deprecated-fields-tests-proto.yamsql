@@ -19,32 +19,38 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
   - query: drop schema template deprecated_fields_tests_template
   - query: drop database /FRL/DEPRECATED_FIELDS_YAML
   - query: create database /FRL/DEPRECATED_FIELDS_YAML
   - load: schema template DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
   - query: create schema /FRL/DEPRECATED_FIELDS_YAML/test with template deprecated_fields_tests_template
-  - connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
-  - query: INSERT INTO T1
-      VALUES (1, 1),
-             (2, 2),
-             (3, 3),
-             (4, 4),
-             (5, 5),
-             (6, 6),
-             (7, 7),
-             (8, 8),
-             (9, 9),
-             (10, 10),
-             (11, 11),
-             (12, 12),
-             (13, 13)
+---
+setup:
+  connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 1),
+               (2, 2),
+               (3, 3),
+               (4, 4),
+               (5, 5),
+               (6, 6),
+               (7, 7),
+               (8, 8),
+               (9, 9),
+               (10, 10),
+               (11, 11),
+               (12, 12),
+               (13, 13)
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where COL1 = 5) as y;
@@ -60,7 +66,8 @@ test_block:
       - result: [{COL1: !l 11, !l 11}, {COL1: !l 12, !l 12}, {COL1: !l 13, !l 13}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template deprecated_fields_tests_template
-  - query: drop database /FRL/DEPRECATED_FIELDS_YAML
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template deprecated_fields_tests_template
+    - query: drop database /FRL/DEPRECATED_FIELDS_YAML
 ...

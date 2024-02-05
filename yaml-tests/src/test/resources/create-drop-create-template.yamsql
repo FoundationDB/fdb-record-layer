@@ -19,19 +19,20 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists create_drop_create_template
-  - query: create schema template create_drop_create_template
-      create type as struct S(S1 bigint, S2 bigint)
-      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-      create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-      create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-  - query: drop database if exists /FRL/CREATE_DROP_CREATE_YAML
-  - query: create database /FRL/CREATE_DROP_CREATE_YAML
-  - query: create schema /FRL/CREATE_DROP_CREATE_YAML/test with template create_drop_create_template
-  - connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists create_drop_create_template
+    - query: create schema template create_drop_create_template
+        create type as struct S(S1 bigint, S2 bigint)
+        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+    - query: drop database if exists /FRL/CREATE_DROP_CREATE_YAML
+    - query: create database /FRL/CREATE_DROP_CREATE_YAML
+    - query: create schema /FRL/CREATE_DROP_CREATE_YAML/test with template create_drop_create_template
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
@@ -41,20 +42,21 @@ test_block:
       - count: 3
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/CREATE_DROP_CREATE_YAML
-  - query: drop schema template create_drop_create_template
-  - query: create schema template create_drop_create_template
-      create type as struct S(S1 bigint, S2 bigint)
-      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-      create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-      create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-  - query: drop database if exists /FRL/CREATE_DROP_CREATE_YAML
-  - query: create database /FRL/CREATE_DROP_CREATE_YAML
-  - query: create schema /FRL/CREATE_DROP_CREATE_YAML/test with template create_drop_create_template
-  - connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/CREATE_DROP_CREATE_YAML
+    - query: drop schema template create_drop_create_template
+    - query: create schema template create_drop_create_template
+        create type as struct S(S1 bigint, S2 bigint)
+        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+    - query: drop database if exists /FRL/CREATE_DROP_CREATE_YAML
+    - query: create database /FRL/CREATE_DROP_CREATE_YAML
+    - query: create schema /FRL/CREATE_DROP_CREATE_YAML/test with template create_drop_create_template
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
@@ -64,7 +66,8 @@ test_block:
       - count: 3
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/CREATE_DROP_CREATE_YAML
-  - query: drop schema template create_drop_create_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/CREATE_DROP_CREATE_YAML
+    - query: drop schema template create_drop_create_template
 ...

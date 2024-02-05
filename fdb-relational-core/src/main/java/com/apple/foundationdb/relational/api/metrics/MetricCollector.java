@@ -64,7 +64,7 @@ public interface MetricCollector {
      * @return the aggregate time in {@link java.util.concurrent.TimeUnit#MICROSECONDS}.
      * @throws RelationalException in case the requested event is not held in the collector.
      * */
-    default double getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent event) throws RelationalException {
+    default double getAverageTimeMicrosForEvent(@Nonnull RelationalMetric.RelationalEvent event) throws RelationalException {
         throw new RelationalException(String.format("Requested event metric: %s is not in the collector", event.title()), ErrorCode.INTERNAL_ERROR);
     }
 
@@ -75,8 +75,18 @@ public interface MetricCollector {
      * @return the counter value
      * @throws RelationalException in case the requested count is not held in the collector.
      * */
-    default long getCountsForCounter(RelationalMetric.RelationalCount count) throws RelationalException {
+    default long getCountsForCounter(@Nonnull RelationalMetric.RelationalCount count) throws RelationalException {
         throw new RelationalException(String.format("Requested count metric: %s is not in the collector", count.title()), ErrorCode.INTERNAL_ERROR);
+    }
+
+    /**
+     * Return {@code true} if a particular count event is registered with the collector.
+     *
+     * @param count the count event whose counter is to be checked.
+     * @return {@code  true} if counter is present, else false.
+     */
+    default boolean hasCounter(@Nonnull RelationalMetric.RelationalCount count) {
+        return false;
     }
 
     /**

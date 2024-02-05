@@ -19,22 +19,25 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists inserts_updates_deletes_template
-  - query: create schema template inserts_updates_deletes_template
-      create type as struct S(S1 bigint, S2 bigint)
-      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-      create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-      create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-  - query: drop database if exists /FRL/INSERTS_UPDATES_DELETES_YAML
-  - query: create database /FRL/INSERTS_UPDATES_DELETES_YAML
-  - query: create schema /FRL/INSERTS_UPDATES_DELETES_YAML/test with template inserts_updates_deletes_template
-  - connect: "jdbc:embed:/FRL/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists inserts_updates_deletes_template
+    - query: create schema template inserts_updates_deletes_template
+        create type as struct S(S1 bigint, S2 bigint)
+        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+    - query: drop database if exists /FRL/INSERTS_UPDATES_DELETES_YAML
+    - query: create database /FRL/INSERTS_UPDATES_DELETES_YAML
+    - query: create schema /FRL/INSERTS_UPDATES_DELETES_YAML/test with template inserts_updates_deletes_template
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
+    # to avoid another repetition on the queries.
+    check_cache: false
   tests:
     -
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
@@ -116,7 +119,8 @@ test_block:
                  { B1: 30, B2: 22, B3: { 7, 61 } } ]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/INSERTS_UPDATES_DELETES_YAML
-  - query: drop schema template inserts_updates_deletes_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/INSERTS_UPDATES_DELETES_YAML
+    - query: drop schema template inserts_updates_deletes_template
 ...

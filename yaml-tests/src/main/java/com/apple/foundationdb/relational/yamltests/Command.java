@@ -22,8 +22,9 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
@@ -36,12 +37,12 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class Command {
 
-    static final String COMMAND_CONNECT = "connect";
     static final String COMMAND_LOAD_SCHEMA_TEMPLATE = "load schema template";
     static final String COMMAND_SET_SCHEMA_STATE = "set schema state";
     static final String COMMAND_QUERY = "query";
@@ -49,25 +50,13 @@ public abstract class Command {
     private static final Logger logger = LogManager.getLogger(Command.class);
 
     static Command resolve(String commandString) {
-        if ("connect".equals(commandString)) {
+        if (COMMAND_LOAD_SCHEMA_TEMPLATE.equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
-                    var uri = Matchers.string(Matchers.firstEntry(Matchers.first(region, "connect"), "connect").getValue(), "connect");
-                    logger.debug("⏳ Connecting to '{}'", uri);
-                    final var connectionFun = factory.getConnectCommand(URI.create(Matchers.notNull(uri, "connection URI")));
-                    connectionFun.call();
-                    logger.debug("✅ Connected to '{}'", uri);
-                }
-            };
-        } else if ("load schema template".equals(commandString)) {
-            return new Command() {
-                @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
+                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
                     logger.debug("⏳ Loading template '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
-                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     // save schema template
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                     RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
@@ -82,14 +71,13 @@ public abstract class Command {
                     }
                 }
             };
-        } else if ("set schema state".equals(commandString)) {
+        } else if (COMMAND_SET_SCHEMA_STATE.equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull CliCommandFactory factory) throws Exception {
+                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "set schema state"), "set schema state").getValue(), "set schema state");
                     logger.debug("⏳ Setting schema state '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
-                    final var connection = Matchers.notNull(factory.getConnection().call(), "database connection");
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                     SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(loadCommandString);
                     RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
@@ -110,13 +98,13 @@ public abstract class Command {
                     }
                 }
             };
-        } else if ("query".equals(commandString)) {
-            return new QueryCommand();
+        } else if (COMMAND_QUERY.equals(commandString)) {
+            return new QueryCommand(false);
         } else {
             Assert.failUnchecked(String.format("‼️ could not find command '%s'", commandString));
             return null;
         }
     }
 
-    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final CliCommandFactory factory) throws Exception;
+    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection) throws SQLException, RelationalException;
 }

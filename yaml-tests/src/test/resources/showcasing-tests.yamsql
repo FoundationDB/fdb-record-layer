@@ -34,34 +34,51 @@
 # below.
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists test_template
-  # Here we use SQL to create the schema template.
-  - query: create schema template test_template
-     create table t1(id bigint, col1 bigint, primary key(id))
-     create table t2(col1 bigint, primary key(col1))
-     create table t3(col1 bigint, col2 string, primary key(col1))
-  # Alternatively, you can directly load the schema template from a pre-crafted proto buf
-  # file that you put in main/resources. For example:
-  # load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
-  # check standard-tests-proto.yaml and standard_tests.proto for more information.
-  - query: drop database if exists /FRL/YOUSSEF
-  - query: create database /FRL/YOUSSEF
-  - query: create schema /FRL/YOUSSEF/test with template test_template
-  - connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
+  # First entry in a block should be `connect` that defines where to execute the block
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists test_template
+    # Here we use SQL to create the schema template.
+    - query: create schema template test_template
+       create table t1(id bigint, col1 bigint, primary key(id))
+       create table t2(col1 bigint, primary key(col1))
+       create table t3(col1 bigint, col2 string, primary key(col1))
+    # Alternatively, you can directly load the schema template from a pre-crafted proto buf
+    # file that you put in main/resources. For example:
+    # load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
+    # check standard-tests-proto.yaml and standard_tests.proto for more information.
+    - query: drop database if exists /FRL/YOUSSEF
+    - query: create database /FRL/YOUSSEF
+    - query: create schema /FRL/YOUSSEF/test with template test_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
   # We are inserting an array of three rows, each containing two columns
   # note the `table` configuration is very important
   # also note the casing of your table names.
-  - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
+  steps:
+    - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 test_block:
+  # First entry in a block should be `connect`. That's true for even test_blocks
+  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
   options:
-    # defines if the tests can be permuted. optional. default: ordered
+    # defines if the tests can be permuted.
+    # optional. default: ordered
     mode: randomized
-    # defines how many times a particular tests should be scheduled. optional. default: 1
+    # defines how many times a particular tests should be scheduled.
+    # optional. default: 1
     repetition: 2
-    # defines the seed for the randomizer, if the mode is `randomized`. optional. default is `System.currentTimeMillis()`
+    # defines the seed for the randomizer, if the mode is `randomized`.
+    # optional. default is `System.currentTimeMillis()`
     seed: 343434
+    # specifies if a test should be executed again to make sure that its plan is retrieved from the cache.
+    # optional. default: false
+    check_cache: true
+    # specifies the lifecycle of the created connection. For `test` the connection is created for each test execution.
+    # For `block` the connection is created just once and all the tests are executed in that connection.
+    # optional. default: test
+    connection_lifecycle: block
   tests:
     -
       # We check here an error code, as you can see, the statement is syntactically
@@ -94,20 +111,26 @@ test_block:
 ---
 # Another setup document to "change" the testing environment
 setup:
-  - query: drop schema template if exists test_template_nested
-  # Here is a more complex schema template with nesting to show how to deal with nested
-  # data.
-  - query: create schema template test_template_nested
-           CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
-           CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
-           create table t1(id bigint, col5 s2, primary key(id))
-           create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
-  - query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
-  - connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
-  - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists test_template_nested
+    # Here is a more complex schema template with nesting to show how to deal with nested
+    # data.
+    - query: create schema template test_template_nested
+             CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
+             CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
+             create table t1(id bigint, col5 s2, primary key(id))
+             create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
+    - query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
+---
+setup:
+  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
+  steps:
+    - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
 ---
 # Another test block to test in the new "changed" environment
 test_block:
+  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   options:
     # defines if the tests can be permuted.
     mode: randomized
@@ -126,7 +149,8 @@ test_block:
 ---
 # Final document, clean-up the environment.
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template test_template
-  - query: drop database /FRL/YOUSSEF
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template test_template
+    - query: drop database /FRL/YOUSSEF
 ...

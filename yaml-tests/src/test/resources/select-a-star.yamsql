@@ -19,30 +19,36 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists select_a_star_template
-  - query: create schema template select_a_star_template
-      CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
-      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-      create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-      create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-  - query: drop database if exists /FRL/SELECT_A_STAR_YAML
-  - query: create database /FRL/SELECT_A_STAR_YAML
-  - query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
-  - connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
-  - query: INSERT INTO A
-      VALUES (1, 10, 1),
-             (2, 10, 2),
-             (3, 10, 3)
-  - query: INSERT INTO B
-      VALUES (1, 20, (4, 40)),
-             (2, 20, (5, 50)),
-             (3, 20, (6, 60))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists select_a_star_template
+    - query: create schema template select_a_star_template
+        CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
+        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
+    - query: drop database if exists /FRL/SELECT_A_STAR_YAML
+    - query: create database /FRL/SELECT_A_STAR_YAML
+    - query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO A
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3)
+    - query: INSERT INTO B
+        VALUES (1, 20, (4, 40)),
+               (2, 20, (5, 50)),
+               (3, 20, (6, 60))
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
@@ -109,7 +115,8 @@ test_block:
 #                 {A1: 3, A2: 10, A3: 3, 3}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template select_a_star_template
-  - query: drop database /FRL/SELECT_A_STAR_YAML
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template select_a_star_template
+    - query: drop database /FRL/SELECT_A_STAR_YAML
 ...

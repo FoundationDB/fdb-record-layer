@@ -19,49 +19,55 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists groupby_tests_template
-  - query: create schema template groupby_tests_template
-      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-      create index i1 as select col1 from t1
-      create type as struct st1(y bigint, z bigint)
-      create type as struct st2(w bigint, x bigint)
-      create type as struct st3(u st2, v st1)
-      create type as struct st4(s bigint, t bigint)
-      create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
-      create index i2 as select r.v.z from nested order by r.v.z
-  - query: drop database if exists /FRL/GB_YAML
-  - query: create database /FRL/GB_YAML
-  - query: create schema /FRL/GB_YAML/test with template groupby_tests_template
-  - connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
-  - query: INSERT INTO T1
-      VALUES (1, 10, 1),
-             (2, 10, 2),
-             (3, 10, 3),
-             (4, 10, 4),
-             (5, 10, 5),
-             (6, 20, 6),
-             (7, 20, 7),
-             (8, 20, 8),
-             (9, 20, 9),
-             (10, 20, 10),
-             (11, 20, 11),
-             (12, 20, 12),
-             (13, 20, 13)
-  - query: INSERT INTO NESTED
-      VALUES (1, (200, 1), ((5, 15), (10, 100))),
-             (2, (201, 2), ((5, 15), (10, 100))),
-             (3, (202, 3), ((5, 15), (10, 100))),
-             (4, (203, 4), ((5, 15), (10, 100))),
-             (5, (330, 5), ((5, 15), (10, 140))),
-             (6, (329, 6), ((5, 15), (10, 140))),
-             (7, (328, 7), ((5, 15), (10, 140))),
-             (8, (327, 8), ((5, 15), (10, 140)))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists groupby_tests_template
+    - query: create schema template groupby_tests_template
+        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+        create index i1 as select col1 from t1
+        create type as struct st1(y bigint, z bigint)
+        create type as struct st2(w bigint, x bigint)
+        create type as struct st3(u st2, v st1)
+        create type as struct st4(s bigint, t bigint)
+        create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
+        create index i2 as select r.v.z from nested order by r.v.z
+    - query: drop database if exists /FRL/GB_YAML
+    - query: create database /FRL/GB_YAML
+    - query: create schema /FRL/GB_YAML/test with template groupby_tests_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5),
+               (6, 20, 6),
+               (7, 20, 7),
+               (8, 20, 8),
+               (9, 20, 9),
+               (10, 20, 10),
+               (11, 20, 11),
+               (12, 20, 12),
+               (13, 20, 13)
+    - query: INSERT INTO NESTED
+        VALUES (1, (200, 1), ((5, 15), (10, 100))),
+               (2, (201, 2), ((5, 15), (10, 100))),
+               (3, (202, 3), ((5, 15), (10, 100))),
+               (4, (203, 4), ((5, 15), (10, 100))),
+               (5, (330, 5), ((5, 15), (10, 140))),
+               (6, (329, 6), ((5, 15), (10, 140))),
+               (7, (328, 7), ((5, 15), (10, 140))),
+               (8, (327, 8), ((5, 15), (10, 140)))
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
@@ -165,7 +171,8 @@ test_block:
       - result: [{!l 13}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/GB_YAML
-  - query: drop schema template groupby_tests_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/GB_YAML
+    - query: drop schema template groupby_tests_template
 ...

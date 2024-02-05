@@ -33,10 +33,8 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class CustomYamlConstructor extends SafeConstructor {
 
@@ -56,12 +54,17 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(Block.ConfigBlock.CONFIG_BLOCK_DESTRUCT);
         requireLineNumber.add(Block.TestBlock.TEST_BLOCK);
         // commands
-        requireLineNumber.add(Command.COMMAND_CONNECT);
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);
         requireLineNumber.add(Command.COMMAND_QUERY);
         // query test configs
-        requireLineNumber.addAll(Arrays.stream(QueryCommand.QueryConfig.values()).map(QueryCommand.QueryConfig::getLabel).collect(Collectors.toList()));
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_RESULT);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_UNORDERED_RESULT);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_EXPLAIN);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_ERROR);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_COUNT);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
     }
 
     @Override

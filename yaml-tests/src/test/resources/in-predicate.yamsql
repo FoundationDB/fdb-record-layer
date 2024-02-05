@@ -19,33 +19,39 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists in_predicate_schema_template
-  - query: create schema template in_predicate_schema_template
-      create type as struct ts(sa bigint, sb bigint)
-      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
-  - query: drop database if exists /FRL/IN_PREDICATE_DB
-  - query: create database /FRL/IN_PREDICATE_DB
-  - query: create schema /FRL/IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
-  - connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
-  - query: INSERT INTO TA
-      VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
-             (1, 8, 4.56, false, 'bar', (81 as sa, 18 as sb)),
-             (2, 7, 7.89, true,  'doe', (72 as sa, 27 as sb)),
-             (3, 6, 0.12, false, 'arc', (63 as sa, 36 as sb)),
-             (4, 5, 3.45, true,  'per', (54 as sa, 45 as sb))
-  # with target fields and reorderings
-  - query: INSERT INTO TA(a, b, c, d, e, f(sa, sb))
-      VALUES (5, 4, 6.78, false, 'doe', (45, 54)),
-             (6, 3, 9.01, true,  'foo', (36, 63)),
-             (7, 2, 2.34, false, 'arc', (27, 72)),
-             (8, 1, 5.67, true , 'bar', (18, 81)),
-             (9, 0, 8.90, false, 'doe', (9, 90))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists in_predicate_schema_template
+    - query: create schema template in_predicate_schema_template
+        create type as struct ts(sa bigint, sb bigint)
+        create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+    - query: drop database if exists /FRL/IN_PREDICATE_DB
+    - query: create database /FRL/IN_PREDICATE_DB
+    - query: create schema /FRL/IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
+  steps:
+    - query: INSERT INTO TA
+        VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
+               (1, 8, 4.56, false, 'bar', (81 as sa, 18 as sb)),
+               (2, 7, 7.89, true,  'doe', (72 as sa, 27 as sb)),
+               (3, 6, 0.12, false, 'arc', (63 as sa, 36 as sb)),
+               (4, 5, 3.45, true,  'per', (54 as sa, 45 as sb))
+    # with target fields and reorderings
+    - query: INSERT INTO TA(a, b, c, d, e, f(sa, sb))
+        VALUES (5, 4, 6.78, false, 'doe', (45, 54)),
+               (6, 3, 9.01, true,  'foo', (36, 63)),
+               (7, 2, 2.34, false, 'arc', (27, 72)),
+               (8, 1, 5.67, true , 'bar', (18, 81)),
+               (9, 0, 8.90, false, 'doe', (9, 90))
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       # LONG value matched against IN list of only LONG values
@@ -148,6 +154,7 @@ test_block:
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases. 
 test_block:
+  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
   tests:
       -
         # LONG value matched against IN list of LONG and DOUBLE values
@@ -183,7 +190,8 @@ test_block:
         - error: "XX000"
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/IN_PREDICATE_DB
-  - query: drop schema template in_predicate_schema_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/IN_PREDICATE_DB
+    - query: drop schema template in_predicate_schema_template
 ...

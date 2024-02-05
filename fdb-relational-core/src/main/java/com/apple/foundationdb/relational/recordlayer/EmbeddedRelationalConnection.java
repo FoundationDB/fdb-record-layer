@@ -199,7 +199,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return backingCatalog.loadSchema(transaction, getPath(), getSchema()).getSchemaTemplate();
     }
 
-    @Nonnull
+    @Nullable
     public MetricCollector getMetricCollector() {
         return metricCollector;
     }

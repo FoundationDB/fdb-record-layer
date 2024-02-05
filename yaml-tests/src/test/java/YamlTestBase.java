@@ -20,10 +20,6 @@
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
-import com.apple.foundationdb.relational.cli.DbState;
-import com.apple.foundationdb.relational.cli.DbStateCommandFactory;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
@@ -33,7 +29,7 @@ import javax.annotation.Nonnull;
 
 public abstract class YamlTestBase {
 
-    private static final Logger LOG = LogManager.getLogger(YamlTestBase.class);
+    private static final Logger logger = LogManager.getLogger(YamlTestBase.class);
 
     public YamlTestBase() {
         if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
@@ -42,27 +38,20 @@ public abstract class YamlTestBase {
         Debugger.setup();
     }
 
-    protected void doRun(@Nonnull final String fileName) throws Exception {
+    protected final void doRun(@Nonnull final String fileName) throws Exception {
         doRun(fileName, false);
-        doRun(fileName, true);
     }
 
-    protected void doRun(@Nonnull final String fileName, boolean usePreparedStatements) throws Exception {
-        doRun(fileName, usePreparedStatements, false);
-    }
-
-    protected void doRun(String fileName, boolean usePreparedStatements, boolean correctExplain) throws Exception {
-        try (var yamlRunner = new YamlRunner(fileName, createCliCommandFactory(usePreparedStatements), correctExplain)) {
+    private void doRun(String fileName, boolean correctExplain) throws Exception {
+        try (var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain)) {
             try {
                 yamlRunner.run();
             } catch (Exception e) {
-                LOG.error("‼️ running test file '{}' was not successful", fileName, e);
+                logger.error("‼️ running test file '{}' was not successful", fileName, e);
                 throw e;
             }
         }
     }
 
-    CliCommandFactory createCliCommandFactory(boolean usePreparedStatements) throws RelationalException {
-        return new DbStateCommandFactory(new DbState(), usePreparedStatements);
-    }
+    abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
 }

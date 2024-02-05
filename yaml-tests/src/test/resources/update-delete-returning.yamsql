@@ -19,20 +19,22 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists update_returning_template
-  - query: create schema template update_returning_template
-      create type as struct S(S1 bigint, S2 bigint)
-      create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-  - query: drop database if exists /FRL/UPDATE_RETURNING_YAML
-  - query: create database /FRL/UPDATE_RETURNING_YAML
-  - query: create schema /FRL/UPDATE_RETURNING_YAML/test with template update_returning_template
-  - connect: "jdbc:embed:/FRL/UPDATE_RETURNING_YAML?schema=TEST"
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists update_returning_template
+    - query: create schema template update_returning_template
+        create type as struct S(S1 bigint, S2 bigint)
+        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+    - query: drop database if exists /FRL/UPDATE_RETURNING_YAML
+    - query: create database /FRL/UPDATE_RETURNING_YAML
+    - query: create schema /FRL/UPDATE_RETURNING_YAML/test with template update_returning_template
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/UPDATE_RETURNING_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
+    connection_lifecycle: block
   tests:
     -
       - query: insert into A values
@@ -162,7 +164,8 @@ test_block:
                   { A1: 3, A2: 2000, A3: 30 } ]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/UPDATE_RETURNING_YAML
-  - query: drop schema template update_returning_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/UPDATE_RETURNING_YAML
+    - query: drop schema template update_returning_template
 ...

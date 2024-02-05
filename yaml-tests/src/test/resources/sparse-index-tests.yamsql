@@ -19,30 +19,32 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists sparse_index_tests_template
-  - query: create schema template sparse_index_tests_template
-      create table t1(id integer, col1 integer, col2 integer, primary key(id))
-      create index i1 as select col1 from t1 where col1 < 200
-      create index i2 as select col1 from t1 where col1 < 500
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists sparse_index_tests_template
+    - query: create schema template sparse_index_tests_template
+        create table t1(id integer, col1 integer, col2 integer, primary key(id))
+        create index i1 as select col1 from t1 where col1 < 200
+        create index i2 as select col1 from t1 where col1 < 500
 
-      create table t2(id integer, tombstone boolean, primary key(id))
-      create index i3 as select tombstone from t2 where tombstone = true or tombstone is not null
+        create table t2(id integer, tombstone boolean, primary key(id))
+        create index i3 as select tombstone from t2 where tombstone = true or tombstone is not null
 
-      create table t3(id integer, tombstone boolean, primary key(id))
-      create index i4 as select id from t3 where tombstone = true or tombstone is not null
+        create table t3(id integer, tombstone boolean, primary key(id))
+        create index i4 as select id from t3 where tombstone = true or tombstone is not null
 
-      create table t5(id integer, col1 integer, primary key(id))
-      create index i6 as select id from t5 where col1 < 40 or col1 > 90
-  - query: drop database if exists /FRL/SPARSE_YAML
-  - query: create database /FRL/SPARSE_YAML
-  - query: create schema /FRL/SPARSE_YAML/test with template sparse_index_tests_template
-  - connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
+        create table t5(id integer, col1 integer, primary key(id))
+        create index i6 as select id from t5 where col1 < 40 or col1 > 90
+    - query: drop database if exists /FRL/SPARSE_YAML
+    - query: create database /FRL/SPARSE_YAML
+    - query: create schema /FRL/SPARSE_YAML/test with template sparse_index_tests_template
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
@@ -74,6 +76,7 @@ test_block:
 # index I2. However, if second query is executed first and puts the plan with index I2 in the cache, the other queries
 # can use the same.
 test_block:
+  connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
@@ -97,15 +100,18 @@ test_block:
       - explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
 ---
 setup:
-  - query: insert into T1
-      VALUES (1, 100, 7),
-             (2, 200, 7),
-             (3, 243, 7),
-             (4, 499, 7),
-             (5, 500, 7),
-             (6, 879, 7)
+  connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
+  steps:
+    - query: insert into T1
+        VALUES (1, 100, 7),
+               (2, 200, 7),
+               (3, 243, 7),
+               (4, 499, 7),
+               (5, 500, 7),
+               (6, 879, 7)
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
   options:
     mode: ordered
     repetition: 1
@@ -139,7 +145,8 @@ test_block:
       - result: [{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/SPARSE_YAML
-  - query: drop schema template sparse_index_tests_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/SPARSE_YAML
+    - query: drop schema template sparse_index_tests_template
 ...

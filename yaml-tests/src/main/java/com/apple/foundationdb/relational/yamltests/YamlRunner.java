@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.cli.CliCommandFactory;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -44,8 +44,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -67,14 +69,18 @@ public final class YamlRunner implements AutoCloseable {
     private boolean shouldReplaceFile;
 
     @Nonnull
-    private final CliCommandFactory cliCommandFactory;
+    private final YamlConnectionFactory connectionFactory;
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull CliCommandFactory commandFactory, boolean correctExplain) throws RelationalException {
+    public interface YamlConnectionFactory {
+        RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+    }
+
+    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
         this.resourcePath = resourcePath;
         this.inputStream = getInputStream(resourcePath);
         correctedExplainStream = correctExplain ? loadFileToMemory(resourcePath) : null;
         shouldReplaceFile = false;
-        this.cliCommandFactory = commandFactory;
+        this.connectionFactory = factory;
     }
 
     public void run() throws Exception {
@@ -113,13 +119,13 @@ public final class YamlRunner implements AutoCloseable {
     }
 
     private void executeConfigBlock(@Nonnull Object document) {
-        final var block = Block.parse(document, cliCommandFactory);
+        final var block = Block.parse(document, connectionFactory);
         logger.debug("⚪️ Executing `config` block at line {} in {}", block.getLineNumber(), resourcePath);
         block.execute();
     }
 
     private void executeTestBlock(@Nonnull Object document, List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
-        final var block = Block.parse(document, cliCommandFactory);
+        final var block = Block.parse(document, connectionFactory);
         Assert.thatUnchecked(block instanceof Block.TestBlock, "Expect the block to be a test_block at line " + block.getLineNumber());
         logger.debug("⚪️ Executing `test` block at line {} in {}", block.getLineNumber(), resourcePath);
         block.execute();
@@ -128,16 +134,16 @@ public final class YamlRunner implements AutoCloseable {
 
     private void evaluateTestBlockResults(List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
         int failures = 0;
-        logger.debug("");
-        logger.debug("");
-        logger.debug("--------------------------------------------------------------------------------------------------------------");
-        logger.debug("TEST RESULTS");
-        logger.debug("--------------------------------------------------------------------------------------------------------------");
+        logger.info("");
+        logger.info("");
+        logger.info("--------------------------------------------------------------------------------------------------------------");
+        logger.info("TEST RESULTS");
+        logger.info("--------------------------------------------------------------------------------------------------------------");
 
         for (int i = 0; i < testBlockResults.size(); i++) {
             final var result = testBlockResults.get(i);
             if (result.getRight().isEmpty()) {
-                logger.debug("🟢 TestBlock {}/{} runs successfully", i + 1, testBlockResults.size());
+                logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlockResults.size());
             } else {
                 logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlockResults.size(), result.getLeft());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
@@ -157,9 +163,6 @@ public final class YamlRunner implements AutoCloseable {
     @Override
     public void close() throws Exception {
         inputStream.close();
-        if (this.cliCommandFactory != null) {
-            this.cliCommandFactory.close();
-        }
     }
 
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")

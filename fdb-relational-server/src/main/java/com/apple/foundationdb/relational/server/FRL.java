@@ -85,7 +85,7 @@ public class FRL implements AutoCloseable {
     private static final String JDBC_EMBED_PREFIX = "jdbc:embed:";
     private boolean registeredJDBCEmbedDriver;
 
-    FRL() throws RelationalException {
+    public FRL() throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 

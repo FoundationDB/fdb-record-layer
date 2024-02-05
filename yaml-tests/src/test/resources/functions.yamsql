@@ -19,29 +19,35 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists function_tests_schema_template
-  - query: create schema template function_tests_schema_template
-      create type as struct T(T1 integer)
-      create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
-      create table B(b1 bigint, b2 double, primary key(b1, b2))
-      create type as struct U(T1 integer, A string, B double)
-      create table C(c1 bigint, st U, primary key(c1))
-  - query: drop database if exists /FRL/FUNCTION_YAML
-  - query: create database /FRL/FUNCTION_YAML
-  - query: create schema /FRL/FUNCTION_YAML/FUNCTION_SCHEMA with template function_tests_schema_template
-  - connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
-  # TODO a5 integer array add support
-  # TODO a7 float add insert support
-  # TODO a9 bytes add insert support
-  - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0)
-  - query: insert into B values (1, 2), (3, null), (null, 4), (null, null)
-  - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null)
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists function_tests_schema_template
+    - query: create schema template function_tests_schema_template
+        create type as struct T(T1 integer)
+        create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
+        create table B(b1 bigint, b2 double, primary key(b1, b2))
+        create type as struct U(T1 integer, A string, B double)
+        create table C(c1 bigint, st U, primary key(c1))
+    - query: drop database if exists /FRL/FUNCTION_YAML
+    - query: create database /FRL/FUNCTION_YAML
+    - query: create schema /FRL/FUNCTION_YAML/FUNCTION_SCHEMA with template function_tests_schema_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
+  steps:
+    # TODO a5 integer array add support
+    # TODO a7 float add insert support
+    # TODO a9 bytes add insert support
+    - query: insert into A(a1, a2, a3, a4, a6(t1), a8) values (1, 1, '1', true, (1), 1.0)
+    - query: insert into B values (1, 2), (3, null), (null, 4), (null, null)
+    - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null)
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select greatest(a3, '0'), greatest(a3, '1'), greatest(a3, '2'), greatest(a3, null) from A
@@ -129,10 +135,6 @@ test_block:
           {{ T1: 4, A: 'd', B: 4.0}},
           {!null _}]
     -
-      - query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
-      - unorderedResult: [
-          {{ _0: 5, _1: 'e', _2: 5.0}}]
-    -
       - query: select coalesce(null, (1, 1.0, 'a', true)) from C
       - unorderedResult: [
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}},
@@ -141,10 +143,13 @@ test_block:
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
 ---
 test_block:
-  options:
-    mode: ordered
-    repetition: 1
+  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
   tests:
+    -
+      # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)
+      - query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
+      - unorderedResult: [
+          {{ _0: 5, _1: 'e', _2: 5.0}}]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update C set st = coalesce(st, null) where c1 = 4 returning "new".st
@@ -157,9 +162,10 @@ test_block:
             {{ T1: 5, A: 'e', B: 5.0}}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/FUNCTION_YAML
-  - query: drop schema template function_tests_schema_template
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/FUNCTION_YAML
+    - query: drop schema template function_tests_schema_template
 ...
 
 

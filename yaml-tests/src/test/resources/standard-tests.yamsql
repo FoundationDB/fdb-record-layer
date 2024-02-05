@@ -19,34 +19,40 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists standard_tests_template
-  - query: create schema template standard_tests_template
-      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-      create index i1 as select col1 from t1
-  - query: drop database if exists /FRL/STANDARD_YAML
-  - query: create database /FRL/STANDARD_YAML
-  - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
-  - connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
-  - query: INSERT INTO T1
-      VALUES (1, 10, 1),
-             (2, 10, 2),
-             (3, 10, 3),
-             (4, 10, 4),
-             (5, 10, 5),
-             (6, 20, 6),
-             (7, 20, 7),
-             (8, 20, 8),
-             (9, 20, 9),
-             (10, 20, 10),
-             (11, 20, 11),
-             (12, 20, 12),
-             (13, 20, 13)
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists standard_tests_template
+    - query: create schema template standard_tests_template
+        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+        create index i1 as select col1 from t1
+    - query: drop database if exists /FRL/STANDARD_YAML
+    - query: create database /FRL/STANDARD_YAML
+    - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1),
+               (2, 10, 2),
+               (3, 10, 3),
+               (4, 10, 4),
+               (5, 10, 5),
+               (6, 20, 6),
+               (7, 20, 7),
+               (8, 20, 8),
+               (9, 20, 9),
+               (10, 20, 10),
+               (11, 20, 11),
+               (12, 20, 12),
+               (13, 20, 13)
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select id, case when col1 = 10 then 100
@@ -97,7 +103,8 @@ test_block:
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template standard_tests_template
-  - query: drop database /FRL/STANDARD_YAML
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template standard_tests_template
+    - query: drop database /FRL/STANDARD_YAML
 ...

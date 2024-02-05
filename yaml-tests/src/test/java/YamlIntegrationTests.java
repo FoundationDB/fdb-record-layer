@@ -18,10 +18,47 @@
  * limitations under the License.
  */
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
+
 public class YamlIntegrationTests extends YamlTestBase {
+
+    @Nullable
+    private static FRL frl;
+
+    @BeforeAll
+    public static void beforeAll() throws RelationalException {
+        frl = new FRL();
+    }
+
+    @AfterAll
+    public static void afterAll() throws Exception {
+        if (frl != null) {
+            frl.close();
+            frl = null;
+        }
+    }
+
+    @Override
+    YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        return connectPath -> {
+            try {
+                return Relational.connect(connectPath, Options.NONE);
+            } catch (RelationalException ve) {
+                throw ve.toSqlException();
+            }
+        };
+    }
+
     @Test
     public void showcasingTests() throws Exception {
         doRun("showcasing-tests.yamsql");

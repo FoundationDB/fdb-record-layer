@@ -19,83 +19,89 @@
 
 ---
 setup:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop schema template if exists orderby_tests_schema_template_1
-  - query: create schema template orderby_tests_schema_template_1
-      create table t1(a bigint, b bigint, c bigint, primary key(a))
-      create index i1 as select b, c from t1 order by b
-      create index i2 as select b, c from t1 order by c
-      create index i3 as select b, c from t1 order by c, b
-      CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
-      create table t2(p bigint, q st_1, primary key(p))
-      create index i4 as select q.b, q.a from t2 order by q.a
-      create index i5 as select q.b, q.a from t2 order by q.b, q.a
-      create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
-      create index i6 as select d, c, b, a from t3 order by a, b, c, d
-      CREATE TYPE AS STRUCT st_2(ast st_1)
-      CREATE TYPE AS STRUCT st_3(bst st_2)
-      CREATE TYPE AS STRUCT st_4(cst st_3)
-      CREATE TYPE AS STRUCT st_5(dst st_4)
-      CREATE TYPE AS STRUCT st_6(est st_5)
-      create table t4(p bigint, q st_6, primary key(p))
-      create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
-  - query: drop database if exists /FRL/ORDERBY_YAML
-  - query: create database /FRL/ORDERBY_YAML
-  - query: create schema /FRL/ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
-  - connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
-  - query: INSERT INTO T1
-      VALUES (1, 10, 5),
-             (2, 9, 5),
-             (3, 8, 5),
-             (4, 7, 8),
-             (5, 6, 8),
-             (6, 5, 8),
-             (7, 4, 1),
-             (8, 3, 1),
-             (9, 2, 0),
-             (10, 1, 0)
-  - query: INSERT INTO T2
-      VALUES (1, (8, 1)),
-             (2, (7, 2)),
-             (3, (6, 1)),
-             (4, (5, 2)),
-             (5, (4, 1)),
-             (6, (3, 2)),
-             (7, (2, 1)),
-             (8, (1, 2))
-  - query: INSERT INTO T3
-      VALUES (9, 5, 7, 2, 1),
-             (9, 5, 7, 1, 2),
-             (9, 5, 6, 0, 3),
-             (9, 5, 6, 8, 4),
-             (9, 0, 1, 2, 5),
-             (9, 0, 1, 8, 6),
-             (9, 0, 5, 1, 7),
-             (9, 0, 5, 4, 8),
-             (3, 8, 2, 1, 9),
-             (3, 8, 2, 5, 10),
-             (3, 8, 5, 0, 11),
-             (3, 8, 5, 9, 12),
-             (3, 6, 9, 2, 13),
-             (3, 6, 9, 0, 14),
-             (3, 6, 7, 0, 15),
-             (3, 6, 7, 4, 16)
-  - query: INSERT INTO T4
-      VALUES (0, ((((((9, 0))))))),
-             (1, ((((((8, 2))))))),
-             (2, ((((((7, 4))))))),
-             (3, ((((((6, 6))))))),
-             (4, ((((((5, 8))))))),
-             (5, ((((((4, 1))))))),
-             (6, ((((((3, 3))))))),
-             (7, ((((((2, 5))))))),
-             (8, ((((((1, 7))))))),
-             (9, ((((((0, 9)))))))
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists orderby_tests_schema_template_1
+    - query: create schema template orderby_tests_schema_template_1
+        create table t1(a bigint, b bigint, c bigint, primary key(a))
+        create index i1 as select b, c from t1 order by b
+        create index i2 as select b, c from t1 order by c
+        create index i3 as select b, c from t1 order by c, b
+        CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
+        create table t2(p bigint, q st_1, primary key(p))
+        create index i4 as select q.b, q.a from t2 order by q.a
+        create index i5 as select q.b, q.a from t2 order by q.b, q.a
+        create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
+        create index i6 as select d, c, b, a from t3 order by a, b, c, d
+        CREATE TYPE AS STRUCT st_2(ast st_1)
+        CREATE TYPE AS STRUCT st_3(bst st_2)
+        CREATE TYPE AS STRUCT st_4(cst st_3)
+        CREATE TYPE AS STRUCT st_5(dst st_4)
+        CREATE TYPE AS STRUCT st_6(est st_5)
+        create table t4(p bigint, q st_6, primary key(p))
+        create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
+    - query: drop database if exists /FRL/ORDERBY_YAML
+    - query: create database /FRL/ORDERBY_YAML
+    - query: create schema /FRL/ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
+---
+setup:
+  connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 5),
+               (2, 9, 5),
+               (3, 8, 5),
+               (4, 7, 8),
+               (5, 6, 8),
+               (6, 5, 8),
+               (7, 4, 1),
+               (8, 3, 1),
+               (9, 2, 0),
+               (10, 1, 0)
+    - query: INSERT INTO T2
+        VALUES (1, (8, 1)),
+               (2, (7, 2)),
+               (3, (6, 1)),
+               (4, (5, 2)),
+               (5, (4, 1)),
+               (6, (3, 2)),
+               (7, (2, 1)),
+               (8, (1, 2))
+    - query: INSERT INTO T3
+        VALUES (9, 5, 7, 2, 1),
+               (9, 5, 7, 1, 2),
+               (9, 5, 6, 0, 3),
+               (9, 5, 6, 8, 4),
+               (9, 0, 1, 2, 5),
+               (9, 0, 1, 8, 6),
+               (9, 0, 5, 1, 7),
+               (9, 0, 5, 4, 8),
+               (3, 8, 2, 1, 9),
+               (3, 8, 2, 5, 10),
+               (3, 8, 5, 0, 11),
+               (3, 8, 5, 9, 12),
+               (3, 6, 9, 2, 13),
+               (3, 6, 9, 0, 14),
+               (3, 6, 7, 0, 15),
+               (3, 6, 7, 4, 16)
+    - query: INSERT INTO T4
+        VALUES (0, ((((((9, 0))))))),
+               (1, ((((((8, 2))))))),
+               (2, ((((((7, 4))))))),
+               (3, ((((((6, 6))))))),
+               (4, ((((((5, 8))))))),
+               (5, ((((((4, 1))))))),
+               (6, ((((((3, 3))))))),
+               (7, ((((((2, 5))))))),
+               (8, ((((((1, 7))))))),
+               (9, ((((((0, 9)))))))
 ---
 test_block:
+  connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
   options:
     mode: randomized
     repetition: 2
+    check_cache: true
   tests:
     -
       - query: select b, c from t1 order by b, b
@@ -241,7 +247,8 @@ test_block:
       - result: [ {5}, {6}, {7}, {8}, {9}, {10}, {3}, {4}, {1}, {2} ]
 ---
 destruct:
-  - connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  - query: drop database /FRL/ORDERBY_YAML
-  - query: drop schema template orderby_tests_schema_template_1
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/ORDERBY_YAML
+    - query: drop schema template orderby_tests_schema_template_1
 ...
