@@ -58,7 +58,7 @@ import java.util.Objects;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild implements AggregateValue, Value.CompileTimeValue, IndexableAggregateValue {
+public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 
     protected enum PhysicalOperator {
@@ -96,6 +96,9 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
     @Nonnull
     protected final PhysicalOperator operator;
 
+    @Nonnull
+    private final Value child;
+
     protected IndexOnlyAggregateValue(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PIndexOnlyAggregateValue indexOnlyAggregateValueProto) {
         this(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(indexOnlyAggregateValueProto.getOperator())),
@@ -109,15 +112,26 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
      */
     protected IndexOnlyAggregateValue(@Nonnull final PhysicalOperator operator,
                                       @Nonnull final Value child) {
-        super(child);
         this.operator = operator;
+        this.child = child;
     }
 
+    @Nonnull
+    @Override
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
 
     @Nonnull
     @Override
     public Type getResultType() {
-        return getChild().getResultType();
+        return child.getResultType();
     }
 
     @Nonnull
@@ -139,12 +153,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + getChild() + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, getChild());
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, child);
     }
 
     @Override
@@ -166,7 +180,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
     PIndexOnlyAggregateValue toIndexOnlyAggregateValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PIndexOnlyAggregateValue.newBuilder()
                 .setOperator(operator.toProto(serializationContext))
-                .setChild(getChild().toValueProto(serializationContext))
+                .setChild(child.toValueProto(serializationContext))
                 .build();
     }
 
@@ -214,7 +228,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public MinEverLongValue withNewChild(@Nonnull final Value rebasedChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MinEverLongValue(operator, rebasedChild);
         }
 
@@ -294,14 +308,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public MaxEverLongValue withNewChild(@Nonnull final Value rebasedChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
             return new MaxEverLongValue(operator, rebasedChild);
-        }
-
-        @Nonnull
-        @Override
-        protected Iterable<? extends Value> computeChildren() {
-            return ImmutableList.of(getChild());
         }
 
         @Nonnull

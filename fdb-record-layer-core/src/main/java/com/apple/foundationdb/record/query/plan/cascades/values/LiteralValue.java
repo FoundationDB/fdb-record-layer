@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -51,7 +52,7 @@ import java.util.Objects;
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> extends AbstractLeafValue implements Value.RangeMatchableValue, PlanSerializable {
+public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nonnull
@@ -101,7 +102,7 @@ public class LiteralValue<T> extends AbstractLeafValue implements Value.RangeMat
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 
@@ -246,6 +247,12 @@ public class LiteralValue<T> extends AbstractLeafValue implements Value.RangeMat
                        ? new Type.Any()
                        : resolvedElementType;
         return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     /**

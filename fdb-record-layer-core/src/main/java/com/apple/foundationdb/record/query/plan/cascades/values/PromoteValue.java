@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -61,7 +62,7 @@ import java.util.function.Supplier;
  * promotions according to the SQL standard.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PromoteValue extends AbstractValueWithChild implements Value.RangeMatchableValue {
+public class PromoteValue extends AbstractValue implements ValueWithChild, Value.RangeMatchableValue {
     /**
      * This promotion map is defined based on the basic SQL promotion rules for standard SQL data types when
      * applied to our data model.
@@ -155,6 +156,12 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Promote-Value");
 
     /**
+     * The child expression.
+     */
+    @Nonnull
+    private final Value inValue;
+
+    /**
      * The type that {@code inValue} should be promoted to.
      */
     @Nonnull
@@ -175,12 +182,18 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
      * @param promotionTrie the promotion trie defining the actual promotion of the object
      */
     public PromoteValue(@Nonnull final Value inValue, @Nonnull final Type promoteToType, @Nullable final CoercionTrieNode promotionTrie) {
-        super(inValue);
+        this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
         this.isSimplePromotion = promoteToType.isPrimitive() ||
-                                 (promoteToType instanceof Type.Array &&
-                                  Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
+                (promoteToType instanceof Type.Array &&
+                         Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
+    }
+
+    @Nonnull
+    @Override
+    public Value getChild() {
+        return inValue;
     }
 
     @Nonnull
@@ -193,7 +206,7 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
-        final Object result = getChild().eval(store, context);
+        final Object result = inValue.eval(store, context);
         if (result == null) {
             return null;
         }
@@ -205,7 +218,7 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
         return MessageHelpers.coerceObject(promotionTrie,
                 promoteToType,
                 isSimplePromotion ? null : context.getTypeRepository().getMessageDescriptor(promoteToType),
-                getChild().getResultType(),
+                inValue.getResultType(),
                 result);
     }
 
@@ -215,25 +228,31 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
         return promoteToType;
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, promoteToType);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), promoteToType);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, inValue, promoteToType);
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "promote(" + getChild().explain(formatter) + " as " + promoteToType + ")";
+        return "promote(" + inValue.explain(formatter) + " as " + promoteToType + ")";
     }
 
     @Override
     public String toString() {
-        return "promote(" + getChild() + " as " + promoteToType + ")";
+        return "promote(" + inValue + " as " + promoteToType + ")";
     }
 
     @Override
@@ -253,7 +272,7 @@ public class PromoteValue extends AbstractValueWithChild implements Value.RangeM
     public PPromoteValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final PPromoteValue.Builder builder =
                 PPromoteValue.newBuilder()
-                        .setInValue(getChild().toValueProto(serializationContext))
+                        .setInValue(inValue.toValueProto(serializationContext))
                         .setPromoteToType(promoteToType.toTypeProto(serializationContext));
         if (promotionTrie != null) {
             builder.setPromotionTrie(promotionTrie.toProto(serializationContext));

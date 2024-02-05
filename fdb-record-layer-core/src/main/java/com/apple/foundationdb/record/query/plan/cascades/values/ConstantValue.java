@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -46,7 +47,8 @@ import java.util.Set;
  * A wrapper around a constant.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantValue extends AbstractLeafValue {
+public class ConstantValue extends AbstractValue implements LeafValue {
+
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Value");
 
     @Nonnull
@@ -73,6 +75,12 @@ public class ConstantValue extends AbstractLeafValue {
         return value.getCorrelatedTo();
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
+    }
+
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
@@ -92,7 +100,7 @@ public class ConstantValue extends AbstractLeafValue {
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
+        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
 

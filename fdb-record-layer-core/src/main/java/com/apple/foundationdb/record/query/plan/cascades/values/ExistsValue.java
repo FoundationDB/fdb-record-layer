@@ -54,11 +54,13 @@ import java.util.Optional;
  * A {@link Value} that checks whether an item exists in its child quantifier expression or not.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsValue extends AbstractValueWithChild implements BooleanValue, Value.CompileTimeValue {
+public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
+    @Nonnull
+    private final QuantifiedObjectValue child;
 
     public ExistsValue(@Nonnull QuantifiedObjectValue child) {
-        super(child);
+        this.child = child;
     }
 
     @Override
@@ -66,13 +68,18 @@ public class ExistsValue extends AbstractValueWithChild implements BooleanValue,
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final CorrelationIdentifier innermostAlias) {
-        return Optional.of(new ExistsPredicate(((QuantifiedObjectValue)getChild()).getAlias()));
+        return Optional.of(new ExistsPredicate(child.getAlias()));
     }
-
 
     @Nonnull
     @Override
-    public ExistsValue withNewChild(@Nonnull final Value newChild) {
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value newChild) {
         Verify.verify(newChild instanceof QuantifiedObjectValue);
         return new ExistsValue((QuantifiedObjectValue)newChild);
     }
@@ -81,21 +88,21 @@ public class ExistsValue extends AbstractValueWithChild implements BooleanValue,
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild());
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "exists(" + getChild().explain(formatter) + ")";
+        return "exists(" + child.explain(formatter) + ")";
     }
 
     @Override
     public String toString() {
-        return "exists(" + getChild() + ")";
+        return "exists(" + child + ")";
     }
 
     @Override
@@ -114,7 +121,7 @@ public class ExistsValue extends AbstractValueWithChild implements BooleanValue,
     @Override
     public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PExistsValue.newBuilder()
-                .setChild(((QuantifiedObjectValue)getChild()).toProto(serializationContext))
+                .setChild(child.toProto(serializationContext))
                 .build();
     }
 
@@ -129,6 +136,12 @@ public class ExistsValue extends AbstractValueWithChild implements BooleanValue,
                                         @Nonnull final PExistsValue existsValueProto) {
         return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
                 Objects.requireNonNull(existsValueProto.getChild())));
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     /**

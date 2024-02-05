@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AbstractLeafValue extends AbstractValue {
+public interface LeafValue extends Value {
 
     /**
      * Method to retrieve a list of children values.
@@ -39,28 +39,28 @@ public abstract class AbstractLeafValue extends AbstractValue {
      */
     @Nonnull
     @Override
-    public AbstractLeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
-        return this;
-    }
-
-    @Nonnull
-    @Override
-    protected Iterable<? extends Value> computeChildren() {
+    default Iterable<? extends Value> getChildren() {
         return ImmutableList.of();
     }
 
     @Nonnull
-    public Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
+    @Override
+    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+        return this;
+    }
+
+    @Nonnull
+    default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Nonnull
-    public Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
+    default Value replaceReferenceWithField(@Nonnull final FieldValue fieldValue) {
         throw new RecordCoreException("implementor must override");
     }
 
     @Override
-    public int height() {
+    default int height() {
         return 1;
     }
 }

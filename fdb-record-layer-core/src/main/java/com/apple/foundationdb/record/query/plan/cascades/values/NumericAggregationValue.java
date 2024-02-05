@@ -72,7 +72,7 @@ import static java.util.function.UnaryOperator.identity;
  * Aggregation over numeric values.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class NumericAggregationValue extends AbstractValueWithChild implements AggregateValue {
+public abstract class NumericAggregationValue extends AbstractValue implements ValueWithChild, AggregateValue {
     @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
     @Nonnull
@@ -81,17 +81,19 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
     @Nonnull
     protected final PhysicalOperator operator;
+    @Nonnull
+    private final Value child;
 
     protected NumericAggregationValue(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
-        super(Value.fromValueProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getChild())));
         this.operator = PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
+        this.child = Value.fromValueProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getChild()));
     }
 
     protected NumericAggregationValue(@Nonnull final PhysicalOperator operator,
                                       @Nonnull final Value child) {
-        super(child);
         this.operator = operator;
+        this.child = child;
     }
 
     @Nullable
@@ -103,7 +105,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
     @Nullable
     @Override
     public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operator.evalInitialToPartial(getChild().eval(store, context));
+        return operator.evalInitialToPartial(child.eval(store, context));
     }
 
     @Nonnull
@@ -115,13 +117,25 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return operator.name().toLowerCase(Locale.getDefault()) + getChild().explain(formatter) + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + child.explain(formatter) + ")";
     }
 
     @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(operator.getResultTypeCode());
+    }
+
+    @Nonnull
+    @Override
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     @Override
@@ -131,12 +145,12 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, getChild());
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, child);
     }
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + getChild() + ")";
+        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
     }
 
     @Override
@@ -155,7 +169,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
     public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         RecordQueryPlanProto.PNumericAggregationValue.Builder builder = RecordQueryPlanProto.PNumericAggregationValue.newBuilder();
         builder.setOperator(operator.toProto(serializationContext));
-        builder.setChild(getChild().toValueProto(serializationContext));
+        builder.setChild(child.toValueProto(serializationContext));
         return builder.build();
     }
 
@@ -221,7 +235,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public Sum withNewChild(@Nonnull final Value newChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
             return new Sum(operator, newChild);
         }
 
@@ -284,7 +298,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public Avg withNewChild(@Nonnull final Value newChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
             return new Avg(operator, newChild);
         }
 
@@ -353,7 +367,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public Min withNewChild(@Nonnull final Value newChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
             return new Min(operator, newChild);
         }
 
@@ -422,7 +436,7 @@ public abstract class NumericAggregationValue extends AbstractValueWithChild imp
 
         @Nonnull
         @Override
-        public Max withNewChild(@Nonnull final Value newChild) {
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
             return new Max(operator, newChild);
         }
 

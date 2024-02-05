@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -42,25 +43,33 @@ import java.util.Objects;
 /**
  * Checks whether a {@link Value}'s evaluation conforms to its result type.
  */
-public class OfTypeValue extends AbstractValueWithChild implements Value.RangeMatchableValue {
+public class OfTypeValue extends AbstractValue implements Value.RangeMatchableValue, ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
     @Nonnull
+    private final Value child;
+
     private final Type expectedType;
 
     private OfTypeValue(@Nonnull final Value child, @Nonnull final Type expectedType) {
-        super(child);
+        this.child = child;
         this.expectedType = expectedType;
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, expectedType, getChild());
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, expectedType, child);
     }
 
     @Nonnull
     @Override
-    public OfTypeValue withNewChild(@Nonnull final Value rebasedChild) {
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
         return new OfTypeValue(rebasedChild, expectedType);
     }
 
@@ -75,7 +84,7 @@ public class OfTypeValue extends AbstractValueWithChild implements Value.RangeMa
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
                                             @Nonnull final EvaluationContext context) {
-        final var value = getChild().eval(store, context);
+        final var value = child.eval(store, context);
         if (value == null) {
             return expectedType.isNullable();
         }
@@ -109,14 +118,14 @@ public class OfTypeValue extends AbstractValueWithChild implements Value.RangeMa
 
     @Override
     public String toString() {
-        return getChild() + " ofType " + expectedType;
+        return child + " ofType " + expectedType;
     }
 
     @Nonnull
     @Override
     public POfTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return POfTypeValue.newBuilder()
-                .setChild(getChild().toValueProto(serializationContext))
+                .setChild(child.toValueProto(serializationContext))
                 .setExpectedType(expectedType.toTypeProto(serializationContext))
                 .build();
     }
@@ -148,6 +157,12 @@ public class OfTypeValue extends AbstractValueWithChild implements Value.RangeMa
     @Nonnull
     public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
         return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getOrdinal(), Type.any()), value.getResultType());
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     /**
