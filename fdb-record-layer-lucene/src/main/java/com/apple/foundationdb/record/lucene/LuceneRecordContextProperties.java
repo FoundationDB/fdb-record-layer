@@ -94,4 +94,8 @@ public final class LuceneRecordContextProperties {
      * If set to true, disable the agility context feature and force every merge to be performed in a single transaction.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_AGILE_DISABLE_AGILITY_CONTEXT = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.agile.disabled", false);
+    /**
+     * Number of documents to move from a partition when its size exceeds {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 10);
 }
