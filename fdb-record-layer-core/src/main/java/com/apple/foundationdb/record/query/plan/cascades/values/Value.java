@@ -143,7 +143,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     default boolean isConstant() {
         return getCorrelatedTo().isEmpty()
-                && Streams.stream(preOrderIterator()).filter(NondeterministicValue.class::isInstance).findAny().isEmpty();
+                && preOrderStream().filter(NondeterministicValue.class::isInstance).findAny().isEmpty();
     }
 
     /**
@@ -248,7 +248,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return false;
         }
 
-        return Streams.stream(preOrderIterator()).flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+        return preOrderStream().flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 

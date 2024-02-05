@@ -79,8 +79,12 @@ public interface TreeLike<T extends TreeLike<T>> {
         return PreOrderIterator.over(getThis());
     }
 
+    /**
+     * Returns a {@link Stream} that traverses the nodes in pre-order.
+     * @return a {@link Stream} that traverses the nodes in pre-order.
+     */
     @Nonnull
-    default Stream<T> stream() {
+    default Stream<T> preOrderStream() {
         return Streams.stream(preOrderIterator());
     }
 
@@ -124,19 +128,6 @@ public interface TreeLike<T extends TreeLike<T>> {
         }
         iterablesBuilder.add(ImmutableList.of(getThis()));
         return Iterables.concat(iterablesBuilder.build());
-    }
-
-    /**
-     * Method that returns an {@link Iterator} of nodes as encountered in pre-order traversal of this tree-like that
-     * are filtered by a {@link Predicate} that filters out every node for which {@code predicate} returns {@code false}.
-     * @param predicate a {@link Predicate} that is evaluated per encountered node during pre-order traversal of
-     *        the tree-like rooted at {@code this}
-     * @return an {@link Iterable} of nodes satisfying the predicate passed in
-     */
-    @Nonnull
-    @Deprecated
-    default Stream<? extends T> filter(@Nonnull final Predicate<T> predicate) {
-        return Streams.stream(preOrderIterator()).filter(predicate);
     }
 
     /**
@@ -255,7 +246,13 @@ public interface TreeLike<T extends TreeLike<T>> {
         });
     }
 
-    int height();
+    /**
+     * returns the height of the tree.
+     * @return the height of the tree.
+     */
+    default int height() {
+        return Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElse(0) + 1;
+    }
 
     /**
      * Functional interface for a function whose result is not nullable.

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,7 +32,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * Basic trie implementation that stores values at the trie's leaves.
@@ -55,7 +53,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     public TrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
         this.value = value;
         this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-        this.heightSupplier = Suppliers.memoize(this::computeHeight);
+        this.heightSupplier = Suppliers.memoize(TreeLike.super::height);
     }
 
     @Nullable
@@ -84,10 +82,6 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
         return heightSupplier.get();
     }
 
-    private int computeHeight() {
-        return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
-    }
-
     @Nonnull
     @Override
     public N withChildren(final Iterable<? extends N> newChildren) {
@@ -96,7 +90,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
 
     @Nonnull
     public Collection<T> values() {
-        return Streams.stream(preOrderIterator())
+        return preOrderStream()
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
     }

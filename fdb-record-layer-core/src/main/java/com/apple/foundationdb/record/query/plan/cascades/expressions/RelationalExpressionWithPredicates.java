@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -99,10 +98,10 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                                                               @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
-                .flatMap(predicate -> Streams.stream(predicate.preOrderIterator())
+                .flatMap(predicate -> predicate.preOrderStream()
                         .filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p))
                         .map(p -> (PredicateWithValue)p)
-                        .flatMap(predicateWithValue -> Streams.stream(predicateWithValue.getValue().preOrderIterator()).filter(FieldValue.class::isInstance))
+                        .flatMap(predicateWithValue -> predicateWithValue.getValue().preOrderStream().filter(FieldValue.class::isInstance))
                         .map(value -> (FieldValue)value))
                 .map(fieldValue -> {
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();

@@ -21,11 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -53,7 +50,7 @@ public class TreeLikeTest {
         assertEquals(ImmutableList.of("a", "b", "c"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
         assertEquals(ImmutableList.of("a", "b", "c"),
-                Streams.stream(t.preOrderIterator()).map(item -> item.contents).collect(Collectors.toList()));
+                t.preOrderStream().map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -69,7 +66,7 @@ public class TreeLikeTest {
         assertEquals(ImmutableList.of("a", "b", "c", "d", "e"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
         assertEquals(ImmutableList.of("a", "b", "c", "d", "e"),
-                Streams.stream(t.preOrderIterator()).map(item -> item.contents).collect(Collectors.toList()));
+                t.preOrderStream().map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -89,7 +86,7 @@ public class TreeLikeTest {
         assertEquals(ImmutableList.of("a", "b", "c", "d", "e", "f", "g", "h", "i"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
         assertEquals(ImmutableList.of("a", "b", "c", "d", "e", "f", "g", "h", "i"),
-                Streams.stream(t.preOrderIterator()).map(item -> item.contents).collect(Collectors.toList()));
+                t.preOrderStream().map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -103,7 +100,7 @@ public class TreeLikeTest {
         assertEquals(ImmutableList.of("a", "b", "c"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
         assertEquals(ImmutableList.of("a", "b", "c"),
-                Streams.stream(t.preOrderIterator()).map(item -> item.contents).collect(Collectors.toList()));
+                t.preOrderStream().map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -114,7 +111,7 @@ public class TreeLikeTest {
         assertEquals(ImmutableList.of("a"),
                 traversed.stream().map(TreeNode::getContents).collect(ImmutableList.toImmutableList()));
         assertEquals(ImmutableList.of("a"),
-                Streams.stream(t.preOrderIterator()).map(item -> item.contents).collect(Collectors.toList()));
+                t.preOrderStream().map(item -> item.contents).collect(Collectors.toList()));
     }
 
     @Test
@@ -285,12 +282,10 @@ public class TreeLikeTest {
     private static class TreeNode implements TreeLike<TreeNode> {
         private final String contents;
         private final List<TreeNode> children;
-        private final Supplier<Integer> heightSupplier;
 
         public TreeNode(@Nonnull final String contents, final Iterable<? extends TreeNode> children) {
             this.contents = contents;
             this.children = ImmutableList.copyOf(children);
-            this.heightSupplier = Suppliers.memoize(this::computeHeight);
         }
 
         @Nonnull
@@ -314,15 +309,6 @@ public class TreeLikeTest {
         @Override
         public TreeNode withChildren(@Nonnull final Iterable<? extends TreeNode> newChildren) {
             return new TreeNode(this.contents, newChildren);
-        }
-
-        private int computeHeight() {
-            return 1 + children.stream().mapToInt(TreeLike::height).max().orElse(0);
-        }
-
-        @Override
-        public int height() {
-            return heightSupplier.get();
         }
 
         @Override
