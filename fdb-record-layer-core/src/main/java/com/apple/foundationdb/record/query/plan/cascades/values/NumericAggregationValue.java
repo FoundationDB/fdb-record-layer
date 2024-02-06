@@ -24,7 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMax;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMin;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -35,10 +43,12 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
@@ -73,7 +83,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     protected final PhysicalOperator operator;
     @Nonnull
     private final Value child;
-    
+
+    protected NumericAggregationValue(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+        this.operator = PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
+        this.child = Value.fromValueProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getChild()));
+    }
+
     protected NumericAggregationValue(@Nonnull final PhysicalOperator operator,
                                       @Nonnull final Value child) {
         this.operator = operator;
@@ -84,104 +100,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
-    }
-
-    /**
-     * Sum aggregation {@code Value}.
-     */
-    public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
-
-        public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexName() {
-            return IndexTypes.SUM;
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Sum(operator, newChild);
-        }
-    }
-
-    /**
-     * Average aggregation {@code Value}.
-     */
-    public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Avg(operator, newChild);
-        }
-    }
-
-    /**
-     * Min aggregation {@code Value}.
-     */
-    public static class Min extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Min(operator, newChild);
-        }
-    }
-
-    /**
-     * Max aggregation {@code Value}.
-     */
-    public static class Max extends NumericAggregationValue implements StreamableAggregateValue {
-
-        public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
-            super(operator, child);
-        }
-
-        @Nonnull
-        @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
-        }
-
-        @Nonnull
-        @Override
-        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
-            return new Max(operator, newChild);
-        }
     }
 
     @Nullable
@@ -214,6 +132,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         return child;
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
@@ -239,6 +163,14 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        RecordQueryPlanProto.PNumericAggregationValue.Builder builder = RecordQueryPlanProto.PNumericAggregationValue.newBuilder();
+        builder.setOperator(operator.toProto(serializationContext));
+        builder.setChild(child.toValueProto(serializationContext));
+        return builder.build();
     }
 
     @Nonnull
@@ -273,6 +205,276 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             mapBuilder.put(Pair.of(operator.getLogicalOperator(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
+    }
+
+    /**
+     * Sum aggregation {@code Value}.
+     */
+    public static class Sum extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public Sum(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Sum(@Nonnull final PlanSerializationContext serializationContext,
+                      @Nonnull final PSum sumProto) {
+            super(serializationContext, Objects.requireNonNull(sumProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.SUM;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Sum(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PSum toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PSum.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueSum(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static Sum fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PSum sumProto) {
+            return new Sum(serializationContext, sumProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PSum, Sum> {
+            @Nonnull
+            @Override
+            public Class<PSum> getProtoMessageClass() {
+                return PSum.class;
+            }
+
+            @Nonnull
+            @Override
+            public Sum fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PSum sumProto) {
+                return Sum.fromProto(serializationContext, sumProto);
+            }
+        }
+    }
+
+    /**
+     * Average aggregation {@code Value}.
+     */
+    public static class Avg extends NumericAggregationValue implements StreamableAggregateValue {
+        public Avg(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Avg(@Nonnull final PlanSerializationContext serializationContext,
+                      @Nonnull final PAvg avgProto) {
+            super(serializationContext, Objects.requireNonNull(avgProto.getSuper()));
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Avg(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PAvg toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PAvg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueAvg(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static Avg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PAvg avgProto) {
+            return new Avg(serializationContext, avgProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PAvg, Avg> {
+            @Nonnull
+            @Override
+            public Class<PAvg> getProtoMessageClass() {
+                return PAvg.class;
+            }
+
+            @Nonnull
+            @Override
+            public Avg fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PAvg avgProto) {
+                return Avg.fromProto(serializationContext, avgProto);
+            }
+        }
+    }
+
+    /**
+     * Min aggregation {@code Value}.
+     */
+    public static class Min extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public Min(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Min(@Nonnull final PlanSerializationContext serializationContext,
+                      @Nonnull final PMin minProto) {
+            super(serializationContext, Objects.requireNonNull(minProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.PERMUTED_MIN;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Min(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMin toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMin.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMin(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static Min fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMin minProto) {
+            return new Min(serializationContext, minProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMin, Min> {
+            @Nonnull
+            @Override
+            public Class<PMin> getProtoMessageClass() {
+                return PMin.class;
+            }
+
+            @Nonnull
+            @Override
+            public Min fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PMin minProto) {
+                return Min.fromProto(serializationContext, minProto);
+            }
+        }
+    }
+
+    /**
+     * Max aggregation {@code Value}.
+     */
+    public static class Max extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public Max(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected Max(@Nonnull final PlanSerializationContext serializationContext,
+                      @Nonnull final PMax maxProto) {
+            super(serializationContext, Objects.requireNonNull(maxProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.PERMUTED_MAX;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new Max(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PMax toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMax.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMax(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static Max fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PMax maxProto) {
+            return new Max(serializationContext, maxProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMax, Max> {
+            @Nonnull
+            @Override
+            public Class<PMax> getProtoMessageClass() {
+                return PMax.class;
+            }
+
+            @Nonnull
+            @Override
+            public Max fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PMax maxProto) {
+                return Max.fromProto(serializationContext, maxProto);
+            }
+        }
     }
 
     /**
@@ -391,6 +593,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
 
         @Nonnull
+        private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
+
+        @Nonnull
         private final LogicalOperator logicalOperator;
 
         @Nonnull
@@ -423,7 +629,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
-        public LogicalOperator getLogicalOperator() {
+        private LogicalOperator getLogicalOperator() {
             return logicalOperator;
         }
 
@@ -438,16 +644,19 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public UnaryOperator<Object> getInitialToPartialFunction() {
             return initialToPartialFunction;
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public BinaryOperator<Object> getPartialToPartialFunction() {
             return partialToPartialFunction;
         }
 
         @Nonnull
+        @SuppressWarnings("unused")
         public UnaryOperator<Object> getPartialToFinalFunction() {
             return partialToFinalFunction;
         }
@@ -479,6 +688,24 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 return null;
             }
             return partialToFinalFunction.apply(object);
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 

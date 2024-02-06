@@ -166,7 +166,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
                                 .build(),
                         ImmutableList.of());
 
-        call.yield(upperSelectExpression);
+        call.yieldExpression(upperSelectExpression);
     }
 
     private boolean isSimpleSelect(@Nonnull final SelectExpression selectExpression,

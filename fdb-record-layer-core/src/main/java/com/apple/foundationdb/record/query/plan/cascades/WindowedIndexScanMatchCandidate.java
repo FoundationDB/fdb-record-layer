@@ -455,7 +455,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         }
         final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), t -> true, fieldData.getOrdinalPath());
+            builder.addField(fieldName, fieldData.getSource(), new AvailableFields.TruePredicate(), fieldData.getOrdinalPath());
         }
         return true;
     }

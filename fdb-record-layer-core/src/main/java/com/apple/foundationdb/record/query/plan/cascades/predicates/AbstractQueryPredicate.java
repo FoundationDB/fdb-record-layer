@@ -21,7 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -42,10 +45,20 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> semanticHashCodeSupplier;
 
+    private final Supplier<Integer> heightSupplier;
+
+    @SuppressWarnings("unused")
+    protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
+        this(PlanSerialization.getFieldOrThrow(abstractQueryPredicateProto,
+                PAbstractQueryPredicate::hasIsAtomic, PAbstractQueryPredicate::getIsAtomic));
+    }
+
     protected AbstractQueryPredicate(final boolean isAtomic) {
         this.isAtomic = isAtomic;
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+        this.heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
     }
 
     @Nonnull
@@ -79,6 +92,11 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     protected abstract int computeSemanticHashCode();
 
     @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(isAtomic);
     }
@@ -86,5 +104,10 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Override
     public boolean isAtomic() {
         return isAtomic;
+    }
+
+    @Nonnull
+    public PAbstractQueryPredicate toAbstractQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PAbstractQueryPredicate.newBuilder().setIsAtomic(isAtomic).build();
     }
 }

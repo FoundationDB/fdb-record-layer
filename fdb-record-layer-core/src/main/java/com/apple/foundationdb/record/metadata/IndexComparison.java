@@ -30,7 +30,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.stream.StreamSupport;
 
 /**
  * This is a simple PoJo hierarchy representing SerDe operations on a predicate comparison of a sparse {@link Index}.
@@ -85,14 +84,12 @@ public abstract class IndexComparison {
      */
     public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
         return comparison instanceof Comparisons.SimpleComparison ||
-               comparison instanceof Comparisons.NullComparison ||
-               (comparison instanceof Comparisons.ValueComparison &&
-                StreamSupport.stream(((Comparisons.ValueComparison)comparison)
-                        .getComparandValue()
-                        .filter(value -> !(value instanceof Value.RangeMatchableValue))
-                        .spliterator(), false)
-                        .findAny()
-                        .isEmpty());
+                comparison instanceof Comparisons.NullComparison ||
+                (comparison instanceof Comparisons.ValueComparison &&
+                         ((Comparisons.ValueComparison)comparison).getComparandValue().preOrderStream()
+                                 .filter(value -> !(value instanceof Value.RangeMatchableValue))
+                                 .findAny()
+                                 .isEmpty());
     }
 
     /**
@@ -126,7 +123,7 @@ public abstract class IndexComparison {
             GREATER_THAN_OR_EQUALS,
             STARTS_WITH,
             NOT_NULL,
-            IS_NULL
+            IS_NULL;
         }
 
         @Nonnull

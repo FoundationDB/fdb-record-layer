@@ -41,14 +41,6 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
-test {
-    useJUnitPlatform {
-        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
-            excludeTags 'RequiresFDB'
-        }
-    }
-}
-
 apply from: rootProject.file('gradle/publishing.gradle')
 publishing {
     publications {

@@ -25,10 +25,23 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PComparison.PComparisonType;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInvertedFunctionComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PListComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PMultiColumnComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNullComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.POpaqueEqualityComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PSimpleComparison;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PValueComparison;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
@@ -47,11 +60,15 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -59,6 +76,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Internal;
+import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 
 import javax.annotation.Nonnull;
@@ -174,6 +192,8 @@ public class Comparisons {
         } else if (obj instanceof UUID) {
             UUID uuid = (UUID)obj;
             return new UnsignedUUID(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        } else if (obj instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return (Comparable) obj;
         } else {
@@ -182,13 +202,15 @@ public class Comparisons {
     }
 
     @SuppressWarnings("rawtypes")
-    private static Object toClassWithRealEquals(@Nullable Object obj) {
+    public static Object toClassWithRealEquals(@Nullable Object obj) {
         if (obj == null) {
             return null;
         } else if (obj instanceof ByteString) {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
+        } else if (obj instanceof Internal.EnumLite) {
+            return ((Internal.EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return obj;
         } else if (obj instanceof List) {
@@ -256,14 +278,26 @@ public class Comparisons {
         return LikeOperatorValue.likeOperation((String)value, (String)pattern);
     }
 
-    private static Boolean compareListStartsWith(@Nullable Object value, @Nullable List<?> comparand) {
+    public static Boolean compareListEquals(@Nullable Object value, @Nonnull List<?> comparand) {
+        if (value instanceof List<?>) {
+            List<?> list = (List<?>) value;
+            if (list.size() != comparand.size()) {
+                return false;
+            }
+            return compareListStartsWith(value, comparand);
+        } else {
+            throw new RecordCoreException("value from record did not match comparand");
+        }
+    }
+
+    private static Boolean compareListStartsWith(@Nullable Object value, @Nonnull List<?> comparand) {
         if (value instanceof List<?>) {
             List<?> list = (List<?>) value;
             for (int i = 0; i < comparand.size(); i++) {
                 if (i > list.size()) {
                     return false;
                 }
-                if (!comparand.get(i).equals(list.get(i))) {
+                if (!toClassWithRealEquals(comparand.get(i)).equals(toClassWithRealEquals(list.get(i)))) {
                     return false;
                 }
             }
@@ -580,6 +614,10 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         LIKE;
 
+        @Nonnull
+        private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(Type.class, PComparisonType.class));
+
         private final boolean isEquality;
         private final boolean isUnary;
 
@@ -602,6 +640,24 @@ public class Comparisons {
 
         public boolean isUnary() {
             return isUnary;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PComparisonType physicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<Type, PComparisonType> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 
@@ -668,13 +724,13 @@ public class Comparisons {
         }
         switch (type) {
             case EQUALS:
-                return value.equals(comparand);
+                return compareListEquals(value, Objects.requireNonNull(comparand));
             case NOT_EQUALS:
-                return !value.equals(comparand);
+                return !compareListEquals(value, Objects.requireNonNull(comparand));
             case STARTS_WITH:
-                return compareListStartsWith(value, comparand);
+                return compareListStartsWith(value, Objects.requireNonNull(comparand));
             case IN:
-                return compareIn(value, comparand);
+                return compareIn(value, Objects.requireNonNull(comparand));
             default:
                 throw new RecordCoreException("Only equals/not equals/starts with are supported for lists");
         }
@@ -684,7 +740,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends PlanHashable, QueryHashable, Correlated<Comparison> {
+    public interface Comparison extends PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -775,6 +831,16 @@ public class Comparisons {
         default int semanticHashCode() {
             return hashCode();
         }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
+
+        @Nonnull
+        static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final RecordQueryPlanProto.PComparison comparisonProto) {
+            return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
+        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -836,8 +902,10 @@ public class Comparisons {
                 case STRING:
                     return comparand instanceof String;
                 case ENUM:
-                    return comparand instanceof ProtocolMessageEnum &&
-                          fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum) comparand).getDescriptorForType());
+                    if (comparand instanceof ProtocolMessageEnum) {
+                        return fieldDescriptor.getEnumType().equals(((ProtocolMessageEnum)comparand).getDescriptorForType());
+                    }
+                    return comparand instanceof ProtoUtils.DynamicEnum; // returns false for descriptors
                 case MESSAGE:
                     final Descriptors.Descriptor descriptor = fieldDescriptor.getMessageType();
                     if (!TupleFieldsHelper.isTupleField(descriptor)) {
@@ -900,12 +968,12 @@ public class Comparisons {
             }
             SimpleComparison that = (SimpleComparison) o;
             return type == that.type &&
-                    Objects.equals(comparand, that.comparand);
+                    Objects.equals(toClassWithRealEquals(comparand), toClassWithRealEquals(that.comparand));
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, comparand);
+            return Objects.hash(type, toClassWithRealEquals(comparand));
         }
 
         @Override
@@ -936,6 +1004,47 @@ public class Comparisons {
         @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public PSimpleComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PSimpleComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setObject(PlanSerialization.valueObjectToProto(comparand))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PSimpleComparison simpleComparisonProto) {
+            return new SimpleComparison(Type.fromProto(serializationContext, Objects.requireNonNull(simpleComparisonProto.getType())),
+                    Objects.requireNonNull(PlanSerialization.protoToValueObject(Objects.requireNonNull(simpleComparisonProto.getObject()))));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PSimpleComparison, SimpleComparison> {
+            @Nonnull
+            @Override
+            public Class<PSimpleComparison> getProtoMessageClass() {
+                return PSimpleComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PSimpleComparison simpleComparisonProto) {
+                return SimpleComparison.fromProto(serializationContext, simpleComparisonProto);
+            }
         }
     }
 
@@ -1210,6 +1319,39 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        public PParameterComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PParameterComparison.Builder builder = PParameterComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setParameter(parameter);
+
+            if (internal != null) {
+                builder.setInternal(internal.toProto(serializationContext));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PParameterComparison parameterComparisonProto) {
+            final Bindings.Internal internal;
+            if (parameterComparisonProto.hasInternal()) {
+                internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getInternal()));
+            } else {
+                internal = null;
+            }
+            return new ParameterComparison(Type.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getType())),
+                    Objects.requireNonNull(parameterComparisonProto.getParameter()),
+                    internal);
+        }
+
+        @Nonnull
         private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
             if (internal == null && Bindings.Internal.isInternal(parameter)) {
                 throw new RecordCoreException(
@@ -1217,10 +1359,29 @@ public class Comparisons {
             }
             return parameter;
         }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PParameterComparison, ParameterComparison> {
+            @Nonnull
+            @Override
+            public Class<PParameterComparison> getProtoMessageClass() {
+                return PParameterComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PParameterComparison parameterComparisonProto) {
+                return ParameterComparison.fromProto(serializationContext, parameterComparisonProto);
+            }
+        }
     }
 
     /**
-     * A comparison with a bound parameter, as opposed to a literal constant in the query.
+     * A comparison with a {@link Value}, as opposed to a literal constant in the query.
      */
     public static class ValueComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Comparison");
@@ -1387,6 +1548,47 @@ public class Comparisons {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ValueComparison(type, comparandValue, parameterRelationshipGraph);
         }
+
+        @Nonnull
+        @Override
+        public PValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValueComparison.newBuilder()
+                    .setType(type.toProto(serializationContext))
+                    .setComparandValue(comparandValue.toValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PValueComparison valueComparisonProto) {
+            return new ValueComparison(Type.fromProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getType())),
+                    Value.fromValueProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getComparandValue())));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PValueComparison, ValueComparison> {
+            @Nonnull
+            @Override
+            public Class<PValueComparison> getProtoMessageClass() {
+                return PValueComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PValueComparison valueComparisonProto) {
+                return ValueComparison.fromProto(serializationContext, valueComparisonProto);
+            }
+        }
     }
 
     /**
@@ -1402,6 +1604,10 @@ public class Comparisons {
         private final List comparand;
         @Nullable
         private final Descriptors.FieldDescriptor.JavaType javaType;
+
+        @Nonnull
+        @SuppressWarnings("rawtypes")
+        private final Supplier<List> comparandListWithEqualsSupplier;
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
@@ -1430,6 +1636,7 @@ public class Comparisons {
                 }
             }
             this.comparand = comparand;
+            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, Comparisons::toClassWithRealEquals));
         }
 
         private static Descriptors.FieldDescriptor.JavaType getJavaType(@Nonnull Object o) {
@@ -1476,6 +1683,12 @@ public class Comparisons {
         @SuppressWarnings("rawtypes")
         public List getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
+        }
+
+        @Nonnull
+        @SuppressWarnings("rawtypes")
+        public List getComparandWithRealEquals() {
+            return comparandListWithEqualsSupplier.get();
         }
 
         @Nonnull
@@ -1526,13 +1739,13 @@ public class Comparisons {
             }
             ListComparison that = (ListComparison) o;
             return type == that.type &&
-                    Objects.equals(comparand, that.comparand) &&
+                    Objects.equals(getComparandWithRealEquals(), that.getComparandWithRealEquals()) &&
                     javaType == that.javaType;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, comparand, javaType);
+            return Objects.hash(type, getComparandWithRealEquals(), javaType);
         }
 
         @Override
@@ -1557,6 +1770,53 @@ public class Comparisons {
                     return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
                 default :
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
+        }
+
+        @Nonnull
+        @Override
+        public PListComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final var builder = PListComparison.newBuilder()
+                    .setType(type.toProto(serializationContext));
+            for (final Object element : comparand) {
+                builder.addComparand(PlanSerialization.valueObjectToProto(element));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static ListComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PListComparison listComparisonProto) {
+            List<Object> comparand = Lists.newArrayList();
+            for (int i = 0; i < listComparisonProto.getComparandCount(); i ++) {
+                comparand.add(PlanSerialization.protoToValueObject(listComparisonProto.getComparand(i)));
+            }
+            return new ListComparison(Type.fromProto(serializationContext, Objects.requireNonNull(listComparisonProto.getType())),
+                    comparand);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PListComparison, ListComparison> {
+            @Nonnull
+            @Override
+            public Class<PListComparison> getProtoMessageClass() {
+                return PListComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public ListComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PListComparison listComparisonProto) {
+                return ListComparison.fromProto(serializationContext, listComparisonProto);
             }
         }
     }
@@ -1663,6 +1923,43 @@ public class Comparisons {
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
+
+        @Nonnull
+        @Override
+        public PNullComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PNullComparison.newBuilder().setType(type.toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static NullComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PNullComparison nullComparisonProto) {
+            return new NullComparison(Type.fromProto(serializationContext, Objects.requireNonNull(nullComparisonProto.getType())));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PNullComparison, NullComparison> {
+            @Nonnull
+            @Override
+            public Class<PNullComparison> getProtoMessageClass() {
+                return PNullComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public NullComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PNullComparison nullComparisonProto) {
+                return NullComparison.fromProto(serializationContext, nullComparisonProto);
+            }
+        }
     }
 
     /**
@@ -1735,6 +2032,44 @@ public class Comparisons {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
+
+        @Nonnull
+        @Override
+        public POpaqueEqualityComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return POpaqueEqualityComparison.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static OpaqueEqualityComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
+            return new OpaqueEqualityComparison();
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<POpaqueEqualityComparison, OpaqueEqualityComparison> {
+            @Nonnull
+            @Override
+            public Class<POpaqueEqualityComparison> getProtoMessageClass() {
+                return POpaqueEqualityComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public OpaqueEqualityComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
+                return OpaqueEqualityComparison.fromProto(serializationContext, opaqueEqualityComparisonProto);
+            }
         }
     }
 
@@ -1944,6 +2279,18 @@ public class Comparisons {
         @Override
         public int hashCode() {
             return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("serialization of comparison of this kind is not supported");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RecordCoreException("serialization of comparison of this kind is not supported");
         }
     }
 
@@ -2272,6 +2619,46 @@ public class Comparisons {
         public String toString() {
             return inner.toString();
         }
+
+        @Nonnull
+        @Override
+        public PMultiColumnComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PMultiColumnComparison.newBuilder()
+                    .setInner(inner.toComparisonProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static MultiColumnComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PMultiColumnComparison multiColumnComparisonProto) {
+            return new MultiColumnComparison(Comparison.fromComparisonProto(serializationContext,
+                    Objects.requireNonNull(multiColumnComparisonProto.getInner())));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PMultiColumnComparison, MultiColumnComparison> {
+            @Nonnull
+            @Override
+            public Class<PMultiColumnComparison> getProtoMessageClass() {
+                return PMultiColumnComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public MultiColumnComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PMultiColumnComparison multiColumnComparisonProto) {
+                return MultiColumnComparison.fromProto(serializationContext, multiColumnComparisonProto);
+            }
+        }
     }
 
     /**
@@ -2419,6 +2806,30 @@ public class Comparisons {
             }
         }
 
+        @Nonnull
+        @Override
+        public PInvertedFunctionComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PInvertedFunctionComparison.newBuilder()
+                    .setFunction(function.toProto())
+                    .setOriginalComparison(originalComparison.toComparisonProto(serializationContext))
+                    .setType(type.toProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static InvertedFunctionComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PInvertedFunctionComparison invertedFunctionComparisonProto) {
+            return new InvertedFunctionComparison((InvertibleFunctionKeyExpression)InvertibleFunctionKeyExpression.fromProto(Objects.requireNonNull(invertedFunctionComparisonProto.getFunction())),
+                    Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getOriginalComparison())),
+                    Type.fromProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getType())));
+        }
+
         /**
          * Create an inverted function comparison from an invertible function and a pre-existing comparison.
          * This will create a new comparison that evaluates the inverse of the given function against the
@@ -2454,6 +2865,25 @@ public class Comparisons {
             }
             final Type newType = function.isInjective() ? underlyingType : Type.IN;
             return new InvertedFunctionComparison(function, originalComparison, newType);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PInvertedFunctionComparison, InvertedFunctionComparison> {
+            @Nonnull
+            @Override
+            public Class<PInvertedFunctionComparison> getProtoMessageClass() {
+                return PInvertedFunctionComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public InvertedFunctionComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PInvertedFunctionComparison invertedFunctionComparisonProto) {
+                return InvertedFunctionComparison.fromProto(serializationContext, invertedFunctionComparisonProto);
+            }
         }
     }
 }

@@ -66,7 +66,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("x"))
                 .build();
-        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planQuery(planner, query).maxCardinality(metaData));
     }
 
     @Test
@@ -76,7 +76,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").equalsValue(1))
                 .build();
-        assertEquals(1, planner.plan(query).maxCardinality(metaData));
+        assertEquals(1, planQuery(planner, query).maxCardinality(metaData));
     }
 
     @Test
@@ -86,7 +86,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").lessThanOrEquals(1))
                 .build();
-        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planQuery(planner, query).maxCardinality(metaData));
     }
 
     @Test
@@ -99,7 +99,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").equalsValue(1))
                 .build();
-        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planQuery(planner, query).maxCardinality(metaData));
     }
 
     @Test
@@ -109,7 +109,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("rec_no").equalsValue(1L))
                 .build();
-        assertEquals(1, planner.plan(query).maxCardinality(metaData));
+        assertEquals(1, planQuery(planner, query).maxCardinality(metaData));
     }
 
     @Test
@@ -121,7 +121,7 @@ public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
-        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planQuery(planner, query).maxCardinality(metaData));
     }
 
 }

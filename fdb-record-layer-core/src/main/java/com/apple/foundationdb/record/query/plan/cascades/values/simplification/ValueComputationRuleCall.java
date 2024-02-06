@@ -69,7 +69,7 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
         return retrieveResultFunction.apply(value);
     }
 
-    public void yield(@Nonnull final Value value, @Nonnull final RESULT result) {
-        super.yield(Pair.of(value, result));
+    public void yieldValue(@Nonnull final Value value, @Nonnull final RESULT result) {
+        super.yieldExpression(Pair.of(value, result));
     }
 }

@@ -286,7 +286,8 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
                     spanQuery.addGap(1);
                 }
             } else {
-                spanQuery.addClause(new SpanTermQuery(((TermQuery)phraseQuery).getTerm()));
+                // if NONSTOPWORD is the only term, then the rest of the phrase must be stop words
+                spanQuery.addGap(1);
             }
 
             if (!useGapForPrefix && prefix != null) {

@@ -24,12 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractArrayConstructorValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PLightArrayConstructorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -42,8 +46,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -60,6 +64,15 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
     @Nonnull
     private final Type elementType;
+
+    protected AbstractArrayConstructorValue(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PAbstractArrayConstructorValue abstractArrayConstructorValueProto) {
+        this(abstractArrayConstructorValueProto.getChildrenList()
+                        .stream()
+                        .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
+                        .collect(ImmutableList.toImmutableList()),
+                Type.fromTypeProto(serializationContext, Objects.requireNonNull(abstractArrayConstructorValueProto.getElementType())));
+    }
 
     protected AbstractArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
         this.elementType = elementType;
@@ -79,7 +92,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
     @Nonnull
     @Override
-    public Collection<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
@@ -114,6 +127,16 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    PAbstractArrayConstructorValue toAbstractArrayConstructorProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PAbstractArrayConstructorValue.Builder builder = PAbstractArrayConstructorValue.newBuilder();
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(serializationContext));
+        }
+        builder.setElementType(elementType.toTypeProto(serializationContext));
+        return builder.build();
     }
 
     @Nonnull
@@ -164,6 +187,11 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             this(ImmutableList.of(), elementType);
         }
 
+        private LightArrayConstructorValue(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
+            super(serializationContext, Objects.requireNonNull(lightArrayConstructorValueProto.getSuper()));
+        }
+
         private LightArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
             super(children, elementType);
         }
@@ -172,7 +200,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Override
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            return getChildren().stream()
+            return Streams.stream(getChildren())
                     .map(child -> child.eval(store, context))
                     .collect(ImmutableList.toImmutableList());
         }
@@ -187,10 +215,9 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             return new LightArrayConstructorValue(AbstractArrayConstructorValue.injectPromotions(newChildren, getElementType()), getElementType());
         }
 
-        @Nonnull
         @Override
         public boolean canResultInType(@Nonnull final Type type) {
-            if (!getChildren().isEmpty()) {
+            if (!Iterables.isEmpty(getChildren())) {
                 return false;
             }
             return type.isUnresolved();
@@ -199,8 +226,26 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         @Override
         public Value with(@Nonnull final Type type) {
-            Verify.verify(getChildren().isEmpty());
+            Verify.verify(Iterables.isEmpty(getChildren()));
             return emptyArray(type); // only empty arrays are currently promotable
+        }
+
+        @Nonnull
+        @Override
+        public PLightArrayConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PLightArrayConstructorValue.newBuilder().setSuper(toAbstractArrayConstructorProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setLightArrayConstructorValue(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                           @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
+            return new LightArrayConstructorValue(serializationContext, lightArrayConstructorValueProto);
         }
 
         @Nonnull
@@ -218,6 +263,25 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         public static LightArrayConstructorValue emptyArray(@Nonnull final Type elementType) {
             return new LightArrayConstructorValue(elementType);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PLightArrayConstructorValue, LightArrayConstructorValue> {
+            @Nonnull
+            @Override
+            public Class<PLightArrayConstructorValue> getProtoMessageClass() {
+                return PLightArrayConstructorValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public LightArrayConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                        @Nonnull final PLightArrayConstructorValue lightArrayConstructorValueProto) {
+                return LightArrayConstructorValue.fromProto(serializationContext, lightArrayConstructorValueProto);
+            }
         }
     }
 

@@ -21,27 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface ValueWithChild extends Value {
-
-    /**
-     * Method to retrieve a list of children values.
-     * @return a list of children
-     */
-    @Nonnull
-    @Override
-    default List<? extends Value> getChildren() {
-        return ImmutableList.of(getChild());
-    }
 
     /**
      * Method to retrieve the only child value.

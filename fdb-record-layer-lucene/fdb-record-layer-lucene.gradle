@@ -49,53 +49,27 @@ dependencies {
     testAnnotationProcessor "com.google.auto.service:auto-service:undefined"
 }
 
-if (protoMajorVersion == '2') {
-    protobuf {
-        generateProtoTasks {
-            all().each { task ->
-                task.doLast {
-                    task.outputs.getFiles().forEach {
-                        // Suppress redundant ByteString casting in proto-generated code in proto2
-                        ant.replace(dir: it, includes: "**/LuceneContinuationProto.java",
-                                token: "public int getSerializedSize() {\n",
-                                value: "@SuppressWarnings(\"cast\") public int getSerializedSize() {\n",
-                        )
-                        ant.replace(dir: it, includes: "**/LuceneContinuationProto.java",
-                                token: "public void writeTo(com.google.protobuf.CodedOutputStream output)\n",
-                                value: "@SuppressWarnings(\"cast\") public void writeTo(com.google.protobuf.CodedOutputStream output)\n",
-                        )
-                    }
-                }
-            }
-        }
+// Disable blocking detection, because we do this *a lot* in lucene
+test.systemProperties['com.apple.foundationdb.record.blockingInAsyncDetection'] = System.getenv('BLOCKING_DETECTION') ?: "DISABLED"
+// Used by lucene tests to create Directory objects for testing our codecs
+test.systemProperties['tests.directory'] = 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
+// uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
+// it might differ
+// test.systemProperties['tests.directory'] = 'org.apache.lucene.store.RAMDirectory'
+
+// Uncomment below line to run nightly tests
+// test.systemProperties['tests.nightly'] = 'true'
+
+tasks.withType(Test) { theTask ->
+    if (!project.hasProperty('tests.includeRandom')) {
+        println("Fixing seed for lucene tests")
+        theTask.systemProperties['tests.seed'] = "C185081D42F0F43C" // a fixed seed, should pass reliably in prb/release
     }
-}
-
-def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
-def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
-test {
-    useJUnitPlatform {
-        // Used by lucene tests to create Directory objects for testing our codecs
-        systemProperty 'tests.directory', 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
-        // uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
-        // it might differ
-        //systemProperty 'tests.directory', 'org.apache.lucene.store.RAMDirectory'
-        // Uncomment below line to run nightly tests
-        // systemProperty 'tests.nightly', 'true'
-        if (skipFDB) {
-            excludeTags 'RequiresFDB'
-        }
-        if (skipSlow) {
-            excludeTags 'Slow'
-        }
-
-        // We need the destructive tests to be available in the 'test' task, so that IntelliJ's gradle test runner can
-        // find them. However, we _only_ want to run them as part of the 'test' task if we're running from IntelliJ.
-        // This isn't a great way to detect it, but it's the only one I could find. If this ever breaks, I'd look here first.
-        if (System.getenv('XPC_SERVICE_NAME') == null || !(System.getenv('XPC_SERVICE_NAME').contains("intellij") || System.getenv('XPC_SERVICE_NAME').contains("idea"))) {
-            excludeTags 'WipesFDB'
-            excludeTags 'Performance'
-        }
+    if (project.hasProperty('tests.iterations')) {
+        theTask.systemProperties['tests.iters'] = project.getProperty('tests.iterations')
+    }
+    if (project.hasProperty('tests.nightly')) {
+        theTask.systemProperties['tests.nightly'] = 'true'
     }
 }
 

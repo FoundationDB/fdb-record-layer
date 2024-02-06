@@ -111,7 +111,7 @@ public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeF
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
 
-        call.yield(new RecordQueryPredicatesFilterPlan(
+        call.yieldExpression(new RecordQueryPredicatesFilterPlan(
                         newQun,
                         rebasedPredicates));
     }

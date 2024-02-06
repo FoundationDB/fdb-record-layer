@@ -24,8 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -43,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -221,5 +226,46 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                         ImmutableList.of("comparison key: {{comparisonKey}}"),
                         ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryUnorderedDistinctPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUnorderedDistinctPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setComparisonKey(comparisonKey.toKeyExpression())
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUnorderedDistinctPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
+        return new RecordQueryUnorderedDistinctPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getInner())),
+                KeyExpression.fromProto(Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getComparisonKey())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedDistinctPlan, RecordQueryUnorderedDistinctPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnorderedDistinctPlan> getProtoMessageClass() {
+            return PRecordQueryUnorderedDistinctPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnorderedDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                          @Nonnull final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
+            return RecordQueryUnorderedDistinctPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
+        }
     }
 }

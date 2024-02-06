@@ -388,7 +388,7 @@ class FDBQueryCompatibilityTest extends FDBRecordStoreQueryTestBase {
                         .set("p3", "-10")
                         .build());
 
-        final RecordQueryPlan plan = planner.plan(boundQuery.getRecordQuery());
+        final RecordQueryPlan plan = planQuery(boundQuery.getRecordQuery());
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             final Bindings compatibleBindings =

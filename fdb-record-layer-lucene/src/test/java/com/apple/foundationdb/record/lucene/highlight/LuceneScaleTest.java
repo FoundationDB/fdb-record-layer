@@ -68,6 +68,7 @@ import org.junit.jupiter.api.Timeout;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -88,6 +89,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Low level scale test that does a variety of operations against lucene, generating a csv that shows various
@@ -152,7 +154,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
          *     disabled, and then building the index than saving the records with the index enabled.
          * </p>
          */
-        static final boolean DISABLE_INDEX = false;
+        static final IndexMaintenance INDEX_MAINTENANCE = IndexMaintenance.Build;
         /**
          * The set of commands to run when running {@link #runPerfTest()}.
          */
@@ -183,15 +185,22 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         Search
     }
 
+    private enum IndexMaintenance {
+        Disable,
+        Rebuild,
+        Build
+    }
+
     private static final String RECORD_COUNT_COLUMN = "recordCount";
     private static final String OPERATION_MILLIS = "operationMillis";
     private static final String TOTAL_TEST_MILLIS = "totalTestMillis";
-    private static final String INDEX_ENABLED = "indexEnabled";
+    private static final String INDEX_MAINTENANCE = "indexEnabled";
     static final List<String> CSV_COLUMNS = List.of(RECORD_COUNT_COLUMN, OPERATION_MILLIS, TOTAL_TEST_MILLIS,
-            INDEX_ENABLED, "bytes_deleted_count",
+            INDEX_MAINTENANCE, "bytes_deleted_count",
             "bytes_fetched_count", "bytes_read_count", "bytes_written_count", "commit_count", "commit_micros",
             "commit_read_only_count", "commit_read_only_micros", "commits_count", "commits_micros", "deletes_count",
-            "empty_scans_count", "fetches_count", "get_read_version_count", "get_record_range_raw_first_chunk_count",
+            "empty_scans_count", "fetches_count", "fetches_micros", "get_read_version_count", "get_read_version_micros",
+            "get_record_range_raw_first_chunk_count",
             "get_scan_range_raw_first_chunk_count", "jni_calls_count", "lucene_delete_file_count",
             "lucene_fdb_read_block_count", "lucene_get_file_length_count", "lucene_get_increment_calls_count",
             "lucene_list_all_count", "lucene_load_file_cache_count", "lucene_merge_count", "lucene_read_block_count",
@@ -291,6 +300,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 var mergeCsv = createCsv("merges", dataModel.continuing)) {
 
             for (int i = 0; i < Config.LOOP_COUNT; i++) {
+                logger.info("Running loop " + i + " with " + dataModel.maxDocId + " records so far");
                 long startMillis;
                 if (Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
                     for (int i1 = 0; i1 < 90; i1++) {
@@ -333,6 +343,13 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Override
+    public FDBRecordContext openContext() {
+        final RecordLayerPropertyStorage.Builder props = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, Config.LUCENE_MERGE_MAX_SIZE);
+        return super.openContext(props);
+    }
+
     private void mergeIndexes(final Set<Index> indexesRequireMerge, @Nullable final PrintStream mergeCsv,
                               final long testStartMillis, final DataModel dataModel) {
         if (indexesRequireMerge == null) {
@@ -341,12 +358,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         if (ThreadLocalRandom.current().nextInt(1000) < (1000 - Config.MERGE_PROBABLITY_OF_1000)) {
             return;
         }
-        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE, Config.LUCENE_MERGE_MAX_SIZE);
 
         long startMillis;
         FDBStoreTimer mergeTimer = new FDBStoreTimer();
-        try (FDBRecordContext context = openContext(insertProps)) {
+        try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, recordStore.getRecordMetaData());
             startMillis = System.currentTimeMillis();
 
@@ -383,8 +398,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 csvPrintStream.print(System.currentTimeMillis() - startMillis);
             } else if (Objects.equals(key, TOTAL_TEST_MILLIS)) {
                 csvPrintStream.print(System.currentTimeMillis() - testStartMillis);
-            } else if (Objects.equals(key, INDEX_ENABLED)) {
-                csvPrintStream.print(Config.DISABLE_INDEX ? "NO" : "YES");
+            } else if (Objects.equals(key, INDEX_MAINTENANCE)) {
+                csvPrintStream.print(Config.INDEX_MAINTENANCE);
             } else {
                 csvPrintStream.print(keysAndValues.get(key));
             }
@@ -404,10 +419,9 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             printJsonPair(out, "title", title);
             printJsonPair(out, RECORD_COUNT_COLUMN, dataModel.maxDocId);
             printJsonPair(out, OPERATION_MILLIS, System.currentTimeMillis() - startMillis);
-            printJsonPair(out, INDEX_ENABLED, Config.DISABLE_INDEX ? "NO" : "YES");
-            extraKeysAndValues.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
-                printJsonPair(out, entry.getKey(), entry.getValue());
-            });
+            printJsonPair(out, INDEX_MAINTENANCE, Config.INDEX_MAINTENANCE.name());
+            extraKeysAndValues.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> printJsonPair(out, entry.getKey(), entry.getValue()));
             final Comparator<Map.Entry<String, Number>> sortByMetricType = Comparator.comparing(e -> {
                 final String[] split = e.getKey().split("_");
                 return split[split.length - 1];
@@ -416,9 +430,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             final Comparator<Map.Entry<String, Number>> sortByName = Map.Entry.comparingByKey();
             timer.getKeysAndValues().entrySet().stream()
                     .sorted(sortByName)
-                    .forEach(entry -> {
-                        printJsonPair(out, entry.getKey(), entry.getValue());
-                    });
+                    .forEach(entry -> printJsonPair(out, entry.getKey(), entry.getValue()));
             out.println("\"foo\": 0"); // to not add the last comma
             out.println("}");
         }
@@ -442,11 +454,12 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     @Nonnull
     private static PrintStream createCsv(final String name, final boolean append) throws FileNotFoundException {
         final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".csv";
+        boolean writeHeader = !append || !new File(filename).exists();
         final PrintStream printStream = new PrintStream(new FileOutputStream(filename, append), true);
 
         boolean success = false;
         try {
-            if (!append) {
+            if (writeHeader) {
                 printStream.println(String.join(",", CSV_COLUMNS));
             }
             success = true;
@@ -467,8 +480,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private int lastSearchWordsUpdate = -10000;
 
         private DataModel() {
-            if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.Insert)) {
+            if (!maintainSearchWords()) {
                 // this is set to immutable so that if anything tries to change it the test will fail, rather than
                 // quietly doing weird things
                 searchWords = List.of();
@@ -479,21 +491,51 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
 
         void prep() {
+            switch (Config.INDEX_MAINTENANCE) {
+                case Disable:
+                    disableIndex();
+                    break;
+                case Rebuild:
+                    disableIndex();
+                    buildIndex();
+                    break;
+                case Build:
+                    buildIndex();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown enum: " + Config.INDEX_MAINTENANCE);
+            }
+            if (maxDocId > 0) {
+                updateSearchWords();
+            }
+        }
+
+        private void disableIndex() {
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore store = openStore(context);
+                maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
+                continuing = maxDocId > 0;
+                logger.info("Disabling index");
+                store.markIndexDisabled(INDEX.getName());
+                context.commit();
+            }
+        }
+
+        private void buildIndex() {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
                 maxDocId = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
                         store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount());
                 continuing = maxDocId > 0;
-                if (Config.DISABLE_INDEX) {
-                    logger.info("Disabling index");
-                    store.markIndexDisabled(INDEX.getName());
-                } else {
-                    if (!store.isIndexReadable(INDEX.getName())) {
-                        indexBuilder = OnlineIndexer.newBuilder()
-                                .setRecordStoreBuilder(store.asBuilder())
-                                .setTargetIndexesByName(List.of(INDEX.getName()));
-                    }
+                if (!store.isIndexReadable(INDEX.getName())) {
+                    indexBuilder = OnlineIndexer.newBuilder()
+                            .setRecordStore(store)
+                            .addTargetIndex(INDEX.getName())
+                            .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                                    .setDeferMergeDuringIndexing(true)
+                                    .build());
                 }
                 context.commit();
             }
@@ -504,16 +546,11 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 }
                 logger.info("Done Building index");
             }
-            if (maxDocId > 0) {
-                updateSearchWords();
-            }
         }
 
         private void updateSearchWords() {
             // Update does not use the searchWords
-            if (!Config.COMMANDS_TO_RUN.contains(Command.Search) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.Insert) &&
-                    !Config.COMMANDS_TO_RUN.contains(Command.IncreaseCount)) {
+            if (!maintainSearchWords()) {
                 return;
             }
             if (Math.floor(lastSearchWordsUpdate / 1000.0) >= Math.floor(maxDocId / 1000.0)) {
@@ -532,6 +569,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 }
             }
             lastSearchWordsUpdate = maxDocId;
+        }
+
+        private boolean maintainSearchWords() {
+            return Config.COMMANDS_TO_RUN.contains(Command.Search);
         }
 
         private String getRandomWord(final String text) {
@@ -567,13 +608,15 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                                 .setGroup(1)
                                 .build());
                 maxDocId++;
-                if (searchWords.size() < SEARCH_WORD_COUNT) {
-                    final String messageWord = getRandomWord(text);
-                    searchWords.add(messageWord);
-                } else {
-                    if (random.nextInt(100) == 0) {
+                if (maintainSearchWords()) {
+                    if (searchWords.size() < SEARCH_WORD_COUNT) {
                         final String messageWord = getRandomWord(text);
-                        searchWords.set(random.nextInt(SEARCH_WORD_COUNT), messageWord);
+                        searchWords.add(messageWord);
+                    } else {
+                        if (random.nextInt(100) == 0) {
+                            final String messageWord = getRandomWord(text);
+                            searchWords.set(random.nextInt(SEARCH_WORD_COUNT), messageWord);
+                        }
                     }
                 }
                 context.commit();
@@ -606,6 +649,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             useCascadesPlanner = false;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
+                assertTrue(maintainSearchWords());
                 final String searchWord = searchWords.get(random.nextInt(searchWords.size()));
                 QueryComponent filter = new LuceneQueryComponent("text:" + searchWord, List.of("text"));
                 RecordQuery query = RecordQuery.newBuilder()

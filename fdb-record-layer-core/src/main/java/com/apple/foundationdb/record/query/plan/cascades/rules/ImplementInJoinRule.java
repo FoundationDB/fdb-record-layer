@@ -152,7 +152,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     newInnerPlanReference = call.memoizePlansBuilder(inJoinPlan);
                 }
 
-                call.yield(newInnerPlanReference.members());
+                call.yieldExpression(newInnerPlanReference.members());
             }
         }
     }

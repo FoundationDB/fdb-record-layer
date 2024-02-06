@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PLikeOperatorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -47,6 +51,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -67,7 +72,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * @param srcChild the string
      * @param patternChild the pattern
      */
-    public LikeOperatorValue(@Nonnull Value srcChild, @Nonnull Value patternChild) {
+    public LikeOperatorValue(@Nonnull final Value srcChild, @Nonnull final Value patternChild) {
         this.srcChild = srcChild;
         this.patternChild = patternChild;
     }
@@ -103,7 +108,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(srcChild, patternChild);
     }
 
@@ -144,7 +149,28 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Override
+    public PLikeOperatorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PLikeOperatorValue.newBuilder()
+                .setSrcChild(srcChild.toValueProto(serializationContext))
+                .setPatternChild(patternChild.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setLikeOperatorValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static LikeOperatorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+        return new LikeOperatorValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getSrcChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getPatternChild())));
+    }
+
+    @Nonnull
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
@@ -167,4 +193,22 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         }
     }
 
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PLikeOperatorValue, LikeOperatorValue> {
+        @Nonnull
+        @Override
+        public Class<PLikeOperatorValue> getProtoMessageClass() {
+            return PLikeOperatorValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public LikeOperatorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+            return LikeOperatorValue.fromProto(serializationContext, likeOperatorValueProto);
+        }
+    }
 }

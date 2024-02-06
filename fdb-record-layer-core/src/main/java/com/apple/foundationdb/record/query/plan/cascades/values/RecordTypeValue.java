@@ -24,18 +24,25 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -51,7 +58,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
     }
-    
+
     @Nonnull
     @Override
     public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
@@ -83,6 +90,12 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Override
@@ -130,5 +143,43 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @Override
     public String toString() {
         return "recordType(" + alias + ")";
+    }
+
+    @Nonnull
+    @Override
+    public PRecordTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordTypeValue.newBuilder().setAlias(alias.getId()).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PRecordTypeValue recordTypeValueProto) {
+        return new RecordTypeValue(CorrelationIdentifier.of(Objects.requireNonNull(recordTypeValueProto.getAlias())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordTypeValue, RecordTypeValue> {
+        @Nonnull
+        @Override
+        public Class<PRecordTypeValue> getProtoMessageClass() {
+            return PRecordTypeValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PRecordTypeValue recordTypeValueProto) {
+            return RecordTypeValue.fromProto(serializationContext, recordTypeValueProto);
+        }
     }
 }

@@ -66,7 +66,7 @@ public class AnnulmentAndRule extends QueryPredicateComputationRule<EvaluationCo
         final var terms = bindings.getAll(andTermMatcher);
 
         if (terms.stream().anyMatch(QueryPredicate::isContradiction)) {
-            call.yield(new ConstantPredicate(false), ImmutableList.of());
+            call.yieldPredicate(new ConstantPredicate(false), ImmutableList.of());
         }
     }
 }

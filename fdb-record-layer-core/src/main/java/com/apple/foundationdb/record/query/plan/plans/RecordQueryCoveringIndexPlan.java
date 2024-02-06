@@ -26,9 +26,13 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -48,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
@@ -71,10 +76,20 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     private final RecordQueryPlanWithIndex indexPlan;
     @Nonnull
     private final String recordTypeName;
-    @Nonnull
+    @Nullable
     private final AvailableFields availableFields;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
+
+    protected RecordQueryCoveringIndexPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
+        this.indexPlan = (RecordQueryPlanWithIndex)RecordQueryPlan.fromRecordQueryPlanProto(serializationContext,
+                Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getIndexPlan()));
+        this.availableFields = null; // planner field
+        this.recordTypeName = Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getRecordTypeName());
+        this.toRecord = IndexKeyValueToPartialRecord.fromProto(serializationContext,
+                Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getToRecord()));
+    }
 
     public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
                                         @Nonnull final String recordTypeName,
@@ -159,7 +174,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Override
     public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
-        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, availableFields, toRecord);
+        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
     }
 
     @Nonnull
@@ -171,7 +186,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
-        return availableFields;
+        return Objects.requireNonNull(availableFields);
     }
 
     @Nonnull
@@ -212,7 +227,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
-            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, availableFields, toRecord);
+            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, getAvailableFields(), toRecord);
         }
         return this;
     }
@@ -293,5 +308,46 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
                 NodeInfo.COVERING_INDEX_SCAN_OPERATOR,
                 ImmutableList.of(),
                 ImmutableMap.of());
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryCoveringIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryCoveringIndexPlan.newBuilder()
+                .setIndexPlan(indexPlan.toRecordQueryPlanProto(serializationContext))
+                .setRecordTypeName(recordTypeName)
+                .setToRecord(toRecord.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setCoveringIndexPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
+        return new RecordQueryCoveringIndexPlan(serializationContext, recordQueryCoveringIndexPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryCoveringIndexPlan, RecordQueryCoveringIndexPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryCoveringIndexPlan> getProtoMessageClass() {
+            return PRecordQueryCoveringIndexPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
+            return RecordQueryCoveringIndexPlan.fromProto(serializationContext, recordQueryCoveringIndexPlanProto);
+        }
     }
 }

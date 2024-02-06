@@ -163,13 +163,23 @@ public class IndexingByIndex extends IndexingBase {
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
-                                          rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
-                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
-
+                    .thenCompose(ignore -> postIterateRangeOnly(rangeSet, hasMore.get(), lastResult,
+                            rangeStart, rangeEnd, scanProperties.isReverse()));
         });
+    }
+
+    private CompletableFuture<Boolean> postIterateRangeOnly(IndexingRangeSet rangeSet, boolean hasMore,
+                                                            AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult,
+                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+        if (isReverse) {
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeStart;
+            return rangeSet.insertRangeAsync(packOrNull(continuation), packOrNull(rangeEnd), true)
+                    .thenApply(ignore -> hasMore || rangeStart != null);
+        } else {
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeEnd;
+            return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
+                    .thenApply(ignore -> hasMore || rangeEnd != null);
+        }
     }
 
     @Nonnull

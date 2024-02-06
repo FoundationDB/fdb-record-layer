@@ -24,8 +24,23 @@ package com.apple.test;
  * Annotation {@link org.junit.jupiter.api.Tag}s for Record Layer tests.
  */
 public class Tags {
+    /**
+     * Tests that require FoundationDB to be available.
+     */
     public static final String RequiresFDB = "RequiresFDB";
+    /**
+     * Tests that are for performance investigations, and not for correctness validation.
+     */
     public static final String Performance = "Performance";
+    /**
+     * Tests that take longer than 2 seconds for an individual test case.
+     * <p>
+     *     Note: the time here may be decreased in the future as more tests are added.
+     * </p>
+     */
     public static final String Slow = "Slow";
+    /**
+     * Tests that wipe the entire FDB cluster during their run.
+     */
     public static final String WipesFDB = "WipesFDB";
 }

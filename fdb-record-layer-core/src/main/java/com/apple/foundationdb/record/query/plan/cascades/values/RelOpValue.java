@@ -24,7 +24,15 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue.PBinaryPhysicalOperator;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue.PUnaryPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -32,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -40,11 +47,15 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -58,7 +69,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -68,7 +78,7 @@ import java.util.stream.StreamSupport;
  * A {@link Value} that returns the comparison result between its children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue extends AbstractValue implements BooleanValue {
+public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull
@@ -77,8 +87,6 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     private final Comparisons.Type comparisonType;
     @Nonnull
     private final Iterable<? extends Value> children;
-    @Nonnull
-    private final Function<Iterable<Object>, Object> physicalEvalFn;
 
     @Nonnull
     private static final Supplier<Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
@@ -88,46 +96,42 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
+    protected RelOpValue(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRelOpValue relOpValueProto) {
+        this(Objects.requireNonNull(relOpValueProto.getFunctionName()),
+                Comparisons.Type.fromProto(serializationContext, Objects.requireNonNull(relOpValueProto.getComparisonType())),
+                relOpValueProto.getChildrenList().stream().map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
+                        .collect(ImmutableList.toImmutableList()));
+    }
+
     /**
      * Creates a new instance of {@link RelOpValue}.
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
-     * @param physicalEvalFn The physical comparison function.
      */
-    private RelOpValue(@Nonnull final String functionName,
-                       @Nonnull final Comparisons.Type comparisonType,
-                       @Nonnull final Iterable<? extends Value> children,
-                       @Nonnull final Function<Iterable<Object>, Object> physicalEvalFn) {
+    protected RelOpValue(@Nonnull final String functionName,
+                         @Nonnull final Comparisons.Type comparisonType,
+                         @Nonnull final Iterable<? extends Value> children) {
+        Verify.verify(!Iterables.isEmpty(children));
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.children = children;
-        this.physicalEvalFn = physicalEvalFn;
     }
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
     @Nonnull
-    @Override
-    public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == Iterables.size(children));
-        return new RelOpValue(this.functionName,
-                this.comparisonType,
-                newChildren,
-                physicalEvalFn);
+    public String getFunctionName() {
+        return functionName;
     }
 
-    @Nullable
-    @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return physicalEvalFn.apply(StreamSupport.stream(children.spliterator(), false)
-                .map(v -> v.eval(store, context))
-                .collect(Collectors.toList())
-        );
+    @Nonnull
+    public Comparisons.Type getComparisonType() {
+        return comparisonType;
     }
 
     @SuppressWarnings("java:S3776")
@@ -223,28 +227,6 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, comparisonType);
-    }
-    
-    @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, comparisonType,
-                StreamSupport.stream(children.spliterator(), false).toArray(Value[]::new));
-    }
-
-    @Nonnull
-    @Override
-    public String explain(@Nonnull final Formatter formatter) {
-        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Override
-    public String toString() {
-        return functionName + "(" + StreamSupport.stream(children.spliterator(), false).map(Value::toString).collect(Collectors.joining(",")) + ")";
-    }
-
-    @Override
     public int hashCode() {
         return semanticHashCode();
     }
@@ -254,6 +236,17 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    public PRelOpValue toRelOpValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRelOpValue.Builder builder = PRelOpValue.newBuilder();
+        builder.setFunctionName(functionName);
+        builder.setComparisonType(comparisonType.toProto(serializationContext));
+        for (final Value child : children) {
+            builder.addChildren(child.toValueProto(serializationContext));
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -289,13 +282,10 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
-            return new RelOpValue(functionName,
+            return new UnaryRelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    objects -> {
-                        Verify.verify(Iterables.size(objects) == 1);
-                        return physicalOperator.eval(objects.iterator().next());
-                    });
+                    physicalOperator);
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
@@ -306,14 +296,10 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
-            return new RelOpValue(functionName,
+            return new BinaryRelOpValue(functionName,
                     comparisonType,
                     arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
-                    objects -> {
-                        Verify.verify(Iterables.size(objects) == 2);
-                        Iterator<Object> it = objects.iterator();
-                        return physicalOperator.eval(it.next(), it.next());
-                    });
+                    physicalOperator);
         }
     }
 
@@ -473,31 +459,23 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         EQ_IL(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l == (long)r),
         EQ_IF(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l == (float)r),
         EQ_ID(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l == (double)r),
-        // EQ_IS(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         EQ_LU(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_LI(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l == (int)r),
         EQ_LL(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l == (long)r),
         EQ_LF(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l == (float)r),
         EQ_LD(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l == (double)r),
-        // EQ_LS(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         EQ_FU(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_FI(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l == (int)r),
         EQ_FL(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l == (long)r),
         EQ_FF(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l == (float)r),
         EQ_FD(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l == (double)r),
-        // EQ_FS(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         EQ_DU(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_DI(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l == (int)r),
         EQ_DL(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l == (long)r),
         EQ_DF(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l == (float)r),
         EQ_DD(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l == (double)r),
-        // EQ_DS(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // EQ_SI(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // EQ_SL(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // EQ_SF(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // EQ_SD(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         EQ_SU(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> l.equals(r)), // TODO: locale-aware comparison
+        EQ_SS(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, Object::equals), // TODO: locale-aware comparison
         EQ_UU(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
         EQ_UB(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BOOLEAN, (l, r) -> null),
         EQ_UI(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.INT, (l, r) -> null),
@@ -516,29 +494,21 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         NEQ_IL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l != (long)r),
         NEQ_IF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l != (float)r),
         NEQ_ID(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l != (double)r),
-        // NEQ_IS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         NEQ_LU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_LI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l != (int)r),
         NEQ_LL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l != (long)r),
         NEQ_LF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l != (float)r),
         NEQ_LD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l != (double)r),
-        // NEQ_LS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         NEQ_FU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_FI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l != (int)r),
         NEQ_FL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l != (long)r),
         NEQ_FF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l != (float)r),
         NEQ_FD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l != (double)r),
-        // NEQ_FS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         NEQ_DU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_DI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l != (int)r),
         NEQ_DL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l != (long)r),
         NEQ_DF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l != (float)r),
         NEQ_DD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l != (double)r),
-        // NEQ_DS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // NEQ_SI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // NEQ_SL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // NEQ_SF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // NEQ_SD(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         NEQ_SU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_SS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> !l.equals(r)), // TODO: locale-aware comparison
         NEQ_UU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
@@ -551,35 +521,26 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         NEQ_UV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         NEQ_VU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
         NEQ_VV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> !l.equals(r)),
-
         LT_IU(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_II(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l < (int)r),
         LT_IL(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l < (long)r),
         LT_IF(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l < (float)r),
         LT_ID(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l < (double)r),
-        // LT_IS(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LT_LU(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_LI(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l < (int)r),
         LT_LL(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l < (long)r),
         LT_LF(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l < (float)r),
         LT_LD(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l < (double)r),
-        // LT_LS(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LT_FU(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_FI(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l < (int)r),
         LT_FL(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l < (long)r),
         LT_FF(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l < (float)r),
         LT_FD(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l < (double)r),
-        // LT_FS(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LT_DU(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_DI(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l < (int)r),
         LT_DL(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l < (long)r),
         LT_DF(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l < (float)r),
         LT_DD(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l < (double)r),
-        // LT_DS(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // LT_SI(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // LT_SL(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // LT_SF(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // LT_SD(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         LT_SU(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_SS(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) < 0), // TODO: locale-aware comparison
         LT_UU(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
@@ -592,35 +553,26 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         LT_UV(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         LT_VU(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LT_VV(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) < 0),
-
         LTE_IU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_II(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l <= (int)r),
         LTE_IL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l <= (long)r),
         LTE_IF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l <= (float)r),
         LTE_ID(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l <= (double)r),
-        // LTE_IS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LTE_LU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_LI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l <= (int)r),
         LTE_LL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l <= (long)r),
         LTE_LF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l <= (float)r),
         LTE_LD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l <= (double)r),
-        // LTE_LS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LTE_FU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_FI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l <= (int)r),
         LTE_FL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l <= (long)r),
         LTE_FF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l <= (float)r),
         LTE_FD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l <= (double)r),
-        // LTE_FS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         LTE_DU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_DI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l <= (int)r),
         LTE_DL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l <= (long)r),
         LTE_DF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l <= (float)r),
         LTE_DD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l <= (double)r),
-        // LTE_DS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // LTE_SI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // LTE_SL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // LTE_SF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // LTE_SD(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         LTE_SU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_SS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) <= 0), // TODO: locale-aware comparison
         LTE_UU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
@@ -633,35 +585,26 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         LTE_UV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         LTE_VU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
         LTE_VV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) <= 0),
-
         GT_IU(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_II(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l > (int)r),
         GT_IL(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l > (long)r),
         GT_IF(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l > (float)r),
         GT_ID(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l > (double)r),
-        // GT_IS(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GT_LU(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_LI(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l > (int)r),
         GT_LL(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l > (long)r),
         GT_LF(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l > (float)r),
         GT_LD(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l > (double)r),
-        // GT_LS(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GT_FU(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_FI(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l > (int)r),
         GT_FL(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l > (long)r),
         GT_FF(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l > (float)r),
         GT_FD(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l > (double)r),
-        // GT_FS(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GT_DU(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_DI(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l > (int)r),
         GT_DL(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l > (long)r),
         GT_DF(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l > (float)r),
         GT_DD(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l > (double)r),
-        // GT_DS(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // GT_SI(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // GT_SL(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // GT_SF(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // GT_SD(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         GT_SU(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_SS(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) > 0), // TODO: locale-aware comparison
         GT_UU(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
@@ -674,35 +617,26 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         GT_UV(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GT_VU(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GT_VV(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) > 0),
-
         GTE_IU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_II(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l >= (int)r),
         GTE_IL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l >= (long)r),
         GTE_IF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l >= (float)r),
         GTE_ID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l >= (double)r),
-        // GTE_IS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GTE_LU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_LI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l >= (int)r),
         GTE_LL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l >= (long)r),
         GTE_LF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l >= (float)r),
         GTE_LD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l >= (double)r),
-        // GTE_LS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GTE_FU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_FI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l >= (int)r),
         GTE_FL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l >= (long)r),
         GTE_FF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l >= (float)r),
         GTE_FD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l >= (double)r),
-        // GTE_FS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.STRING, (l, r) -> ??), // invalid
         GTE_DU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_DI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l >= (int)r),
         GTE_DL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l >= (long)r),
         GTE_DF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l >= (float)r),
         GTE_DD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l >= (double)r),
-        // GTE_DS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.STRING, (l, r) -> ??), // invalid
-        // GTE_SI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.INT, (l, r) -> ??), // invalid
-        // GTE_SL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.LONG, (l, r) -> ??), // invalid
-        // GTE_SF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.FLOAT, (l, r) -> ??), // invalid
-        // GTE_SD(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.DOUBLE, (l, r) -> ??), // invalid
         GTE_SU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UNKNOWN, (l, r) -> null),
         GTE_SS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> ((String)l).compareTo((String)r) >= 0), // TODO: locale-aware comparison
         GTE_UU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UNKNOWN, (l, r) -> null),
@@ -714,8 +648,12 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         GTE_US(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         GTE_UV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GTE_VU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),
-        ;
+        GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),;
+
+        @Nonnull
+        private static final Supplier<BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(BinaryPhysicalOperator.class,
+                        PBinaryPhysicalOperator.class));
 
         @Nonnull
         private final Comparisons.Type type;
@@ -763,8 +701,21 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Nonnull
-        public BinaryOperator<Object> getEvaluateFunction() {
-            return evaluateFunction;
+        @SuppressWarnings("unused")
+        public PBinaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static BinaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(binaryPhysicalOperatorProto));
+        }
+
+        @Nonnull
+        private static BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
         }
     }
 
@@ -784,6 +735,11 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_DI(Comparisons.Type.NOT_NULL, Type.TypeCode.DOUBLE, Objects::nonNull),
         IS_NOT_NULL_SS(Comparisons.Type.NOT_NULL, Type.TypeCode.STRING, Objects::nonNull),
         IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN, Objects::nonNull);
+
+        @Nonnull
+        private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
+                Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(UnaryPhysicalOperator.class,
+                        PUnaryPhysicalOperator.class));
 
         @Nonnull
         private final Comparisons.Type type;
@@ -816,8 +772,241 @@ public class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Nonnull
-        public UnaryOperator<Object> getEvaluateFunction() {
-            return evaluateFunction;
+        @SuppressWarnings("unused")
+        public PUnaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return Objects.requireNonNull(getProtoEnumBiMap().get(this));
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static UnaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PUnaryPhysicalOperator unaryPhysicalOperator) {
+            return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(unaryPhysicalOperator));
+        }
+
+        @Nonnull
+        private static BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator> getProtoEnumBiMap() {
+            return protoEnumBiMapSupplier.get();
+        }
+    }
+
+    /**
+     * Binary rel ops.
+     */
+    public static class BinaryRelOpValue extends RelOpValue {
+        @Nonnull
+        private final BinaryPhysicalOperator operator;
+
+        private BinaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            super(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getSuper()));
+            this.operator = BinaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getOperator()));
+        }
+
+        private BinaryRelOpValue(@Nonnull final String functionName,
+                                 @Nonnull final Comparisons.Type comparisonType,
+                                 @Nonnull final Iterable<? extends Value> children,
+                                 @Nonnull final BinaryPhysicalOperator operator) {
+            super(functionName, comparisonType, children);
+            this.operator = operator;
+        }
+
+        @Nonnull
+        @Override
+        public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.size(newChildren) == 2);
+            return new BinaryRelOpValue(getFunctionName(),
+                    getComparisonType(),
+                    newChildren,
+                    operator);
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getComparisonType(), operator);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            // TODO incorporate the physical operator into a new plan hash mode
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
+                    StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+            final var evaluatedChildrenIterator =
+                    Streams.stream(getChildren())
+                            .map(child -> child.eval(store, context))
+                            .iterator();
+
+            return operator.eval(evaluatedChildrenIterator.next(), evaluatedChildrenIterator.next());
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            final var childrenIterator = getChildren().iterator();
+            return "(" + childrenIterator.next().explain(formatter) + " " + getFunctionName() + " " + childrenIterator.next().explain(formatter) + ")";
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            final var childrenIterator = getChildren().iterator();
+            return "(" + childrenIterator.next() + " " + getFunctionName() + " " + childrenIterator.next() + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PBinaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PBinaryRelOpValue.newBuilder()
+                    .setSuper(toRelOpValueProto(serializationContext))
+                    .setOperator(operator.toProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setBinaryRelOpValue(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            return new BinaryRelOpValue(serializationContext, binaryRelOpValueProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PBinaryRelOpValue, BinaryRelOpValue> {
+            @Nonnull
+            @Override
+            public Class<PBinaryRelOpValue> getProtoMessageClass() {
+                return PBinaryRelOpValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+                return BinaryRelOpValue.fromProto(serializationContext, binaryRelOpValueProto);
+            }
+        }
+    }
+
+    /**
+     * Unary rel ops.
+     */
+    public static class UnaryRelOpValue extends RelOpValue {
+        @Nonnull
+        private final UnaryPhysicalOperator operator;
+
+        private UnaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            super(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getSuper()));
+            this.operator = UnaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getOperator()));
+        }
+
+        private UnaryRelOpValue(@Nonnull final String functionName,
+                                @Nonnull final Comparisons.Type comparisonType,
+                                @Nonnull final Iterable<? extends Value> children,
+                                @Nonnull final UnaryPhysicalOperator operator) {
+            super(functionName, comparisonType, children);
+            this.operator = operator;
+        }
+
+        @Nonnull
+        @Override
+        public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.size(newChildren) == 1);
+            return new UnaryRelOpValue(getFunctionName(),
+                    getComparisonType(),
+                    newChildren,
+                    operator);
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getComparisonType(), operator);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            // TODO incorporate the physical operator into a new plan hash mode
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
+                    StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+            final var evaluatedChildrenIterator =
+                    Streams.stream(getChildren())
+                            .map(child -> child.eval(store, context))
+                            .iterator();
+
+            return operator.eval(evaluatedChildrenIterator.next());
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            final var onlyChild = Iterables.getOnlyElement(getChildren());
+            return "(" + getFunctionName() + onlyChild.explain(formatter) + ")";
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            final var onlyChild = Iterables.getOnlyElement(getChildren());
+            return "(" + getFunctionName() + onlyChild + ")";
+        }
+
+        @Nonnull
+        @Override
+        public PUnaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PUnaryRelOpValue.newBuilder()
+                    .setSuper(toRelOpValueProto(serializationContext))
+                    .setOperator(operator.toProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setUnaryRelOpValue(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            return new UnaryRelOpValue(serializationContext, unaryRelOpValueProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PUnaryRelOpValue, UnaryRelOpValue> {
+            @Nonnull
+            @Override
+            public Class<PUnaryRelOpValue> getProtoMessageClass() {
+                return PUnaryRelOpValue.class;
+            }
+
+            @Nonnull
+            @Override
+            public UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+                return UnaryRelOpValue.fromProto(serializationContext, unaryRelOpValueProto);
+            }
         }
     }
 }

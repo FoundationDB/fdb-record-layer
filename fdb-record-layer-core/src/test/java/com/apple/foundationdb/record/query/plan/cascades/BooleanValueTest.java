@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
@@ -42,8 +45,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -111,9 +116,10 @@ class BooleanValueTest {
             return 0;
         }
 
-        @Nonnull
+        @SuppressWarnings("NullableProblems") // this is for testing.
+        @Nullable
         @Override
-        public Iterable<? extends Value> getChildren() {
+        protected Iterable<? extends Value> computeChildren() {
             return null;
         }
 
@@ -132,6 +138,18 @@ class BooleanValueTest {
         @Override
         public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
             return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RuntimeException("Should not be called!");
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new RuntimeException("Should not be called!");
         }
     }
 
@@ -607,8 +625,15 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BOOLEAN in []
-                    Arguments.of(List.of(BOOL_TRUE, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_TRUE, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE)
+            );
+        }
+    }
 
+    static class LazyBinaryPredicateTestProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return Stream.of(
                     /* lazy evaluation tests */
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(List.of(INT_1, INT_1)),
                             THROWS_VALUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
@@ -622,6 +647,22 @@ class BooleanValueTest {
     @SuppressWarnings({"rawtypes", "unchecked"})
     @ArgumentsSource(BinaryPredicateTestProvider.class)
     void testPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
+        if (result != null) {
+            Typed value = function.encapsulate(args);
+            Assertions.assertTrue(value instanceof BooleanValue);
+            value = verifySerialization((Value)value);
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Assertions.assertFalse(maybePredicate.isEmpty());
+            Assertions.assertEquals(result, maybePredicate.get());
+        } else {
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
+        }
+    }
+
+    @ParameterizedTest
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @ArgumentsSource(LazyBinaryPredicateTestProvider.class)
+    void testLazyPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         if (result != null) {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
@@ -653,5 +694,26 @@ class BooleanValueTest {
             Assertions.assertTrue(e instanceof VerifyException);
             Assertions.assertTrue(e.getMessage().contains("unexpected negative parameter index"));
         }
+    }
+
+    @Nonnull
+    protected static Value verifySerialization(@Nonnull final Value value) {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        final RecordQueryPlanProto.PValue planProto = value.toValueProto(serializationContext);
+        final byte[] serializedValue = planProto.toByteArray();
+        final RecordQueryPlanProto.PValue parsedValueProto;
+        try {
+            parsedValueProto = RecordQueryPlanProto.PValue.parseFrom(serializedValue);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
+        }
+
+        serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final Value deserializedValue =
+                Value.fromValueProto(serializationContext, parsedValueProto);
+        Assertions.assertEquals(value.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedValue.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(value, deserializedValue);
+        return deserializedValue;
     }
 }

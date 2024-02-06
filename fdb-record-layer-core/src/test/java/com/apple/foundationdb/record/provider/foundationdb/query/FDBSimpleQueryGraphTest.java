@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -138,11 +139,15 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
+        return executeCascades(store, plan, Bindings.EMPTY_BINDINGS);
+    }
+
+    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
         Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
         TypeRepository typeRepository = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes)
                 .build();
-        EvaluationContext evaluationContext = EvaluationContext.forTypeRepository(typeRepository);
+        EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository);
         return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
@@ -172,7 +177,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -192,7 +197,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -206,7 +211,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraphReversed() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -228,7 +233,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -243,7 +248,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraphWithNullableArray() throws Exception {
         CascadesPlanner cascadesPlanner = setUpWithNullableArray();
         // no index hints, plan a query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -262,7 +267,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
         assertMatchesExactly(plan,
                 mapPlan(
                         typeFilterPlan(
@@ -308,7 +313,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     IndexAccessHint nameHint = new IndexAccessHint("RestaurantRecord$name");
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord", fullScan(cascadesPlanner.getRecordMetaData(), new AccessHints(nameHint)));
@@ -329,7 +334,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 mapPlan(
@@ -345,7 +350,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -382,7 +387,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -393,7 +398,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
-        assertMatchesExactly(plan.getPlan(), planMatcher);
+        assertMatchesExactly(plan, planMatcher);
     }
     
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -401,7 +406,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -443,7 +448,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -462,7 +467,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -528,10 +533,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty());
+                EvaluationContext.empty()).getPlan());
 
         // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plan.getPlan() instanceof RecordQueryFlatMapPlan);
+        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -539,7 +544,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -605,7 +610,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
@@ -615,7 +620,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanWithConstantPredicateGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = cascadesPlanner.planGraph(
+        final var plan = verifySerialization(cascadesPlanner.planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -636,7 +641,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                EvaluationContext.empty()).getPlan());
 
         assertMatchesExactly(plan,
                 mapPlan(typeFilterPlan(

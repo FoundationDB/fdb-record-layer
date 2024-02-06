@@ -84,6 +84,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
         }, simpleMetadataHook);
     }
 
+    @Tag(Tags.Slow)
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @MethodSource("fetchMethodAndStreamMode")
     void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {

@@ -46,10 +46,10 @@ import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.search.Sort;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.util.Collections;
 import java.util.Random;
 
@@ -179,6 +179,15 @@ public class LuceneIndexTestUtils {
             planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         }
         return planner;
+    }
+
+    public static LuceneScanBounds fullSortTextSearch(FDBRecordStore recordStore, Index index, String search, Sort sort) {
+        LuceneScanParameters scan = new LuceneScanQueryParameters(
+                ScanComparisons.EMPTY,
+                new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, search, false),
+                sort, null, null,
+                null);
+        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
     public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight) {

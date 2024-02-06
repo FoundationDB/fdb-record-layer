@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -70,21 +74,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nonnull
     protected final List<Column<? extends Value>> columns;
     @Nonnull
-    private final Supplier<List<? extends Value>> childrenSupplier;
-    @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
-    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns) {
-        this.resultType = computeResultType(columns);
-        this.columns = resolveColumns(resultType, columns);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
-    }
-
-    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final String name) {
-        this.resultType = computeResultType(columns).withName(name);
-        this.columns = resolveColumns(resultType, columns);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
+    private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final Type.Record resultType) {
+        this.resultType = resultType;
+        this.columns = ImmutableList.copyOf(columns);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
@@ -95,11 +89,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
-    }
-
-    private List<? extends Value> computeChildren() {
+    protected List<? extends Value> computeChildren() {
         return columns
                 .stream()
                 .map(Column::getValue)
@@ -168,8 +158,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
-                                    @Nonnull final Type fieldType,
-                                    @Nullable final Object field) {
+                                          @Nonnull final Type fieldType,
+                                          @Nullable final Object field) {
         if (field == null) {
             return null;
         }
@@ -293,7 +283,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                                 this.columns.stream(),
                                 (newChild, column) -> Column.of(column.getField(), newChild))
                         .collect(ImmutableList.toImmutableList());
-        return new RecordConstructorValue(newColumns);
+        return new RecordConstructorValue(newColumns, resultType);
     }
 
     @Nullable
@@ -364,9 +354,40 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
 
     @Nonnull
+    @Override
+    public PRecordConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        PRecordConstructorValue.Builder builder = PRecordConstructorValue.newBuilder();
+        builder.setResultType(resultType.toTypeProto(serializationContext));
+        for (final Column<? extends Value> column : columns) {
+            builder.addColumns(column.toProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        final var specificValueProto = toProto(serializationContext);
+        return RecordQueryPlanProto.PValue.newBuilder().setRecordConstructorValue(specificValueProto).build();
+    }
+
+    @Nonnull
+    public static RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                   @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
+        final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordConstructorValueProto.getColumnsCount(); i ++) {
+            final PRecordConstructorValue.PColumn columnProto = recordConstructorValueProto.getColumns(i);
+            columnsBuilder.add(Column.fromProto(serializationContext, columnProto));
+        }
+        final ImmutableList<Column<? extends Value>> columns = columnsBuilder.build();
+        Verify.verify(!columns.isEmpty());
+        return new RecordConstructorValue(columnsBuilder.build(),
+                (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
+    }
+
+    @Nonnull
     private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns) {
-        final var fields = columns
-                .stream()
+        final var fields = columns.stream()
                 .map(Column::getField)
                 .collect(ImmutableList.toImmutableList());
         return Type.Record.fromFields(false, fields);
@@ -390,19 +411,23 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
-        return new RecordConstructorValue(columns);
+        final Type.Record resolvedResultType = computeResultType(columns);
+        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
     }
 
     @Nonnull
     public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns, @Nonnull final String name) {
-        return new RecordConstructorValue(columns, name);
+        final Type.Record resolvedResultType = computeResultType(columns).withName(name);
+        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
     }
 
     @Nonnull
     public static RecordConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
-        return new RecordConstructorValue(arguments.stream()
+        final List<Column<? extends Value>> columns =
+                arguments.stream()
                         .map(Column::unnamedOf)
-                        .collect(ImmutableList.toImmutableList()));
+                        .collect(ImmutableList.toImmutableList());
+        return ofColumns(columns);
     }
 
     /**
@@ -417,12 +442,31 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
         @Nonnull
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
-            final ImmutableList<Column<? extends Value>> namedArguments =
+            final List<Column<? extends Value>> namedArguments =
                     arguments.stream()
                             .map(typed -> (Value)typed)
                             .map(Column::unnamedOf)
                             .collect(ImmutableList.toImmutableList());
-            return new RecordConstructorValue(namedArguments);
+            return ofColumns(namedArguments);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordConstructorValue, RecordConstructorValue> {
+        @Nonnull
+        @Override
+        public Class<PRecordConstructorValue> getProtoMessageClass() {
+            return PRecordConstructorValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
+            return RecordConstructorValue.fromProto(serializationContext, recordConstructorValueProto);
         }
     }
 }

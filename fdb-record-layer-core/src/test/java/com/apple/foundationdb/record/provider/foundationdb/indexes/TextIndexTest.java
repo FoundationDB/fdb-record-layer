@@ -191,6 +191,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@code TEXT} type indexes.
  */
 @Tag(Tags.RequiresFDB)
+@Tag(Tags.Slow)
 @SuppressWarnings({"squid:S1192", "squid:S00112"}) // constant definition, throwing "Exception"
 public class TextIndexTest extends FDBRecordStoreTestBase {
     private static final TextTokenizerFactory FILTERING_TOKENIZER = FilteringTextTokenizer.create(
@@ -972,7 +973,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
     private void saveTwoRecordsConcurrently(@Nonnull RecordMetaDataHook hook, @Nonnull Message record1, @Nonnull Message record2, boolean shouldSucceed) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);

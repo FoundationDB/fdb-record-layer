@@ -38,8 +38,10 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -672,6 +674,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testOnlineIndexerBuilderWriteLimitBytes() throws Exception {
         int numRecords = 127;

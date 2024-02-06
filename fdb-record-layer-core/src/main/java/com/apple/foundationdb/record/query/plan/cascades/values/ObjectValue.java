@@ -24,23 +24,30 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A {@link Value} representing any object.
- *
+ * <br>
  * For example, this is used to represent non-quantifiable data (e.g. within an expression).
  */
 @API(API.Status.EXPERIMENTAL)
@@ -67,6 +74,12 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(alias);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Nonnull
@@ -131,7 +144,47 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     }
 
     @Nonnull
+    @Override
+    public PObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PObjectValue.newBuilder()
+                .setAlias(getAlias().getId())
+                .setResultType(resultType.toTypeProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setObjectValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PObjectValue objectValueProto) {
+        return new ObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(objectValueProto.getAlias())), Type.fromTypeProto(serializationContext, Objects.requireNonNull(objectValueProto.getResultType())));
+    }
+
+    @Nonnull
     public static ObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         return new ObjectValue(alias, resultType);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PObjectValue, ObjectValue> {
+        @Nonnull
+        @Override
+        public Class<PObjectValue> getProtoMessageClass() {
+            return PObjectValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PObjectValue objectValueProto) {
+            return ObjectValue.fromProto(serializationContext, objectValueProto);
+        }
     }
 }

@@ -22,6 +22,10 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PQueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -40,7 +44,7 @@ import java.util.stream.Collectors;
 /**
  * Represents a query plan constraint.
  */
-public class QueryPlanConstraint {
+public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     @Nonnull
     private static final QueryPlanConstraint TAUTOLOGY = new QueryPlanConstraint(ConstantPredicate.TRUE);
 
@@ -80,6 +84,24 @@ public class QueryPlanConstraint {
     @Override
     public String toString() {
         return predicate.toString();
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashMode hashMode) {
+        return PlanHashable.objectPlanHash(hashMode, predicate);
+    }
+
+    @Nonnull
+    @Override
+    public PQueryPlanConstraint toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPlanConstraint.newBuilder().setPredicate(predicate.toQueryPredicateProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static QueryPlanConstraint fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PQueryPlanConstraint queryPlanConstraintProto) {
+        return new QueryPlanConstraint(QueryPredicate.fromQueryPredicateProto(serializationContext,
+                Objects.requireNonNull(queryPlanConstraintProto.getPredicate())));
     }
 
     @Nonnull

@@ -173,7 +173,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yield(new SelectExpression(selectExpression.getResultValue(),
+        call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build()));
     }

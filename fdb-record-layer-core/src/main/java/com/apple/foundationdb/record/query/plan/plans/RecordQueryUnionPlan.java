@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -41,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,6 +74,15 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     private final ComparisonKeyFunction comparisonKeyFunction;
     protected final boolean showComparisonKey;
+
+    protected RecordQueryUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PRecordQueryUnionPlan recordQueryUnionPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryUnionPlanProto.getSuper()));
+        Verify.verify(recordQueryUnionPlanProto.hasShowComparisonKey());
+        this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext,
+                Objects.requireNonNull(recordQueryUnionPlanProto.getComparisonKeyFunction()));
+        this.showComparisonKey = recordQueryUnionPlanProto.getShowComparisonKey();
+    }
 
     protected RecordQueryUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                    @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
@@ -146,6 +158,15 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Override
     StoreTimer.Count getPlanCount() {
         return PLAN_COUNT;
+    }
+
+    @Nonnull
+    protected PRecordQueryUnionPlan toRecordQueryUnionPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUnionPlan.newBuilder()
+                .setSuper(toRecordQueryUnionPlanBaseProto(serializationContext))
+                .setComparisonKeyFunction(comparisonKeyFunction.toComparisonKeyFunctionProto(serializationContext))
+                .setShowComparisonKey(showComparisonKey)
+                .build();
     }
 
     @Nonnull

@@ -80,7 +80,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
                         .map(NotPredicate::not)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldAndReExplore(minorWith(minorTerms), ImmutableList.of(QueryPlanConstraint.tautology()));
+        call.yieldPredicateAndReExplore(minorWith(minorTerms), ImmutableList.of(QueryPlanConstraint.tautology()));
     }
 
     private QueryPredicate minorWith(@Nonnull final Collection<? extends QueryPredicate> terms) {

@@ -23,13 +23,16 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUpdatePlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
@@ -38,8 +41,11 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,13 +75,18 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUpdatePlan.class);
 
+    protected RecordQueryUpdatePlan(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryUpdatePlanProto.getSuper()));
+    }
+
     private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
                                   @Nonnull final String targetRecordType,
                                   @Nonnull final Type.Record targetType,
                                   @Nullable final TransformationTrieNode transformationsTrie,
-                                  @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
+                                  @Nullable final CoercionTrieNode coercionsTrie,
                                   @Nonnull final Value computationValue) {
-        super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue);
+        super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
     @Override
@@ -184,6 +195,24 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryUpdatePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUpdatePlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUpdatePlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final RecordQueryPlanProto.PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+        return new RecordQueryUpdatePlan(serializationContext, recordQueryUpdatePlanProto);
+    }
+
     /**
      * Factory method to create a {@link RecordQueryUpdatePlan}.
      * <br>
@@ -282,5 +311,24 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         }
 
         return new TransformationTrieNode(null, childrenMapBuilder.build());
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUpdatePlan, RecordQueryUpdatePlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUpdatePlan> getProtoMessageClass() {
+            return PRecordQueryUpdatePlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+            return RecordQueryUpdatePlan.fromProto(serializationContext, recordQueryUpdatePlanProto);
+        }
     }
 }

@@ -18,31 +18,38 @@
  * limitations under the License.
  */
 
-if (hasProperty('testEnableCoverage')) {
-    apply plugin: 'jacoco'
-    tasks.withType(Test) { task ->
-        finalizedBy "jacoco${task.name.capitalize()}Report"
+apply plugin: 'jacoco'
+// configure for test, other *Test are configured below
+jacoco {
+    toolVersion = jacocoVersion
+}
+jacocoTestReport {
+    reports {
+        xml.required = true
     }
 }
 
 test {
-    useJUnit {
+    useJUnitPlatform {
+        excludeTags 'WipesFDB'
     }
 }
 
-task jenkinsUnitTest(type: Test) {
-    apply plugin: "jacoco"
-    useJUnit {
+task destructiveTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'WipesFDB'
+        maxParallelForks = 1
     }
-    if (project.hasProperty('testsToRun')) {
-        include testsToRun
+    reports {
+        junitXml.destination = file("${buildDir}/test-results/destructive")
     }
-    outputs.upToDateWhen { false } // always re-run test tasks
-    jacoco.destinationFile = file("$buildDir/jacoco/${project.name}.jacocoTest.exec")
 }
 
-jacoco {
-    toolVersion = jacocoVersion
+task performanceTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'Performance'
+        enableAssertions = false
+    }
 }
 
 def configureTestTask = { propertyPrefix, task ->
@@ -73,9 +80,6 @@ def configureTestTask = { propertyPrefix, task ->
     task.systemProperties['log4j2.configurationFile'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
     task.systemProperties['mme.app.useLog4jPropertyConfigurator'] = 'false'
 
-    // JUnit configuration parameters
-    task.systemProperties['junit.jupiter.execution.timeout.default'] = '5 m'
-
     task.maxParallelForks = Integer.getInteger(propertyPrefix + '.maxParallelForks', 1)
     task.forkEvery = Integer.getInteger(propertyPrefix + '.forkEvery', 0)
 
@@ -86,6 +90,15 @@ def configureTestTask = { propertyPrefix, task ->
     if (excludes != null) {
         task.exclude excludes
     }
+
+    if (task.name != 'performanceTest') {
+        // Configure whether or not tests will validate that asyncToSync isn't being called in async
+        // context.  See BlockingInAsyncDetection class for details on values.
+        // disable BLOCKING_DETECTION to better simulate performance
+        task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
+            System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
+    }
+
 
     def reportsDirProperty = "${task.name}.reportsDir".toString()
     handled.add(reportsDirProperty)
@@ -101,9 +114,9 @@ def configureTestTask = { propertyPrefix, task ->
     }
 }
 
-tasks.withType(Test) { task ->
-    configureTestTask('allTest', task)
-    configureTestTask(task.name, task)
+tasks.withType(Test) { theTask ->
+    configureTestTask('allTest', theTask)
+    configureTestTask(theTask.name, theTask)
     testLogging {
         events 'started', 'passed', 'failed', 'skipped'
         exceptionFormat = 'full'
@@ -111,6 +124,53 @@ tasks.withType(Test) { task ->
     reports {
         junitXml.outputPerTestCase = true
     }
+    // Don't gather coverage for performance tests
+    if (theTask.name != 'performanceTest') {
+        if (theTask.name != 'test') { // jacocoTestReport gets created automatically
+            task "jacoco${theTask.name.capitalize()}Report"(type: JacocoReport) {
+                executionData theTask
+                sourceDirectories.from = project.files(project.sourceSets.test.allSource.srcDirs)
+                classDirectories.from = project.sourceSets.test.output
+                def htmlReportDir = project.reporting.file("jacoco/${theTask.name}/html")
+                def xmlReportFile = project.reporting.file("jacoco/${theTask.name}/jacoco.xml")
+                reports {
+                    xml.required = true
+                    html.destination = htmlReportDir
+                    xml.destination = xmlReportFile
+                }
+                doLast {
+                    println("See jacoco report at: file://${htmlReportDir.toURI().path}index.html")
+                }
+            }
+        }
+        theTask.finalizedBy("jacoco${theTask.name.capitalize()}Report")
+    }
+}
+
+tasks.withType(Test).configureEach { task ->
+    if (task.name != 'performanceTest') {
+        // Configure whether or not tests will validate that asyncToSync isn't being called in async
+        // context.  See BlockingInAsyncDetection class for details on values.
+        // disable BLOCKING_DETECTION to better simulate performance
+        task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
+                System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
+
+        // setup tag inclusion/exclusion
+        if (project.hasProperty('tests.skipFDB')) {
+            task.testFramework.options.excludeTags.add('RequiresFDB')
+        }
+        if (project.hasProperty('tests.skipSlow')) {
+            task.testFramework.options.excludeTags.add('Slow')
+            systemProperties["junit.jupiter.execution.timeout.default"] = "2s"
+        } else {
+            systemProperties["junit.jupiter.execution.timeout.default"] = "5m"
+        }
+        if (!project.hasProperty('tests.includeRandom')) {
+            task.testFramework.options.excludeTags.add('Random')
+        }
+        task.testFramework.options.excludeTags.add('Performance')
+    }
+
 }
 
 task testJar(type: Jar, dependsOn: testClasses) {

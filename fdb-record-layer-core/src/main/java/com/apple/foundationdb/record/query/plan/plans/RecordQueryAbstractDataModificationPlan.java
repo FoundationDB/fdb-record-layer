@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -39,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -123,12 +126,28 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Nonnull
     private final Supplier<Integer> planHashForContinuationSupplier;
 
+    protected RecordQueryAbstractDataModificationPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
+        this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getInner())),
+                Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetRecordType()),
+                Type.Record.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetType())),
+                PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
+                        PRecordQueryAbstractDataModificationPlan::hasTransformationsTrie,
+                        m -> MessageHelpers.TransformationTrieNode.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTransformationsTrie()))),
+                PlanSerialization.getFieldOrNull(recordQueryAbstractDataModificationPlanProto,
+                        PRecordQueryAbstractDataModificationPlan::hasCoercionTrie,
+                        m -> MessageHelpers.CoercionTrieNode.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getCoercionTrie()))),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getComputationValue())),
+                CorrelationIdentifier.of(Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getCurrentModifiedRecordAlias())));
+    }
+
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,
                                                       @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
                                                       @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
-                                                      @Nonnull final Value computationValue) {
+                                                      @Nonnull final Value computationValue,
+                                                      @Nonnull final CorrelationIdentifier currentModifiedRecordAlias) {
         this.inner = inner;
         this.innerFlowedType = inner.getFlowedObjectType();
         this.targetRecordType = targetRecordType;
@@ -137,7 +156,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
         this.coercionTrie = coercionTrie;
         this.computationValue = computationValue;
         this.resultValue = new QueriedValue(computationValue.getResultType());
-        this.currentModifiedRecordAlias = currentModifiedRecordAlias();
+        this.currentModifiedRecordAlias = currentModifiedRecordAlias;
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
         this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
@@ -350,6 +369,23 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     @Override
     public int getComplexity() {
         return 1 + getInnerPlan().getComplexity();
+    }
+
+    @Nonnull
+    public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryAbstractDataModificationPlan.Builder builder = PRecordQueryAbstractDataModificationPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setTargetRecordType(targetRecordType)
+                .setTargetType(targetType.toProto(serializationContext));
+        if (transformationsTrie != null) {
+            builder.setTransformationsTrie(transformationsTrie.toProto(serializationContext));
+        }
+        if (coercionTrie != null) {
+            builder.setCoercionTrie(coercionTrie.toProto(serializationContext));
+        }
+        builder.setComputationValue(computationValue.toValueProto(serializationContext));
+        builder.setCurrentModifiedRecordAlias(currentModifiedRecordAlias.getId());
+        return builder.build();
     }
 
     @Nonnull

@@ -29,7 +29,12 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.test.BooleanSource;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -48,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for building multi target indexes {@link OnlineIndexer}.
  */
+@Tag(Tags.Slow)
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
     private void populateOtherData(final long numRecords) {
@@ -80,8 +86,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertEquals(count , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
-    @Test
-    void testMultiTargetSimple() {
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetSimple(boolean reverseScan) {
         // Simply build the index
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -98,7 +105,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         disableAll(indexes);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer).build()) {
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverseScan))
+                .build()) {
             indexBuilder.buildIndex(true);
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
@@ -114,6 +124,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setReverseScanOrder(reverseScan)
                         .build())
                 .build()) {
 
@@ -130,6 +141,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setReverseScanOrder(reverseScan)
                         .build())
                 .build()) {
             indexBuilder.buildIndex(true);
@@ -141,8 +153,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertAllValidated(indexes);
     }
 
-    @Test
-    void testMultiTargetContinuation() {
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetContinuation(boolean reverseScan) {
         // Build the index in small chunks
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -162,6 +175,8 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverseScan))
                 .setLimit(chunkSize)
                 .build()) {
             indexBuilder.buildIndex(true);
@@ -174,8 +189,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertAllValidated(indexes);
     }
 
-    @Test
-    void testMultiTargetWithTimeQuota() {
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetWithTimeQuota(boolean reverseScan) {
         // Build the index in small chunks
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -194,6 +210,8 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         disableAll(indexes);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setTransactionTimeLimitMilliseconds(1)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverseScan))
                 .build()) {
             indexBuilder.buildIndex(true);
         }
@@ -253,8 +271,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertAllValidated(indexes);
     }
 
-    @Test
-    void testMultiTargetPartlyBuildFailure() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7})
+    void testMultiTargetPartlyBuildFailure(int reverseSeed) {
         // Throw when one index has a different type stamp
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -273,8 +292,14 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
+        // test all 8 reverse combinations
+        boolean reverse1 = 0 != (reverseSeed & 1);
+        boolean reverse2 = 0 != (reverseSeed & 2);
+        boolean reverse3 = 0 != (reverseSeed & 4);
         // 1. partly build multi
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverse1))
                 .setTargetIndexes(indexes));
 
         // 2. let one index continue ahead
@@ -282,6 +307,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         timer.reset();
         buildIndexAndCrashHalfway(chunkSize, 2, timer, newIndexerBuilder(indexAhead)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverse2)
                         .checkIndexingStampFrequencyMilliseconds(0)
                         .allowTakeoverContinue()));
 
@@ -289,6 +315,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setLimit(chunkSize)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverse3)
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .build()) {
@@ -344,8 +371,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
-    void testMultiTargetContinueAfterCrash() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    void testMultiTargetContinueAfterCrash(int reverseSeed) {
         // Crash, then continue successfully
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -357,6 +385,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexE", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM));
 
         populateData(numRecords);
 
@@ -364,14 +393,20 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
+        // test all 4 reverse combinations
+        boolean reverse1 = 0 != (reverseSeed & 1);
+        boolean reverse2 = 0 != (reverseSeed & 2);
+
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 5, timer, newIndexerBuilder(indexes));
+        buildIndexAndCrashHalfway(chunkSize, 5, timer, newIndexerBuilder(indexes).setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setReverseScanOrder(reverse1)));
 
         // 2. continue and done
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
                 .setLimit(chunkSize)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setReverseScanOrder(reverse2)
                         .build())
                 .build()) {
 
@@ -383,8 +418,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         assertAllValidated(indexes);
     }
 
-    @Test
-    void testMultiTargetIndividualContinueAfterCrash() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    void testMultiTargetIndividualContinueAfterCrash(int reverseSeed) {
         // After crash, finish building each index individually
 
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -404,8 +440,14 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
+        // test all 4 reverse combinations
+        boolean reverse1 = 0 != (reverseSeed & 1);
+        boolean reverse2 = 0 != (reverseSeed & 2);
+
         // 1. partly build multi
-        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder(indexes));
+        buildIndexAndCrashHalfway(chunkSize, 3, timer, newIndexerBuilder(indexes)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setReverseScanOrder(reverse1)));
 
         // 2. continue each index to done
         for (Index index: indexes) {
@@ -414,6 +456,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                             .allowTakeoverContinue()
+                            .setReverseScanOrder(reverse2)
                             .build())
                     .build()) {
 

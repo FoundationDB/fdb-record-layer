@@ -185,12 +185,23 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getPrimaryKey() :
-                                          rangeEnd)
-                    .thenCompose(cont -> insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
-                                .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
+                    .thenCompose(ignore -> postIterateRangeOnly(targetRangeSets, hasMore.get(), lastResult,
+                            rangeStart, rangeEnd, scanProperties.isReverse()));
         });
+    }
+
+    private CompletableFuture<Boolean> postIterateRangeOnly(List<IndexingRangeSet> targetRangeSets, boolean hasMore,
+                                                            AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult,
+                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+        if (isReverse) {
+            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeStart;
+            return insertRanges(targetRangeSets, packOrNull(continuation), packOrNull(rangeEnd))
+                    .thenApply(ignore -> hasMore || rangeStart != null);
+        } else {
+            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeEnd;
+            return insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(continuation))
+                    .thenApply(ignore -> hasMore || rangeEnd != null);
+        }
     }
 
     private static CompletableFuture<Void> insertRanges(List<IndexingRangeSet> rangeSets,

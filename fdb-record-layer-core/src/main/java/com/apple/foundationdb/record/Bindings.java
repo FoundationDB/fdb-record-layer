@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison.PBindingKind;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
@@ -72,6 +73,40 @@ public class Bindings {
         public String identifier(@Nonnull String bindingName) {
             Verify.verify(bindingName.startsWith(value));
             return bindingName.substring(value.length());
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public PBindingKind toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            switch (this) {
+                case IN:
+                    return PBindingKind.IN;
+                case RANK:
+                    return PBindingKind.RANK;
+                case CONSTANT:
+                    return PBindingKind.CONSTANT;
+                case CORRELATION:
+                    return PBindingKind.CORRELATION;
+                default:
+                    throw new RecordCoreException("unknown binding mapping. did you forget to map it?");
+            }
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static Internal fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
+            switch (bindingKindProto) {
+                case IN:
+                    return IN;
+                case RANK:
+                    return RANK;
+                case CONSTANT:
+                    return CONSTANT;
+                case CORRELATION:
+                    return CORRELATION;
+                default:
+                    throw new RecordCoreException("unknown binding mapping. did you forget to map it?");
+            }
         }
     }
 
@@ -143,7 +178,7 @@ public class Bindings {
      */
     public static class Builder {
         @Nonnull
-        private Bindings bindings;
+        private final Bindings bindings;
         private boolean built;
 
         private Builder(@Nullable Bindings parent) {

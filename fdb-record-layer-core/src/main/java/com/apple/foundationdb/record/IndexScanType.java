@@ -21,20 +21,21 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexScanType;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
  * The way in which an index should be scanned.
- *
+ * <br>
  * The set of allowed scan types varies by the type of the index.
  * This isn't an enum so clients can define more of them for their own index maintainers.
  *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#scan
  */
 @API(API.Status.MAINTAINED)
-public class IndexScanType implements PlanHashable {
+public class IndexScanType implements PlanHashable, PlanSerializable {
     @Nonnull
     public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");
     @Nonnull
@@ -79,5 +80,18 @@ public class IndexScanType implements PlanHashable {
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return hashCode();
+    }
+
+    @Nonnull
+    @Override
+    public PIndexScanType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexScanType.newBuilder().setName(name).build();
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    public static IndexScanType fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PIndexScanType indexScanTypeProto) {
+        return new IndexScanType(Objects.requireNonNull(indexScanTypeProto.getName()));
     }
 }

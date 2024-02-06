@@ -24,14 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PInOpValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -77,11 +80,8 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        final var builder = new ImmutableList.Builder<Value>();
-        builder.add(probeValue);
-        builder.add(inArrayValue);
-        return builder.build();
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(probeValue, inArrayValue);
     }
 
     @Nonnull
@@ -177,6 +177,28 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
+    @Override
+    public PInOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInOpValue.newBuilder()
+                .setProbeValue(probeValue.toValueProto(serializationContext))
+                .setInArrayValue(inArrayValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setInOpValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PInOpValue inOpValueProto) {
+        return new InOpValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getProbeValue())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getInArrayValue())));
+    }
+
     /**
      * The {@code in} function.
      */
@@ -211,6 +233,25 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                 }
             }
             return new InOpValue((Value)arg0, (Value)arg1);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PInOpValue, InOpValue> {
+        @Nonnull
+        @Override
+        public Class<PInOpValue> getProtoMessageClass() {
+            return PInOpValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                   @Nonnull final PInOpValue inOpValueProto) {
+            return InOpValue.fromProto(serializationContext, inOpValueProto);
         }
     }
 }

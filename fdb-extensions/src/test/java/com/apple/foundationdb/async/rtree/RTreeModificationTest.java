@@ -57,6 +57,7 @@ import java.util.stream.Stream;
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
  */
 @Tag(Tags.RequiresFDB)
+@Tag(Tags.Slow)
 public class RTreeModificationTest extends FDBTestBase {
     private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
 

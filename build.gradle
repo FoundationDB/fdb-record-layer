@@ -173,8 +173,6 @@ allprojects {
     }
 }
 
-apply from: file('gradle/coverage.gradle')
-
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
@@ -198,25 +196,8 @@ subprojects {
     }
 
     ext {
-        if (System.getenv('PROTO_VERSION') != null) {
-            protoMajorVersion = System.getenv('PROTO_VERSION')
-        } else {
-            protoMajorVersion = '3'
-        }
-        if (protoMajorVersion == "2") {
-            protobufVersion = protobuf2Version
-        } else if (protoMajorVersion == "3") {
-            protobufVersion = protobuf3Version
-        } else {
-            throw new GradleException("Unknown protobuf major version: ${protoMajorVersion}")
-        }
-        if (protoMajorVersion != "2") {
-            coreProjectName = "fdb-record-layer-core-pb${protoMajorVersion}"
-            shadedProjectName = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
-        } else {
-            coreProjectName = "fdb-record-layer-core"
-            shadedProjectName = "fdb-record-layer-core-shaded"
-        }
+        coreProjectName = "fdb-record-layer-core"
+        shadedProjectName = "fdb-record-layer-core-shaded"
     }
 
     artifacts {
@@ -255,6 +236,9 @@ subprojects {
 
                 //enable incremental compilation
                 options.incremental = true
+
+                //target byte-code compatibility with Java 11 (regardless of build JDK)
+                options.release = 11
             }
         }
     }

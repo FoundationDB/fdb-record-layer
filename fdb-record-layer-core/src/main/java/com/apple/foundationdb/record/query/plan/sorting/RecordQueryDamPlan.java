@@ -24,8 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryDamPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -46,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.sorting.MemorySortCursor;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -229,4 +234,44 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
                 childGraphs);
     }
 
+    @Nonnull
+    @Override
+    public PRecordQueryDamPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryDamPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setKey(key.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setDamPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryDamPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PRecordQueryDamPlan recordQueryDamPlan) {
+        return new RecordQueryDamPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getInner())),
+                RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getKey())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryDamPlan, RecordQueryDamPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryDamPlan> getProtoMessageClass() {
+            return PRecordQueryDamPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryDamPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PRecordQueryDamPlan recordQueryDamPlanProto) {
+            return RecordQueryDamPlan.fromProto(serializationContext, recordQueryDamPlanProto);
+        }
+    }
 }

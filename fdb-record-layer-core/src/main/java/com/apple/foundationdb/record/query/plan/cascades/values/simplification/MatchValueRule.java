@@ -74,6 +74,6 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
                 }
             }
         }
-        call.yield(value, newMatchedValuesMap);
+        call.yieldValue(value, newMatchedValuesMap);
     }
 }

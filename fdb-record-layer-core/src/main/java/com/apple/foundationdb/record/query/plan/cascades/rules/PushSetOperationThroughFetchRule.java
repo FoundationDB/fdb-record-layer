@@ -244,7 +244,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                         Verify.verifyNotNull(fetchIndexRecords));
 
         if (nonPushableQuantifiers.isEmpty()) {
-            call.yield(newFetchPlan);
+            call.yieldExpression(newFetchPlan);
         } else {
             final List<ExpressionRef<? extends RecordQueryPlan>> newFetchPlanAndResidualInners =
                     Streams.concat(Stream.of(call.memoizePlans(newFetchPlan)),
@@ -253,7 +253,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                                     .map(Quantifier.Physical::getRangesOver)
                                     .map(RecordQueryPlan::narrowReference))
                             .collect(ImmutableList.toImmutableList());
-            call.yield(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
+            call.yieldExpression(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
         }
     }
 }

@@ -23,13 +23,18 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -48,7 +53,14 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     private final Comparison comparison;
 
-    public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
+    private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
+                           @Nonnull final PValuePredicate valuePredicate) {
+        super(serializationContext, Objects.requireNonNull(valuePredicate.getSuper()));
+        this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(valuePredicate.getValue()));
+        this.comparison = Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(valuePredicate.getComparison()));
+    }
+
+    public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(false);
         this.value = value;
         this.comparison = comparison;
@@ -143,5 +155,45 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     public String toString() {
         return value + " " + comparison;
+    }
+
+    @Nonnull
+    @Override
+    public PValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValuePredicate.newBuilder()
+                .setSuper(toAbstractQueryPredicateProto(serializationContext))
+                .setValue(value.toValueProto(serializationContext))
+                .setComparison(comparison.toComparisonProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PValuePredicate valuePredicateProto) {
+        return new ValuePredicate(serializationContext, valuePredicateProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PValuePredicate, ValuePredicate> {
+        @Nonnull
+        @Override
+        public Class<PValuePredicate> getProtoMessageClass() {
+            return PValuePredicate.class;
+        }
+
+        @Nonnull
+        @Override
+        public ValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                        @Nonnull final PValuePredicate valuePredicateProto) {
+            return ValuePredicate.fromProto(serializationContext, valuePredicateProto);
+        }
     }
 }

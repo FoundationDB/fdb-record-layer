@@ -67,6 +67,6 @@ public class NormalFormRule extends QueryPredicateComputationRule<EvaluationCont
         final var predicate = bindings.get(anyPredicateMatcher);
 
         final var normalizedPredicateMaybe = normalizer.normalize(predicate, false);
-        normalizedPredicateMaybe.ifPresent(normalizedPredicate ->  call.yieldAndReExplore(normalizedPredicateMaybe.get(), ImmutableList.of(QueryPlanConstraint.tautology())));
+        normalizedPredicateMaybe.ifPresent(normalizedPredicate ->  call.yieldPredicateAndReExplore(normalizedPredicateMaybe.get(), ImmutableList.of(QueryPlanConstraint.tautology())));
     }
 }

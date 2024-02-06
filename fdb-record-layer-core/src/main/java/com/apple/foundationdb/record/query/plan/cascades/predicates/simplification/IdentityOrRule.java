@@ -79,6 +79,6 @@ public class IdentityOrRule extends QueryPredicateComputationRule<EvaluationCont
         }
         final var resultTerms = resultTermsBuilder.build();
         final var simplifiedPredicate = OrPredicate.orOrFalse(resultTerms);
-        call.yield(simplifiedPredicate, ImmutableList.of());
+        call.yieldPredicate(simplifiedPredicate, ImmutableList.of());
     }
 }

@@ -52,6 +52,6 @@ public class MergeFetchIntoCoveringIndexRule extends CascadesRule<RecordQueryFet
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final RecordQueryIndexPlan innerPlan = call.get(innerPlanMatcher);
-        call.yield(innerPlan);
+        call.yieldExpression(innerPlan);
     }
 }

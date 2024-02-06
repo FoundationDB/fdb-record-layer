@@ -24,7 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -40,9 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
@@ -52,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.O
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,13 +74,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value> {
+public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
     @Override
@@ -140,8 +143,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     default boolean isConstant() {
         return getCorrelatedTo().isEmpty()
-               && StreamSupport.stream(filter(NondeterministicValue.class::isInstance).spliterator(), false)
-                       .findAny().isEmpty(); // TODO: use CompileTime tag interface.
+                && preOrderStream().filter(NondeterministicValue.class::isInstance).findAny().isEmpty();
     }
 
     /**
@@ -246,8 +248,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return false;
         }
 
-        return StreamSupport.stream(inPreOrder().spliterator(), false)
-                .flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+        return preOrderStream().flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 
@@ -360,6 +361,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return Optional.empty();
     }
 
+    @Nonnull
+    RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
+
+    @Nonnull
+    static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final RecordQueryPlanProto.PValue valueProto) {
+        return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
+    }
+
     static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
         return fromKeyExpressions(expressions, quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
@@ -464,7 +474,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         // Construct an alias map for equivalences.
         //
         final var correlatedTos = Streams.stream(toBePulledUpValues)
-                .map(value -> getCorrelatedTo())
+                .map(Correlated::getCorrelatedTo)
                 .collect(ImmutableList.toImmutableList());
 
         final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));

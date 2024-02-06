@@ -228,7 +228,7 @@ public class MetaDataEvolutionValidator {
             return;
         }
         // Validate that the syntax (i.e., proto2 or proto3) of the two descriptors is the same.
-        MetaDataEvolutionProtoSyntaxValidator.validateProtoSyntax(oldDescriptor, newDescriptor);
+        validateProtoSyntax(oldDescriptor, newDescriptor);
 
         // Validate the form--the schema, if you will--of the two descriptors. That means making sure that the
         // two fields are compatible. Note that the name of the descriptor isn't checked.
@@ -248,6 +248,15 @@ public class MetaDataEvolutionValidator {
             if (oldDescriptor.findFieldByNumber(newField.getNumber()) == null && newField.isRequired()) {
                 throw new MetaDataException("required field added to record type", LogMessageKeys.FIELD_NAME, newField.getName());
             }
+        }
+    }
+
+    @SuppressWarnings("deprecation") // checks the deprecated syntax field
+    private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
+        if (!oldDescriptor.getFile().getSyntax().equals(newDescriptor.getFile().getSyntax())
+                || !oldDescriptor.getFile().getEdition().equals(newDescriptor.getFile().getEdition())) {
+            throw new MetaDataException("message descriptor proto syntax changed",
+                    LogMessageKeys.RECORD_TYPE, oldDescriptor.getName());
         }
     }
 

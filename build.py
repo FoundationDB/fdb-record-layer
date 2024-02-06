@@ -43,12 +43,10 @@ def print_with_date(text):
     print ('{0}   {1}'.format(date_string(), text))
 
 # Constructs the gradle run path given the gradle args.
-def run_gradle(proto_version, *args):
-    env = dict(os.environ)
+def run_gradle(*args):
     full_args = [os.path.join(dir_path, 'gradlew'), '--console=plain', '-b', os.path.join(dir_path, 'build.gradle'), ] + list(args)
-    print_with_date('Running gradle build: {0}; Proto version: {1}'.format(' '.join(full_args), proto_version))
-    env['PROTO_VERSION'] = str(proto_version)
-    proc = subprocess.Popen(full_args, env=env)
+    print_with_date('Running gradle build: {0}'.format(' '.join(full_args)))
+    proc = subprocess.Popen(full_args)
     proc.communicate()
 
     if proc.returncode != 0:
@@ -114,7 +112,7 @@ def get_version(release=False):
     return version
 
 # Move all of the publishable files to a temporary directory.
-def build(release=False, proto2=False, proto3=False, publish=False):
+def build(release=False, publish=False):
     print_with_date('Running build script within directory: {0}'.format(dir_path))
 
     print_with_date('Clearing temporary directory.')
@@ -128,54 +126,24 @@ def build(release=False, proto2=False, proto3=False, publish=False):
     # Clear before.
     clear(os.path.join(dir_path, TEMP_ROOT))
 
-    if proto2:
-        # Make with protobuf 2.
-        success = run_gradle(2, 'clean', 'build', 'destructiveTest',
-                                '-PreleaseBuild={0}'.format('true' if release else 'false'))
-        if not success:
+    success = run_gradle('clean', 'build', 'destructiveTest',
+                         '-PreleaseBuild={0}'.format('true' if release else 'false'))
+    if not success:
+        return False
+
+    if publish:
+        success = run_gradle('artifactoryPublish', '-PpublishBuild=true',
+                             '-PreleaseBuild={0}'.format('true' if release else 'false'))
+        if not success
             return False
-
-        if publish:
-            success = run_gradle(2, 'artifactoryPublish', '-PpublishBuild=true',
-                                    '-PreleaseBuild={0}'.format('true' if release else 'false'))
-            if not success:
-                return False
-
-        success = run_gradle(2, 'fdb-record-layer-core:clean')
-        if not success:
-            return False
-
-    if proto3:
-        # Make with protobuf 3.
-        success = run_gradle(3, 'build', 'destructiveTest', '-PcoreNotStrict',
-                                '-PreleaseBuild={0}'.format('true' if release else 'false'),
-                                '-PpublishBuild={0}'.format('true' if publish else 'false'))
-        if not success:
-            return False
-
-        if publish:
-            # These are enumerated rather than just using the full project artifactoryPublish command to avoid uploading
-            # the fdb-extensions subproject twice. (Note that as overwrite is not supported, doing so would result
-            # in the build failing.)
-            success = run_gradle(3, ':fdb-record-layer-core-pb3:artifactoryPublish',
-                                    ':fdb-record-layer-core-pb3-shaded:artifactoryPublish',
-                                    ':fdb-record-layer-icu-pb3:artifactoryPublish',
-                                    ':fdb-record-layer-spatial-pb3:artifactoryPublish',
-                                    ':fdb-record-layer-lucene-pb3:artifactoryPublish',
-                                    '-PcoreNotStrict',
-                                    '-PreleaseBuild={0}'.format('true' if release else 'false'),
-                                    '-PpublishBuild=true')
-            if not success:
-                return False
-
 
     return True
 
 usage = """
-Usage: python build.py <release|snapshot> [--proto2] [--proto3] [--publish]
+Usage: python build.py <release|snapshot> [--publish]
 Builds the packages for this project. You must specify release or snapshot
-The --proto2 flag indicates that the build should use protobuf 2.
-The --proto3 flag indicates that the build should use protobuf 3.
+The --proto2 flag is ignored (previously would use protobuf 2)
+The --proto3 flag is ignored (previously would use protobuf 3)
 The --publish flag indicates that the build should be published upon completion.
 """
 def parse_args():
@@ -203,18 +171,13 @@ def parse_args():
             print ('Unrecognized argument: {0}'.format(arg))
             quit(3)
 
-    # run both proto2 and proto3 by default
-    if not ret.proto2 and not ret.proto3:
-        ret.proto2 = True
-        ret.proto3 = True
-
     return ret
 
 if __name__ == "__main__":
     print_with_date('Starting build')
     success = True
     args = parse_args()
-    success = success and build(release=args.release, proto2=args.proto2, proto3=args.proto3, publish=args.publish)
+    success = success and build(release=args.release, publish=args.publish)
 
     if not success:
         print_with_date('Build failed!')

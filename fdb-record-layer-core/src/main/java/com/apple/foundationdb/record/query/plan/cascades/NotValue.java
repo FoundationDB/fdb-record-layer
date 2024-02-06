@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNotValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
@@ -35,22 +39,23 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue extends AbstractValue implements BooleanValue {
+public class NotValue extends AbstractValue implements BooleanValue, ValueWithChild {
     /**
      * The hash value of this expression.
      */
@@ -66,7 +71,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
      * Constructs a new {@link NotValue} instance.
      * @param child The child expression.
      */
-    public NotValue(@Nonnull Value child) {
+    public NotValue(@Nonnull final Value child) {
         this.child = child;
     }
 
@@ -93,15 +98,20 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(child);
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     @Nonnull
     @Override
-    public NotValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        return new NotValue(Iterables.get(newChildren, 0));
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+        return new NotValue(rebasedChild);
     }
 
     @Nullable
@@ -119,7 +129,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
@@ -148,6 +158,24 @@ public class NotValue extends AbstractValue implements BooleanValue {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
+    @Override
+    public PNotValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PNotValue.newBuilder().setChild(child.toValueProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setNotValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                     @Nonnull final PNotValue notValueProto) {
+        return new NotValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(notValueProto.getChild())));
+    }
+
     /**
      * The {@code not} function.
      */
@@ -161,6 +189,25 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             return new NotValue((Value)arguments.get(0));
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PNotValue, NotValue> {
+        @Nonnull
+        @Override
+        public Class<PNotValue> getProtoMessageClass() {
+            return PNotValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PNotValue notValueProto) {
+            return NotValue.fromProto(serializationContext, notValueProto);
         }
     }
 }

@@ -405,7 +405,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     }
 
     private void testParallelReverseDirectoryCache(int parallelism, boolean preInitReverseDirectoryCache,
-                                                              Supplier<FDBDatabase> getFdb) throws Exception {
+                                                   Supplier<FDBDatabase> getFdb) throws Exception {
         final String constantName = "fla_" + Math.abs(new Random().nextLong());
         runParallelCodeOnEmptyDB(parallelism,
                 () -> {
@@ -433,8 +433,8 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
     }
 
     private void runParallelCodeOnEmptyDB(int parallelism,
-                                                     TestHelpers.DangerousRunnable setup,
-                                                     TestHelpers.DangerousConsumer<Semaphore> parallelCode) throws Exception {
+                                          TestHelpers.DangerousRunnable setup,
+                                          TestHelpers.DangerousConsumer<Semaphore> parallelCode) throws Exception {
         // Wipe FDB!!!!!
         try (FDBRecordContext ctx = fdb.openContext()) {
             Transaction tr = ctx.ensureActive();
@@ -445,31 +445,40 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         // Force the creation of a new FDB instance
         FDBDatabaseFactory.instance().clear();
 
-        // Get a fresh new one
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        // we are running a bunch of code in a supplyAsync method, so the blocking detection will catch that and complain
+        // we could rework the code to either not use CompletableFuture.supplyAsync, or remove the asyncToSync in the
+        // parallelCode, but that's a bit more work.
+        final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = factory.getBlockingInAsyncDetectionSupplier();
+        try {
+            factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.DISABLED);
+            // Get a fresh new one
+            fdb = FDBDatabaseFactory.instance().getDatabase();
 
-        final Executor executor = new ForkJoinPool(parallelism + 1);
-        final Semaphore lock = new Semaphore(parallelism);
+            final Executor executor = new ForkJoinPool(parallelism + 1);
+            final Semaphore lock = new Semaphore(parallelism);
 
-        setup.run();
+            setup.run();
 
+            final List<CompletableFuture<Exception>> futures = IntStream.range(0, parallelism).mapToObj(k ->
+                    CompletableFuture.supplyAsync(() -> {
+                        try {
+                            parallelCode.accept(lock);
+                            return null;
+                        } catch (Exception e) {
+                            return e;
+                        }
+                    }, executor)).collect(Collectors.toList());
+            lock.release(parallelism);
 
-        final List<CompletableFuture<Exception>> futures = IntStream.range(0, parallelism).mapToObj(k ->
-                CompletableFuture.supplyAsync(() -> {
-                    try {
-                        parallelCode.accept(lock);
-                        return null;
-                    } catch (Exception e) {
-                        return e;
-                    }
-                }, executor)).collect(Collectors.toList());
-        lock.release(parallelism);
-
-        final List<Exception> exceptions = AsyncUtil.getAll(futures).get();
-        exceptions.removeIf(Objects::isNull);
-        exceptions.forEach(Throwable::printStackTrace);
-        if (exceptions.size() > 0) {
-            throw exceptions.get(0);
+            final List<Exception> exceptions = AsyncUtil.getAll(futures).get();
+            exceptions.removeIf(Objects::isNull);
+            exceptions.forEach(Throwable::printStackTrace);
+            if (exceptions.size() > 0) {
+                throw exceptions.get(0);
+            }
+        } finally {
+            factory.setBlockingInAsyncDetection(blockingInAsyncDetectionSupplier);
         }
     }
 
@@ -497,6 +506,7 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
         }
     }
 
+    @Tag(Tags.Slow)
     @Test
     public void testReverseDirectoryCacheLookup() throws Exception {
         FDBReverseDirectoryCache reverseDirectoryCache = fdb.getReverseDirectoryCache();

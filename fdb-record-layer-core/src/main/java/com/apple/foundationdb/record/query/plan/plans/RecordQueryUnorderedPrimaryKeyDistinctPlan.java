@@ -24,8 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -41,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -203,5 +208,44 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_PRIMARY_KEY_DISTINCT_OPERATOR),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryUnorderedPrimaryKeyDistinctPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryUnorderedPrimaryKeyDistinctPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUnorderedPrimaryKeyDistinctPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedPrimaryKeyDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                       @Nonnull final PRecordQueryUnorderedPrimaryKeyDistinctPlan recordQueryUnorderedPrimaryKeyDistinctPlanProto) {
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryUnorderedPrimaryKeyDistinctPlanProto.getInner())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedPrimaryKeyDistinctPlan, RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryUnorderedPrimaryKeyDistinctPlan> getProtoMessageClass() {
+            return PRecordQueryUnorderedPrimaryKeyDistinctPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryUnorderedPrimaryKeyDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                    @Nonnull final PRecordQueryUnorderedPrimaryKeyDistinctPlan recordQueryUnorderedPrimaryKeyDistinctPlanProto) {
+            return RecordQueryUnorderedPrimaryKeyDistinctPlan.fromProto(serializationContext, recordQueryUnorderedPrimaryKeyDistinctPlanProto);
+        }
     }
 }

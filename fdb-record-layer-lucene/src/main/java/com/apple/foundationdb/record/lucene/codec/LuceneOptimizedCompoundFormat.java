@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
-import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
+import com.apple.foundationdb.record.lucene.directory.FieldInfosStorage;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
@@ -73,18 +72,15 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
         // everything to be a "proper" index format (e.g. have a header), but these meta files are empty.
         Set<String> filteredFiles = filterMarkerFiles(si.files());
         si.setFiles(filteredFiles);
-        @SuppressWarnings("PMD.CloseResource") // we don't need to close this because it is just extracting from the dir
-        final FDBDirectory directory = FDBDirectoryUtils.getFDBDirectoryNotCompound(dir);
         underlying.write(dir, si, context);
         si.setFiles(filesForAfter);
-        copyFieldInfos(si, filesForAfter, directory);
+        final String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
+        copyFieldInfosId(dir, filesForAfter, entriesFile);
     }
 
-    protected void copyFieldInfos(final SegmentInfo si, final Set<String> filesForAfter, final FDBDirectory directory) {
+    protected void copyFieldInfosId(final Directory dir, final Set<String> filesForAfter, final String entriesFile) throws IOException {
         final String fieldInfosFileName = filesForAfter.stream().filter(FDBDirectory::isFieldInfoFile).findFirst().orElseThrow();
-        final FDBLuceneFileReference fieldInfosReference = directory.getFDBLuceneFileReference(fieldInfosFileName);
-        String entriesFile = IndexFileNames.segmentFileName(si.name, "", ENTRIES_EXTENSION);
-        directory.setFieldInfoId(entriesFile, fieldInfosReference.getFieldInfosId(), fieldInfosReference.getFieldInfosBitSet());
+        FieldInfosStorage.copyFieldInfosId(dir, fieldInfosFileName, entriesFile);
     }
 
     private Set<String> filterMarkerFiles(Set<String> files) {

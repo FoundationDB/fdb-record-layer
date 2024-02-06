@@ -303,7 +303,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(newResultValue);
         }
         
-        call.yield(upperSelectExpression);
+        call.yieldExpression(upperSelectExpression);
     }
 
     private boolean isCrossProduct(@Nonnull final Set<Set<CorrelationIdentifier>> independentQuantifiersPartitioning,

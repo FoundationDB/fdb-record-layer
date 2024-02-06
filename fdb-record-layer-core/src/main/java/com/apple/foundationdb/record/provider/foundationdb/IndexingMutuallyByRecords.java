@@ -114,6 +114,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                      @Nullable List<Tuple> fragmentBoundaries) {
         super(common, policy);
         this.fragmentBoundaries = fragmentBoundaries;
+        validateOrThrowEx(!policy.isReverseScanOrder(), "Mutual indexing does not support reverse scan order");
     }
 
     @Override
@@ -441,7 +442,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
                     .thenCompose(cont -> insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
-                            .thenApply(ignore -> !allRangesExhausted(cont, rangeEnd)));
+                            .thenApply(ignore -> notAllRangesExhausted(cont, rangeEnd)));
         });
     }
 

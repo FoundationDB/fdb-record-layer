@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PPatternForLikeValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -44,6 +48,7 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
@@ -64,7 +69,7 @@ public class PatternForLikeValue extends AbstractValue {
      * @param patternChild the pattern
      * @param escapeChild the escape character
      */
-    public PatternForLikeValue(@Nonnull Value patternChild, @Nonnull Value escapeChild) {
+    public PatternForLikeValue(@Nonnull final Value patternChild, @Nonnull final Value escapeChild) {
         this.patternChild = patternChild;
         this.escapeChild = escapeChild;
     }
@@ -96,8 +101,8 @@ public class PatternForLikeValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(patternChild, escapeChild);
+    protected Iterable<? extends Value> computeChildren() {
+        return  ImmutableList.of(patternChild, escapeChild);
     }
 
     @Nonnull
@@ -143,7 +148,28 @@ public class PatternForLikeValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Override
+    public PPatternForLikeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PPatternForLikeValue.newBuilder()
+                .setPatternChild(patternChild.toValueProto(serializationContext))
+                .setEscapeChild(escapeChild.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setPatternForLikeValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final RecordQueryPlanProto.PPatternForLikeValue patternForLikeValueProto) {
+        return new PatternForLikeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())),
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())));
+    }
+
+    @Nonnull
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();
@@ -166,4 +192,22 @@ public class PatternForLikeValue extends AbstractValue {
         }
     }
 
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PPatternForLikeValue, PatternForLikeValue> {
+        @Nonnull
+        @Override
+        public Class<PPatternForLikeValue> getProtoMessageClass() {
+            return PPatternForLikeValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                             @Nonnull final PPatternForLikeValue patternForLikeValueProto) {
+            return PatternForLikeValue.fromProto(serializationContext, patternForLikeValueProto);
+        }
+    }
 }

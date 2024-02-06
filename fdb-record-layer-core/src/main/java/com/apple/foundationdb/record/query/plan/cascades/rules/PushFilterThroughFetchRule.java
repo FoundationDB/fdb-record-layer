@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -214,7 +213,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
 
         if (residualPredicates.isEmpty()) {
             // case 2
-            call.yield(newFetchPlan);
+            call.yieldExpression(newFetchPlan);
         } else {
             // case 3
             // create yet another physical quantifier on top of the fetch
@@ -227,7 +226,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                     .map(residualPredicate -> residualPredicate.rebase(translationMap))
                     .collect(ImmutableList.toImmutableList());
 
-            call.yield(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
+            call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
         }
     }
 
@@ -236,11 +235,6 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                                              @Nonnull CorrelationIdentifier oldInnerAlias,
                                              @Nonnull CorrelationIdentifier newInnerAlias,
                                              @Nonnull final QueryPredicate leafPredicate) {
-        if (leafPredicate instanceof QueryComponentPredicate) {
-            // We cannot push these predicates. They always contain nesteds.
-            return null;
-        }
-
         if (!(leafPredicate instanceof PredicateWithValue)) {
             // Only values depend on aliases -- returning this leaf is ok as it
             // appears to be pushable as is.

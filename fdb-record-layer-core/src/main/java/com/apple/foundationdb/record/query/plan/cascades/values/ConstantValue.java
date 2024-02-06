@@ -24,12 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -42,6 +48,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ConstantValue extends AbstractValue implements LeafValue {
+
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Value");
 
     @Nonnull
@@ -66,6 +73,12 @@ public class ConstantValue extends AbstractValue implements LeafValue {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Nullable
@@ -132,5 +145,44 @@ public class ConstantValue extends AbstractValue implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    @Override
+    public PConstantValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PConstantValue.newBuilder()
+                .setValue(value.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PValue.newBuilder().setConstantValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ConstantValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PConstantValue constantValueProto) {
+        return new ConstantValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(constantValueProto.getValue())));
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConstantValue, ConstantValue> {
+        @Nonnull
+        @Override
+        public Class<PConstantValue> getProtoMessageClass() {
+            return PConstantValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConstantValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PConstantValue constantValueProto) {
+            return ConstantValue.fromProto(serializationContext, constantValueProto);
+        }
     }
 }

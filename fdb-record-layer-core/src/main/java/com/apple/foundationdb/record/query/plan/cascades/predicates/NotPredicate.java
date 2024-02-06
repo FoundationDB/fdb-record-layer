@@ -24,7 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNotPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -32,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -45,7 +50,7 @@ import java.util.Optional;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
- *
+ * <br>
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -54,6 +59,12 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Nonnull
     public final QueryPredicate child;
+
+    private NotPredicate(@Nonnull final PlanSerializationContext serializationContext,
+                         @Nonnull final PNotPredicate notPredicateProto) {
+        super(serializationContext, Objects.requireNonNull(notPredicateProto.getSuper()));
+        this.child = QueryPredicate.fromQueryPredicateProto(serializationContext, Objects.requireNonNull(notPredicateProto.getChild()));
+    }
 
     private NotPredicate(@Nonnull final QueryPredicate child, final boolean isAtomic) {
         super(isAtomic);
@@ -151,6 +162,23 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     }
 
     @Nonnull
+    @Override
+    public PNotPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PNotPredicate.newBuilder().setChild(child.toQueryPredicateProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setNotPredicate(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static NotPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNotPredicate notPredicateProto) {
+        return new NotPredicate(serializationContext, notPredicateProto);
+    }
+
+    @Nonnull
     public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
         return of(predicate, false);
     }
@@ -158,5 +186,24 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Nonnull
     public static NotPredicate of(@Nonnull final QueryPredicate predicate, final boolean isAtomic) {
         return new NotPredicate(predicate, isAtomic);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PNotPredicate, NotPredicate> {
+        @Nonnull
+        @Override
+        public Class<PNotPredicate> getProtoMessageClass() {
+            return PNotPredicate.class;
+        }
+
+        @Nonnull
+        @Override
+        public NotPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                      @Nonnull final PNotPredicate notPredicateProto) {
+            return NotPredicate.fromProto(serializationContext, notPredicateProto);
+        }
     }
 }

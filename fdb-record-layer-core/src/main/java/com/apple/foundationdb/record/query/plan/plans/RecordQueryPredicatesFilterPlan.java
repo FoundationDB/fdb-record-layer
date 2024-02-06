@@ -23,7 +23,11 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -39,9 +43,9 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,6 +72,17 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Nonnull
     private final QueryPredicate conjunctedPredicate;
 
+    protected RecordQueryPredicatesFilterPlan(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+        super(serializationContext, Objects.requireNonNull(recordQueryPredicatesFilterPlanProto.getSuper()));
+        final ImmutableList.Builder<QueryPredicate> predicatesBuilder = ImmutableList.builder();
+        for (int i = 0; i < recordQueryPredicatesFilterPlanProto.getPredicatesCount(); i ++) {
+            predicatesBuilder.add(QueryPredicate.fromQueryPredicateProto(serializationContext, recordQueryPredicatesFilterPlanProto.getPredicates(i)));
+        }
+        this.predicates = predicatesBuilder.build();
+        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+    }
+
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
@@ -88,14 +103,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Override
     protected boolean hasAsyncFilter() {
-        // TODO Query components can be evaluated in an async way as they may access indexes, etc. themselves. In
-        //      QGM such an access is always explicitly modelled. Therefore predicates don't need this functionality
-        //      and we should not add evalAsync() and isAsync() in the way it is implemented on query components.
-        //      Since predicates cannot speak up for themselves when it comes to async-ness of the filter, we need
-        //      to special case this (shim) class.
-        return predicates.stream()
-                .filter(predicate -> predicate instanceof QueryComponentPredicate)
-                .anyMatch(predicate -> ((QueryComponentPredicate)predicate).hasAsyncQueryComponent());
+        return false;
     }
 
     @Nullable
@@ -112,15 +120,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
         return new AsyncBoolean<>(false,
                 getPredicates(),
-                predicate -> {
-                    if (predicate instanceof QueryComponentPredicate) {
-                        final QueryComponentPredicate queryComponentPredicate = (QueryComponentPredicate)predicate;
-                        if (queryComponentPredicate.hasAsyncQueryComponent()) {
-                            return queryComponentPredicate.evalMessageAsync(store, nestedContext);
-                        }
-                    }
-                    return CompletableFuture.completedFuture(predicate.eval(store, nestedContext));
-                },
+                predicate -> CompletableFuture.completedFuture(predicate.eval(store, nestedContext)),
                 store).eval();
     }
 
@@ -224,5 +224,47 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(conjunctedPredicate.toString()))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PRecordQueryPredicatesFilterPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PRecordQueryPredicatesFilterPlan.Builder builder = PRecordQueryPredicatesFilterPlan.newBuilder()
+                .setSuper(toRecordQueryFilterPlanBaseProto(serializationContext));
+        for (final QueryPredicate predicate : predicates) {
+            builder.addPredicates(predicate.toQueryPredicateProto(serializationContext));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setPredicatesFilterPlan(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+        return new RecordQueryPredicatesFilterPlan(serializationContext, recordQueryPredicatesFilterPlanProto);
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PRecordQueryPredicatesFilterPlan, RecordQueryPredicatesFilterPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryPredicatesFilterPlan> getProtoMessageClass() {
+            return PRecordQueryPredicatesFilterPlan.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+            return RecordQueryPredicatesFilterPlan.fromProto(serializationContext, recordQueryPredicatesFilterPlanProto);
+        }
     }
 }
