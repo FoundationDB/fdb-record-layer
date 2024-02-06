@@ -195,7 +195,7 @@ public class FDBExceptions {
         }
 
         if (ex instanceof InterruptedException) {
-            return new RecordCoreInterruptedException(ex.getMessage(), ex).addLogInfo(logInfo);
+            return new RecordCoreInterruptedException(ex.getMessage(), (InterruptedException)ex).addLogInfo(logInfo);
         }
         return new RecordCoreException(ex.getMessage(), ex).addLogInfo(logInfo);
     }
