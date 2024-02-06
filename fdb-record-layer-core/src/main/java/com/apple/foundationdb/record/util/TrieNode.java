@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -30,7 +31,9 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * Basic trie implementation that stores values at the trie's leaves.
@@ -44,10 +47,15 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     private final T value;
     @Nullable
     private final Map<D, N> childrenMap;
+    @Nonnull
+    private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
+    @Nonnull
+    private final Supplier<Integer> heightSupplier;
 
     public TrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
         this.value = value;
         this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
+        this.heightSupplier = Suppliers.memoize(this::computeHeight);
     }
 
     @Nullable
@@ -61,9 +69,23 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
     }
 
     @Nonnull
+    private Iterable<N> computeChildren() {
+        return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+    }
+
+    @Nonnull
     @Override
     public Iterable<N> getChildren() {
-        return childrenMap == null ? ImmutableList.of() : childrenMap.values();
+        return childrenSupplier.get();
+    }
+
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    private int computeHeight() {
+        return StreamSupport.stream(getChildren().spliterator(), false).mapToInt(TreeLike::height).max().orElse(0) + 1;
     }
 
     @Nonnull
@@ -74,7 +96,7 @@ public abstract class TrieNode<D, T, N extends TrieNode<D, T, N>> implements Tre
 
     @Nonnull
     public Collection<T> values() {
-        return Streams.stream(inPreOrder())
+        return stream()
                 .flatMap(trie -> trie.getValue() == null ? Stream.of() : Stream.of(trie.getValue()))
                 .collect(ImmutableList.toImmutableList());
     }

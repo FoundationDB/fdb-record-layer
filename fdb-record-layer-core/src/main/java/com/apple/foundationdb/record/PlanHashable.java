@@ -244,6 +244,9 @@ public interface PlanHashable {
         if (mode.getKind() != PlanHashKind.LEGACY && obj instanceof Map) {
             return mapsPlanHash(mode, (Map<?, ?>)obj);
         }
+        if (obj instanceof PlanHashable) {
+            return ((PlanHashable)obj).planHash(mode);
+        }
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(mode, (Iterable<?>)obj);
         }
@@ -252,9 +255,6 @@ public interface PlanHashable {
         }
         if (obj.getClass().isArray() && obj.getClass().getComponentType().isPrimitive()) {
             return primitiveArrayHash(obj);
-        }
-        if (obj instanceof PlanHashable) {
-            return ((PlanHashable)obj).planHash(mode);
         }
         return obj.hashCode();
     }

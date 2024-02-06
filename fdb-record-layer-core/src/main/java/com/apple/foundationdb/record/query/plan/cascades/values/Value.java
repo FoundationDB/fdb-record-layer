@@ -74,7 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * A scalar value type.
@@ -144,8 +143,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
      */
     default boolean isConstant() {
         return getCorrelatedTo().isEmpty()
-               && StreamSupport.stream(filter(NondeterministicValue.class::isInstance).spliterator(), false)
-                       .findAny().isEmpty(); // TODO: use CompileTime tag interface.
+                && stream().filter(NondeterministicValue.class::isInstance).findAny().isEmpty();
     }
 
     /**
@@ -250,8 +248,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return false;
         }
 
-        return StreamSupport.stream(inPreOrder().spliterator(), false)
-                .flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+        return stream().flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 
