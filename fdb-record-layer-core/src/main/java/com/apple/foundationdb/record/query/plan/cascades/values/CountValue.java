@@ -136,7 +136,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         if (child != null) {
             return ImmutableList.of(child);
         } else {

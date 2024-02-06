@@ -273,7 +273,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings({"PMD.CloseResource", "java:S2095"})
-    private void deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
+    void deleteDocument(Tuple groupingKey, Integer partitionId, Tuple primaryKey) throws IOException {
         final long startTime = System.nanoTime();
         final IndexWriter indexWriter = directoryManager.getIndexWriter(groupingKey, partitionId, indexAnalyzerSelector.provideIndexAnalyzer(""));
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
@@ -311,7 +311,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @Override
     public CompletableFuture<Void> mergeIndex() {
-        return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
+        return partitioner.rebalancePartitions()
+                .thenCompose(ignored -> directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer("")));
     }
 
     @Nonnull

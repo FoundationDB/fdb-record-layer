@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -102,6 +103,12 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Nonnull

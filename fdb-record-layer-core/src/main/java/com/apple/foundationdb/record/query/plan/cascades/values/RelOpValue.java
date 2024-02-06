@@ -120,7 +120,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 

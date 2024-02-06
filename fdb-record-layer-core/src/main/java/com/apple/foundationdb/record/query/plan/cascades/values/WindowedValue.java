@@ -83,7 +83,7 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.<Value>builder().addAll(partitioningValues).addAll(argumentValues).build();
     }
 

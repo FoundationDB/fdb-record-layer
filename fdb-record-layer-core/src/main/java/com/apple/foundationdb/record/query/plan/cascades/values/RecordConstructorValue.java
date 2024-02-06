@@ -74,14 +74,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nonnull
     protected final List<Column<? extends Value>> columns;
     @Nonnull
-    private final Supplier<List<? extends Value>> childrenSupplier;
-    @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
     private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final Type.Record resultType) {
         this.resultType = resultType;
         this.columns = ImmutableList.copyOf(columns);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
@@ -92,11 +89,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
-    }
-
-    private List<? extends Value> computeChildren() {
+    protected List<? extends Value> computeChildren() {
         return columns
                 .stream()
                 .map(Column::getValue)

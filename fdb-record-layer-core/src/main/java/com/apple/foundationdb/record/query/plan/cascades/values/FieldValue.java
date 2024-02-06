@@ -185,7 +185,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         final var that = (FieldValue)other;
         return fieldPath.equals(that.fieldPath) &&
-               childValue.semanticEquals(that.childValue, equivalenceMap);
+                childValue.semanticEquals(that.childValue, equivalenceMap);
     }
 
     @Override
@@ -206,7 +206,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, fieldPath);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, fieldPath);
@@ -353,6 +353,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             }
         }
         return Optional.of(fieldPath.subList(potentialPrefixPath.size(), fieldPath.size()));
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     /**

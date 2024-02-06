@@ -45,6 +45,8 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> semanticHashCodeSupplier;
 
+    private final Supplier<Integer> heightSupplier;
+
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
                                      @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
@@ -56,6 +58,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         this.isAtomic = isAtomic;
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+        this.heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
     }
 
     @Nonnull
@@ -87,6 +90,11 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     }
 
     protected abstract int computeSemanticHashCode();
+
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
 
     @Override
     public int hashCodeWithoutChildren() {
