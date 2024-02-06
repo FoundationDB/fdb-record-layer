@@ -58,7 +58,7 @@ public class ValueMaxMatchUsingBoundEquivalenceTest {
         final var translatedSource = Verify.verifyNotNull(source.replace(value -> valueMap.getOrDefault(boundEquivalence.wrap(value), value)));
         // Now that the source is translated, we can look up the max match between the translated source
         // and the value.
-        translatedSource.pruningIterator(needle -> {
+        translatedSource.preOrderPruningIterator(needle -> {
             final var pulledUpSourceMap = translatedSource.pullUp(List.of(needle), boundIdentitiesMap, Set.of(), sourceAlias);
             final var toBeMappedSource = pulledUpSourceMap.get(needle);
             final var sourceIdentitiesMap = boundIdentitiesMap.combine(AliasMap.identitiesFor(Set.of(sourceAlias)));
@@ -74,7 +74,7 @@ public class ValueMaxMatchUsingBoundEquivalenceTest {
                 System.out.println("--> could not find " + sourceIdentitiesEquivalence.wrap(toBeMappedSource) + " in " + result + " ... search continues");
             }
             System.out.println("SOURCE: visiting -> " + needle);
-            final var found = target.stream().filter(targetItem -> needle.semanticEquals(targetItem, boundIdentitiesMap)).findAny();
+            final var found = target.preOrderStream().filter(targetItem -> needle.semanticEquals(targetItem, boundIdentitiesMap)).findAny();
             if (found.isEmpty()) {
                 System.out.println("could not find matches for " + needle + " therefor I will descend into the children");
 

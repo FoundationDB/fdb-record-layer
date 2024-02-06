@@ -76,7 +76,11 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @Nonnull
     default Iterator<T> preOrderIterator() {
-        return PreOrderIterator.over(getThis());
+        return PreOrderPruningIterator.over(getThis());
+    }
+
+    default Iterator<T> preOrderPruningIterator(@Nonnull final Predicate<T> descendInChildren) {
+        return PreOrderPruningIterator.overWithPruningPredicate(getThis(), descendInChildren);
     }
 
     /**
@@ -274,10 +278,6 @@ public interface TreeLike<T extends TreeLike<T>> {
             }
         }
         return replacedChildren != null ? self.withChildren(replacedChildren.build()) : self;
-    }
-
-    default Iterator<T> pruningIterator(@Nonnull final Predicate<T> descendInChildren) {
-        return PreOrderPruningIterator.overWithPruningPredicate(getThis(), descendInChildren);
     }
 
     /**
