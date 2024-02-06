@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -156,6 +157,12 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     @Nonnull
     public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
         return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getOrdinal(), Type.any()), value.getResultType());
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     /**

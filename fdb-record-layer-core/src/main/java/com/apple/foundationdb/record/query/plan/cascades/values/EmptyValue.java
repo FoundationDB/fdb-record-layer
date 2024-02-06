@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -112,6 +113,12 @@ public class EmptyValue extends AbstractValue implements LeafValue {
     public static EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                        @Nonnull final PEmptyValue emptyValueProto) {
         return new EmptyValue();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     /**

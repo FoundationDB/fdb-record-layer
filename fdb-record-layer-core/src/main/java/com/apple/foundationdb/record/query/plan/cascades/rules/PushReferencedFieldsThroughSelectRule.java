@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -95,10 +94,8 @@ public class PushReferencedFieldsThroughSelectRule extends CascadesRule<SelectEx
      * @return a set of {@link FieldValue}s
      */
     private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
-        return StreamSupport.stream(selectExpression
-                        .getResultValue()
-                        .filter(value -> value instanceof FieldValue)
-                        .spliterator(), false)
+        return selectExpression.getResultValue().preOrderStream()
+                .filter(FieldValue.class::isInstance)
                 .map(value -> (FieldValue)value)
                 .collect(ImmutableSet.toImmutableSet());
     }

@@ -46,7 +46,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -93,7 +92,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
     @Nonnull
     @Override
-    public Collection<? extends Value> getChildren() {
+    protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
@@ -201,7 +200,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Override
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            return getChildren().stream()
+            return Streams.stream(getChildren())
                     .map(child -> child.eval(store, context))
                     .collect(ImmutableList.toImmutableList());
         }
@@ -218,7 +217,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
         @Override
         public boolean canResultInType(@Nonnull final Type type) {
-            if (!getChildren().isEmpty()) {
+            if (!Iterables.isEmpty(getChildren())) {
                 return false;
             }
             return type.isUnresolved();
@@ -227,7 +226,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nonnull
         @Override
         public Value with(@Nonnull final Type type) {
-            Verify.verify(getChildren().isEmpty());
+            Verify.verify(Iterables.isEmpty(getChildren()));
             return emptyArray(type); // only empty arrays are currently promotable
         }
 

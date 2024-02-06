@@ -116,9 +116,10 @@ class BooleanValueTest {
             return 0;
         }
 
-        @Nonnull
+        @SuppressWarnings("NullableProblems") // this is for testing.
+        @Nullable
         @Override
-        public Iterable<? extends Value> getChildren() {
+        protected Iterable<? extends Value> computeChildren() {
             return null;
         }
 
