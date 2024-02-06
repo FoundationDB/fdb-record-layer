@@ -218,7 +218,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             throw new UnsupportedOperationException(String.format("aggregate index is expected to contain exactly one aggregation, however it contains %d aggregations", groupingKeyExpression.getGroupedCount()));
         }
         final Value groupedValue = groupingKeyExpression.getGroupedCount() == 0
-                                   ? EmptyValue.EMPTY
+                                   ? EmptyValue.empty()
                                    : baseExpansion.getResultColumns().get(groupingKeyExpression.getGroupingCount()).getValue();
 
         // construct aggregation RCV
