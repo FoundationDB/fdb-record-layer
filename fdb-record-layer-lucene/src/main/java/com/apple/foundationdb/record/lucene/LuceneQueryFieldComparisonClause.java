@@ -175,28 +175,22 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         // (adding a value for map support).
         // The resulting Lucene query will use the comparand against the field name, with "any" value for the field's value.
         // TODO: In the future this would need to be changed to support comparing both field name and value.
-
-        // Change the field name to contain the value instead of the suffix, if necessary
-        final String appliedFieldName = applyFieldNameConversion(fieldNameOverride, field, namedFieldSuffix, comparison);
-        // Field names are compared with NOT_NULL (unary) comparison where the given comparand is added to the field name
-        final Comparisons.Comparison appliedComparison = (fieldNameOverride) ? new Comparisons.NullComparison(Comparisons.Type.NOT_NULL) : comparison;
-
         switch (fieldType) {
             case STRING:
             case TEXT:
                 return new StringQuery(queryType, field, fieldType, comparison);
             case INT:
-                return new IntQuery(queryType, appliedFieldName, fieldType, appliedComparison);
+                return new IntQuery(queryType, field, fieldType, comparison, fieldNameOverride, namedFieldSuffix);
             case LONG:
-                return new LongQuery(queryType, appliedFieldName, fieldType, appliedComparison);
+                return new LongQuery(queryType, field, fieldType, comparison, fieldNameOverride, namedFieldSuffix);
             case DOUBLE:
-                return new DoubleQuery(queryType, appliedFieldName, fieldType, appliedComparison);
+                return new DoubleQuery(queryType, field, fieldType, comparison, fieldNameOverride, namedFieldSuffix);
             default:
                 throw new RecordCoreException("unsupported Lucene index field type: " + fieldType);
         }
     }
 
-    private static String applyFieldNameConversion(final boolean fieldNameOverride, final String field, final String namedFieldSuffix, final Comparisons.Comparison comparison) {
+    protected String applyFieldNameConversion(final boolean fieldNameOverride, final String field, final String namedFieldSuffix, final Object comparand) {
         if ( ! fieldNameOverride) {
             return field;
         }
@@ -206,14 +200,21 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                     .addLogInfo("fieldName", field)
                     .addLogInfo("suffix", namedFieldSuffix);
         }
-        Object comparand = comparison.getComparand();
         if (! (comparand instanceof String)) {
             throw new RecordCoreArgumentException("Comparand type for Lucene field comparison must be a String")
                     .addLogInfo("fieldName", field)
-                    // TODO: Can the comparand be null?
                     .addLogInfo("comparandType", comparand.getClass().getName());
         }
         return field.substring(0, location) + comparand;
+    }
+
+    protected Comparisons.Comparison applyComparisonConversion(final boolean fieldNameOverride, Comparisons.Comparison comparison) {
+        if (fieldNameOverride) {
+            // When comparing against the field name the query effectively becomes field existance
+            return new Comparisons.NullComparison(Comparisons.Type.NOT_NULL);
+        } else {
+            return comparison;
+        }
     }
 
     protected static Query negate(@Nonnull Query query) {
@@ -319,39 +320,47 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class IntQuery extends LuceneQueryFieldComparisonClause {
-        public IntQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        private final boolean fieldNameOverride;
+        private final String namedFieldSuffix;
+
+        public IntQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
+                        final boolean fieldNameOverride, final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
+            this.fieldNameOverride = fieldNameOverride;
+            this.namedFieldSuffix = namedFieldSuffix;
         }
 
         @Override
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
+            if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
-            switch (comparison.getType()) {
+            String appliedFieldName = applyFieldNameConversion(fieldNameOverride, field, namedFieldSuffix, comparand);
+            Comparisons.Comparison appliedComparison = applyComparisonConversion(fieldNameOverride, comparison);
+            switch (appliedComparison.getType()) {
                 case EQUALS:
-                    return toBoundQuery(IntPoint.newExactQuery(field, (Integer)comparand));
+                    return toBoundQuery(IntPoint.newExactQuery(appliedFieldName, (Integer)comparand));
                 case NOT_EQUALS: {
                     int value = (Integer)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
-                    builder.add(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
-                    builder.add(IntPoint.newRangeQuery(field, value + 1, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                    builder.add(IntPoint.newRangeQuery(appliedFieldName, Integer.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
+                    builder.add(IntPoint.newRangeQuery(appliedFieldName, value + 1, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
                     return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand - 1));
+                    return toBoundQuery(IntPoint.newRangeQuery(appliedFieldName, Integer.MIN_VALUE, (Integer)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, (Integer)comparand));
+                    return toBoundQuery(IntPoint.newRangeQuery(appliedFieldName, Integer.MIN_VALUE, (Integer)comparand));
                 case GREATER_THAN:
-                    return toBoundQuery(IntPoint.newRangeQuery(field, (Integer)comparand + 1, Integer.MAX_VALUE));
+                    return toBoundQuery(IntPoint.newRangeQuery(appliedFieldName, (Integer)comparand + 1, Integer.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return toBoundQuery(IntPoint.newRangeQuery(field, (Integer)comparand, Integer.MAX_VALUE));
+                    return toBoundQuery(IntPoint.newRangeQuery(appliedFieldName, (Integer)comparand, Integer.MAX_VALUE));
                 case IN:
-                    return toBoundQuery(IntPoint.newSetQuery(field, ((List<Integer>)comparand)));
+                    return toBoundQuery(IntPoint.newSetQuery(appliedFieldName, ((List<Integer>)comparand)));
                 case NOT_NULL:
-                    return toBoundQuery(IntPoint.newRangeQuery(field, Integer.MIN_VALUE, Integer.MAX_VALUE));
+                    return toBoundQuery(IntPoint.newRangeQuery(appliedFieldName, Integer.MIN_VALUE, Integer.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Integer: " + comparison.getType());
             }
@@ -359,39 +368,47 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class LongQuery extends LuceneQueryFieldComparisonClause {
-        public LongQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        private final boolean fieldNameOverride;
+        private final String namedFieldSuffix;
+
+        public LongQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
+                         final boolean fieldNameOverride, final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
+            this.fieldNameOverride = fieldNameOverride;
+            this.namedFieldSuffix = namedFieldSuffix;
         }
 
         @Override
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
+            if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
-            switch (comparison.getType()) {
+            String appliedFieldName = applyFieldNameConversion(fieldNameOverride, field, namedFieldSuffix, comparand);
+            Comparisons.Comparison appliedComparison = applyComparisonConversion(fieldNameOverride, comparison);
+            switch (appliedComparison.getType()) {
                 case EQUALS:
-                    return toBoundQuery(LongPoint.newExactQuery(field, (Long)comparand));
+                    return toBoundQuery(LongPoint.newExactQuery(appliedFieldName, (Long)comparand));
                 case NOT_EQUALS: {
                     long value = (Long)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
-                    builder.add(LongPoint.newRangeQuery(field, Long.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
-                    builder.add(LongPoint.newRangeQuery(field, value + 1, Long.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                    builder.add(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
+                    builder.add(LongPoint.newRangeQuery(appliedFieldName, value + 1, Long.MAX_VALUE), BooleanClause.Occur.SHOULD);
                     return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand - 1));
+                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, (Long)comparand));
+                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand));
                 case GREATER_THAN:
-                    return toBoundQuery(LongPoint.newRangeQuery(field, (Long)comparand + 1, Long.MAX_VALUE));
+                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand + 1, Long.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return toBoundQuery(LongPoint.newRangeQuery(field, (Long)comparand, Long.MAX_VALUE));
+                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand, Long.MAX_VALUE));
                 case IN:
-                    return toBoundQuery(LongPoint.newSetQuery(field, ((List<Long>)comparand)));
+                    return toBoundQuery(LongPoint.newSetQuery(appliedFieldName, ((List<Long>)comparand)));
                 case NOT_NULL:
-                    return toBoundQuery(LongPoint.newRangeQuery(field, Long.MIN_VALUE, Long.MAX_VALUE));
+                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, Long.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Long: " + comparison.getType());
             }
@@ -399,39 +416,47 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class DoubleQuery extends LuceneQueryFieldComparisonClause {
-        public DoubleQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        private final boolean fieldNameOverride;
+        private final String namedFieldSuffix;
+
+        public DoubleQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
+                           final boolean fieldNameOverride, final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
+            this.fieldNameOverride = fieldNameOverride;
+            this.namedFieldSuffix = namedFieldSuffix;
         }
 
         @Override
         @SuppressWarnings("unchecked")
         public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
-            if ((comparand == null) && (comparison.getType() != Comparisons.Type.NOT_NULL)) {
+            if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
-            switch (comparison.getType()) {
+            String appliedFieldName = applyFieldNameConversion(fieldNameOverride, field, namedFieldSuffix, comparand);
+            Comparisons.Comparison appliedComparison = applyComparisonConversion(fieldNameOverride, comparison);
+            switch (appliedComparison.getType()) {
                 case EQUALS:
-                    return toBoundQuery(DoublePoint.newExactQuery(field, (Double)comparand));
+                    return toBoundQuery(DoublePoint.newExactQuery(appliedFieldName, (Double)comparand));
                 case NOT_EQUALS: {
                     double value = (Double)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
-                    builder.add(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
-                    builder.add(DoublePoint.newRangeQuery(field, value + 1, Double.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                    builder.add(DoublePoint.newRangeQuery(appliedFieldName, Double.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
+                    builder.add(DoublePoint.newRangeQuery(appliedFieldName, value + 1, Double.MAX_VALUE), BooleanClause.Occur.SHOULD);
                     return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand - 1));
+                    return toBoundQuery(DoublePoint.newRangeQuery(appliedFieldName, Double.MIN_VALUE, (Double)comparand - 1));
                 case LESS_THAN_OR_EQUALS:
-                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, (Double)comparand));
+                    return toBoundQuery(DoublePoint.newRangeQuery(appliedFieldName, Double.MIN_VALUE, (Double)comparand));
                 case GREATER_THAN:
-                    return toBoundQuery(DoublePoint.newRangeQuery(field, (Double)comparand + 1, Double.MAX_VALUE));
+                    return toBoundQuery(DoublePoint.newRangeQuery(appliedFieldName, (Double)comparand + 1, Double.MAX_VALUE));
                 case GREATER_THAN_OR_EQUALS:
-                    return toBoundQuery(DoublePoint.newRangeQuery(field, (Double)comparand, Double.MAX_VALUE));
+                    return toBoundQuery(DoublePoint.newRangeQuery(appliedFieldName, (Double)comparand, Double.MAX_VALUE));
                 case IN:
-                    return toBoundQuery(DoublePoint.newSetQuery(field, ((List<Double>)comparand)));
+                    return toBoundQuery(DoublePoint.newSetQuery(appliedFieldName, ((List<Double>)comparand)));
                 case NOT_NULL:
-                    return toBoundQuery(DoublePoint.newRangeQuery(field, Double.MIN_VALUE, Double.MAX_VALUE));
+                    return toBoundQuery(DoublePoint.newRangeQuery(appliedFieldName, Double.MIN_VALUE, Double.MAX_VALUE));
                 default:
                     throw new RecordCoreException("comparison type not supported for Double: " + comparison.getType());
             }
