@@ -98,7 +98,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> mergeIndex(LucenePartitioner partitioner, LuceneAnalyzerWrapper analyzerWrapper) {
+    public CompletableFuture<Void> mergeIndex(@Nonnull LucenePartitioner partitioner, LuceneAnalyzerWrapper analyzerWrapper) {
         // This function will iterate the grouping keys and explicitly merge each
 
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
@@ -133,8 +133,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                         2);
     }
 
-    private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable LucenePartitioner partitioner, final AgilityContext agileContext) {
-        if (partitioner == null) {
+    private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey,
+                                               @Nonnull LucenePartitioner partitioner, final AgilityContext agileContext) {
+        if (!partitioner.isPartitioningEnabled()) {
             try {
                 getDirectoryWrapper(groupingKey, null, agileContext).mergeIndex(analyzerWrapper);
                 return AsyncUtil.DONE;

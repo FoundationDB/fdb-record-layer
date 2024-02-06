@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -71,6 +72,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -88,7 +90,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.
 @API(API.Status.EXPERIMENTAL)
 public class LucenePartitioner {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LucenePartitioner.class);
     private static final int DEFAULT_PARTITION_HIGH_WATERMARK = 400_000;
     private static final ConcurrentHashMap<String, KeyExpression> partitioningKeyExpressionCache = new ConcurrentHashMap<>();
     public static final int PARTITION_META_SUBSPACE = 0;
@@ -300,6 +302,8 @@ public class LucenePartitioner {
     }
 
     private static Tuple partitionMetadataKeyTuple(final @Nonnull Tuple groupKey, final long timestamp) {
+        // If/when we support generic tuples for the `from` we should use `addAll` here to be consistent with the data
+        // layout used here
         return groupKey.add(PARTITION_META_SUBSPACE).add(timestamp);
     }
 
@@ -317,7 +321,6 @@ public class LucenePartitioner {
     }
 
     private static long getTimestampFromPartitionInfo(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfoOrBuilder builder) {
-        // TODO I think we just want the `from` as a sub-tuple
         return Tuple.fromBytes(builder.getFrom().toByteArray()).getLong(0);
     }
 
@@ -523,18 +526,12 @@ public class LucenePartitioner {
     @Nonnull
     public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start) {
         // This function will iterate the grouping keys
-        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
-                props -> props.clearState().setReturnedRowLimit(1));
-
-        final Range range = state.indexSubspace.range();
-        final KeyRange keyRange = new KeyRange(range.begin, range.end);
-        final Subspace subspace = state.indexSubspace;
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             return processPartitionRebalancing(Tuple.from()).thenApply(result -> {
-                if (result.getRight() > 0) {
-                    // there is more to do in this partition
+                if (result.getLeft() > 0) {
+                    // we did something, repeat
                     return RecordCursorStartContinuation.START;
                 } else {
                     return RecordCursorEndContinuation.END;
@@ -545,49 +542,39 @@ public class LucenePartitioner {
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
         final int groupingCount = expression.getGroupingCount();
 
+        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
+                props -> props.clearState().setReturnedRowLimit(1));
+
+        final Range range = state.indexSubspace.range();
+        final KeyRange keyRange = new KeyRange(range.begin, range.end);
+        final Subspace subspace = state.indexSubspace;
         try (RecordCursor<Tuple> cursor = new ChainedCursor<>(
                 state.context,
                 lastKey -> FDBDirectoryManager.nextTuple(state.context, subspace, keyRange, lastKey, scanProperties, groupingCount),
                 Tuple::pack,
                 Tuple::fromBytes,
-                start.toBytes(), // TODO can this take a RecordCursrContinuation
+                start.toBytes(),
                 ScanProperties.FORWARD_SCAN)) {
-            // todo decrease complexity
             AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(start);
-            return AsyncUtil.whileTrue(() -> {
-                return cursor.onNext().thenCompose(cursorResult -> {
-                    if (cursorResult.hasNext()) {
-                        final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
-                        return processPartitionRebalancing(groupingKey)
-                                .thenCompose(repartitionResult -> {
-                                    if (repartitionResult.getLeft() > 0) {
-                                        // we did something
-                                        if (repartitionResult.getRight() > 0) {
-                                            // but there is more to do, so don't change continuation
-                                            return AsyncUtil.READY_FALSE;
-                                        } else {
-                                            // no more to do in this partition
-                                            return cursor.onNext().thenApply(nextGroup -> {
-                                                if (nextGroup.hasNext()) {
-                                                    continuation.set(nextGroup.getContinuation());
-                                                    return false;
-                                                } else {
-                                                    return false;
-                                                }
-                                            });
-                                        }
-                                    } else {
-                                        // we didn't do anything, we can proceed to the next group
-                                        continuation.set(cursorResult.getContinuation());
-                                        return AsyncUtil.READY_TRUE;
-                                    }
-                                });
-                    } else {
-                        continuation.set(cursorResult.getContinuation());
-                        return AsyncUtil.READY_FALSE;
-                    }
-                });
-            }).thenApply(ignored -> continuation.get());
+            return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
+                if (cursorResult.hasNext()) {
+                    final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
+                    return processPartitionRebalancing(groupingKey)
+                            .thenCompose(repartitionResult -> {
+                                if (repartitionResult.getLeft() > 0) {
+                                    // we did something, stop so we can create a new transaction
+                                    return AsyncUtil.READY_FALSE;
+                                } else {
+                                    // we didn't do anything, we can proceed to the next group
+                                    continuation.set(cursorResult.getContinuation());
+                                    return AsyncUtil.READY_TRUE;
+                                }
+                            });
+                } else {
+                    continuation.set(cursorResult.getContinuation());
+                    return AsyncUtil.READY_FALSE;
+                }
+            })).thenApply(ignored -> continuation.get());
         }
     }
 
@@ -606,6 +593,12 @@ public class LucenePartitioner {
         return getAllPartitionMetaInfo(groupingKey).thenCompose(partitionInfos -> {
             // need to track the next partition id to use when creating a new one
             int maxPartitionId = partitionInfos.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).max(Integer::compare).orElse(0);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(partitionInfos.stream()
+                        .sorted(Comparator.comparing(pi -> Tuple.fromBytes(pi.getFrom().toByteArray())))
+                        .map(pi -> "pi[" + pi.getId() + "]@" + pi.getCount() + Tuple.fromBytes(pi.getFrom().toByteArray()) + "->" + Tuple.fromBytes(pi.getTo().toByteArray()))
+                        .collect(Collectors.joining(", ", "Rebalancing partitions: ", "")));
+            }
 
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {
                 if (partitionInfo.getCount() > indexPartitionHighWatermark) {
@@ -613,10 +606,13 @@ public class LucenePartitioner {
 
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
+                    final Integer repartitionDocumentCount = Math.min(
+                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)),
+                            indexPartitionHighWatermark);
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(
                             partitionInfo,
                             groupingKey,
-                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)) + 1);
+                            repartitionDocumentCount + 1);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
                             .thenApply(movedCount -> Pair.of(
@@ -648,7 +644,7 @@ public class LucenePartitioner {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 comparisons,
                 new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
-                new Sort(new SortField(partitionTimestampFieldName, SortField.Type.LONG, false)),
+                new Sort(new SortField(partitionTimestampFieldName.replace('.', '_'), SortField.Type.LONG, false)),
                 null,
                 null,
                 null);
@@ -658,7 +654,8 @@ public class LucenePartitioner {
         // we create the cursor here explicitly (vs. e.g. calling state.store.scanIndex(...)) because we want the search
         // to be performed specifically in the provided partition.
         // alternatively we can include a partitionInfo in the lucene scan parameters--tbd
-        try (LuceneRecordCursor cursor = new LuceneRecordCursor(state.context.getExecutor(),
+        try (LuceneRecordCursor cursor = new LuceneRecordCursor(
+                state.context.getExecutor(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                 Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE)),
                 scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), null,
@@ -732,11 +729,13 @@ public class LucenePartitioner {
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
-                LOGGER.info(KeyValueLogMessage.of("Repartioning Records",
-                                LuceneLogMessageKeys.GROUP, groupingKey,
-                                LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
-                                LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
-                                LuceneLogMessageKeys.COUNT, records.size()));
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.of("Repartitioning Records",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
+                            LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
+                            LuceneLogMessageKeys.COUNT, records.size()));
+                }
 
                 // value of the "destination" partition's `from` timestamp
                 final long overflowPartitionFromTimestamp = getPartitioningTimestampValue(records.get(0));
@@ -761,7 +760,8 @@ public class LucenePartitioner {
      * @param groupingKey grouping key
      * @return future list of partition metadata
      */
-    private CompletableFuture<List<LucenePartitionInfoProto.LucenePartitionInfo>> getAllPartitionMetaInfo(@Nonnull final Tuple groupingKey) {
+    @VisibleForTesting
+    public CompletableFuture<List<LucenePartitionInfoProto.LucenePartitionInfo>> getAllPartitionMetaInfo(@Nonnull final Tuple groupingKey) {
         Range range = state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
         return AsyncUtil.collect(rangeIterable).thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList()));

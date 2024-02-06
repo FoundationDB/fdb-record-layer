@@ -167,6 +167,11 @@ tasks.withType(Test).configureEach { task ->
         }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
+        } else {
+            systemProperties['tests.includeRandom'] = 'true'
+        }
+        if (project.hasProperty('tests.iterations')) {
+            systemProperties['tests.iterations'] = project.getProperty('tests.iterations')
         }
         task.testFramework.options.excludeTags.add('Performance')
     }

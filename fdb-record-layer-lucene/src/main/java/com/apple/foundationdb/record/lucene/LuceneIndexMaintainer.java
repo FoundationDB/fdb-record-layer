@@ -111,6 +111,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;
     private boolean serializerErrorLogged = false;
+    @Nonnull
     private final LucenePartitioner partitioner;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
@@ -321,6 +322,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .thenCompose(ignored -> directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer("")));
     }
 
+    @Nonnull
+    @VisibleForTesting
+    public LucenePartitioner getPartitioner() {
+        return partitioner;
+    }
+
+    @SuppressWarnings("PMD.CloseResource") // the runner is closed in a whenComplete on the future returned
     public CompletableFuture<Void> rebalancePartitions() {
         if (!partitioner.isPartitioningEnabled()) {
             return CompletableFuture.completedFuture(null);
@@ -328,7 +336,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         final Index index = state.index;
-        return rebalancePartitions(runner, storeBuilder, index);
+        return rebalancePartitions(runner, storeBuilder, index)
+                .whenComplete((result, error) -> {
+                    runner.close();
+                });
     }
 
     private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
@@ -349,8 +360,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             });
                 });
             });
-        }).whenComplete((result, exception) -> {
-            runner.close();
         });
     }
 

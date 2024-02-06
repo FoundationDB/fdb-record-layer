@@ -566,7 +566,7 @@ public class FDBDirectory extends Directory  {
             });
             return null;
         }).thenAccept(ignore -> {
-            if (LOGGER.isTraceEnabled()) {
+            if (LOGGER.isDebugEnabled()) {
                 List<String> displayList = new ArrayList<>(outMap.size());
                 long totalSize = 0L;
                 long actualTotalSize = 0L;
@@ -575,7 +575,7 @@ public class FDBDirectory extends Directory  {
                     totalSize += entry.getValue().getSize();
                     actualTotalSize += entry.getValue().getActualSize();
                 }
-                LOGGER.trace(getLogMessage("listAllFiles",
+                LOGGER.debug(getLogMessage("listAllFiles",
                         LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
                         LuceneLogMessageKeys.FILE_LIST, displayList,
                         LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
@@ -877,8 +877,8 @@ public class FDBDirectory extends Directory  {
     @Override
     public void close() {
         agilityContext.flush();
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("close called",
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(getLogMessage("close called",
                     LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats()));
         }
     }
