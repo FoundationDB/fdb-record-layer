@@ -42,14 +42,13 @@ public abstract class YamlTestBase {
         doRun(fileName, false);
     }
 
-    private void doRun(String fileName, boolean correctExplain) throws Exception {
-        try (var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain)) {
-            try {
-                yamlRunner.run();
-            } catch (Exception e) {
-                logger.error("‼️ running test file '{}' was not successful", fileName, e);
-                throw e;
-            }
+    protected void doRun(String fileName, boolean correctExplain) throws Exception {
+        var yamlRunner = new YamlRunner(fileName, createConnectionFactory(), correctExplain);
+        try {
+            yamlRunner.run();
+        } catch (Exception e) {
+            logger.error("‼️ running test file '{}' was not successful", fileName, e);
+            throw e;
         }
     }
 

@@ -47,6 +47,7 @@ import static com.apple.foundationdb.relational.yamltests.QueryCommand.reportTes
  *     <li>{@code checkError}: checks for the error.</li>
  * </ul>
  */
+@SuppressWarnings({"PMD.GuardLogStatement"})
 public abstract class QueryConfig {
     private static final Logger logger = LogManager.getLogger(QueryConfig.class);
 
@@ -152,17 +153,26 @@ public abstract class QueryConfig {
                     for (final var diffRow : diffRows) {
                         planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
                     }
-                    final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            planDiffs +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↪ expected plan %s:%n" +
-                            configWithValue.valueString() + "%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↩ actual plan:%n" +
-                            actualPlan,
-                            configWithValue.getLineNumber(), (!isExact ? " fragment" : ""));
-                    reportTestFailure(diffMessage, new QueryCommand.ExplainMismatchError(diffMessage, expectedPlan, actualPlan));
+                    final var execCtx = configWithValue.getExecutionContext();
+                    if (isExact && execCtx.shouldCorrectExplains()) {
+                        if (!execCtx.correctExplain(configWithValue.getLineNumber() - 1, actualPlan)) {
+                            reportTestFailure("‼️ Cannot correct explain plan at line " + configWithValue.getLineNumber());
+                        } else {
+                            logger.debug("⭐️ Successfully replaced plan at line " + configWithValue.getLineNumber());
+                        }
+                    } else {
+                        final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
+                                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                        planDiffs +
+                                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                        "↪ expected plan %s:%n" +
+                                        configWithValue.valueString() + "%n" +
+                                        "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                        "↩ actual plan:%n" +
+                                        actualPlan,
+                                configWithValue.getLineNumber(), (!isExact ? "fragment" : ""));
+                        reportTestFailure(diffMessage);
+                    }
                 }
             }
 

@@ -53,7 +53,8 @@ public abstract class Command {
         if (COMMAND_LOAD_SCHEMA_TEMPLATE.equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection,
+                                   @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
                     logger.debug("⏳ Loading template '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
@@ -74,7 +75,8 @@ public abstract class Command {
         } else if (COMMAND_SET_SCHEMA_STATE.equals(commandString)) {
             return new Command() {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection,
+                                   @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
                     final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "set schema state"), "set schema state").getValue(), "set schema state");
                     logger.debug("⏳ Setting schema state '{}'", loadCommandString);
                     // current connection should be __SYS/catalog
@@ -106,5 +108,6 @@ public abstract class Command {
         }
     }
 
-    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection) throws SQLException, RelationalException;
+    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection,
+                                @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException;
 }

@@ -66,15 +66,15 @@ public abstract class Block {
 
     int lineNumber;
     @Nonnull
-    YamlRunner.YamlConnectionFactory connectionFactory;
+    YamlRunner.YamlExecutionContext executionContext;
     @Nullable
     Throwable throwable;
     @Nullable
     URI connectPath;
 
-    Block(int lineNumber, @Nonnull YamlRunner.YamlConnectionFactory connectionFactory) {
+    Block(int lineNumber, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
-        this.connectionFactory = connectionFactory;
+        this.executionContext = executionContext;
     }
 
     int getLineNumber() {
@@ -91,6 +91,7 @@ public abstract class Block {
      *
      * @return An error or exception that might have been encountered while executing the block.
      */
+    @Nonnull
     public final Optional<Throwable> getThrowableIfExists() {
         return Optional.ofNullable(this.throwable);
     }
@@ -117,7 +118,7 @@ public abstract class Block {
             Assert.failUnchecked("‼️ Cannot connect. Path is not provided");
         }
         logger.debug("🚠 Connecting to database: `" + connectPath + "`");
-        try (var connection = connectionFactory.getNewConnection(connectPath)) {
+        try (var connection = executionContext.getConnectionFactory().getNewConnection(connectPath)) {
             logger.debug("✅ Connected to database: `" + connectPath + "`");
             consumer.accept(connection);
         } catch (SQLException sqle) {
@@ -151,15 +152,16 @@ public abstract class Block {
      * Looks at the block to determine if its one of the valid blocks. If it is, parses it to that one.
      *
      * @param document a region in the file
-     * @param connectionFactory interface needed to obtain connection to the database.
+     * @param executionContext information needed to carry out the execution
      *
      * @return a parsed block
      */
-    public static Block parse(@Nonnull Object document, @Nonnull YamlRunner.YamlConnectionFactory connectionFactory) {
+    @Nonnull
+    public static Block parse(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
         if (isConfigBlock(document)) {
-            return new ConfigBlock(document, connectionFactory);
+            return new ConfigBlock(document, executionContext);
         } else if (isTestBlock(document)) {
-            return new TestBlock(document, connectionFactory);
+            return new TestBlock(document, executionContext);
         } else {
             throw new RuntimeException("Cannot recognize the type of block");
         }
@@ -193,8 +195,8 @@ public abstract class Block {
         @Nonnull
         List<Consumer<RelationalConnection>> executableSteps = new ArrayList<>();
 
-        private ConfigBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlConnectionFactory connectionFactory) {
-            super((((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "config").getKey()).getStartMark().getLine() + 1), connectionFactory);
+        private ConfigBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+            super((((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "config").getKey()).getStartMark().getLine() + 1), executionContext);
             final var configMap = Matchers.map(Matchers.firstEntry(document, "config").getValue());
             setConnectPath(configMap.getOrDefault(BLOCK_CONNECT, null));
             final var steps = getSteps(configMap.getOrDefault(CONFIG_BLOCK_STEPS, null));
@@ -204,7 +206,7 @@ public abstract class Block {
                 final var resolvedCommand = Objects.requireNonNull(Command.resolve(commandString));
                 executableSteps.add(connection -> {
                     try {
-                        resolvedCommand.invoke(List.of(step), connection);
+                        resolvedCommand.invoke(List.of(step), connection, executionContext);
                     } catch (Exception e) {
                         this.throwable = new RuntimeException(String.format("‼️ Error executing config step at line %d",
                                 getCommandLineNumber(Matchers.firstEntry(step, "configuration step"))), e);
@@ -284,8 +286,8 @@ public abstract class Block {
         @Nonnull
         private final List<Consumer<RelationalConnection>> executableTests = new ArrayList<>();
 
-        private TestBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlConnectionFactory connectionFactory) {
-            super(((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "test_block").getKey()).getStartMark().getLine() + 1, connectionFactory);
+        private TestBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+            super(((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "test_block").getKey()).getStartMark().getLine() + 1, executionContext);
             final var testsMap = Matchers.map(Matchers.firstEntry(document, "test_block").getValue());
             setConnectPath(testsMap.getOrDefault(BLOCK_CONNECT, null));
             setTestBlockOptions(testsMap.getOrDefault(TEST_BLOCK_OPTIONS, null));
@@ -408,7 +410,7 @@ public abstract class Block {
         private Consumer<RelationalConnection> createTestExecutable(List<?> test, int lineNumber, boolean checkCache) {
             return connection -> {
                 try {
-                    new QueryCommand(checkCache).invoke(test, connection);
+                    new QueryCommand(checkCache).invoke(test, connection, executionContext);
                 } catch (SQLException e) {
                     throw new RuntimeException(String.format("‼️ Cannot run query at line %d", lineNumber), e);
                 } catch (RelationalException e) {

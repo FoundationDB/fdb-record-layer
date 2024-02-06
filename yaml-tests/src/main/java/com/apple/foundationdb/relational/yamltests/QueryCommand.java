@@ -38,7 +38,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
-import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,63 +52,52 @@ public class QueryCommand extends Command {
 
     boolean checkCache;
 
-    public static class ExplainMismatchError extends AssertionFailedError {
-
-        private static final long serialVersionUID = 1L;
-
-        @Nonnull
-        private final String expectedPlan;
-        @Nonnull
-        private final String actualPlan;
-
-        public ExplainMismatchError(@Nonnull final String message, @Nonnull final String expectedPlan, @Nonnull final String actualPlan) {
-            super(message);
-            this.expectedPlan = expectedPlan;
-            this.actualPlan = actualPlan;
-        }
-
-        @Nonnull
-        public String getExpectedPlan() {
-            return expectedPlan;
-        }
-
-        @Nonnull
-        public String getActualPlan() {
-            return actualPlan;
-        }
-    }
-
     public static final class QueryConfigWithValue {
+        @Nonnull
         private final QueryConfig config;
+        @Nullable
         private final Object val;
         private final int lineNumber;
+        @Nullable
         private final String configName;
+        @Nonnull
+        private final YamlRunner.YamlExecutionContext executionContext;
 
-        private QueryConfigWithValue(@Nonnull QueryConfig config, @Nonnull Object val, int lineNumber,
-                                     @Nullable String configName) {
+        private QueryConfigWithValue(@Nonnull QueryConfig config, @Nullable Object val, int lineNumber,
+                                     @Nullable String configName, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
             this.config = config;
             this.val = val;
             this.lineNumber = lineNumber;
             this.configName = configName;
+            this.executionContext = executionContext;
         }
 
         public int getLineNumber() {
             return lineNumber;
         }
 
+        @Nullable
         public Object getVal() {
             return val;
         }
 
+        @Nonnull
         public QueryConfig getConfig() {
             return config;
+        }
+
+        @Nonnull
+        public YamlRunner.YamlExecutionContext getExecutionContext() {
+            return executionContext;
         }
 
         public String valueString() {
             if (val instanceof byte[]) {
                 return ByteArrayUtil2.loggable((byte[]) val);
-            } else {
+            } else if (val != null) {
                 return val.toString();
+            } else {
+                return "";
             }
         }
     }
@@ -118,13 +106,13 @@ public class QueryCommand extends Command {
         this.checkCache = checkCache;
     }
 
-    private QueryConfigWithValue getQueryConfigWithValue(Object config) {
+    private QueryConfigWithValue getQueryConfigWithValue(@Nonnull Object config, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
         final var queryConfigAndValue = Matchers.firstEntry(config, "query configuration and value");
         final var queryConfigLinedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(queryConfigAndValue, "query configuration").getKey();
         final var queryConfigString = Matchers.notNull(Matchers.string(queryConfigLinedObject.getObject(), "query configuration"), "query configuration");
         final var configVal = Matchers.notNull(queryConfigAndValue, "query configuration").getValue();
         return new QueryConfigWithValue(QueryConfig.resolve(queryConfigString), configVal,
-                queryConfigLinedObject.getStartMark().getLine() + 1, queryConfigString);
+                queryConfigLinedObject.getStartMark().getLine() + 1, queryConfigString, executionContext);
     }
 
     private String appendWithContinuationIfPresent(String queryString, Continuation continuation) {
@@ -139,7 +127,8 @@ public class QueryCommand extends Command {
     }
 
     @Override
-    public void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection) throws SQLException, RelationalException {
+    public void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection,
+                       @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
         }
@@ -151,7 +140,7 @@ public class QueryCommand extends Command {
         Continuation continuation = null;
         var queryConfigWithValuesIterator = queryConfigsWithValue.listIterator();
         while (queryConfigWithValuesIterator.hasNext()) {
-            var queryConfigWithValue = getQueryConfigWithValue(queryConfigWithValuesIterator.next());
+            var queryConfigWithValue = getQueryConfigWithValue(queryConfigWithValuesIterator.next(), executionContext);
             if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfigWithValue.configName)) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
                 executeConfig(queryString, queryConfigWithValue, false, connection);
@@ -166,9 +155,9 @@ public class QueryCommand extends Command {
                 final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
                 if (continuation != null && continuation.atEnd() && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfigWithValue.configName)) {
                     Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch at line %d%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "%s%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                    "%s%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfigWithValue.lineNumber, queryConfigWithValue));
                 }
                 continuation = executeConfig(currentQueryString, queryConfigWithValue, false, connection);
@@ -184,7 +173,7 @@ public class QueryCommand extends Command {
 
         if (!queryHasRun) {
             final var lineNumber = ((CustomYamlConstructor.LinedObject) queryCommand.getKey()).getStartMark().getLine() + 1;
-            final var queryConfigWithValue = new QueryConfigWithValue(QueryConfig.resolve(null), queryString, lineNumber, null);
+            final var queryConfigWithValue = new QueryConfigWithValue(QueryConfig.resolve(null), null, lineNumber, null, executionContext);
             executeConfig(queryString, queryConfigWithValue, false, connection);
         }
     }
