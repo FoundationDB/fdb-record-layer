@@ -736,11 +736,11 @@ public abstract class IndexingBase {
                         AsyncUtil.whileTrue(() -> cursor.onNext()
                                 .thenCompose(result ->
                                         policy.isReverseScanOrder() ?
-                                        iterateCursorOnlyReverse(store, result,
+                                        handleCursorResultReverse(store, result,
                                                 getRecordToIndex, nextResultCont,
                                                 recordsScannedCounter, hasMore, isIdempotent)
                                         :
-                                        iterateCursorOnly(store, result,
+                                        handleCursorResult(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
                                                 recordsScannedCounter, hasMore, isIdempotent)
                                 ), cursor.getExecutor()))
@@ -761,20 +761,20 @@ public abstract class IndexingBase {
     }
 
     @SuppressWarnings("squid:S00107") // too many parameters
-    private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
-                                                             @Nonnull RecordCursorResult<T> rangeCursor,
-                                                             @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
-                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
-                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
-                                                             @Nonnull AtomicLong recordsScannedCounter,
-                                                             @Nonnull AtomicBoolean hasMore,
-                                                             final boolean isIdempotent) {
+    private <T> CompletableFuture<Boolean> handleCursorResult(@Nonnull FDBRecordStore store,
+                                                              @Nonnull RecordCursorResult<T> cursorResult,
+                                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
+                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                              @Nonnull AtomicLong recordsScannedCounter,
+                                                              @Nonnull AtomicBoolean hasMore,
+                                                              final boolean isIdempotent) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
-        if (rangeCursor.hasNext()) {
+        if (cursorResult.hasNext()) {
             // has next, process one previous item (if exists)
             currResult = nextResult.get();
-            nextResult.set(rangeCursor);
+            nextResult.set(cursorResult);
             if (currResult == null) {
                 // that was the first item, nothing to process
                 return AsyncUtil.READY_TRUE;
@@ -783,7 +783,7 @@ public abstract class IndexingBase {
         } else {
             // end of the cursor list
             timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-            if (!rangeCursor.getNoNextReason().isSourceExhausted()) {
+            if (!cursorResult.getNoNextReason().isSourceExhausted()) {
                 nextResultCont.set(nextResult.get());
                 hasMore.set(true);
                 return AsyncUtil.READY_FALSE;
@@ -841,18 +841,18 @@ public abstract class IndexingBase {
     }
 
     @SuppressWarnings("squid:S00107") // too many parameters
-    private <T> CompletableFuture<Boolean> iterateCursorOnlyReverse(@Nonnull FDBRecordStore store,
-                                                                    @Nonnull RecordCursorResult<T> rangeCursor,
-                                                                    @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
-                                                                    @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
-                                                                    @Nonnull AtomicLong recordsScannedCounter,
-                                                                    @Nonnull AtomicBoolean hasMore,
-                                                                    final boolean isIdempotent) {
+    private <T> CompletableFuture<Boolean> handleCursorResultReverse(@Nonnull FDBRecordStore store,
+                                                                     @Nonnull RecordCursorResult<T> cursorResult,
+                                                                     @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                                     @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                                     @Nonnull AtomicLong recordsScannedCounter,
+                                                                     @Nonnull AtomicBoolean hasMore,
+                                                                     final boolean isIdempotent) {
         // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
         // the 'lastResultCont' item should also be processed
-        if (!rangeCursor.hasNext()) {
+        if (!cursorResult.hasNext()) {
             timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-            if (rangeCursor.getNoNextReason().isSourceExhausted()) {
+            if (cursorResult.getNoNextReason().isSourceExhausted()) {
                 timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
                 hasMore.set(false);
             } else {
@@ -864,9 +864,9 @@ public abstract class IndexingBase {
         // here: rangeCursor must have value
         timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
         recordsScannedCounter.incrementAndGet();
-        nextResultCont.set(rangeCursor);
+        nextResultCont.set(cursorResult);
 
-        return getRecordToIndex.apply(store, rangeCursor)
+        return getRecordToIndex.apply(store, cursorResult)
                 .thenCompose(rec -> {
                     if (null == rec) {
                         return AsyncUtil.READY_TRUE; // next

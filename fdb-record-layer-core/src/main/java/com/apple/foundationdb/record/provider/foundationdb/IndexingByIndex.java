@@ -172,12 +172,12 @@ public class IndexingByIndex extends IndexingBase {
                                                             AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult,
                                                             Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
         if (isReverse) {
-            Tuple cont = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeStart;
-            return rangeSet.insertRangeAsync(packOrNull(cont), packOrNull(rangeEnd), true)
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeStart;
+            return rangeSet.insertRangeAsync(packOrNull(continuation), packOrNull(rangeEnd), true)
                     .thenApply(ignore -> hasMore || rangeStart != null);
         } else {
-            Tuple cont = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeEnd;
-            return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeEnd;
+            return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
                     .thenApply(ignore -> hasMore || rangeEnd != null);
         }
     }

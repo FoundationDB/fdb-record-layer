@@ -194,12 +194,12 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                                             AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult,
                                                             Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
         if (isReverse) {
-            Tuple cont = hasMore ? lastResult.get().get().getPrimaryKey() : rangeStart;
-            return insertRanges(targetRangeSets, packOrNull(cont), packOrNull(rangeEnd))
+            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeStart;
+            return insertRanges(targetRangeSets, packOrNull(continuation), packOrNull(rangeEnd))
                     .thenApply(ignore -> hasMore || rangeStart != null);
         } else {
-            Tuple cont = hasMore ? lastResult.get().get().getPrimaryKey() : rangeEnd;
-            return insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(cont))
+            Tuple continuation = hasMore ? lastResult.get().get().getPrimaryKey() : rangeEnd;
+            return insertRanges(targetRangeSets, packOrNull(rangeStart), packOrNull(continuation))
                     .thenApply(ignore -> hasMore || rangeEnd != null);
         }
     }
