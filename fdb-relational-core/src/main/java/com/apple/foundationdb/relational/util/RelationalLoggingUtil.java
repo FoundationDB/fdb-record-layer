@@ -58,7 +58,7 @@ public class RelationalLoggingUtil {
         message.addKeyAndValue("normalizeQueryTimeMicros", stepTime);
     }
 
-    public static void publishPlanCacheLogs(KeyValueLogMessage message, PlanCacheEvent event, long stepTime) {
+    public static void publishPlanCacheLogs(KeyValueLogMessage message, PlanCacheEvent event, long stepTime, long primaryCacheNumEntries) {
         switch (event) {
             case SKIP:
                 message.addKeyAndValue("planCache", "skip");
@@ -66,10 +66,12 @@ public class RelationalLoggingUtil {
                 break;
             case HIT:
                 message.addKeyAndValue("planCache", "hit");
+                message.addKeyAndValue("primaryCacheNumEntries", primaryCacheNumEntries);
                 break;
             case MISS:
                 message.addKeyAndValue("planCache", "miss");
                 message.addKeyAndValue("generatePhysicalPlanTimeMicros", stepTime);
+                message.addKeyAndValue("primaryCacheNumEntries", primaryCacheNumEntries);
                 break;
             default:
                 break;

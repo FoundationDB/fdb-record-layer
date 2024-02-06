@@ -135,12 +135,12 @@ public final class PlanGenerator {
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
                 Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive, currentPlanHashMode);
-                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros());
+                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
                 return plan;
             }
 
             // Default is to cache hit. This is modified later if we cache miss
-            RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1);
+            RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
@@ -150,7 +150,7 @@ public final class PlanGenerator {
                             () -> {
                                 final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive,
                                         currentPlanHashMode);
-                                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros());
+                                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
                                 return Pair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
