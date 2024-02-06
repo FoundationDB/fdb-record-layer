@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -71,7 +70,7 @@ public class ValueMaxMatchTest {
         // Now that the source is translated, we can look up the max match between the translated source
         // and the value.
         System.out.println("replaced value : " + translatedSource);
-        translatedSource.pruningIterator(needle -> {
+        translatedSource.preOrderPruningIterator(needle -> {
 
             var pulledUpSourceMap = translatedSource.pullUp(List.of(needle), boundIdentitiesMap, Set.of(), sourceAlias);
 
@@ -105,7 +104,7 @@ public class ValueMaxMatchTest {
                 System.out.println("--> find max match for " + needle);
 
                 // look up the target value in pre-order traversal mode (so we can find the maximum match available).
-                final var foundMaybe = target.stream().filter(targetItem -> needle.semanticEquals(targetItem, AliasMap.identitiesFor(needle.getCorrelatedTo()))).findAny();
+                final var foundMaybe = target.preOrderStream().filter(targetItem -> needle.semanticEquals(targetItem, AliasMap.identitiesFor(needle.getCorrelatedTo()))).findAny();
                 if (foundMaybe.isEmpty()) {
                     System.out.println("could not find matches for " + needle + " => descend into the children");
 
