@@ -105,7 +105,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
-        return GraphExpansion.ofResultColumn(Column.unnamedOf(new EmptyValue()));
+        return GraphExpansion.ofResultColumn(Column.unnamedOf(EmptyValue.empty()));
     }
 
     @Nonnull

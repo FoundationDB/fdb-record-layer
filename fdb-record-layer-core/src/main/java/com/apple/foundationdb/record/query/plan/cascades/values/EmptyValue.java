@@ -44,7 +44,11 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class EmptyValue extends AbstractValue implements LeafValue {
+    private static final EmptyValue EMPTY = new EmptyValue();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Value");
+
+    private EmptyValue() {
+    }
 
     @Nullable
     @Override
@@ -94,6 +98,16 @@ public class EmptyValue extends AbstractValue implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    /**
+     * Get an instance representing an empty value.
+     *
+     * @return an instance of {@link EmptyValue}
+     */
+    @Nonnull
+    public static EmptyValue empty() {
+        return EMPTY;
     }
 
     @Nonnull
