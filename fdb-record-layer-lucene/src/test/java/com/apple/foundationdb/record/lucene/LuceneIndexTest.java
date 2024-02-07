@@ -647,12 +647,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    static Stream<Pair<Index, Tuple>> repartitionGroupedTest() {
+    static Stream<Pair<Index, Tuple>> dualGroupModeIndexProvider() {
         return Stream.of(Pair.of(COMPLEX_PARTITIONED, Tuple.from(1L)), Pair.of(COMPLEX_PARTITIONED_NOGROUP, Tuple.from()));
     }
 
     @ParameterizedTest
-    @MethodSource
+    @MethodSource(value = {"dualGroupModeIndexProvider"})
     void repartitionGroupedTest(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
         Index index = indexAndGroupingKey.getLeft();
         Tuple groupingKey = indexAndGroupingKey.getRight();
@@ -811,6 +811,47 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     totalDocCount - 6, Set.copyOf(ids.subList(6, totalDocCount)), "simple_text:propose");
             validateDocsInPartition(JOINED_INDEX, 1, groupingKey,
                     6, Set.copyOf(ids.subList(0, 6)), "simple_text:propose");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(value = {"dualGroupModeIndexProvider"})
+    void optimizedPartitionInsertionTest(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
+        Index index = indexAndGroupingKey.getLeft();
+        Tuple groupingKey = indexAndGroupingKey.getRight();
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .build();
+
+        final int totalDocCount = 10; // configured index's highwater mark
+        Consumer<FDBRecordContext> schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
+        long docGroupFieldValue = groupingKey.isEmpty() ? 0L : groupingKey.getLong(0);
+
+        // create/save documents
+        long start = Instant.now().toEpochMilli();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            for (int i = 0; i < totalDocCount; i++) {
+                recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, docGroupFieldValue, start + i * 100));
+            }
+            commit(context);
+        }
+
+        // partition 0 should be at capacity now
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            validateDocsInPartition(index, 0, groupingKey, totalDocCount, makeKeyTuples(docGroupFieldValue, 1000, 1009), "text:propose");
+        }
+
+        // now add 20 documents older than the oldest document in partition 0
+        // they should go into partitions 1 and 2
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            for (int i = 0; i < 20; i++) {
+                recordStore.saveRecord(createComplexDocument(1000L + totalDocCount + i, ENGINEER_JOKE, docGroupFieldValue, start - i - 1));
+            }
+            validateDocsInPartition(index, 1, groupingKey, 10, makeKeyTuples(docGroupFieldValue, 1010, 1019), "text:propose");
+            validateDocsInPartition(index, 2, groupingKey, 10, makeKeyTuples(docGroupFieldValue, 1020, 1029), "text:propose");
         }
     }
 
