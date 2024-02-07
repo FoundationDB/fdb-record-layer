@@ -327,7 +327,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                                             int expectedReturn,
                                             int maxDiscarded,
                                             @Nonnull Matcher<RecordQueryPlan> planMatcher,
-                                            @Nonnull TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord) throws Exception {
+                                            @Nonnull TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord) throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(filter)
@@ -338,14 +338,14 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
         assertEquals(planHash, plan.planHash(PlanHashable.CURRENT_LEGACY), "unexpected plan hash for filter: " + filter);
 
         AtomicLong lastId = new AtomicLong(reverse ? Long.MAX_VALUE : Long.MIN_VALUE);
-        int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, builder -> {
-            checkRecord.accept(builder);
+        int returned = querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, rec -> {
+            checkRecord.accept(rec);
             if (reverse) {
-                assertThat(builder.getRecNo(), lessThan(lastId.get()));
+                assertThat(rec.getRecNo(), lessThan(lastId.get()));
             } else {
-                assertThat(builder.getRecNo(), greaterThan(lastId.get()));
+                assertThat(rec.getRecNo(), greaterThan(lastId.get()));
             }
-            lastId.set(builder.getRecNo());
+            lastId.set(rec.getRecNo());
         }, context -> assertDiscardedAtMost(maxDiscarded, context));
 
         assertEquals(expectedReturn, returned, "unexpected return count for filter: " + filter);
@@ -356,7 +356,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                                             boolean reverse,
                                             int planHash,
                                             int expectedReturn,
-                                            @Nonnull TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord) throws Exception {
+                                            @Nonnull TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord) throws Exception {
         sortByPrimaryKeyWithFilter(
                 filter,
                 reverse,

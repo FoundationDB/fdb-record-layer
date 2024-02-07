@@ -31,6 +31,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** The Cascades planner can now plan against aggregate indexes with repeated grouping columns [(Issue #2472)](https://github.com/FoundationDB/fdb-record-layer/issues/2472)
 * **Feature** Online Indexing: add reverse order option [(Issue #2474)](https://github.com/FoundationDB/fdb-record-layer/issues/2474)
+* **Feature** The planner will now select in-union plans in cases when the index contains additional columns that are not specified in the requested ordering [(Issue #2493)](https://github.com/FoundationDB/fdb-record-layer/issues/2493)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
