@@ -57,7 +57,6 @@ public class ValueMaxMatchTest {
                                        @Nonnull final CorrelationIdentifier targetAlias,
                                        @Nonnull final Map<Value, Value> maxMatchMap) {
         final BiMap<Value, Value> result = HashBiMap.create();
-
         // translate source value using the max match map. (holy value).
         // the identities alias map is needed so we can do semantic equalities
         // when calling 'replace'
@@ -69,63 +68,36 @@ public class ValueMaxMatchTest {
                 }).map(Map.Entry::getValue).findAny().orElse(value)));
         // Now that the source is translated, we can look up the max match between the translated source
         // and the value.
-        System.out.println("replaced value : " + translatedSource);
         translatedSource.preOrderPruningIterator(needle -> {
-
             var pulledUpSourceMap = translatedSource.pullUp(List.of(needle), boundIdentitiesMap, Set.of(), sourceAlias);
-
-
             final var toBeMappedSource = pulledUpSourceMap.get(needle);
-            //System.out.println("the map is " + pulledUpSourceMap);
-            if (toBeMappedSource == null) { // degenerate case, the iterator starts with the entire value which can not be pulled through itself.
-                System.out.println("degenerate case");
-
-                // System.out.println("needle " + needle);
-                //System.out.println("needle" + needle);
-                //System.out.println(pulledUpSourceMap);
-                return true;  // return true, descend in children.
+            Verify.verifyNotNull(toBeMappedSource, String.format("could not pull up %s", needle));
+            final var toBeMappedSourceAliasMap = AliasMap.identitiesFor(toBeMappedSource.getCorrelatedTo());
+            if (result.keySet().stream().anyMatch(key -> key.semanticEquals(toBeMappedSource, toBeMappedSourceAliasMap))) {
+                // A match has been already established for a semantically-identical source Value
+                // encountered previously in pre-order traversal.
+                return false;
             }
-            {
-                // cache lookup and skip if found ...
-                System.out.println("------------------------------");
-
-                final var toBeMappedSourceAliasMap = AliasMap.identitiesFor(toBeMappedSource.getCorrelatedTo());
-                //System.out.println("HERE IS THE MAPPED SOURCE" + toBeMappedSource);
-                if (result.keySet().stream().anyMatch(key -> key.semanticEquals(toBeMappedSource, toBeMappedSourceAliasMap))) {
-                    // A match has been already established for a semantically-identical source Value
-                    // encountered previously in pre-order traversal.
-                    System.out.println("<-- retracting because I already found " + needle + " before");
-                    return false;
-                }
-            }
-
-            {
-                // find max match
-                System.out.println("--> find max match for " + needle);
-
-                // look up the target value in pre-order traversal mode (so we can find the maximum match available).
-                final var foundMaybe = target.preOrderStream().filter(targetItem -> needle.semanticEquals(targetItem, AliasMap.identitiesFor(needle.getCorrelatedTo()))).findAny();
-                if (foundMaybe.isEmpty()) {
-                    System.out.println("could not find matches for " + needle + " => descend into the children");
-
-                    // if the needle is not descendible or has no children, throw an exception because it is impossible to match it.
-                    if (Iterables.isEmpty(needle.getChildren())) {
-                        throw new RecordCoreException(String.format("Could not find a match for value %s", needle));
-                    } else {
-                        // Could not find a match for the current node, break it down and search for matches to its constituents.
-                        return true;
-                    }
+            // find max match
+            // look up the target value in pre-order traversal mode (so we can find the maximum match available).
+            final var foundMaybe = target.preOrderStream().filter(targetItem -> needle.semanticEquals(targetItem, AliasMap.identitiesFor(needle.getCorrelatedTo()))).findAny();
+            if (foundMaybe.isEmpty()) {
+                // if the needle is not descendible or has no children, throw an exception because it is impossible to match it.
+                if (Iterables.isEmpty(needle.getChildren())) {
+                    throw new RecordCoreException(String.format("Could not find a match for value %s", needle));
                 } else {
-                    final var found = foundMaybe.get();
-                    final var pulledUpTargetMap = target.pullUp(List.of(found), boundIdentitiesMap, Set.of(), targetAlias);
-                    final var toBeMappedTarget = pulledUpTargetMap.get(found);
-                    if (toBeMappedTarget == null) {
-                        throw new RecordCoreException(String.format("could not pull up %s", found));
-                    }
-                    result.put(toBeMappedSource, toBeMappedTarget);
-                    System.out.println("found match for " + needle + " that is " + found);
-                    return false; // prune children of needle, because a match is already found!
+                    // Could not find a match for the current node, break it down and search for matches to its constituents.
+                    return true;
                 }
+            } else {
+                final var found = foundMaybe.get();
+                final var pulledUpTargetMap = target.pullUp(List.of(found), boundIdentitiesMap, Set.of(), targetAlias);
+                final var toBeMappedTarget = pulledUpTargetMap.get(found);
+                if (toBeMappedTarget == null) {
+                    throw new RecordCoreException(String.format("could not pull up %s", found));
+                }
+                result.put(toBeMappedSource, toBeMappedTarget);
+                return false; // prune children of needle, because a match is already found!
             }
         }).forEachRemaining(v -> {
         });
