@@ -843,12 +843,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             validateDocsInPartition(index, 0, groupingKey, totalDocCount, makeKeyTuples(docGroupFieldValue, 1000, 1009), "text:propose");
         }
 
-        // now add a document older than the oldest document in partition 0
-        // it should go into partition 1
+        // now add 5 documents older than the oldest document in partition 0
+        // they should go into partition 1
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            recordStore.saveRecord(createComplexDocument(1000L + totalDocCount, ENGINEER_JOKE, docGroupFieldValue, start - 1));
-            validateDocsInPartition(index, 1, groupingKey, 1, makeKeyTuples(docGroupFieldValue, 1010, 1010), "text:propose");
+            for (int i = 0; i < 5; i++) {
+                recordStore.saveRecord(createComplexDocument(1000L + totalDocCount + i, ENGINEER_JOKE, docGroupFieldValue, start - i - 1));
+            }
+            validateDocsInPartition(index, 1, groupingKey, 5, makeKeyTuples(docGroupFieldValue, 1010, 1014), "text:propose");
         }
     }
 
