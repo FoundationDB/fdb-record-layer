@@ -28,7 +28,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Feature** Allow running Lucene's tests with a random seed & multiple iterations [(Issue #2479)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Support rearranging documents between Lucene partitions [(Issue #2465)](https://github.com/FoundationDB/fdb-record-layer/issues/2465)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Optimize insertion of older Lucene documents to avoid unnecessary partition re-balancing [(Issue #2494)](https://github.com/FoundationDB/fdb-record-layer/issues/2494)
 * **Feature** The Cascades planner can now plan against aggregate indexes with repeated grouping columns [(Issue #2472)](https://github.com/FoundationDB/fdb-record-layer/issues/2472)
 * **Feature** Online Indexing: add reverse order option [(Issue #2474)](https://github.com/FoundationDB/fdb-record-layer/issues/2474)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
