@@ -943,7 +943,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @ParameterizedTest
     @BooleanSource
-    void luceneOnlineIndexingByIndexTest(boolean preventMergeDuringIndexing) {
+    void luceneOnlineIndexingByIndexTest(boolean reverseScan) {
         int numRecords = 47;
         int transactionLimit = 10;
         int groupingCount = 1;
@@ -1003,7 +1003,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .addTargetIndex(tgtIndex)
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing)
+                            .setReverseScanOrder(reverseScan)
                             .setSourceIndex(srcIndex.getName())
                             .build())
                     .build()) {
