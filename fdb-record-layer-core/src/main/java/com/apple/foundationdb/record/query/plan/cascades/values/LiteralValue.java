@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -246,6 +247,12 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
                        ? new Type.Any()
                        : resolvedElementType;
         return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     /**

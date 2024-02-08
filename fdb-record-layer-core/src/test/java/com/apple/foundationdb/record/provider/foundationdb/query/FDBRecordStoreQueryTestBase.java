@@ -47,11 +47,15 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -66,7 +70,9 @@ import org.junit.jupiter.api.Assertions;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -81,6 +87,8 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -540,8 +548,22 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (planner instanceof RecordQueryPlanner) {
             return plannedPlan;
         }
-        Assertions.assertTrue(planner instanceof CascadesPlanner);
+        assertThat(planner, instanceOf(CascadesPlanner.class));
         return verifySerialization(plannedPlan);
+    }
+
+    @Nonnull
+    protected RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> querySupplier, @Nonnull String... allowedIndexes) {
+        assertThat(planner, instanceOf(CascadesPlanner.class));
+        final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
+        final Optional<Collection<String>> allowedIndexesOptional;
+        if (allowedIndexes.length > 0) {
+            allowedIndexesOptional = Optional.of(List.of(allowedIndexes));
+        } else {
+            allowedIndexesOptional = Optional.empty();
+        }
+        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+        return verifySerialization(planResult.getPlan());
     }
 
     /**

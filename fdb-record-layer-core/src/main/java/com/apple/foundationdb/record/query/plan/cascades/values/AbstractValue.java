@@ -36,13 +36,23 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValue implements Value {
 
+    @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
+    @Nonnull
     private final Supplier<Integer> semanticHashCodeSupplier;
+
+    @Nonnull
+    private final Supplier<Integer> heightSupplier;
+
+    @Nonnull
+    private final Supplier<Iterable<? extends Value>> childrenSupplier;
 
     protected AbstractValue() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+        this.heightSupplier = Suppliers.memoize(Value.super::height);
+        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
     }
 
     @Nonnull
@@ -77,4 +87,18 @@ public abstract class AbstractValue implements Value {
         return fold(Value::hashCodeWithoutChildren,
                 (hashCodeWithoutChildren, childrenHashCodes) -> Objects.hash(childrenHashCodes, hashCodeWithoutChildren));
     }
+
+    @Override
+    public int height() {
+        return heightSupplier.get();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<? extends Value> getChildren() {
+        return childrenSupplier.get();
+    }
+
+    @Nonnull
+    protected abstract Iterable<? extends Value> computeChildren();
 }

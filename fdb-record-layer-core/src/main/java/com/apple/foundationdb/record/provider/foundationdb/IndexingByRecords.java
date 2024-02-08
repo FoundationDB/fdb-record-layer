@@ -78,6 +78,7 @@ public class IndexingByRecords extends IndexingBase {
         super(common, policy);
         final TupleRange range = common.computeRecordsRange();
         this.recordsRange = range == null ? TupleRange.ALL : range;
+        validateOrThrowEx(!policy.isReverseScanOrder(), "(Old) indexing by records does not support reverse scan order");
     }
 
     @Override

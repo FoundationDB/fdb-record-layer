@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -57,7 +58,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
     }
-    
+
     @Nonnull
     @Override
     public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
@@ -89,6 +90,12 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Override

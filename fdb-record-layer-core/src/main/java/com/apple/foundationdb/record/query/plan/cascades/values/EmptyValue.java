@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,7 +44,11 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class EmptyValue extends AbstractValue implements LeafValue {
+    private static final EmptyValue EMPTY = new EmptyValue();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Value");
+
+    private EmptyValue() {
+    }
 
     @Nullable
     @Override
@@ -95,6 +100,16 @@ public class EmptyValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    /**
+     * Get an instance representing an empty value.
+     *
+     * @return an instance of {@link EmptyValue}
+     */
+    @Nonnull
+    public static EmptyValue empty() {
+        return EMPTY;
+    }
+
     @Nonnull
     @Override
     public PEmptyValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
@@ -112,6 +127,12 @@ public class EmptyValue extends AbstractValue implements LeafValue {
     public static EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                        @Nonnull final PEmptyValue emptyValueProto) {
         return new EmptyValue();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     /**

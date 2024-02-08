@@ -177,7 +177,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -194,10 +194,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -211,7 +208,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraphReversed() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -230,10 +227,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
                     final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
                     return GroupExpressionRef.of(new LogicalSortExpression(orderByValues, true, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         assertMatchesExactly(plan,
                 mapPlan(
@@ -248,7 +242,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanGraphWithNullableArray() throws Exception {
         CascadesPlanner cascadesPlanner = setUpWithNullableArray();
         // no index hints, plan a query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -264,10 +258,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
         assertMatchesExactly(plan,
                 mapPlan(
                         typeFilterPlan(
@@ -313,7 +304,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     IndexAccessHint nameHint = new IndexAccessHint("RestaurantRecord$name");
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord", fullScan(cascadesPlanner.getRecordMetaData(), new AccessHints(nameHint)));
@@ -331,10 +322,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 mapPlan(
@@ -350,7 +338,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -384,10 +372,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -406,7 +391,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -445,10 +430,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -467,7 +449,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -530,10 +512,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
@@ -544,7 +523,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -607,10 +586,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         // TODO write a matcher when this plan becomes more stable
         Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
@@ -620,7 +596,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     public void testSimplePlanWithConstantPredicateGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
-        final var plan = verifySerialization(cascadesPlanner.planGraph(
+        final var plan = planGraph(
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
@@ -638,10 +614,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                },
-                Optional.empty(),
-                IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan());
+                });
 
         assertMatchesExactly(plan,
                 mapPlan(typeFilterPlan(

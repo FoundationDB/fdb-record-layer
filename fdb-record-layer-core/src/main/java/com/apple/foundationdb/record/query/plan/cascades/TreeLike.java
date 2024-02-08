@@ -35,6 +35,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 /**
  * Interface for tree-like structures and helpers for folds and traversals on these tree-like structures of node type
@@ -70,12 +71,30 @@ public interface TreeLike<T extends TreeLike<T>> {
     T withChildren(Iterable<? extends T> newChildren);
 
     /**
+     * Returns an iterator that traverse the nodes in pre-order.
+     * @return an iterator that traverse the nodes in pre-order.
+     */
+    @Nonnull
+    default Iterator<T> preOrderIterator() {
+        return PreOrderIterator.over(getThis());
+    }
+
+    /**
+     * Returns a {@link Stream} that traverses the nodes in pre-order.
+     * @return a {@link Stream} that traverses the nodes in pre-order.
+     */
+    @Nonnull
+    default Stream<T> preOrderStream() {
+        return Streams.stream(preOrderIterator());
+    }
+
+    /**
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
-    default Iterable<? extends T> inPreOrder() {
-        return inPreOrder(self -> true);
+    default Iterable<? extends T> preOrderIterable() {
+        return preOrderIterable(self -> true);
     }
 
     /**
@@ -85,13 +104,13 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
-    default Iterable<? extends T> inPreOrder(@Nonnull final Predicate<T> descentIntoPredicate) {
+    default Iterable<? extends T> preOrderIterable(@Nonnull final Predicate<T> descentIntoPredicate) {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         final var self = getThis();
         iterablesBuilder.add(ImmutableList.of(self));
         if (descentIntoPredicate.test(self)) {
             for (final T child : getChildren()) {
-                iterablesBuilder.add(child.inPreOrder());
+                iterablesBuilder.add(child.preOrderIterable());
             }
         }
         return Iterables.concat(iterablesBuilder.build());
@@ -102,38 +121,13 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Iterable} of nodes
      */
     @Nonnull
-    default Iterable<? extends T> inPostOrder() {
+    default Iterable<? extends T> postOrderIterable() {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         for (final T child : getChildren()) {
-            iterablesBuilder.add(child.inPostOrder());
+            iterablesBuilder.add(child.postOrderIterable());
         }
         iterablesBuilder.add(ImmutableList.of(getThis()));
         return Iterables.concat(iterablesBuilder.build());
-    }
-
-    /**
-     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like that
-     * are filtered by a {@link Predicate} that filters out every node for which {@code predicate} returns {@code false}.
-     * @param predicate a {@link Predicate} that is evaluated per encountered node during pre-order traversal of
-     *        the tree-like rooted at {@code this}
-     * @return an {@link Iterable} of nodes satisfying the predicate passed in
-     */
-    @Nonnull
-    default Iterable<? extends T> filter(@Nonnull final Predicate<T> predicate) {
-        return Iterables.filter(inPreOrder(), predicate::test);
-    }
-
-    /**
-     * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like that
-     * are filtered by a {@link Predicate} that filters out every node for which {@code predicate} returns {@code false}.
-     * @param <T1> a fixed sub class of {@code T}
-     * @param clazz a class object that is used to filter the nodes in this tree-like by their associated class
-     * @return an {@link Iterable} of nodes that are at least of type {@code T1}
-     */
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    default <T1 extends T> Iterable<T1> filter(@Nonnull final Class<T1> clazz) {
-        return () -> Streams.stream(inPreOrder()).filter(clazz::isInstance).map(t -> (T1)t).iterator();
     }
 
     /**
@@ -250,6 +244,14 @@ public interface TreeLike<T extends TreeLike<T>> {
             }
             return t;
         });
+    }
+
+    /**
+     * returns the height of the tree.
+     * @return the height of the tree.
+     */
+    default int height() {
+        return Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElse(0) + 1;
     }
 
     /**
