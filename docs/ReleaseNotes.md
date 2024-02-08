@@ -27,7 +27,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Optimize insertion of older Lucene documents to avoid unnecessary partition re-balancing [(Issue #2494)](https://github.com/FoundationDB/fdb-record-layer/issues/2494)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Use multiple partitions to perform rebalancing & merge all partitions [(Issue #2491)](https://github.com/FoundationDB/fdb-record-layer/issues/2491)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
