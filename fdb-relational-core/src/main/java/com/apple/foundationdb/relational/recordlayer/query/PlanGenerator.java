@@ -162,7 +162,7 @@ public final class PlanGenerator {
                                     if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
                                         return candidate;
                                     } else {
-                                        return null;
+                                        return acc;
                                     }
                                 } else {
                                     return candidate;

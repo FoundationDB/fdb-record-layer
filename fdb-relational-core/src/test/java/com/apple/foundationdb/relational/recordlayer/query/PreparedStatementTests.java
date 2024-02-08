@@ -57,6 +57,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -946,23 +947,57 @@ public class PreparedStatementTests {
         final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
                 " CREATE TABLE T1(pk bigint, a1 bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
-                statement.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{}));
-                statement.execute();
-            }
-            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
-            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
-                statement.setArray(1, ddl.getConnection().createArrayOf("INTEGER", new Object[]{1, 2, 3}));
-                statement.execute();
-            }
-            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            String query = "select * from t1 where a1 in ? OPTIONS(LOG QUERY)";
+            runQueryWithArrayBinding(ddl, query, "BIGINT", new Object[]{}, false, List.of());
+            runQueryWithArrayBinding(ddl, query, "INTEGER", new Object[]{1, 2, 3}, false, List.of());
+            runQueryWithArrayBinding(ddl, query, "BIGINT", new Object[]{1L, 2L, 3L}, true, List.of());
+        }
+    }
 
-            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where a1 in ? OPTIONS(LOG QUERY)")) {
-                statement.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{1L, 2L, 3L}));
-                statement.execute();
+    @Test
+    void nullArrayBindingsThenStringArrayBindings() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
+                " CREATE TABLE T1(pk bigint, a1 string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO T1 VALUES (1, 'a'), (2, 'b'), (3, 'b')");
             }
+            String query = "select * from t1 where a1 in ? OPTIONS(LOG QUERY)";
+            runQueryWithArrayBinding(ddl, query, "NULL", new Object[]{}, false, List.of());
+            runQueryWithArrayBinding(ddl, query, "NULL", new Object[]{}, true, List.of());
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"a"}, false, Collections.singletonList(new Object[]{1, "a"}));
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"b"}, true, List.of(new Object[]{2, "b"}, new Object[]{3, "b"}));
+            runQueryWithArrayBinding(ddl, query, "NULL", new Object[]{}, true, List.of());
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"d"}, true, List.of());
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"a"}, true, Collections.singletonList(new Object[]{1, "a"}));
+        }
+    }
 
+    @Test
+    void stringArrayBindingThenNullArrayBinding() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT nested (a bigint)" +
+                " CREATE TABLE T1(pk bigint, a1 string, PRIMARY KEY(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO T1 VALUES (1, 'a'), (2, 'b'), (3, 'b')");
+            }
+            String query = "select * from t1 where a1 in ? OPTIONS(LOG QUERY)";
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"a"}, false, Collections.singletonList(new Object[]{1, "a"}));
+            runQueryWithArrayBinding(ddl, query, "STRING", new String[]{"b"}, true, List.of(new Object[]{2, "b"}, new Object[]{3, "b"}));
+            runQueryWithArrayBinding(ddl, query, "NULL", new Object[]{}, true, List.of());
+        }
+    }
+
+    private void runQueryWithArrayBinding(Ddl ddl, String query, String arrayType, Object[] binding, boolean hit, List<Object[]> results) throws SQLException {
+        try (var statement = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+            statement.setArray(1, ddl.getConnection().createArrayOf(arrayType, binding));
+            ResultSetAssert.assertThat(statement.executeQuery())
+                    .containsRowsExactly(results);
+        }
+        if (hit) {
             Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        } else {
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
         }
     }
 }
