@@ -15,22 +15,20 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Sync files referencing FieldInfosId [(Issue #2455)](https://github.com/FoundationDB/fdb-record-layer/issues/2455)
-* **Bug fix** Support closing FDBIndexOutput [(Issue #2457)](https://github.com/FoundationDB/fdb-record-layer/issues/2457)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** `FDBExceptions` now correctly wraps `InterruptedExceptions` instead of throwing an `IllegalArgumentException` [(Issue #2485)](https://github.com/FoundationDB/fdb-record-layer/issues/2485)
-* **Bug fix** Fix topological sort instability [(Issue #2476)](https://github.com/FoundationDB/fdb-record-layer/pull/2476)
-* **Performance** Cascades Pre-order Iterable is inefficient [(Issue #2481)](https://github.com/FoundationDB/fdb-record-layer/issues/2481)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Allow running Lucene's tests with a random seed & multiple iterations [(Issue #2479)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Support rearranging documents between Lucene partitions [(Issue #2465)](https://github.com/FoundationDB/fdb-record-layer/issues/2465)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Optimize insertion of older Lucene documents to avoid unnecessary partition re-balancing [(Issue #2494)](https://github.com/FoundationDB/fdb-record-layer/issues/2494)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** The Cascades planner can now plan against aggregate indexes with repeated grouping columns [(Issue #2472)](https://github.com/FoundationDB/fdb-record-layer/issues/2472)
-* **Feature** Online Indexing: add reverse order option [(Issue #2474)](https://github.com/FoundationDB/fdb-record-layer/issues/2474)
 * **Feature** The planner will now select in-union plans in cases when the index contains additional columns that are not specified in the requested ordering [(Issue #2493)](https://github.com/FoundationDB/fdb-record-layer/issues/2493)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +38,18 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 
 // end next release
 -->
+
+### 3.4.452.0
+
+* **Bug fix** Sync files referencing FieldInfosId [(Issue #2455)](https://github.com/FoundationDB/fdb-record-layer/issues/2455)
+* **Bug fix** Support closing FDBIndexOutput [(Issue #2457)](https://github.com/FoundationDB/fdb-record-layer/issues/2457)
+* **Bug fix** `FDBExceptions` now correctly wraps `InterruptedExceptions` instead of throwing an `IllegalArgumentException` [(Issue #2485)](https://github.com/FoundationDB/fdb-record-layer/issues/2485)
+* **Bug fix** Fix topological sort instability [(Issue #2476)](https://github.com/FoundationDB/fdb-record-layer/pull/2476)
+* **Performance** Cascades Pre-order Iterable is inefficient [(Issue #2481)](https://github.com/FoundationDB/fdb-record-layer/issues/2481)
+* **Feature** Allow running Lucene's tests with a random seed & multiple iterations [(Issue #2479)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Support rearranging documents between Lucene partitions [(Issue #2465)](https://github.com/FoundationDB/fdb-record-layer/issues/2465)
+* **Feature** The Cascades planner can now plan against aggregate indexes with repeated grouping columns [(Issue #2472)](https://github.com/FoundationDB/fdb-record-layer/issues/2472)
+* **Feature** Online Indexing: add reverse order option [(Issue #2474)](https://github.com/FoundationDB/fdb-record-layer/issues/2474)
 
 ### 3.4.451.0
 
