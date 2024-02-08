@@ -340,7 +340,21 @@ public class LucenePartitioner {
      */
     @Nonnull
     private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getOrCreatePartitionInfo(@Nonnull Tuple groupKey, long timestamp) {
-        return assignPartitionInternal(groupKey, timestamp, true);
+        return assignPartitionInternal(groupKey, timestamp, true).thenCompose(assignedPartitionInfo -> {
+            // optimization: if assigned partition is full and doc to be added is older than the partition's `from` timestamp,
+            // we create a new partition for it, in order to avoid unnecessary re-balancing later.
+            if (assignedPartitionInfo.getCount() >= indexPartitionHighWatermark && timestamp < getFrom(assignedPartitionInfo)) {
+                return getAllPartitionMetaInfo(groupKey).thenApply(partitionInfos -> {
+                    int maxPartitionId = partitionInfos.stream()
+                            .map(LucenePartitionInfoProto.LucenePartitionInfo::getId)
+                            .max(Integer::compare)
+                            .orElse(0);
+                    return newPartitionMetadata(timestamp, maxPartitionId + 1);
+                });
+            }
+            // else
+            return CompletableFuture.completedFuture(assignedPartitionInfo);
+        });
     }
 
     /**
