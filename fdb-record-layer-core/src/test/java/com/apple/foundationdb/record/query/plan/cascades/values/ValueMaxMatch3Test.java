@@ -21,11 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -36,6 +34,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +45,7 @@ import java.util.stream.Collectors;
 /**
  * Tests for value mapping.
  */
-public class ValueMaxMatch2Test {
+public class ValueMaxMatch3Test {
 
     // ------------- Utility functions.
 
@@ -95,7 +94,12 @@ public class ValueMaxMatch2Test {
 
     @SuppressWarnings("checkstyle:MethodName")
     private QuantifiedObjectValue qov(@Nonnull final String name, @Nonnull final Type type) {
-        return QuantifiedObjectValue.of(CorrelationIdentifier.of(name), type);
+        return qov(CorrelationIdentifier.of(name), type);
+    }
+
+    @SuppressWarnings("checkstyle:MethodName")
+    private QuantifiedObjectValue qov(@Nonnull final CorrelationIdentifier name, @Nonnull final Type type) {
+        return QuantifiedObjectValue.of(name, type);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
@@ -194,16 +198,11 @@ public class ValueMaxMatch2Test {
         public Map<Value, Value> getMapping() {
             return mapping;
         }
-
-        @Nonnull
-        public static MaxMatchMap trivialMapping(@Nonnull final QuantifiedObjectValue queryResult, @Nonnull final QuantifiedObjectValue candidateResult) {
-            return new MaxMatchMap(ImmutableMap.of(queryResult, candidateResult), queryResult, candidateResult);
-        }
     }
 
-    class Translator2 {
+    static class Translator3 {
 
-        @Nonnull
+        @Nullable
         private final MaxMatchMap maxMatchMapBelow;
 
         @Nonnull
@@ -213,7 +212,7 @@ public class ValueMaxMatch2Test {
         private final CorrelationIdentifier candidateCorrelation;
 
         // todo: constant aliases.
-        Translator2(@Nonnull final MaxMatchMap maxMatchMapBelow,
+        Translator3(@Nullable final MaxMatchMap maxMatchMapBelow,
                     @Nonnull final CorrelationIdentifier queryCorrelation,
                     @Nonnull final CorrelationIdentifier candidateCorrelation) {
             this.maxMatchMapBelow = maxMatchMapBelow;
@@ -223,15 +222,19 @@ public class ValueMaxMatch2Test {
 
         @Nonnull
         Value translate(@Nonnull final Value value) {
-            final var belowMapping = maxMatchMapBelow.getMapping();
+            if (maxMatchMapBelow == null) {
+                return value.translateCorrelations(TranslationMap.rebaseWithAliasMap(AliasMap.of(queryCorrelation, candidateCorrelation)));
+            }
+            final var holyValue = createHolyValue();
+            final var result = value.translateCorrelations(TranslationMap.builder().when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> holyValue).build());
+            final var simplifiedResult = result.simplify(AliasMap.emptyMap(), result.getCorrelatedTo());
+            return simplifiedResult;
+        }
+
+        // todo memoize.
+        private Value createHolyValue() {
+            final var belowMapping = Verify.verifyNotNull(maxMatchMapBelow).getMapping();
             final var belowCandidateResultValue = maxMatchMapBelow.getCandidateResult();
-            // Map each value of the given maximum match map to the pulled up representation
-            // of it in the candidate side.
-            // for example:
-            //   if the max match map contains (u -> v, w -> x)
-            //    and the candidate value (p') is: (x, v)
-            // the pulled up max match map will be
-            //    (u -> p'.1, v -> p'.0)
             final Map<Value, Value> pulledUpMaxMatchMap = belowMapping.entrySet().stream().map(entry -> {
                 final var queryPart = entry.getKey();
                 final var candidatePart = entry.getValue();
@@ -244,12 +247,8 @@ public class ValueMaxMatch2Test {
                 return Map.entry(queryPart, pulledUpdateCandidatePart);
             }).collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            // Create a translated value that replaces the query value constituents with the correponding domain
-            // values from the pulled up max match map from above.
-            // for example, if the query value (p) is (u+w, u)
-            //   the translated value will be (p'.1 + p'.0, p'.1)
-            // i.e. the value p is now described solely with p'.
-            final var result = Verify.verifyNotNull(value.replace(valuePart ->
+            final var translatedQueryValueFromBelow = Verify.verifyNotNull(maxMatchMapBelow).getQueryResult();
+            final var result = Verify.verifyNotNull(translatedQueryValueFromBelow.replace(valuePart ->
                     pulledUpMaxMatchMap.entrySet().stream().filter(maxMatchMapItem -> {
                         final var aliasMap = AliasMap.identitiesFor(Sets.union(maxMatchMapItem.getKey().getCorrelatedTo(), valuePart.getCorrelatedTo()));
                         return maxMatchMapItem.getKey().semanticEquals(valuePart, aliasMap);
@@ -258,26 +257,20 @@ public class ValueMaxMatch2Test {
         }
 
         @Nonnull
-        MaxMatchMap constructMaxMatchMap(@Nonnull final Value queryValue, @Nonnull final Value candidateValue) {
-            final var belowMapping = maxMatchMapBelow.getMapping();
+        MaxMatchMap constructMaxMatchMap(@Nonnull final Value rewrittenQueryValue, @Nonnull final Value candidateValue) {
             final BiMap<Value, Value> newMapping = HashBiMap.create();
-            queryValue.preOrderPruningIterator(queryValuePart -> {
-                final var needle = queryValuePart.replace(queryValueInternalPart -> {
-                    final var candidateValueMatch = belowMapping.get(queryValueInternalPart);
-                    return candidateValueMatch == null ? queryValueInternalPart : candidateValueMatch;
-                });
-
+            rewrittenQueryValue.preOrderPruningIterator(queryValuePart -> {
                 // now that we have rewritten this query value part using candidate value(s) we proceed to look it up in the candidate value.
                 final var match = candidateValue
                         .preOrderStream()
-                        .filter(candidateValuePart -> candidateValuePart.semanticEquals(needle, AliasMap.identitiesFor(candidateValuePart.getCorrelatedTo())))
+                        .filter(candidateValuePart -> candidateValuePart.semanticEquals(queryValuePart, AliasMap.identitiesFor(candidateValuePart.getCorrelatedTo())))
                         .findAny();
 
                 match.ifPresent(value -> newMapping.put(queryValuePart, value));
-                return match.isPresent();
-            });
+                return match.isEmpty();
+            }).forEachRemaining(ignored -> {});
 
-            return new MaxMatchMap(newMapping, queryValue, candidateValue);
+            return new MaxMatchMap(newMapping, rewrittenQueryValue, candidateValue);
         }
     }
 
@@ -295,19 +288,17 @@ public class ValueMaxMatch2Test {
          *     }
          */
 
-        final var t = qov("T", getTType());
-        final var t_ = qov("T'", getTType());
+        final var tAlias = CorrelationIdentifier.of("T");
+        final var t_Alias = CorrelationIdentifier.of("T'");
 
-        final var M3_1 = MaxMatchMap.trivialMapping(t, t_);
+        final var t = qov(tAlias, getTType());
+        final var t_ = qov(t_Alias, getTType());
 
         /**
          *   p                p'
          * (pv)             (pv')
          *   t               t'
          */
-
-        final var tAlias = CorrelationIdentifier.of("t");
-        final var t_Alias = CorrelationIdentifier.of("t_");
 
         final var pv = rcv(
                 fv(t, "a", "q"),
@@ -327,22 +318,49 @@ public class ValueMaxMatch2Test {
                 fv(t_, "b", "m")
         );
 
-        final var translator = new Translator2(M3_1, tAlias, t_Alias);
+        final var translator = new Translator3(null, tAlias, t_Alias);
+
+        final var translatedValue = translator.translate(pv);
 
         // let's see if we can translate some predicates correctly.
-        final var queryPredicate = (Value)new RelOpValue.EqualsFn().encapsulate(List.of(fv(t, "a", "q"), LiteralValue.ofScalar("hello")));
-        final var translatedQueryPredicate = translator.translate(queryPredicate);
-
+//        final var queryPredicate = (Value)new RelOpValue.EqualsFn().encapsulate(List.of(fv(t, "a", "q"), LiteralValue.ofScalar("hello")));
+//        final var translatedQueryPredicate = translator.translate(queryPredicate);
+//
         // todo: better assertion.
-        Assertions.assertNotNull(translatedQueryPredicate);
+//        Assertions.assertNotNull(translatedQueryPredicate);
 
-        final var M3_2 = translator.constructMaxMatchMap(pv, p_v);
+        final var M3_2 = translator.constructMaxMatchMap(translatedValue, p_v);
 
         // todo: better assertion.
         Assertions.assertNotNull(M3_2);
 
-//        final var p = qov("p", pv.getResultType());
-//        final var p_ = qov("p_", p_v.getResultType());
+        final var pAlias = CorrelationIdentifier.of("p");
+        final var p_Alias = CorrelationIdentifier.of("p_");
+
+        final var p = qov("p", pv.getResultType());
+        final var p_ = qov("p_", p_v.getResultType());
+
+        final var T3 = new Translator3(M3_2, pAlias, p_Alias);
+
+
+        // let's see if we can translate some predicates correctly.
+        final var queryPredicate = (Value)new RelOpValue.EqualsFn().encapsulate(List.of(fv(p, 0), LiteralValue.ofScalar("hello")));
+        final var translatedQueryPredicate = T3.translate(queryPredicate);
+
+        final var rv = rcv(
+                fv(p, 2, 0)
+        );
+
+        final var r_v = rcv(
+                fv(p_, 1, 0)
+        );
+
+
+        final var translatedRv = T3.translate(rv);
+        final var M3_3 = T3.constructMaxMatchMap(translatedRv, r_v);
+
+        Assertions.assertNotNull(M3_3);
+
 //
 //        Map<Value, Value> expectedMapping = Map.of(
 //                fv(p, 0), /* -> */ fv(p_, 0, 0),
