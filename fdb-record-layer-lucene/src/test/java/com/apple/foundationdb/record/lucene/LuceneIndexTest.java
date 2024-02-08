@@ -1049,7 +1049,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         // partition 0 should be at capacity now
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            validateDocsInPartition(index, 0, groupingKey, totalDocCount, makeKeyTuples(docGroupFieldValue, 1000, 1009), "text:propose");
+            validateDocsInPartition(index, 0, groupingKey, makeKeyTuples(docGroupFieldValue, 1000, 1009), "text:propose");
         }
 
         // now add 20 documents older than the oldest document in partition 0
@@ -1059,8 +1059,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 20; i++) {
                 recordStore.saveRecord(createComplexDocument(1000L + totalDocCount + i, ENGINEER_JOKE, docGroupFieldValue, start - i - 1));
             }
-            validateDocsInPartition(index, 1, groupingKey, 10, makeKeyTuples(docGroupFieldValue, 1010, 1019), "text:propose");
-            validateDocsInPartition(index, 2, groupingKey, 10, makeKeyTuples(docGroupFieldValue, 1020, 1029), "text:propose");
+            validateDocsInPartition(index, 1, groupingKey, makeKeyTuples(docGroupFieldValue, 1010, 1019), "text:propose");
+            validateDocsInPartition(index, 2, groupingKey, makeKeyTuples(docGroupFieldValue, 1020, 1029), "text:propose");
         }
     }
 
