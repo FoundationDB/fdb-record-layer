@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.Translator;
@@ -72,11 +73,8 @@ public class ValueTranslationTest {
 
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
-    private Type.Record getSType() {
-        return r(
-                f("x1", r("y1", "z1")),
-                f("x2", r("y2", "z2"))
-        );
+    private Type getSType() {
+        return Type.primitiveType(Type.TypeCode.INT);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
@@ -111,7 +109,7 @@ public class ValueTranslationTest {
 
     @SuppressWarnings("checkstyle:MethodName")
     private Type.Record.Field f(String name) {
-        return Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(name));
+        return Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of(name));
     }
 
     @SuppressWarnings("checkstyle:MethodName")
@@ -152,7 +150,7 @@ public class ValueTranslationTest {
 
     private Value add(Value... values) {
         Verify.verify(values.length == 2);
-        return new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_SS,
+        return new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
                 values[0], values[1]);
     }
 
@@ -231,7 +229,7 @@ public class ValueTranslationTest {
         /*
              2nd level:
                   (p.2.0)                                          (p'.1.0)
-                       [ p.0 < "hello" ]                                 [ p_.0 < $Placeholder ]
+                       [ p.0 < 42 ]                                      [ p_.0 < $Placeholder ]
                     |                                                 |
                   P |                                              p' |
                     |                                                 |
@@ -245,7 +243,7 @@ public class ValueTranslationTest {
         final var pAlias = CorrelationIdentifier.of("P");
         final var p_Alias = CorrelationIdentifier.of("P'");
         final var p = qov(pAlias, pv.getResultType());
-        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(fv(p, 0), LiteralValue.ofScalar("hello")));
+        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(fv(p, 0), LiteralValue.ofScalar(42)));
         final var p_ = qov(p_Alias, p_v.getResultType());
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
@@ -269,7 +267,7 @@ public class ValueTranslationTest {
            translation of the predicate p.0 < 42 should yield p'.0.0 < 42
          */
         final var l2TranslatedPredicate = l2Translator.translate(pPredicate);
-        Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(List.of(fv(p_, 0, 0), LiteralValue.ofScalar("hello"))), l2TranslatedPredicate);
+        Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(List.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
         final var l2m3 = l2Translator.calculateMaxMatches(l2TranslatedQueryValue, r_v);
@@ -423,5 +421,129 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedMapping, l1M3.getMapping());
         Assertions.assertEquals(expectedRewrittenQueryValue, l1M3.getQueryResultValue());
         Assertions.assertEquals(p_v, l1M3.getCandidateResultValue());
+    }
+
+    @Test
+    public void maxMatchValueWithMatchableArithmeticOperationAndOtherConstantCorrelations() throws Exception {
+        /*
+            T has the following type:
+                (a, b, j) | type(a) = (q, r), type(b) = (t, m), type(j) = (s,q)
+         */
+
+        final var tAlias = CorrelationIdentifier.of("T");
+        final var t_Alias = CorrelationIdentifier.of("T'");
+        final var t = qov(tAlias, getTType());
+        final var t_ = qov(t_Alias, getTType());
+
+        /*
+             1st level:
+             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+                    |                                                 |
+                  T |                                              T' |
+                    |                                                 |
+                   <T>                                               <T'>
+         */
+
+
+        final var sAlias = CorrelationIdentifier.of("S");
+        final var s = qov(sAlias, getSType());
+        final var s_Alias = CorrelationIdentifier.of("S'");
+        final var s_ = qov(s_Alias, getSType());
+
+        final var pv = rcv(
+                add(fv(t, "a", "q"), s),
+                fv(t, "a", "r"),
+                rcv(fv(t, "b", "t")),
+                fv(t, "j", "s")
+        );
+        final var p_v = rcv(
+                rcv(add(fv(t_, "a", "q"), s_),
+                        fv(t_, "a", "r")),
+                rcv(fv(t_, "b", "t"),
+                        fv(t_, "b", "m")),
+                fv(t_, "j", "s"),
+                fv(t_, "j", "q"),
+                fv(t_, "b", "t"),
+                fv(t_, "b", "m")
+        );
+
+        /*
+           translation of (t.a.q + s, t.a.r, (t.b.t), t.j.s) with correlation mapping of t -> t', s -> s' (and no m3) should merely
+           replace t with t', i.e. the result should be (t'.a.q + s, t'.a.r, (t'.b.t), t'.j.s)
+         */
+
+        final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).withConstantAliaMap(AliasMap.of(sAlias, s_Alias)).build();
+        final var l1TranslatedQueryValue = l1Translator.translate(pv);
+        final var expectedL1TranslatedQueryValue = rcv(
+                add(fv(t_, "a", "q"), s),
+                fv(t_, "a", "r"),
+                rcv(fv(t_, "b", "t")),
+                fv(t_, "j", "s")
+        );
+        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1TranslatedQueryValue);
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value.
+         */
+
+        final var l1m3 = l1Translator.calculateMaxMatches(l1TranslatedQueryValue, p_v);
+
+        Map<Value, Value> l1ExpectedMapping = Map.of(
+                add(fv(t_, "a", "q"), s),  add(fv(t_, "a", "q"), s_),
+                fv(t_, "a", "r"), fv(t_, "a", "r"),
+                fv(t_, "b", "t"), fv(t_, "b", "t"),
+                fv(t_, "j", "s"), fv(t_, "j", "s"));
+        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
+        Assertions.assertEquals(expectedL1TranslatedQueryValue, l1m3.getQueryResultValue());
+        Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
+
+        /*
+             2nd level:
+                  (p.2.0)                                          (p'.1.0)
+                       [ p.0 < 42 ]                                 [ p_.0 < $Placeholder ]
+                    |                                                 |
+                  P |                                              p' |
+                    |                                                 |
+             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+                    |                                                 |
+                  T |                                              T' |
+                    |                                                 |
+                   <T>                                               <T'>
+         */
+
+        final var pAlias = CorrelationIdentifier.of("P");
+        final var p_Alias = CorrelationIdentifier.of("P'");
+        final var p = qov(pAlias, pv.getResultType());
+        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(fv(p, 0), LiteralValue.ofScalar(42)));
+        final var p_ = qov(p_Alias, p_v.getResultType());
+        final var rv = rcv(fv(p, 2, 0));
+        final var r_v = rcv(fv(p_, 1, 0));
+
+        final var l2Translator = Translator.builder().ofCorrelations(pAlias, p_Alias).using(l1m3).build();
+
+        /*
+           translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
+           give the following value (p'.1.0).
+           Note that we have two instances of t'.b.t which are (p'.1.0, or p'.4), theoretically, the translator can
+           choose either one, i.e. , however since pre-order traversal is used, the translation algorithm
+           will always return the (p'.1.0) because it is the first node that matches the translated version of
+           (p.2.0) in pre-order traversal.
+         */
+
+        final var l2TranslatedQueryValue = l2Translator.translate(rv);
+        final var expectedL2TranslatedQueryValue = rcv(fv(p_, 1, 0));
+        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2TranslatedQueryValue);
+
+        /*
+           translation of the predicate p.0 < 42 should yield p'.0.0 < 42
+         */
+        final var l2TranslatedPredicate = l2Translator.translate(pPredicate);
+        Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(List.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
+
+        final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
+        final var l2m3 = l2Translator.calculateMaxMatches(l2TranslatedQueryValue, r_v);
+        Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
+        Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
+        Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
     }
 }
