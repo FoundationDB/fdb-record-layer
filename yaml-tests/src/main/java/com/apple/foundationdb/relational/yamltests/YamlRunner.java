@@ -67,7 +67,7 @@ public final class YamlRunner {
         RelationalConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
     }
 
-    public static class YamlExecutionContext {
+    public static final class YamlExecutionContext {
 
         @Nullable
         private final List<String> editedFileStream;

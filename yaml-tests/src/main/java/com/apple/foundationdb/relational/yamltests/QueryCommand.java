@@ -155,9 +155,9 @@ public class QueryCommand extends Command {
                 final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
                 if (continuation != null && continuation.atEnd() && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfigWithValue.configName)) {
                     Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch at line %d%n" +
-                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                    "%s%n" +
-                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                            "%s%n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfigWithValue.lineNumber, queryConfigWithValue));
                 }
                 continuation = executeConfig(currentQueryString, queryConfigWithValue, false, connection);

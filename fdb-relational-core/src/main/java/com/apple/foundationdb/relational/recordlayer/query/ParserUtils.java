@@ -681,7 +681,7 @@ public final class ParserUtils {
     }
 
     public static void verifyAggregateValue(@Nonnull final AggregateValue value) {
-        final var iterator = value.filter(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue).iterator();
+        final var iterator = value.preOrderStream().filter(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue).iterator();
         Assert.thatUnchecked(iterator.hasNext(), "internal error"); // since it must be `value` itself.
         iterator.next();
         Assert.thatUnchecked(!iterator.hasNext(), ErrorCode.UNSUPPORTED_OPERATION, "nested aggregate '%s' is not supported", value);
@@ -926,6 +926,12 @@ public final class ParserUtils {
         @Override
         public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull CorrelationIdentifier innermostAlias) {
             return Optional.of(ConstantPredicate.TRUE);
+        }
+
+        @Nonnull
+        @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return ImmutableList.of();
         }
 
         @Nullable

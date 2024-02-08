@@ -47,7 +47,7 @@ import java.util.function.BiFunction;
 public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
 
     public FieldValueTrieNode(@Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
-        super(new EmptyValue(), childrenMap);
+        super(EmptyValue.empty(), childrenMap);
     }
 
     @Nonnull
