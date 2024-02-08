@@ -40,11 +40,12 @@ import java.util.stream.Collectors;
  */
 public class ValueTranslationTest {
 
-    // ------------- Utility functions.
+    @SuppressWarnings("checkstyle:MemberName")
+    @Nonnull
+    private final CorrelationIdentifier P = CorrelationIdentifier.of("P");
 
     @SuppressWarnings("checkstyle:MemberName")
-    private final CorrelationIdentifier P = CorrelationIdentifier.of("P");
-    @SuppressWarnings("checkstyle:MemberName")
+    @Nonnull
     private final CorrelationIdentifier Q = CorrelationIdentifier.of("Q");
 
     @Nonnull
@@ -78,21 +79,25 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private QuantifiedObjectValue qov(@Nonnull final String name) {
         return qov(name, getRecordType());
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private QuantifiedObjectValue qov(@Nonnull final String name, @Nonnull final Type type) {
         return qov(CorrelationIdentifier.of(name), type);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private QuantifiedObjectValue qov(@Nonnull final CorrelationIdentifier name, @Nonnull final Type type) {
         return QuantifiedObjectValue.of(name, type);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private Type.Record r(String... fields) {
         return Type.Record
                 .fromFields(Arrays.stream(fields)
@@ -101,6 +106,7 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private Type.Record r(Type.Record.Field... fields) {
         return Type.Record
                 .fromFields(Arrays.stream(fields)
@@ -108,32 +114,39 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private Type.Record.Field f(String name) {
         return Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of(name));
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private Type.Record.Field f(String name, @Nonnull final Type type) {
         return Type.Record.Field.of(type, Optional.of(name));
     }
 
+    @Nonnull
     private Value rcv(Value... values) {
         return RecordConstructorValue.ofUnnamed(Arrays.stream(values).collect(Collectors.toList()));
     }
 
     @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
     private FieldValue fv(@Nonnull final Value base, String... name) {
         return fvInternal(base, name.length - 1, name);
     }
 
+    @Nonnull
     private FieldValue fv(String... name) {
         return fvInternal(ObjectValue.of(P, getRecordType()), name.length - 1, name);
     }
 
+    @Nonnull
     private FieldValue fv(@Nonnull final Value base, Integer... indexes) {
         return fvInternal(base, indexes.length - 1, indexes);
     }
 
+    @Nonnull
     private FieldValue fvInternal(Value value, int index, String... name) {
         if (index == 0) {
             return FieldValue.ofFieldNameAndFuseIfPossible(value, name[0]);
@@ -141,6 +154,7 @@ public class ValueTranslationTest {
         return FieldValue.ofFieldNameAndFuseIfPossible(fvInternal(value, index - 1, name), name[index]);
     }
 
+    @Nonnull
     private FieldValue fvInternal(Value value, int index, Integer... indexes) {
         if (index == 0) {
             return FieldValue.ofOrdinalNumber(value, indexes[0]);
@@ -148,18 +162,14 @@ public class ValueTranslationTest {
         return FieldValue.ofOrdinalNumberAndFuseIfPossible(fvInternal(value, index - 1, indexes), indexes[index]);
     }
 
+    @Nonnull
     private Value add(Value... values) {
         Verify.verify(values.length == 2);
-        return new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
-                values[0], values[1]);
+        return new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II, values[0], values[1]);
     }
 
-
-    // ------------- Tests got here.
-
-
     @Test
-    public void testMultiLevelValueTranslation() throws Exception {
+    public void testMultiLevelValueTranslation() {
         /*
             T has the following type:
                 (a, b, j) | type(a) = (q, r), type(b) = (t, m), type(j) = (s,q)
