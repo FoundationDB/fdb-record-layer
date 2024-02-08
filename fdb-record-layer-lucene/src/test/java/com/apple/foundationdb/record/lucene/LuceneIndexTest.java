@@ -850,7 +850,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 Stream.of(
                         Arguments.of(13L),
                         Arguments.of(-644766138635622644L),
-                        Arguments.of(-1089113174774589435L)),
+                        Arguments.of(-1089113174774589435L),
+                        Arguments.of(6223372946177329440L),
+                        Arguments.of(-4003151658223916927L)),
                 RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())));
     }
 

@@ -607,7 +607,7 @@ public class LucenePartitioner {
                 LOGGER.trace(partitionInfos.stream()
                         .sorted(Comparator.comparing(pi -> Tuple.fromBytes(pi.getFrom().toByteArray())))
                         .map(pi -> "pi[" + pi.getId() + "]@" + pi.getCount() + Tuple.fromBytes(pi.getFrom().toByteArray()) + "->" + Tuple.fromBytes(pi.getTo().toByteArray()))
-                        .collect(Collectors.joining(", ", "Rebalancing partitions: ", "")));
+                        .collect(Collectors.joining(", ", "Rebalancing partitions (group=" + groupingKey + "): ", "")));
             }
 
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {

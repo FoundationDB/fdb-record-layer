@@ -97,9 +97,6 @@ public class LuceneIndexTestValidator {
         // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
-        int minPerPartition = partitionHighWatermark <= repartitionCount ?
-                               partitionHighWatermark :
-                               partitionHighWatermark - repartitionCount;
 
         for (final Map.Entry<Integer, Map<Tuple, Long>> entry : expectedIds.entrySet()) {
             final Integer group = entry.getKey();
@@ -133,27 +130,28 @@ public class LuceneIndexTestValidator {
                                 Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
                     }
 
-                    assertThat(allCounts, partitionInfo.getCount(),
-                            Matchers.allOf(lessThanOrEqualTo(maxPerPartition), greaterThan(0)));
-                    // Depending on the relationship between repartitionCount and partitionHighWatermark
-                    // it's possible that either of the last element or the second to last element could be less than
-                    // the minPerPartition. I don't know the abstract logic, but an example would be that if the most
-                    // recent partition has 15, the high-watermark is 10, and the repartition is 10, it will move 10 out,
-                    // Resulting in the most recent having 5, and the one before having 10.
-                    // This seems reasonable in actual production situations where we would expect high-watermark to be
-                    // multiple orders of magnitude larger than the repartition count. (i.e. if the high watermark is
-                    // 500,000 it shouldn't matter if the actual document count is 499,990 or 499,995).
-                    // Avoiding this might also mean that you end up with excessive transactions if you are usually adding
-                    // to the most-recent partition, namely, it would keep rebalancing by moving 1 record at a time to
-                    // get it below the high watermark.
-
-                    // If there is only one partition, it's totally fine for it to be any value less than maxPerPartition
-                    if (i < partitionInfos.size() - 2) {
-                        assertThat(allCounts, partitionInfo.getCount(),
-                                Matchers.allOf(
-                                        greaterThanOrEqualTo(minPerPartition),
-                                        lessThanOrEqualTo(maxPerPartition)));
+                    int minPerPartition;
+                    if (partitionInfos.size() == 1) {
+                        // if there is only one partition, it should have exactly the number of documents, which is
+                        // verified below
+                        minPerPartition = 1;
+                    } else if (i == 0) {
+                        // if it is the oldest, it could have fewer if the test inserted max into the most recent, and
+                        // then inserted a couple that were older
+                        // If we add tests that don't try at all to order the timestamps this could become more
+                        // complicated
+                        minPerPartition = 1;
+                    } else if (i == partitionInfos.size() - 2) {
+                        // The second to last should have at least the repartitionCount that would have been moved out
+                        // of the most recent
+                        minPerPartition = Math.min(repartitionCount, partitionHighWatermark);
+                    } else {
+                        // Everything else should be filled as much as it can, but may have had repartitionCount moved
+                        // out.
+                        minPerPartition = Math.max(1, partitionHighWatermark - repartitionCount);
                     }
+                    assertThat(allCounts, partitionInfo.getCount(),
+                            Matchers.allOf(lessThanOrEqualTo(maxPerPartition), greaterThanOrEqualTo(minPerPartition)));
                     assertTrue(usedIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
                     final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
                     if (i > 0) {
