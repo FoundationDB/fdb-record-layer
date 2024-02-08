@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
@@ -328,6 +330,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return partitioner;
     }
 
+    @Nonnull
+    private static LucenePartitioner getPartitioner(final Index index, final FDBRecordStore store) {
+        final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
+        if (indexMaintainer instanceof LuceneIndexMaintainer) {
+            return ((LuceneIndexMaintainer)indexMaintainer).partitioner;
+        } else {
+            throw new RecordCoreException("Index being repartitioned is no longer a lucene index")
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName(),
+                            LogMessageKeys.INDEX_TYPE, index.getType());
+        }
+    }
+
     @SuppressWarnings("PMD.CloseResource") // the runner is closed in a whenComplete on the future returned
     public CompletableFuture<Void> rebalancePartitions() {
         if (!partitioner.isPartitioningEnabled()) {
@@ -344,23 +358,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
-        return AsyncUtil.whileTrue(() -> {
-            return runner.runAsync(context -> {
-                return storeBuilder.setContext(context).openAsync().thenCompose(store -> {
-                    store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                    return ((LuceneIndexMaintainer)store.getIndexMaintainer(index))
-                            .partitioner.rebalancePartitions(continuation.get())
-                            .thenApply(newContinuation -> {
-                                if (newContinuation.isEnd()) {
-                                    return false;
-                                } else {
-                                    continuation.set(newContinuation);
-                                    return true;
-                                }
-                            });
-                });
-            });
-        });
+        return AsyncUtil.whileTrue(
+                () -> runner.runAsync(
+                        context -> storeBuilder.setContext(context).openAsync().thenCompose(store -> {
+                            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                            return getPartitioner(index, store).rebalancePartitions(continuation.get())
+                                    .thenApply(newContinuation -> {
+                                        if (newContinuation.isEnd()) {
+                                            return false;
+                                        } else {
+                                            continuation.set(newContinuation);
+                                            return true;
+                                        }
+                                    });
+                        })));
     }
 
     @Nonnull

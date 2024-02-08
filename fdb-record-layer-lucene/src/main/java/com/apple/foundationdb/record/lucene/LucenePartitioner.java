@@ -316,12 +316,8 @@ public class LucenePartitioner {
     void savePartitionMetadata(@Nonnull Tuple groupKey, @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo.Builder builder) {
         LucenePartitionInfoProto.LucenePartitionInfo updatedPartition = builder.build();
         state.context.ensureActive().set(
-                partitionMetadataKeyFromTimestamp(groupKey, getTimestampFromPartitionInfo(builder)),
+                partitionMetadataKeyFromTimestamp(groupKey, getFrom(builder)),
                 updatedPartition.toByteArray());
-    }
-
-    private static long getTimestampFromPartitionInfo(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfoOrBuilder builder) {
-        return Tuple.fromBytes(builder.getFrom().toByteArray()).getLong(0);
     }
 
     @Nonnull
@@ -501,7 +497,7 @@ public class LucenePartitioner {
      * @param partitionInfo partition metadata instance
      * @return long
      */
-    public static long getFrom(@Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+    public static long getFrom(@Nonnull LucenePartitionInfoProto.LucenePartitionInfoOrBuilder partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getFrom().toByteArray()).getLong(0);
     }
 
@@ -675,7 +671,7 @@ public class LucenePartitioner {
      * @param groupingKey grouping key
      * @param maxPartitionId current max partition id
      * @param cursor documents to move
-     * @return void future
+     * @return A future containing the amount of documents that were moved
      */
     @Nonnull
     private CompletableFuture<Integer> moveDocsFromPartition(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
@@ -775,7 +771,7 @@ public class LucenePartitioner {
         if (previous == null) {
             return getNewestPartition(groupingKey, context, indexSubspace);
         } else {
-            final Range range = new TupleRange(groupingKey.add(PARTITION_META_SUBSPACE), partitionMetadataKeyTuple(groupingKey, getTimestampFromPartitionInfo(previous)),
+            final Range range = new TupleRange(groupingKey.add(PARTITION_META_SUBSPACE), partitionMetadataKeyTuple(groupingKey, getFrom(previous)),
                     EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE)
                     .toRange(indexSubspace);
             final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);

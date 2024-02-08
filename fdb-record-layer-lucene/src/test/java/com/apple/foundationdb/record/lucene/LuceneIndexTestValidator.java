@@ -187,8 +187,8 @@ public class LuceneIndexTestValidator {
     }
 
 
-    private void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
-                                         Set<Tuple> expectedIds, final String universalSearch) throws IOException {
+    public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
+                                               Set<Tuple> expectedIds, final String universalSearch) throws IOException {
         LuceneScanQuery scanQuery;
         if (groupingKey.isEmpty()) {
             scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
@@ -222,12 +222,12 @@ public class LuceneIndexTestValidator {
                 () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
     }
 
-    private IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
+    public static IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
         IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
         return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
     }
 
-    private LuceneScanBounds groupedSortedTextSearch(final FDBRecordStoreBase<?> recordStore, Index index, String search, Sort sort, Object group) {
+    public static LuceneScanBounds groupedSortedTextSearch(final FDBRecordStoreBase<?> recordStore, Index index, String search, Sort sort, Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
                 new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false),

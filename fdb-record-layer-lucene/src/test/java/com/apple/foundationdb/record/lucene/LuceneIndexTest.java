@@ -37,10 +37,8 @@ import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
-import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapConfig;
@@ -62,7 +60,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -96,14 +93,11 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
-import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.TopDocs;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -451,7 +445,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
                     LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
 
-
     protected void openRecordStore(FDBRecordContext context, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
@@ -556,15 +549,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneScanBounds groupedSortedTextSearch(Index index, String search, Sort sort, Object group) {
-        LuceneScanParameters scan = new LuceneScanQueryParameters(
-                Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
-                new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false),
-                sort,
-                null,
-                null,
-                null);
-
-        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+        return LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, search, sort, group);
     }
 
     @Nonnull
@@ -737,42 +722,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
 
-            validateDocsInPartition(index, 0, groupingKey, 8, makeKeyTuples(docGroupFieldValue, 1012, 1019), "text:propose");
-            validateDocsInPartition(index, 2, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1006, 1011), "text:propose");
-            validateDocsInPartition(index, 1, groupingKey, 6, makeKeyTuples(docGroupFieldValue, 1000, 1005), "text:propose");
+            validateDocsInPartition(index, 0, groupingKey, makeKeyTuples(docGroupFieldValue, 1012, 1019), "text:propose");
+            validateDocsInPartition(index, 2, groupingKey, makeKeyTuples(docGroupFieldValue, 1006, 1011), "text:propose");
+            validateDocsInPartition(index, 1, groupingKey, makeKeyTuples(docGroupFieldValue, 1000, 1005), "text:propose");
         }
     }
 
-    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey, int expectedHitCount,
+    private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey,
                                          Set<Tuple> expectedIds, final String universalSearch) throws IOException {
-        LuceneScanQuery scanQuery;
-        if (groupingKey.isEmpty()) {
-            scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
-        } else {
-            scanQuery = (LuceneScanQuery) groupedSortedTextSearch(index,
-                    universalSearch,
-                    null,
-                    groupingKey.getLong(0));
-        }
-        final IndexReader indexReader = getIndexReader(index, partitionId, groupingKey);
-        LuceneOptimizedIndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
-        TopDocs newTopDocs = searcher.search(scanQuery.getQuery(), Integer.MAX_VALUE);
-
-        assertNotNull(newTopDocs);
-        assertNotNull(newTopDocs.scoreDocs);
-        assertEquals(expectedHitCount, newTopDocs.scoreDocs.length);
-
-        Set<String> fields = Sets.newHashSet(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-        assertEquals(expectedIds, Arrays.stream(newTopDocs.scoreDocs).map(scoreDoc -> {
-            try {
-                Document document = searcher.doc(scoreDoc.doc, fields);
-                IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-                return Tuple.fromBytes(primaryKey.binaryValue().bytes);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).collect(Collectors.toSet()),
-                () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
+        LuceneIndexTestValidator.validateDocsInPartition(recordStore, index, partitionId, groupingKey, expectedIds, universalSearch);
     }
 
     private Map<Integer, Integer> getSegmentCounts(Index index,
@@ -792,8 +750,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private IndexReader getIndexReader(final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
-        IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        return LuceneIndexTestValidator.getIndexReader(recordStore, index, partitionId, groupingKey);
     }
 
     public static Stream<Arguments> repartitionAndMerge() {
@@ -862,7 +819,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            validateDocsInPartition(index, 0, groupingKey, repartitionCount == 3 ? 8 : 10,
+            validateDocsInPartition(index, 0, groupingKey,
                     allIds.stream()
                             .skip(repartitionCount == 3 ? 192 : 190)
                             .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
@@ -871,7 +828,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 1; i < 20; i++) {
                 // 0 should have the newest
                 // everyone else should increase
-                validateDocsInPartition(index, i, groupingKey, partitionSize,
+                validateDocsInPartition(index, i, groupingKey,
                         allIds.stream().skip((i - 1) * partitionSize)
                                 .limit(partitionSize)
                                 .map(idLong -> Tuple.from(docGroupFieldValue, idLong))
@@ -1058,11 +1015,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             schemaSetup.accept(context);
 
             validateDocsInPartition(JOINED_INDEX, 0, groupingKey,
-                    8, Set.copyOf(ids.subList(12, totalDocCount)), "simple_text:propose");
+                    Set.copyOf(ids.subList(12, totalDocCount)), "simple_text:propose");
             validateDocsInPartition(JOINED_INDEX, 2, groupingKey,
-                    6, Set.copyOf(ids.subList(6, 12)), "simple_text:propose");
+                    Set.copyOf(ids.subList(6, 12)), "simple_text:propose");
             validateDocsInPartition(JOINED_INDEX, 1, groupingKey,
-                    6, Set.copyOf(ids.subList(0, 6)), "simple_text:propose");
+                    Set.copyOf(ids.subList(0, 6)), "simple_text:propose");
         }
     }
 

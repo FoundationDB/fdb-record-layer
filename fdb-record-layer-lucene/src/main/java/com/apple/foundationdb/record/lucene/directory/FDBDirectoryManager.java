@@ -146,15 +146,14 @@ public class FDBDirectoryManager implements AutoCloseable {
         } else {
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
             return AsyncUtil.whileTrue(() -> getNextPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
-                    .thenApply(partitionId -> mergePartition(analyzerWrapper, groupingKey, agileContext, partitionId, lastPartitionInfo)));
+                    .thenApply(partitionId -> mergePartition(analyzerWrapper, groupingKey, agileContext, partitionId)));
         }
     }
 
     @Nonnull
-    private Boolean mergePartition(final LuceneAnalyzerWrapper analyzerWrapper, final Tuple groupingKey,
-                                   final AgilityContext agileContext, final Integer partitionId,
-                                   final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
-        if (lastPartitionInfo.get() == null) {
+    private Boolean mergePartition(@Nonnull final LuceneAnalyzerWrapper analyzerWrapper, @Nonnull final Tuple groupingKey,
+                                   @Nonnull final AgilityContext agileContext, @Nullable final Integer partitionId) {
+        if (partitionId == null) {
             return false;
         } else {
             try {
@@ -173,7 +172,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private CompletableFuture<Integer> getNextPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext, final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
+    private CompletableFuture<Integer> getNextPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
+                                                            final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
         return agileContext.apply(context -> LucenePartitioner.getNextPartitionInfo(
                         context, groupingKey, lastPartitionInfo.get(), state.indexSubspace)
                 .thenApply(partitionInfo -> {
@@ -247,7 +247,6 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
         return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
     }
-
 
     private AgilityContext getAgilityContext(boolean useAgilityContext) {
         final IndexDeferredMaintenanceControl deferredControl = state.store.getIndexDeferredMaintenanceControl();
