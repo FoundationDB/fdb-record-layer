@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.google.common.base.Verify;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Impact;
 import org.apache.lucene.index.Impacts;
@@ -72,13 +73,13 @@ public class LuceneOptimizedPostingsEnum extends ImpactsEnum {
         if (currentDoc == -1 || currentDoc == NO_MORE_DOCS) {
             return currentDoc;
         }
-        assert currentDoc < documents.getDocIdCount() : "overflow with position=" + currentDoc;
+        Verify.verify(currentDoc < documents.getDocIdCount(), "overflow with position=%s", currentDoc);
         return documents.getDocId(currentDoc);
     }
 
     @Override
     public int nextDoc() throws IOException {
-        assert currentDoc != NO_MORE_DOCS : "Should not be called";
+        Verify.verify(currentDoc != NO_MORE_DOCS, "Should not be called");
         currentDoc++;
         currentPosition = -1;
         positions = null;

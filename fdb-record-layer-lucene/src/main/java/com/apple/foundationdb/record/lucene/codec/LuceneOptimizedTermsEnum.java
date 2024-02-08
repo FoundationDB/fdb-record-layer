@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.FieldInfo;
@@ -116,8 +117,8 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public BytesRef term() throws IOException {
-        assert currentTermState != null;
-        assert currentTermState.getTerm() != null;
+        Verify.verify(currentTermState != null);
+        Verify.verify(currentTermState.getTerm() != null);
         return currentTermState.getTerm();
     }
 
@@ -128,32 +129,32 @@ public class LuceneOptimizedTermsEnum extends TermsEnum {
 
     @Override
     public TermState termState() throws IOException {
-        assert currentTermState != null;
+        Verify.verify(currentTermState != null);
         return currentTermState;
     }
 
 
     @Override
     public int docFreq() throws IOException {
-        assert currentTermState != null;
+        Verify.verify(currentTermState != null);
         return currentTermState.getDocFreq();
     }
 
     @Override
     public long totalTermFreq() throws IOException {
-        assert currentTermState != null;
+        Verify.verify(currentTermState != null);
         return currentTermState.getTotalTermFreq();
     }
 
     @Override
     public PostingsEnum postings(final PostingsEnum reuse, final int flags) throws IOException {
-        assert currentTermState != null;
+        Verify.verify(currentTermState != null);
         return postingsReader.postings(fieldInfo, currentTermState, reuse, flags);
     }
 
     @Override
     public ImpactsEnum impacts(final int flags) throws IOException {
-        assert currentTermState != null;
+        Verify.verify(currentTermState != null);
         return postingsReader.impacts(fieldInfo, currentTermState, flags);
     }
 

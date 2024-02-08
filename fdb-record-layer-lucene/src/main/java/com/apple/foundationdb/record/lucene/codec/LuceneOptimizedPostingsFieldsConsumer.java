@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
+import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.NormsProducer;
@@ -61,7 +62,7 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
     public void write(Fields fields, NormsProducer norms) throws IOException {
         String lastField = null;
         for (String field : fields) {
-            assert lastField == null || lastField.compareTo(field) < 0;
+            Verify.verify(lastField == null || lastField.compareTo(field) < 0);
             lastField = field;
 
             Terms terms = fields.terms(field);
@@ -109,8 +110,8 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
         public void write(final BytesRef text, final TermsEnum termsEnum, final NormsProducer norms) throws IOException {
             LuceneOptimizedBlockTermState state = (LuceneOptimizedBlockTermState)postingsWriter.writeAndSaveTerm(text, termsEnum, docsSeen, norms);
             if (state != null) {
-                assert state.getDocFreq() != 0;
-                assert fieldInfo.getIndexOptions() == IndexOptions.DOCS || state.getTotalTermFreq() >= state.getDocFreq() : "postingsWriter=" + postingsWriter;
+                Verify.verify(state.getDocFreq() != 0);
+                Verify.verify(fieldInfo.getIndexOptions() == IndexOptions.DOCS || state.getTotalTermFreq() >= state.getDocFreq(), "postingsWriter=%s", postingsWriter);
 
                 sumDocFreq += state.getDocFreq();
                 sumTotalTermFreq += state.getTotalTermFreq();
@@ -131,15 +132,15 @@ public class LuceneOptimizedPostingsFieldsConsumer extends FieldsConsumer {
                         .setNumTerms(numTerms)
                         .setSumDocFreq(sumDocFreq)
                         .setCardinality(docsSeen.cardinality());
-                assert fieldInfo.getIndexOptions() != IndexOptions.NONE;
+                Verify.verify(fieldInfo.getIndexOptions() != IndexOptions.NONE);
                 if (fieldInfo.getIndexOptions() != IndexOptions.DOCS) {
                     builder.setSumTotalFreq(sumTotalTermFreq);
                 }
                 directory.writePostingsTermMetadata(segmentName, fieldInfo.number, builder.build().toByteArray());
             } else {
-                assert sumTotalTermFreq == 0 || fieldInfo.getIndexOptions() == IndexOptions.DOCS && sumTotalTermFreq == -1;
-                assert sumDocFreq == 0;
-                assert docsSeen.cardinality() == 0;
+                Verify.verify(sumTotalTermFreq == 0 || fieldInfo.getIndexOptions() == IndexOptions.DOCS && sumTotalTermFreq == -1);
+                Verify.verify(sumDocFreq == 0);
+                Verify.verify(docsSeen.cardinality() == 0);
             }
         }
     }

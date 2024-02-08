@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
+import com.google.common.base.Verify;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.FieldInfo;
@@ -85,7 +86,7 @@ public class LuceneOptimizedPostingsFieldsProducer extends FieldsProducer {
 
     @Override
     public Terms terms(String field) throws IOException {
-        assert field != null;
+        Verify.verify(field != null);
         FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         // This will fetch metadata for all fields and cache it.
         PostingsFieldMetadata metadata = fieldMetadataSupplier.get().get((long)fieldInfo.number);

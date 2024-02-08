@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
+import com.google.common.base.Verify;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.index.TermState;
@@ -65,7 +66,7 @@ public class LuceneOptimizedBlockTermState extends BlockTermState {
     @Override
     public void copyFrom(final TermState other) {
         final LuceneOptimizedBlockTermState otherState = (LuceneOptimizedBlockTermState)other;
-        assert otherState.term != null : "Term Cannot Be Null";
+        Verify.verify(otherState.term != null, "Term Cannot Be Null");
         this.term = otherState.term;
         this.docFreq = otherState.getDocFreq();
         this.totalTermFreq = otherState.getTotalTermFreq();

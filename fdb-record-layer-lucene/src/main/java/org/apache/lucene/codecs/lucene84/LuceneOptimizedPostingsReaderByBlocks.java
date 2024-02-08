@@ -41,6 +41,7 @@ package org.apache.lucene.codecs.lucene84;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
+import com.google.common.base.Verify;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PostingsReaderBase;
@@ -216,8 +217,8 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                     termState.singletonDocID = -1;
                 }
             } else {
-                assert absolute == false;
-                assert termState.singletonDocID != -1;
+                Verify.verify(absolute == false);
+                Verify.verify(termState.singletonDocID != -1);
                 termState.singletonDocID += BitUtil.zigZagDecode(l >>> 1);
             }
         } else {
@@ -443,7 +444,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
 
             final int left = docFreq - blockUpto;
-            assert left >= 0;
+            Verify.verify( left >= 0);
 
             if (left >= BLOCK_SIZE) {
                 forDeltaUtil.decodeAndPrefixSum(docIn, accum, docBuffer);
@@ -470,7 +471,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
             accum = docBuffer[BLOCK_SIZE - 1];
             docBufferUpto = 0;
-            assert docBuffer[BLOCK_SIZE] == NO_MORE_DOCS;
+            Verify.verify(docBuffer[BLOCK_SIZE] == NO_MORE_DOCS);
         }
 
         @Override
@@ -500,7 +501,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 }
 
                 if (!skipped) {
-                    assert skipOffset != -1;
+                    Verify.verify(skipOffset != -1);
                     // This is the first time this enum has skipped
                     // since reset() was called; load the skip data:
                     skipper.init(docTermStartFP + skipOffset, docTermStartFP, 0, 0, docFreq);
@@ -513,7 +514,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
                 if (newDocUpto >= blockUpto) {
                     // Skipper moved
-                    assert newDocUpto % BLOCK_SIZE == 0 : "got " + newDocUpto;
+                    Verify.verify(newDocUpto % BLOCK_SIZE == 0, "got %s", newDocUpto);
                     blockUpto = newDocUpto;
 
                     // Force to read next block
@@ -736,7 +737,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
         private void refillDocs() throws IOException {
             final int left = docFreq - blockUpto;
-            assert left >= 0;
+            Verify.verify(left >= 0);
 
             if (left >= BLOCK_SIZE) {
                 forDeltaUtil.decodeAndPrefixSum(docIn, accum, docBuffer);
@@ -755,7 +756,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
             accum = docBuffer[BLOCK_SIZE - 1];
             docBufferUpto = 0;
-            assert docBuffer[BLOCK_SIZE] == NO_MORE_DOCS;
+            Verify.verify(docBuffer[BLOCK_SIZE] == NO_MORE_DOCS);
         }
 
         private void refillPositions() throws IOException {
@@ -856,7 +857,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 }
 
                 if (!skipped) {
-                    assert skipOffset != -1;
+                    Verify.verify(skipOffset != -1);
                     // This is the first time this enum has skipped
                     // since reset() was called; load the skip data:
                     skipper.init(docTermStartFP + skipOffset, docTermStartFP, posTermStartFP, payTermStartFP, docFreq);
@@ -867,7 +868,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
                 if (newDocUpto > blockUpto - BLOCK_SIZE + docBufferUpto) {
                     // Skipper moved
-                    assert newDocUpto % BLOCK_SIZE == 0 : "got " + newDocUpto;
+                    Verify.verify(newDocUpto % BLOCK_SIZE == 0, "got %s", newDocUpto);
                     blockUpto = newDocUpto;
 
                     // Force to read next block
@@ -927,7 +928,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             } else {
                 toSkip -= leftInBlock;
                 while (toSkip >= BLOCK_SIZE) {
-                    assert posIn.getFilePointer() != lastPosBlockFP;
+                    Verify.verify(posIn.getFilePointer() != lastPosBlockFP);
                     pforUtil.skip(posIn);
 
                     if (indexHasPayloads) {
@@ -962,7 +963,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
         @Override
         public int nextPosition() throws IOException {
-            assert posPendingCount > 0;
+            Verify.verify(posPendingCount > 0);
 
             if (posPendingFP != -1) {
                 posIn.seek(posPendingFP);
@@ -1115,7 +1116,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
 
             final int left = docFreq - blockUpto;
-            assert left >= 0;
+            Verify.verify(left >= 0);
 
             if (left >= BLOCK_SIZE) {
                 forDeltaUtil.decodeAndPrefixSum(docIn, accum, docBuffer);
@@ -1131,7 +1132,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
             accum = docBuffer[BLOCK_SIZE - 1];
             docBufferUpto = 0;
-            assert docBuffer[BLOCK_SIZE] == NO_MORE_DOCS;
+            Verify.verify(docBuffer[BLOCK_SIZE] == NO_MORE_DOCS);
         }
 
         @Override
@@ -1143,7 +1144,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
                 if (newDocUpto >= blockUpto) {
                     // Skipper moved
-                    assert newDocUpto % BLOCK_SIZE == 0 : "got " + newDocUpto;
+                    Verify.verify(newDocUpto % BLOCK_SIZE == 0, "got %s", newDocUpto);
                     blockUpto = newDocUpto;
 
                     // Force to read next block
@@ -1155,7 +1156,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 // foresee whether skipper is necessary.
                 nextSkipDoc = skipper.getNextSkipDoc();
             }
-            assert nextSkipDoc >= target;
+            Verify.verify(nextSkipDoc >= target);
         }
 
         @Override
@@ -1321,7 +1322,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
         private void refillDocs() throws IOException {
             final int left = docFreq - docUpto;
-            assert left >= 0;
+            Verify.verify(left >= 0);
 
             if (left >= BLOCK_SIZE) {
                 forDeltaUtil.decodeAndPrefixSum(docIn, accum, docBuffer);
@@ -1373,7 +1374,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
                 if (newDocUpto > docUpto) {
                     // Skipper moved
-                    assert newDocUpto % BLOCK_SIZE == 0 : "got " + newDocUpto;
+                    Verify.verify(newDocUpto % BLOCK_SIZE == 0, "got %s", newDocUpto);
                     docUpto = newDocUpto;
 
                     // Force to read next block
@@ -1387,7 +1388,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 // foresee whether skipper is necessary.
                 nextSkipDoc = skipper.getNextSkipDoc();
             }
-            assert nextSkipDoc >= target;
+            Verify.verify(nextSkipDoc >= target);
         }
 
         @Override
@@ -1443,7 +1444,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             } else {
                 toSkip -= leftInBlock;
                 while (toSkip >= BLOCK_SIZE) {
-                    assert posIn.getFilePointer() != lastPosBlockFP;
+                    Verify.verify(posIn.getFilePointer() != lastPosBlockFP);
                     pforUtil.skip(posIn);
                     toSkip -= BLOCK_SIZE;
                 }
@@ -1456,7 +1457,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
         @Override
         public int nextPosition() throws IOException {
-            assert posPendingCount > 0;
+            Verify.verify(posPendingCount > 0);
 
             if (posPendingFP != -1) {
                 posIn.seek(posPendingFP);
@@ -1701,7 +1702,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             }
 
             final int left = docFreq - docUpto;
-            assert left >= 0;
+            Verify.verify(left >= 0);
 
             if (left >= BLOCK_SIZE) {
                 forDeltaUtil.decodeAndPrefixSum(docIn, accum, docBuffer);
@@ -1795,7 +1796,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
 
                 if (newDocUpto > docUpto) {
                     // Skipper moved
-                    assert newDocUpto % BLOCK_SIZE == 0 : "got " + newDocUpto;
+                    Verify.verify(newDocUpto % BLOCK_SIZE == 0, "got %s", newDocUpto);
                     docUpto = newDocUpto;
                     posDocUpTo = docUpto;
 
@@ -1813,7 +1814,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 // foresee whether skipper is necessary.
                 nextSkipDoc = skipper.getNextSkipDoc();
             }
-            assert nextSkipDoc >= target;
+            Verify.verify(nextSkipDoc >= target);
         }
 
         @Override
@@ -1885,7 +1886,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
             } else {
                 toSkip -= leftInBlock;
                 while (toSkip >= BLOCK_SIZE) {
-                    assert posIn.getFilePointer() != lastPosBlockFP;
+                    Verify.verify(posIn.getFilePointer() != lastPosBlockFP);
                     pforUtil.skip(posIn);
 
                     if (indexHasPayloads && payIn != null) {
@@ -1933,7 +1934,7 @@ public final class LuceneOptimizedPostingsReaderByBlocks extends PostingsReaderB
                 posDocUpTo++;
             }
 
-            assert posPendingCount > 0;
+            Verify.verify(posPendingCount > 0);
 
             if (posPendingFP != -1) {
                 posIn.seek(posPendingFP);

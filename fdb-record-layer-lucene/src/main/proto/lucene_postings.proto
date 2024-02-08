@@ -25,6 +25,8 @@ option java_outer_classname = "LucenePostingsProto";
 
 /*
  * Metadata about terms for each field.
+ * One instance per field, this structure holds metadata for the entire field. The actual values are calculated at writing
+ * (by adding up term infos as they get written - see TermsWriter). The PostingsFieldMetadata class is a wrapper around this protobuf.
  * Key: POSTINGS_FIELD_METADATA_SUBSPACE / SegmentName / FieldNumber
  */
 message TermMeta {
@@ -37,41 +39,47 @@ message TermMeta {
 }
 /*
  * Info about each term within a field.
+ * This structure is stored for each term in the field, and the qualifier (see the Key below) contains the TermBytes,
+ * which are the actual term text, as this is how Lucene is going to eventually search for this.
+ * See also BlockTermState.
  * Key: POSTINGS_TERMS_SUBSPACE / SegmentName / FieldNumber / TermBytes
  */
 message TermInfo {
-  required int64 ord = 1;
-  optional int32 docFreq = 2;
-  optional int64 totalTermFreq = 3;
-  optional Documents documents = 4;
+  required int64 ord = 1; // The term ordinal within the field.
+  optional int32 docFreq = 2; // Total number of docs that have this term
+  optional int64 totalTermFreq = 3; // Total number of occurrences for this term
+  optional Documents documents = 4; // The actual list of occurrences of the term in the documents
 }
 
 /*
- * Info about the documents for each term.
+ * Info about the occurrence of a each term in a document.
+ * This is eventually wrapped by a WriterDocuments for accumulation and writing.
  * Embedded within the TermInfo
  */
 message Documents {
   // TODO: Make one repeated message
   repeated int32 docId = 1;
-  repeated int32 freq = 2;
+  repeated int32 freq = 2; // Number of freq for the doc
 }
 
 /*
- * Info about the positions for each document in a term.
+ * Info about the positions for each term in a doc.
+ * This is eventually wrapped by a WriterPositions for accumulation and writing.
+ * Note that the key contains the term Ordinal (therefore has to be driven by the TermInfo first)
  * Key: POSTINGS_POSITIONS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
  */
 message Positions {
-  repeated int32 position = 1;
+  repeated int32 position = 1; // The list of positions for the term in the document
 }
 
 /*
  * Info about the payloads for each document in a term.
  * Key: POSTINGS_PAYLOADS_SUBSPACE / SegmentName / FieldNumber / TermOrdinal / DocId
- * These values have the same cardinality as the positions, if they are written
- * They are not included in the Positions message for the cases where we don't need to read them
+ * These values have the same cardinality as the positions, if they are written.
+ * They are not included in the Positions message for the cases where we don't need to read them.
  */
 message Payloads {
-  repeated bytes payload = 1;
+  repeated bytes payload = 1; // Payload (some arbitrary bit of information) for the document position
   // TODO: Make into one repeated message
   repeated int32 startOffset = 2;
   repeated int32 endOffset = 3;

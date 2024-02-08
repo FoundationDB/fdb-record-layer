@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.lucene.LucenePostingsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
+import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CompetitiveImpactAccumulator;
@@ -137,7 +138,7 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
                 norm = 1L;
             } else {
                 norm = norms.longValue();
-                assert norm != 0 : docID;
+                Verify.verify(norm != 0, "Norm should not be 0, docID=%s", docID);
             }
         } else {
             norm = 1L;
@@ -165,8 +166,8 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
             }
         }
         if (writeOffsets) {
-            assert startOffset >= lastStartOffset;
-            assert endOffset >= startOffset;
+            Verify.verify(startOffset >= lastStartOffset);
+            Verify.verify(endOffset >= startOffset);
             payloads.addOffset(startOffset, endOffset);
             lastStartOffset = startOffset;
         }
@@ -190,10 +191,10 @@ public class LuceneOptimizedPostingsWriter extends PushPostingsWriterBase {
      */
     @Override
     public void finishTerm(BlockTermState termState) throws IOException {
-        assert (termState instanceof LuceneOptimizedBlockTermState) : "Unexpected state type: " + termState.getClass().getSimpleName();
+        Verify.verify(termState instanceof LuceneOptimizedBlockTermState, "Unexpected state type: %s", termState.getClass().getSimpleName());
         LuceneOptimizedBlockTermState state = (LuceneOptimizedBlockTermState)termState;
-        assert state.docFreq > 0;
-        assert state.docFreq == docCount : state.docFreq + " vs " + docCount;
+        Verify.verify(state.docFreq > 0);
+        Verify.verify(state.docFreq == docCount, "Doc Freq should be the same as docCount: %s vs %s", state.docFreq, docCount);
 
         // Complement the contents of the state
         state.ord = currentTermOrd;
