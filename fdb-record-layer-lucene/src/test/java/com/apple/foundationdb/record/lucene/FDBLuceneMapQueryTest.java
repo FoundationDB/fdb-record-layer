@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -40,27 +39,32 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -69,6 +73,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Queries that involve maps of non-text fields.
@@ -95,15 +100,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                                                     field("value"),
                                                     field("key").nest("value")))),
                             value(null))));
-    private static final KeyExpression mapString2LongWrapperIndexExpression = field("stringToLongWrapperMap").nest(
-            function(LuceneFunctionNames.LUCENE_FIELD_NAME,
-                    concat(
-                            field("values", KeyExpression.FanType.FanOut).nest(
-                                    function(LuceneFunctionNames.LUCENE_FIELD_NAME,
-                                            concat(
-                                                    field("value").nest("value"),
-                                                    field("key")))),
-                            value(null))));
     private static final KeyExpression mapString2IntIndexExpression = field("stringToIntMap").nest(
             function(LuceneFunctionNames.LUCENE_FIELD_NAME,
                     concat(
@@ -125,7 +121,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index MAP_STRING_2_LONG_LUCENE_INDEX = new Index("MapField$string2long", concat(mapString2LongIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
     private static final Index MAP_STRING_WRAPPER_TO_LONG_LUCENE_INDEX = new Index("MapField$stringWrapper2long", concat(mapStringWrapper2LongIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
-    private static final Index MAP_STRING_2_LONG_WRAPPER_LUCENE_INDEX = new Index("MapField$string2longWrapper", concat(mapString2LongWrapperIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
     private static final Index MAP_STRING_2_INT_LUCENE_INDEX = new Index("MapField$string2int", concat(mapString2IntIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
     private static final Index MAP_STRING_2_DOUBLE_LUCENE_INDEX = new Index("MapField$string2double", concat(mapString2DoubleIndexExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
 
@@ -135,7 +130,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
     }
 
-    final List<String> textSamples = Arrays.asList(
+    private static List<String> textSamples = Arrays.asList(
             TextSamples.ROMEO_AND_JULIET_PROLOGUE,
             TextSamples.AETHELRED,
             TextSamples.ROMEO_AND_JULIET_PROLOGUE,
@@ -144,40 +139,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
             TextSamples.FRENCH
     );
 
-    private final List<TestRecordsTextProto.MapDocument> mapDocuments = IntStream.range(0, textSamples.size() / 2)
-            .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
-                    .setDocId(i)
-                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
-                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
-                    .setStringToLongMap(TestRecordsTextProto.MapDocument.String2Long.newBuilder()
-                            .addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
-                                    .setKey("d")
-                                    .setValue(i)))
-                    .setStringWrapperToLongMap(TestRecordsTextProto.MapDocument.StringWrapper2Long.newBuilder()
-                            .addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
-                                    .setKey(TestRecordsTextProto.MapDocument.StringWrapper.newBuilder()
-                                            .setValue("c")
-                                            .setFlags(5))
-                                    .setValue(i)))
-                    .setStringToLongWrapperMap(TestRecordsTextProto.MapDocument.String2LongWrapper.newBuilder()
-                            .addValues(TestRecordsTextProto.MapDocument.String2LongWrapperPair.newBuilder()
-                                    .setKey("e")
-                                    .setValue(TestRecordsTextProto.MapDocument.LongWrapper.newBuilder()
-                                            .setValue(i)
-                                            .setFlags(5))))
-                    .setStringToIntMap(TestRecordsTextProto.MapDocument.String2Int.newBuilder()
-                            .addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
-                                    .setKey("f")
-                                    .setValue(i)))
-                    .setStringToDoubleMap(TestRecordsTextProto.MapDocument.String2Double.newBuilder()
-                            .addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()
-                                    .setKey("g")
-                                    .setValue(7.8)))
-                    .setGroup(i % 2)
-                    .build()
-            )
-            .collect(Collectors.toList());
-
+    private static final List<TestRecordsTextProto.MapDocument> mapDocuments = createMapDocuments();
 
     private ExecutorService executorService = null;
 
@@ -214,7 +176,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         }
         metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_LONG_LUCENE_INDEX);
         metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_WRAPPER_TO_LONG_LUCENE_INDEX);
-        metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_LONG_WRAPPER_LUCENE_INDEX);
         metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_INT_LUCENE_INDEX);
         metaDataBuilder.addIndex(MAP_DOC, MAP_STRING_2_DOUBLE_LUCENE_INDEX);
         hook.apply(metaDataBuilder);
@@ -232,22 +193,97 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Arguments function: construct argument list for queries with the predicate value in the query.
+     * The method returns a stream of Arguments, each consisting of a query filter a boolean and an index name, where
+     * the boolean indicates whether
+     * the query should match a document or not.
+     *
+     * @return Pair of query and an expected value (boolean)
+     */
+    public static Stream<Arguments> valueQueryParameters() {
+        return Stream.of(
+                Stream.of(Pair.of("d", true),
+                                Pair.of("Blah", false),
+                                Pair.of("c", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                        pair.getRight(),
+                                        "MapField$string2long")),
+                Stream.of(Pair.of("c", true),
+                                Pair.of("Blah", false),
+                                Pair.of("d", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(pair.getLeft())))),
+                                        pair.getRight(),
+                                        "MapField$stringWrapper2long")),
+                Stream.of(Pair.of("f", true),
+                                Pair.of("Blah", false),
+                                Pair.of("d", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                        pair.getRight(),
+                                        "MapField$string2int")),
+                Stream.of(Pair.of("g", true),
+                                Pair.of("Blah", false),
+                                Pair.of("a", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                        pair.getRight(),
+                                        "MapField$string2double"))
+        ).flatMap(Function.identity());
+    }
+
+    /**
+     * Arguments function: construct argument list for queries with the predicate value as a parameter.
+     * The method returns a stream of Arguments, each consisting of query filter, a boolean a value to compare and the
+     * expected index, where the boolean indicates whether
+     * the query should match a document or not.
+     *
+     * @return Pair of query and an expected value (boolean)
+     */
+    public static Stream<Arguments> parameterQueryParameters() {
+        return Stream.of(
+                Stream.of(Pair.of("d", true),
+                                Pair.of("Blah", false),
+                                Pair.of("a", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))),
+                                        pair.getRight(),
+                                        pair.getLeft(),
+                                        "MapField$string2long")),
+                Stream.of(Pair.of("f", true),
+                                Pair.of("Blah", false),
+                                Pair.of("d", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))),
+                                        pair.getRight(),
+                                        pair.getLeft(),
+                                        "MapField$string2int")),
+                Stream.of(Pair.of("g", true),
+                                Pair.of("Blah", false),
+                                Pair.of("a", false))
+                        .map(pair ->
+                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))),
+                                        pair.getRight(),
+                                        pair.getLeft(),
+                                        "MapField$string2double"))
+        ).flatMap(Function.identity());
+    }
+
+    @MethodSource("valueQueryParameters")
     @ParameterizedTest
-    @CsvSource({
-            "d, true",
-            "Blah, false",
-            "c, false"
-    })
-    void mapStringToLong(String value, boolean found) throws Exception {
+    void mapQueryWithEmbeddedValue(QueryComponent filter, boolean found, String expectedIndex) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
 
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
+                    .setFilter(filter)
                     .build();
             RecordQueryPlan plan = planQuery(query);
+            assertTrue(plan.getUsedIndexes().contains(expectedIndex));
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
@@ -256,186 +292,24 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @MethodSource("parameterQueryParameters")
     @ParameterizedTest
-    @CsvSource({
-            "c, true",
-            "Blah, false",
-            "d, false"
-    })
-    void mapStringWrapperToLong(String value, boolean found) throws Exception {
+    void mapQueryWithParameterizedValue(QueryComponent filter, boolean found, String value, String expectedIndex) throws Exception {
         initializeNested();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
 
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(value)))))
+                    .setFilter(filter)
                     .build();
             RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
-                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "e, true",
-            "Blah, false",
-            "d, false"
-    })
-    void mapStringToLongWrapper(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToLongWrapperMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
-                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "f, true",
-            "Blah, false",
-            "d, false"
-    })
-    void mapStringToInt(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
-                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "g, true",
-            "Blah, false",
-            "d, false"
-    })
-    void mapStringToDouble(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(value))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
-                List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "d, true",
-            "Blah, false",
-            "a, false"
-    })
-    void mapStringToLongParameter(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
+            assertTrue(plan.getUsedIndexes().contains(expectedIndex));
             try (RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE)) {
                 List<Long> primaryKeys = recordCursor.map(QueryResult::getQueriedRecord).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
                 assertEquals(expected, Set.copyOf(primaryKeys));
             }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "f, true",
-            "Blah, false",
-            "d, false"
-    })
-    void mapStringToIntegerParameter(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE)) {
-                List<Long> primaryKeys = recordCursor.map(QueryResult::getQueriedRecord).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "g, true",
-            "Blah, false",
-            "a, false"
-    })
-    void mapStringToDoubleParameter(String value, boolean found) throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    .setFilter(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsParameter("$param"))))
-                    .build();
-            RecordQueryPlan plan = planQuery(query);
-            try (RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE)) {
-                List<Long> primaryKeys = recordCursor.map(QueryResult::getQueriedRecord).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-                final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
-                assertEquals(expected, Set.copyOf(primaryKeys));
-            }
-        }
-    }
-
-    @Test
-    void mapStringToLongNonStringKey() throws Exception {
-        initializeNested();
-        try (FDBRecordContext context = openContext()) {
-            openRecordStore(context);
-
-            RecordQuery query = RecordQuery.newBuilder()
-                    .setRecordType(MAP_DOC)
-                    // Note the "6L" as a comparand
-                    .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(6L))))
-                    .build();
-            Assertions.assertThrows(RecordCoreException.class, () -> planQuery(query));
         }
     }
 
@@ -458,4 +332,99 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+
+    @Nonnull
+    private static List<TestRecordsTextProto.MapDocument> createMapDocuments() {
+        List<TestRecordsTextProto.MapDocument> result = IntStream.range(0, textSamples.size() / 2)
+                .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
+                        .setDocId(i)
+                        .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)))
+                        .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)))
+                        .setStringToLongMap(getStringToLongMap(i, "d"))
+                        .setStringWrapperToLongMap(getStringWrapperToLongMap(i, "c"))
+                        .setStringToIntMap(getStringToIntMap(i, "f"))
+                        .setStringToDoubleMap(getStringToDoubleMap(i, "g"))
+                        .setGroup(i % 2)
+                        .build()
+                )
+                .collect(Collectors.toList());
+        // add a document with entries that do not match
+        result.add(TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(1000)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(0)))
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(1)))
+                .setStringToLongMap(getStringToLongMap(1000, "NOT_FOUND"))
+                .setStringWrapperToLongMap(getStringWrapperToLongMap(1000, "NOT_FOUND"))
+                .setStringToIntMap(getStringToIntMap(1000, "NOT_FOUND"))
+                .setStringToDoubleMap(getStringToDoubleMap(1000, "NOT_FOUND"))
+                .setGroup(1000)
+                .build());
+        // add a document with no entries at all
+        result.add(TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(1000)
+                .build());
+
+        return result;
+    }
+
+    @Nonnull
+    private static TestRecordsTextProto.MapDocument.String2Long.Builder getStringToLongMap(final int i, final String value) {
+        TestRecordsTextProto.MapDocument.String2Long.Builder builder = TestRecordsTextProto.MapDocument.String2Long.newBuilder()
+                .addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
+                        .setKey(value)
+                        .setValue(i));
+        if ((i % 2) == 0) {
+            builder.addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
+                    .setKey("X")
+                    .setValue(i + 10));
+        }
+        return builder;
+    }
+
+    @Nonnull
+    private static TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder getStringWrapperToLongMap(final int i, final String value) {
+        TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder builder = TestRecordsTextProto.MapDocument.StringWrapper2Long.newBuilder()
+                .addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
+                        .setKey(TestRecordsTextProto.MapDocument.StringWrapper.newBuilder()
+                                .setValue(value)
+                                .setFlags(5))
+                        .setValue(i));
+        if ((i % 2) == 0) {
+            builder.addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
+                    .setKey(TestRecordsTextProto.MapDocument.StringWrapper.newBuilder()
+                            .setValue("X")
+                            .setFlags(5))
+                    .setValue(i + 10));
+        }
+        return builder;
+    }
+
+    @Nonnull
+    private static TestRecordsTextProto.MapDocument.String2Int.Builder getStringToIntMap(final int i, final String value) {
+        TestRecordsTextProto.MapDocument.String2Int.Builder builder = TestRecordsTextProto.MapDocument.String2Int.newBuilder()
+                .addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
+                        .setKey(value)
+                        .setValue(i));
+        if ((i % 2) == 0) {
+            builder.addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
+                    .setKey("X")
+                    .setValue(i + 10));
+        }
+        return builder;
+    }
+
+
+    @Nonnull
+    private static TestRecordsTextProto.MapDocument.String2Double.Builder getStringToDoubleMap(final int i, final String value) {
+        TestRecordsTextProto.MapDocument.String2Double.Builder builder = TestRecordsTextProto.MapDocument.String2Double.newBuilder()
+                .addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()
+                        .setKey(value)
+                        .setValue(i + 7.8));
+        if ((i % 2) == 0) {
+            builder.addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()
+                    .setKey("X")
+                    .setValue(i + 17.8));
+        }
+        return builder;
+    }
 }

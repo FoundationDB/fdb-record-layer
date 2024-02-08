@@ -102,7 +102,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      */
     public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
-        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFielsSuffix, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+        getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
 
@@ -296,8 +296,8 @@ public class LuceneIndexExpressions {
          * @param value the last element of the field name
          * @param type the type of the field
          * @param fieldNameOverride whether we are overriding field names (map support)
-         * @param namedFieldPath the relative path to teh field (from the source)
-         * @param namedFieldSuffix the replaced suffix for teh field (the map-replaced part)
+         * @param namedFieldPath the relative path to the field (from the source)
+         * @param namedFieldSuffix the replaced suffix for the field (the map-replaced part)
          * @param stored whether the field has stored data
          * @param sorted whether the field has sorted data
          * @param overriddenKeyRanges -

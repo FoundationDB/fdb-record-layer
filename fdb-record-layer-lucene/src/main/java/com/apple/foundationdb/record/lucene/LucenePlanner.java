@@ -271,8 +271,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         } else if (filter instanceof FieldWithComparison) {
             return getQueryForFieldWithComparison(queryType, state, (FieldWithComparison) filter, parentFieldPath, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
-            // This is where we can tell whether the query is for map-has-key (only one value) or map-has-entry (two values)
-            // TODO: detect the map-has-entry and throw an exception
             return getQueryForNestedField(queryType, state, (OneOfThemWithComponent)filter, true, parentFieldPath, filterMask);
         } else if (filter instanceof NestedField) {
             return getQueryForNestedField(queryType, state, (NestedField) filter, false, parentFieldPath, filterMask);
@@ -433,6 +431,14 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterSatisfiedMask.setSatisfied(true);
         }
         try {
+            // Lucene map support is unique in the sense that the field name is concatenated with the evaluated original
+            // map key. The fact that we used lucene_field_name function allowed us to determine the correct way to substitute
+            // the metadata field name with the Lucene field name in the document (see fieldDerivation.isFieldNameOverride()).
+            // We currently support equality on the key ("map-has-key", ignoring the map value, to be treated as a wildcard). In the future
+            // we should also support equality on both key and value ("map-has-entry")
+            // This is where we can tell whether the query is for map-has-key (only one value) or map-has-entry (two values)
+            // TODO: detect the map-has-entry and throw an exception
+
             return LuceneQueryFieldComparisonClause.create(queryType, fieldDerivation.getDocumentField(),
                     fieldDerivation.getType(), fieldDerivation.isFieldNameOverride(), fieldDerivation.getNamedFieldSuffix(), filter.getComparison());
         } catch (RecordCoreException ex) {

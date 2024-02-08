@@ -77,18 +77,6 @@ message MapDocument {
         optional string value = 1;
         optional int32 flags = 2;
     }
-    // defining a map from string to long wrapper (nested string map value)
-    message String2LongWrapper {
-        repeated String2LongWrapperPair values = 1;
-    }
-    message String2LongWrapperPair {
-        optional string key = 1;
-        optional LongWrapper value = 2;
-    }
-    message LongWrapper {
-        optional int64 value = 1;
-        optional int32 flags = 2;
-    }
     // defining a map from string to int
     message String2Int {
         repeated String2IntPair values = 1;
@@ -111,9 +99,8 @@ message MapDocument {
     optional string text2 = 4;
     optional String2Long stringToLongMap = 5;
     optional StringWrapper2Long stringWrapperToLongMap = 6;
-    optional String2LongWrapper stringToLongWrapperMap = 7;
-    optional String2Int stringToIntMap = 8;
-    optional String2Double stringToDoubleMap = 9;
+    optional String2Int stringToIntMap = 7;
+    optional String2Double stringToDoubleMap = 8;
 }
 
 message MultiDocument {
