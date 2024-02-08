@@ -426,14 +426,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     interface NondeterministicValue extends Value {}
 
     /**
-     * Tag interface for marking a {@link Value} as visitable by {@link TreeLike} iterators.
-     *
-     * See {@link com.apple.foundationdb.record.query.plan.cascades.PreOrderPruningIterator}.
-     */
-    @API(API.Status.EXPERIMENTAL)
-    interface IsDescendible extends Value {}
-
-    /**
      * Method to simplify this value using a rule set passed in.
      * @param ruleSet a rule set
      * @param aliasMap and alias map of equalities

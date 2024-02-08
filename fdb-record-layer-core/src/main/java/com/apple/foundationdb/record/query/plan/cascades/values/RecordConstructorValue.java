@@ -67,7 +67,7 @@ import java.util.stream.StreamSupport;
  * {@link Type.Record} type.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordConstructorValue extends AbstractValue implements AggregateValue, CreatesDynamicTypesValue, Value.IsDescendible {
+public class RecordConstructorValue extends AbstractValue implements AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
     @Nonnull
     private final Type.Record resultType;

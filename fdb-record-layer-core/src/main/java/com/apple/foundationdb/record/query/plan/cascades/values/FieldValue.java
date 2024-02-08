@@ -67,7 +67,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue extends AbstractValue implements ValueWithChild, Value.IsDescendible {
+public class FieldValue extends AbstractValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
