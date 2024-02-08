@@ -729,8 +729,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void validateDocsInPartition(Index index, int partitionId, Tuple groupingKey,
-                                         Set<Tuple> expectedIds, final String universalSearch) throws IOException {
-        LuceneIndexTestValidator.validateDocsInPartition(recordStore, index, partitionId, groupingKey, expectedIds, universalSearch);
+                                         Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
+        LuceneIndexTestValidator.validateDocsInPartition(recordStore, index, partitionId, groupingKey, expectedPrimaryKeys, universalSearch);
     }
 
     private Map<Integer, Integer> getSegmentCounts(Index index,

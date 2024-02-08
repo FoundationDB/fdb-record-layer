@@ -85,12 +85,12 @@ public class LuceneIndexTestValidator {
      *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
      * </p>
      * @param index the index to validate
-     * @param expectedIds a map from group to primaryKey to timestamp
+     * @param expectedDocumentInformation a map from group to primaryKey to timestamp
      * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Integer, Map<Tuple, Long>> expectedIds,
+    void validate(Index index, final Map<Integer, Map<Tuple, Long>> expectedDocumentInformation,
                   final int repartitionCount, final String universalSearch) throws IOException {
         boolean isGrouped = index.getRootExpression() instanceof GroupingKeyExpression;
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
@@ -98,7 +98,7 @@ public class LuceneIndexTestValidator {
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
-        for (final Map.Entry<Integer, Map<Tuple, Long>> entry : expectedIds.entrySet()) {
+        for (final Map.Entry<Integer, Map<Tuple, Long>> entry : expectedDocumentInformation.entrySet()) {
             final Integer group = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
                     "group", group,
@@ -111,7 +111,7 @@ public class LuceneIndexTestValidator {
             final Tuple groupingKey = isGrouped ? Tuple.from(group) : Tuple.from();
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
             partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
-            Set<Integer> usedIds = new HashSet<>();
+            Set<Integer> usedPartitionIds = new HashSet<>();
             Tuple lastToTuple = null;
             int visitedCount = 0;
             String allCounts = partitionInfos.stream()
@@ -150,9 +150,9 @@ public class LuceneIndexTestValidator {
                         // out.
                         minPerPartition = Math.max(1, partitionHighWatermark - repartitionCount);
                     }
-                    assertThat(allCounts, partitionInfo.getCount(),
+                    assertThat("Group: " + group + " - " + allCounts, partitionInfo.getCount(),
                             Matchers.allOf(lessThanOrEqualTo(maxPerPartition), greaterThanOrEqualTo(minPerPartition)));
-                    assertTrue(usedIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
+                    assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
                     final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
                     if (i > 0) {
                         assertThat(fromTuple, greaterThan(lastToTuple));
@@ -186,7 +186,7 @@ public class LuceneIndexTestValidator {
 
 
     public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
-                                               Set<Tuple> expectedIds, final String universalSearch) throws IOException {
+                                               Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
         LuceneScanQuery scanQuery;
         if (groupingKey.isEmpty()) {
             scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
@@ -202,10 +202,10 @@ public class LuceneIndexTestValidator {
 
         assertNotNull(newTopDocs);
         assertNotNull(newTopDocs.scoreDocs);
-        assertEquals(expectedIds.size(), newTopDocs.scoreDocs.length);
+        assertEquals(expectedPrimaryKeys.size(), newTopDocs.scoreDocs.length);
 
         Set<String> fields = Set.of(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-        Assertions.assertEquals(expectedIds.stream().sorted().collect(Collectors.toList()), Arrays.stream(newTopDocs.scoreDocs)
+        Assertions.assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()), Arrays.stream(newTopDocs.scoreDocs)
                         .map(scoreDoc -> {
                             try {
                                 Document document = searcher.doc(scoreDoc.doc, fields);

@@ -531,7 +531,7 @@ public class LucenePartitioner {
      *
      * @param start The continuation at which to resume rebalancing, as returned from a previous call to
      * {@code rebalancePartitions}.
-     * @return a tuple of the next group that needs repartitioning
+     * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
      */
     @Nonnull
     public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start) {
