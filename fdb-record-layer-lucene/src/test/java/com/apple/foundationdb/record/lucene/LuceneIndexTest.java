@@ -219,30 +219,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))).groupBy(field("group")),
             LuceneIndexTypes.LUCENE);
 
-    protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex("10");
+    protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
+            IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+            INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+            INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index complexPartitionedIndex(final String partitionHighWatermark) {
+    private static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
                 LuceneIndexTypes.LUCENE,
-                ImmutableMap.of(
-                        IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                        INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
-                        INDEX_PARTITION_HIGH_WATERMARK, partitionHighWatermark));
+                options);
     }
 
-    protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup("10");
+    protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup(Map.of(
+            IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+            INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+            INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index complexPartitionedIndexNoGroup(final String partitionHighWatermark) {
+    private static Index complexPartitionedIndexNoGroup(final Map<String, String> options) {
         return new Index("Complex$partitioned_noGroup",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
                 LuceneIndexTypes.LUCENE,
-                ImmutableMap.of(
-                        IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                        INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
-                        INDEX_PARTITION_HIGH_WATERMARK, partitionHighWatermark));
+                options);
     }
 
     private static final List<KeyExpression> COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS = ImmutableList.of(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2")));
@@ -371,32 +371,33 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
 
-    private static final Index JOINED_INDEX = getJoinedIndex("10");
+    private static final Index JOINED_INDEX = getJoinedIndex(Map.of(
+            INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+            INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index getJoinedIndex(final String partitionHighWatermark) {
+    private static Index getJoinedIndex(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                         field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                 ).groupBy(field("complex").nest("group")), LuceneIndexTypes.LUCENE,
-                ImmutableMap.of(INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
-                        INDEX_PARTITION_HIGH_WATERMARK, partitionHighWatermark));
+                options);
     }
 
-    private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup("10");
+    private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup(Map.of(
+            INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+            INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index getJoinedIndexNoGroup(final String partitionHighWatermark) {
+    private static Index getJoinedIndexNoGroup(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                         field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
-                ), LuceneIndexTypes.LUCENE, ImmutableMap.of(
-                INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, partitionHighWatermark));
+                ), LuceneIndexTypes.LUCENE, options);
     }
 
     protected static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
@@ -750,7 +751,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private IndexReader getIndexReader(final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
-        return LuceneIndexTestValidator.getIndexReader(recordStore, index, partitionId, groupingKey);
+        return LuceneIndexTestValidator.getIndexReader(recordStore, index, groupingKey, partitionId);
     }
 
     public static Stream<Arguments> repartitionAndMerge() {
@@ -863,28 +864,36 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         Consumer<FDBRecordContext> schemaSetup;
         final boolean isGrouped = random.nextBoolean();
         final boolean isSynthetic = random.nextBoolean();
+        final boolean optimizedStoredFields = random.nextBoolean();
+        final boolean primaryKeySegmentIndexEnabled = random.nextBoolean();
         final int partitionHighWatermark = random.nextInt(15) + 2;
         final int repartitionCount = random.nextInt(15) + 1;
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
+                LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
                 "isGrouped", isGrouped,
                 "isSynthetic", isSynthetic,
-                "partitionHighWatermark", partitionHighWatermark,
-                "repartitionCount", repartitionCount));
+                "repartitionCount", repartitionCount,
+                "options", options,
+                "seed", seed));
         Index index;
         if (isGrouped) {
             if (isSynthetic) {
-                index = getJoinedIndex(String.valueOf(partitionHighWatermark));
+                index = getJoinedIndex(options);
                 schemaSetup = context -> openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), index));
             } else {
-                index = complexPartitionedIndex(String.valueOf(partitionHighWatermark));
+                index = complexPartitionedIndex(options);
                 schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
             }
         } else {
             if (isSynthetic) {
-                index = getJoinedIndexNoGroup(String.valueOf(partitionHighWatermark));
+                index = getJoinedIndexNoGroup(options);
                 schemaSetup = context -> openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), index));
             } else {
-                index = COMPLEX_PARTITIONED_NOGROUP;
+                index = complexPartitionedIndexNoGroup(options);
                 schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
             }
         }
@@ -894,7 +903,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
 
         // Generate random documents
-        Map<Integer, Map<Tuple, Long>> ids = new HashMap<>();
+        Map<Tuple, Map<Tuple, Long>> ids = new HashMap<>();
         final int transactionCount = random.nextInt(15) + 1;
         final long start = Instant.now().toEpochMilli();
         Map<Integer, Set<Long>> allExistingTimestamps = new HashMap<>();
@@ -904,7 +913,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 schemaSetup.accept(context);
                 for (int j = 0; j < docCount; j++) {
                     final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
-                    final int countInGroup = ids.computeIfAbsent(group, key -> new HashMap<>()).size();
+                    final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
+                    final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
                     // we currently don't support multiple records with the same timestamp, specifically at the boundaries
                     long timestamp = start + countInGroup + random.nextInt(20) - 5;
                     final Set<Long> existingTimestamps = allExistingTimestamps.computeIfAbsent(group, key -> new HashSet<>());
@@ -935,7 +945,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     } else {
                         primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
                     }
-                    ids.computeIfAbsent(group, key -> new HashMap<>()).put(primaryKey, timestamp);
+                    ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, timestamp);
                 }
                 commit(context);
             }
@@ -2031,16 +2041,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    void testSimpleUpdate(boolean primaryKeySegmentIndexEnabled) {
+    void testSimpleUpdate(boolean primaryKeySegmentIndexEnabled) throws IOException {
         final Index index = primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX : SIMPLE_TEXT_SUFFIXES;
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
                 .build();
+        Set<Tuple> primaryKeys = new HashSet<>();
         for (int i = 0; i < 20; i++) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.saveRecord(createSimpleDocument(1000L + i % 5, numbersText(i + 1), null),
-                        i < 5 ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS);
+                var existenceCheck = i < 5
+                                     ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS
+                                     : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS;
+                final TestRecordsTextProto.SimpleDocument record = createSimpleDocument(1000L + i % 5, numbersText(i + 1), null);
+                primaryKeys.add(recordStore.saveRecord(record, existenceCheck).getPrimaryKey());
                 context.commit();
             }
         }
@@ -2067,7 +2081,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (primaryKeySegmentIndexEnabled) {
                 // TODO: Is there a more stable way to check this?
                 final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = getDirectory(index, Tuple.from())
-
                         .getPrimaryKeySegmentIndex();
                 assertEquals(List.of(
                                 List.of(1000L, "_q", 2),
@@ -2078,6 +2091,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         ),
                         primaryKeySegmentIndex.readAllEntries());
             }
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
+                    Tuple.from(), null, primaryKeys);
         }
     }
 
@@ -2151,11 +2166,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.getIndexDeferredMaintenanceControl().shouldAutoMergeDuringCommit());
             assertEmpty.accept(getIndexMaintainer(index));
         }
+        Set<Tuple> primaryKeys = new HashSet<>();
         for (int i = 0; i < 10; i++) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
-                recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2));
+                primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2)).getPrimaryKey());
+                primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2)).getPrimaryKey());
                 context.commit();
             }
         }
@@ -2163,6 +2179,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             assertTrue(recordStore.getIndexDeferredMaintenanceControl().shouldAutoMergeDuringCommit());
             assertNotEmpty.accept(getIndexMaintainer(index));
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
+                    Tuple.from(), null, primaryKeys);
         }
         for (int i = 0; i < 4; i++) {
             try (FDBRecordContext context = openContext(contextProps)) {
@@ -2171,8 +2189,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 for (int j = 0; j < 5; j++) {
                     final int docId = 1000 + i * 5 + j;
                     recordStore.deleteRecord(Tuple.from(docId));
+                    primaryKeys.remove(Tuple.from(docId));
                 }
                 context.commit();
+            }
+
+            try (FDBRecordContext context = openContext(contextProps)) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
+                        Tuple.from(), null, primaryKeys);
             }
         }
         // without this Lucene might not cleanup the files for the segments that have no live documents in them
@@ -2186,6 +2211,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             assertEmpty.accept(getIndexMaintainer(index));
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
+                    Tuple.from(), null, Set.of());
         }
         return index;
     }

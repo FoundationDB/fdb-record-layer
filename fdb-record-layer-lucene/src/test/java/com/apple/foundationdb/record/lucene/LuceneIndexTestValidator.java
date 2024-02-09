@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.Sort;
@@ -44,6 +45,8 @@ import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -61,6 +64,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -90,7 +94,7 @@ public class LuceneIndexTestValidator {
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Integer, Map<Tuple, Long>> expectedDocumentInformation,
+    void validate(Index index, final Map<Tuple, Map<Tuple, Long>> expectedDocumentInformation,
                   final int repartitionCount, final String universalSearch) throws IOException {
         boolean isGrouped = index.getRootExpression() instanceof GroupingKeyExpression;
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
@@ -98,17 +102,16 @@ public class LuceneIndexTestValidator {
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
-        for (final Map.Entry<Integer, Map<Tuple, Long>> entry : expectedDocumentInformation.entrySet()) {
-            final Integer group = entry.getKey();
+        for (final Map.Entry<Tuple, Map<Tuple, Long>> entry : expectedDocumentInformation.entrySet()) {
+            final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
-                    "group", group,
+                    "group", groupingKey,
                     "expectedCount", entry.getValue().size()));
 
             final List<Tuple> records = entry.getValue().entrySet().stream()
                     .sorted(Map.Entry.comparingByValue())
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
-            final Tuple groupingKey = isGrouped ? Tuple.from(group) : Tuple.from();
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
             partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
             Set<Integer> usedPartitionIds = new HashSet<>();
@@ -124,7 +127,7 @@ public class LuceneIndexTestValidator {
                 for (int i = 0; i < partitionInfos.size(); i++) {
                     final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
                     if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace("Group: " + group + " PartitionInfo[" + partitionInfo.getId() +
+                        LOGGER.trace("Group: " + groupingKey + " PartitionInfo[" + partitionInfo.getId() +
                                 "]: count:" + partitionInfo.getCount() + " " +
                                 Tuple.fromBytes(partitionInfo.getFrom().toByteArray()) + "-> " +
                                 Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
@@ -150,7 +153,7 @@ public class LuceneIndexTestValidator {
                         // out.
                         minPerPartition = Math.max(1, partitionHighWatermark - repartitionCount);
                     }
-                    assertThat("Group: " + group + " - " + allCounts, partitionInfo.getCount(),
+                    assertThat("Group: " + groupingKey + " - " + allCounts, partitionInfo.getCount(),
                             Matchers.allOf(lessThanOrEqualTo(maxPerPartition), greaterThanOrEqualTo(minPerPartition)));
                     assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
                     final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
@@ -161,14 +164,17 @@ public class LuceneIndexTestValidator {
                     assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
 
                     LOGGER.debug(KeyValueLogMessage.of("Visited partition",
-                            "group", group,
+                            "group", groupingKey,
                             "documentsSoFar", visitedCount,
                             "documentsInGroup", records.size(),
                             "partitionInfo.count", partitionInfo.getCount()));
+                    final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount, visitedCount + partitionInfo.getCount()));
                     validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
-                            Set.copyOf(records.subList(visitedCount, visitedCount + partitionInfo.getCount())),
+                            expectedPrimaryKeys,
                             universalSearch);
                     visitedCount += partitionInfo.getCount();
+                    validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
+                            expectedPrimaryKeys);
                 }
             }
 
@@ -196,7 +202,7 @@ public class LuceneIndexTestValidator {
                     null,
                     groupingKey.getLong(0));
         }
-        final IndexReader indexReader = getIndexReader(recordStore, index, partitionId, groupingKey);
+        final IndexReader indexReader = getIndexReader(recordStore, index, groupingKey, partitionId);
         LuceneOptimizedIndexSearcher searcher = new LuceneOptimizedIndexSearcher(indexReader);
         TopDocs newTopDocs = searcher.search(scanQuery.getQuery(), Integer.MAX_VALUE);
 
@@ -220,9 +226,16 @@ public class LuceneIndexTestValidator {
                 () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
     }
 
-    public static IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index, final int partitionId, final Tuple groupingKey) throws IOException {
+    public static IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index,
+                                             final Tuple groupingKey, final int partitionId) throws IOException {
+        final FDBDirectoryManager manager = getDirectoryManager(recordStore, index);
+        return manager.getIndexReader(groupingKey, partitionId);
+    }
+
+    @Nonnull
+    private static FDBDirectoryManager getDirectoryManager(final FDBRecordStore recordStore, final Index index) {
         IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        return FDBDirectoryManager.getManager(state);
     }
 
     public static LuceneScanBounds groupedSortedTextSearch(final FDBRecordStoreBase<?> recordStore, Index index, String search, Sort sort, Object group) {
@@ -235,5 +248,34 @@ public class LuceneIndexTestValidator {
                 null);
 
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+    }
+
+    public static void validatePrimaryKeySegmentIndex(@Nonnull FDBRecordStore recordStore,
+                                                      @Nonnull Index index,
+                                                      @Nonnull Tuple groupingKey,
+                                                      @Nullable Integer partitionId,
+                                                      @Nonnull Set<Tuple> expectedPrimaryKeys) throws IOException {
+        final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
+        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+        final String message = "Group: " + groupingKey + ", partition: " + partitionId;
+        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
+            assertNotNull(primaryKeySegmentIndex, message);
+            final List<List<Object>> allEntries = primaryKeySegmentIndex.readAllEntries();
+            // sorting the two lists for easier reading on failures
+            assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()),
+                    allEntries.stream()
+                            .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
+                            .sorted()
+                            .collect(Collectors.toList()),
+                    message);
+            directoryManager.getIndexWriter(groupingKey, partitionId, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
+            final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
+            for (final Tuple primaryKey : expectedPrimaryKeys) {
+                assertNotNull(primaryKeySegmentIndex.findDocument(directoryReader, primaryKey),
+                        message + " " + primaryKey);
+            }
+        } else {
+            assertNull(primaryKeySegmentIndex, message);
+        }
     }
 }
