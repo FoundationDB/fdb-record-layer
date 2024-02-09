@@ -75,7 +75,7 @@ public abstract class Translator {
     @Nonnull
     private final AliasMap aliasMap;
 
-    public Translator(@Nonnull final AliasMap aliasMap) {
+    public Translator(@Nonnull AliasMap aliasMap) {
         this.aliasMap = aliasMap;
     }
 
@@ -87,7 +87,7 @@ public abstract class Translator {
      * @return an equivalent translated {@code Value}.
      */
     @Nonnull
-    public abstract Value translate(@Nonnull final Value value);
+    public abstract Value translate(@Nonnull Value value);
 
     /**
      * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the {@code candidateValue}.

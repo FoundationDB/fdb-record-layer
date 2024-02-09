@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
- * Represents a max match between a (Rewritten) query result value and the candidate result value.
+ * Represents a max match between a (Rewritten) query result {@link Value} and the candidate result {@link Value}.
  */
 public class MaxMatchMap {
 
@@ -39,6 +39,12 @@ public class MaxMatchMap {
     @Nonnull
     private final Value candidateResultValue;
 
+    /**
+     * Creates a new instance of {@link MaxMatchMap}.
+     * @param mapping The {@link Value} mapping.
+     * @param queryResult The query result from which the mapping keys originate.
+     * @param candidateResult The candidate result from which the mapping values originate.
+     */
     MaxMatchMap(@Nonnull final Map<Value, Value> mapping,
                 @Nonnull final Value queryResult,
                 @Nonnull final Value candidateResult) {

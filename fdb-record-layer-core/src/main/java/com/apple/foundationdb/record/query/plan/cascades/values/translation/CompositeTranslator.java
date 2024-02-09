@@ -1,5 +1,5 @@
 /*
- * ComposableTranslator.java
+ * CompositeTranslator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,8 +32,6 @@ import java.util.Optional;
 
 /**
  * This class represents a functional composition of a number of {@link Translator}s.
- * It supports the
- *
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class CompositeTranslator extends Translator {
@@ -44,6 +42,12 @@ public class CompositeTranslator extends Translator {
     @Nonnull
     private final Optional<MaxMatchMapTranslator> maxMatchMapTranslatorMaybe;
 
+    /**
+     * Creates a new instance of {@link CompositeTranslator}.
+     *
+     * @param translators The translators which compose this translator.
+     */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
     public CompositeTranslator(@Nonnull final Collection<Translator> translators) {
         super(collectAliasMap(translators));
         Verify.verify(!translators.isEmpty());
@@ -66,7 +70,6 @@ public class CompositeTranslator extends Translator {
         final var compositeTranslationAliasMap = compositeTranslationAliasMapBuilder.build();
         final var compositeTranslationMap = compositeTranslationMapBuilder.build();
 
-
         if (compositeTranslationAliasMap != AliasMap.emptyMap()) {
             simpleTranslatorMaybe = Optional.of(new SimpleTranslator(getAliasMap(), compositeTranslationAliasMap));
         } else {
@@ -80,6 +83,7 @@ public class CompositeTranslator extends Translator {
         }
     }
 
+    @Nonnull
     private static AliasMap collectAliasMap(@Nonnull final Collection<Translator> translators) {
         final var aliasMapBuilder = AliasMap.builder();
         translators.forEach(translator -> aliasMapBuilder.putAll(translator.getAliasMap()));

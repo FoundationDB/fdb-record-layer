@@ -33,11 +33,25 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * This represents a {@link Translator} that relies on a given {@link MaxMatchMap} pertaining the referenced {@link Value}
+ * under the give {@code queryCorrelation} and {@code candidateCorrelation} to translate a given {@link Value}.
+ */
 public class MaxMatchMapTranslator extends Translator {
 
     @Nonnull
     private final TranslationMap.Builder translationMapBuilder;
 
+    @Nonnull
+    private final TranslationMap translationMap;
+
+    /**
+     * Creates a new instance of {@link MaxMatchMapTranslator}.
+     * @param maxMatchMapBelow The {@link MaxMatchMap} of matches of values referenced by the query and candidate correlations.
+     * @param queryCorrelation The query correlation.
+     * @param candidateCorrelation The candidate correlation.
+     * @param constantAliases A list of constant aliases, i.e. aliases the remain unchanged after translating a {@link Value}.
+     */
     public MaxMatchMapTranslator(@Nonnull final MaxMatchMap maxMatchMapBelow,
                                  @Nonnull final CorrelationIdentifier queryCorrelation,
                                  @Nonnull final CorrelationIdentifier candidateCorrelation,
@@ -46,19 +60,22 @@ public class MaxMatchMapTranslator extends Translator {
         this.translationMapBuilder = TranslationMap.builder()
                 .when(queryCorrelation)
                 .then(candidateCorrelation, (src, tgt, quantifiedValue) -> getTranslatedQueryValue(maxMatchMapBelow, candidateCorrelation));
+        this.translationMap = translationMapBuilder.build();
     }
 
-    public MaxMatchMapTranslator(@Nonnull final CorrelationIdentifier candidateCorrelation,
-                                 @Nonnull final AliasMap constantAliases,
-                                 @Nonnull TranslationMap.Builder translationMapBuilder) {
-        super(constantAliases.derived().put(candidateCorrelation, candidateCorrelation).build());
-        this.translationMapBuilder = translationMapBuilder;
-    }
-
+    /**
+     * Creates a new instance of {@link MaxMatchMapTranslator}.
+     * @param aliasMap The alias map, comprising both constant aliases <li>and</li> the candidate correlation identity mapping.
+     * @param translationMapBuilder The translation map builder used for {@link Value} translation.
+     * <br>
+     * Note: This constructor is meant to be used in the context of creating {@link CompositeTranslator}, that is
+     * why it has package-local visibility.
+     */
     MaxMatchMapTranslator(@Nonnull final AliasMap aliasMap,
-                                 @Nonnull TranslationMap.Builder translationMapBuilder) {
+                          @Nonnull final TranslationMap.Builder translationMapBuilder) {
         super(aliasMap);
         this.translationMapBuilder = translationMapBuilder;
+        this.translationMap = translationMapBuilder.build();
     }
 
     @Nonnull
@@ -91,7 +108,7 @@ public class MaxMatchMapTranslator extends Translator {
     @Nonnull
     @Override
     public Value translate(@Nonnull final Value value) {
-        final var result = value.translateCorrelations(translationMapBuilder.build());
+        final var result = value.translateCorrelations(translationMap);
         return result.simplify(AliasMap.emptyMap(), result.getCorrelatedTo());
     }
 
