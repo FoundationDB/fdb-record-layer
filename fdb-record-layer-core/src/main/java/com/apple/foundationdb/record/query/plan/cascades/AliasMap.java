@@ -737,6 +737,9 @@ public class AliasMap {
          */
         @Nonnull
         public AliasMap build() {
+            if (map.isEmpty()) {
+                return AliasMap.emptyMap();
+            }
             return AliasMap.copyOf(map);
         }
     }

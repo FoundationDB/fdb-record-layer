@@ -29,10 +29,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -75,6 +78,11 @@ public class ValueTranslationTest {
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
     private Type getSType() {
+        return Type.primitiveType(Type.TypeCode.INT);
+    }
+
+    @Nonnull
+    private Type getUType() {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
@@ -146,6 +154,66 @@ public class ValueTranslationTest {
         return fvInternal(base, indexes.length - 1, indexes);
     }
 
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier tAlias = CorrelationIdentifier.of("T");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier t_Alias = CorrelationIdentifier.of("T'");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue t = qov(tAlias, getTType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue t_ = qov(t_Alias, getTType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier mAlias = CorrelationIdentifier.of("M");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier m_Alias = CorrelationIdentifier.of("M'");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue m = qov(mAlias, getMType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue m_ = qov(m_Alias, getMType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier nAlias = CorrelationIdentifier.of("N");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final CorrelationIdentifier n_Alias = CorrelationIdentifier.of("N'");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue n = qov(nAlias, getNType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    private final QuantifiedObjectValue n_ = qov(n_Alias, getNType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final CorrelationIdentifier sAlias = CorrelationIdentifier.of("S");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final CorrelationIdentifier s_Alias = CorrelationIdentifier.of("S'");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final QuantifiedObjectValue s = qov(sAlias, getSType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final QuantifiedObjectValue s_ = qov(s_Alias, getSType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final CorrelationIdentifier uAlias = CorrelationIdentifier.of("U");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final CorrelationIdentifier u_Alias = CorrelationIdentifier.of("U'");
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final QuantifiedObjectValue u = qov(uAlias, getUType());
+
+    @SuppressWarnings("checkstyle:MemberName")
+    final QuantifiedObjectValue u_ = qov(u_Alias, getUType());
+
     @Nonnull
     private FieldValue fvInternal(Value value, int index, String... name) {
         if (index == 0) {
@@ -170,16 +238,6 @@ public class ValueTranslationTest {
 
     @Test
     public void testMultiLevelValueTranslation() {
-        /*
-            T has the following type:
-                (a, b, j) | type(a) = (q, r), type(b) = (t, m), type(j) = (s,q)
-         */
-
-        final var tAlias = CorrelationIdentifier.of("T");
-        final var t_Alias = CorrelationIdentifier.of("T'");
-        final var t = qov(tAlias, getTType());
-        final var t_ = qov(t_Alias, getTType());
-
         /*
              1st level:
              (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
@@ -288,11 +346,6 @@ public class ValueTranslationTest {
 
     @Test
     void maxMatchValueWithMatchableArithmeticOperationCase1() {
-        final var tAlias = CorrelationIdentifier.of("T");
-        final var t_Alias = CorrelationIdentifier.of("T'");
-        final var t = qov(tAlias, getTType());
-        final var t_ = qov(t_Alias, getTType());
-
         // (t.a.q + t.a.r, (t.b.t), t.j.s)
         final var pv = rcv(
                 add(fv(t, "a", "q"),
@@ -336,11 +389,6 @@ public class ValueTranslationTest {
 
     @Test
     void maxMatchValueWithMatchableArithmeticOperationCase2() {
-        final var tAlias = CorrelationIdentifier.of("T");
-        final var t_Alias = CorrelationIdentifier.of("T'");
-        final var t = qov(tAlias, getTType());
-        final var t_ = qov(t_Alias, getTType());
-
         // (t.a.q + t.a.r + t.j.q, (t.b.t), t.j.s)
         final var pv = rcv(
                 add(add(fv(t, "a", "q"),
@@ -386,11 +434,6 @@ public class ValueTranslationTest {
 
     @Test
     void maxMatchValueWithUnmatchableArithmeticOperationCase2() {
-        final var tAlias = CorrelationIdentifier.of("T");
-        final var t_Alias = CorrelationIdentifier.of("T'");
-        final var t = qov(tAlias, getTType());
-        final var t_ = qov(t_Alias, getTType());
-
         // (t.a.q + t.a.r, (t.b.t), t.j.s)
         final var pv = rcv(
                 add(fv(t, "a", "q"),
@@ -436,16 +479,6 @@ public class ValueTranslationTest {
     @Test
     public void maxMatchValueWithMatchableArithmeticOperationAndOtherConstantCorrelations() throws Exception {
         /*
-            T has the following type:
-                (a, b, j) | type(a) = (q, r), type(b) = (t, m), type(j) = (s,q)
-         */
-
-        final var tAlias = CorrelationIdentifier.of("T");
-        final var t_Alias = CorrelationIdentifier.of("T'");
-        final var t = qov(tAlias, getTType());
-        final var t_ = qov(t_Alias, getTType());
-
-        /*
              1st level:
              (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
                     |                                                 |
@@ -453,12 +486,6 @@ public class ValueTranslationTest {
                     |                                                 |
                    <T>                                               <T'>
          */
-
-
-        final var sAlias = CorrelationIdentifier.of("S");
-        final var s = qov(sAlias, getSType());
-        final var s_Alias = CorrelationIdentifier.of("S'");
-        final var s_ = qov(s_Alias, getSType());
 
         final var pv = rcv(
                 add(fv(t, "a", "q"), s),
@@ -482,7 +509,7 @@ public class ValueTranslationTest {
            replace t with t', i.e. the result should be (t'.a.q + s, t'.a.r, (t'.b.t), t'.j.s)
          */
 
-        final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).withConstantAliaMap(AliasMap.of(sAlias, s_Alias)).build();
+        final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).withConstantAliasMap(AliasMap.of(sAlias, s_Alias)).build();
         final var l1TranslatedQueryValue = l1Translator.translate(pv);
         final var expectedL1TranslatedQueryValue = rcv(
                 add(fv(t_, "a", "q"), s),
@@ -555,5 +582,485 @@ public class ValueTranslationTest {
         Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
         Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
+    }
+
+    @SuppressWarnings("checkstyle:MethodName")
+    @Nonnull
+    private Type.Record getMType() {
+        return r(
+                f("m1", r("m11", "m12")),
+                f("m2", r("m21", "m22")),
+                f("m3", r("m31", "m32"))
+        );
+    }
+
+    @Nonnull
+    private Type.Record getNType() {
+        return r(
+                f("n1", r("n11", "n12")),
+                f("n2", r("n21", "n22")),
+                f("n3", r("n31", "n32"))
+        );
+    }
+
+    @Test
+    public void maxMatchValueWithCompositionOfTranslators() throws Exception {
+        /*
+             1st level:
+             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
+                    |                                                 |
+                  T |                                              T' |
+                    |                                                 |
+                   <T>                                               <T'>
+
+            ((m.m1.m11), m.m2.m21)               (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
+                   |                                                 |
+                M  |                                              M' |
+                   |                                                 |
+                  <M>                                               <M'>
+
+            (n.n2.n21, (n.n1.n12, n.n3.n32))     ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
+                   |                                                 |
+                 N |                                              N' |
+                   |                                                 |
+                  <N>                                               <N'>
+         */
+
+        final var tv = rcv(
+                fv(t, "a", "q"),
+                fv(t, "a", "r"),
+                rcv(fv(t, "b", "t")),
+                fv(t, "j", "s")
+        );
+        final var t_v = rcv(
+                rcv(fv(t_, "a", "q"),
+                        fv(t_, "a", "r")),
+                rcv(fv(t_, "b", "t"),
+                        fv(t_, "b", "m")),
+                fv(t_, "j", "s"),
+                fv(t_, "j", "q"),
+                fv(t_, "b", "t")
+        );
+
+        final var mv = rcv(
+                rcv(fv(m, "m1", "m11")),
+                fv(m, "m2", "m21")
+        );
+
+        final var m_v = rcv(
+                fv(m_, "m3", "m31"),
+                rcv(fv(m_, "m2", "m21")),
+                fv(m_, "m1", "m11")
+        );
+
+        final var nv = rcv(
+                fv(n, "n2", "n21"),
+                rcv(fv(n, "n1", "n12"), fv(n, "n3", "n32"))
+        );
+
+        final var n_v = rcv(
+                rcv(fv(n_, "n3", "n32")),
+                fv(n_, "n1", "n12"),
+                rcv(fv(n_, "n3", "n31"), fv(n_, "n2", "n22"), fv(n_, "n2", "n21"))
+        );
+
+        /*
+           translation of (t.a.q, t.a.r, (t.b.t), t.j.s) with correlation mapping of t -> t' (and no m3) should merely
+           replace t with t', i.e. the result should be (t'.a.q, t'.a.r, (t'.b.t), t'.j.s), same applies for translation
+           of ((m.m1.m11), m.m2.m21) and (n.n2.n21, (n.n1.n12, n.n3.n32)); i.e. m -> m', resp. n -> n'.
+         */
+
+        final var l1TranslatorTValue = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+        final var l1TranslatedQueryTValue = l1TranslatorTValue.translate(tv);
+        final var expectedL1TranslatedQueryTValue = rcv(
+                fv(t_, "a", "q"),
+                fv(t_, "a", "r"),
+                rcv(fv(t_, "b", "t")),
+                fv(t_, "j", "s")
+        );
+        Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1TranslatedQueryTValue);
+
+        final var l1TranslatorMValue = Translator.builder().ofCorrelations(mAlias, m_Alias).build();
+        final var l1TranslatedQueryMValue = l1TranslatorMValue.translate(mv);
+        final var expectedL1TranslatedQueryMValue = rcv(
+                rcv(fv(m_, "m1", "m11")),
+                fv(m_, "m2", "m21")
+        );
+        Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1TranslatedQueryMValue);
+
+        final var l1TranslatorNValue = Translator.builder().ofCorrelations(nAlias, n_Alias).build();
+        final var l1TranslatedQueryNValue = l1TranslatorNValue.translate(nv);
+        final var expectedL1TranslatedQueryNValue = rcv(
+                fv(n_, "n2", "n21"),
+                rcv(fv(n_, "n1", "n12"), fv(n_, "n3", "n32"))
+        );
+        Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1TranslatedQueryNValue);
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value, for tv, mv, and nv.
+         */
+
+        final var l1m3ForTValue = l1TranslatorTValue.calculateMaxMatches(l1TranslatedQueryTValue, t_v);
+
+        Map<Value, Value> l1ExpectedMappingForTValue = Map.of(
+                fv(t_, "a", "q"), fv(t_, "a", "q"),
+                fv(t_, "a", "r"), fv(t_, "a", "r"),
+                fv(t_, "b", "t"), fv(t_, "b", "t"),
+                fv(t_, "j", "s"), fv(t_, "j", "s"));
+        Assertions.assertEquals(l1ExpectedMappingForTValue, l1m3ForTValue.getMapping());
+        Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1m3ForTValue.getQueryResultValue());
+        Assertions.assertEquals(t_v, l1m3ForTValue.getCandidateResultValue());
+
+        final var l1m3ForMValue = l1TranslatorMValue.calculateMaxMatches(l1TranslatedQueryMValue, m_v);
+
+        Map<Value, Value> l1ExpectedMappingForMValue = Map.of(
+                fv(m_, "m1", "m11"), fv(m_, "m1", "m11"),
+                fv(m_, "m2", "m21"), fv(m_, "m2", "m21"));
+        Assertions.assertEquals(l1ExpectedMappingForMValue, l1m3ForMValue.getMapping());
+        Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1m3ForMValue.getQueryResultValue());
+        Assertions.assertEquals(m_v, l1m3ForMValue.getCandidateResultValue());
+
+        final var l1m3ForNValue = l1TranslatorNValue.calculateMaxMatches(l1TranslatedQueryNValue, n_v);
+
+        Map<Value, Value> l1ExpectedMappingForNValue = Map.of(
+                fv(n_, "n2", "n21"), fv(n_, "n2", "n21"),
+                fv(n_, "n1", "n12"), fv(n_, "n1", "n12"),
+                fv(n_, "n3", "n32"), fv(n_, "n3", "n32"));
+        Assertions.assertEquals(l1ExpectedMappingForNValue, l1m3ForNValue.getMapping());
+        Assertions.assertEquals(expectedL1TranslatedQueryNValue, l1m3ForNValue.getQueryResultValue());
+        Assertions.assertEquals(n_v, l1m3ForNValue.getCandidateResultValue());
+
+        // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
+        // quantifier in a non-joined index candidate.
+
+        /*
+             2nd level:
+                  (p.2.0)
+                       [ p.0 + q.0.0 < r.0 - r.1.0 ]
+                    |   |           | R
+                    |   | Q         --------------------------------------------------
+                  P |   -------------------------------                              |
+                    |                                 |                              |
+             (t.a.q, t.a.r, (t.b.t), t.j.s)    ((m.m1.m11), m.m2.m21)       (n.n2.n21, (n.n1.n12, n.n3.n32))
+                    |                                |                                  |
+                  T |                              M |                                N |
+                    |                                |                                  |
+                   <T>                              <M>                                <N>
+
+             Candidates at 2nd level:
+             on T':
+             ======
+                       <resultValue>
+                           [ p'.0.0 < $Placeholder ]
+                        |
+                     P' |
+                        |
+               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+                        |
+                     T' |
+                        |
+                       <T'>
+
+             on M':
+             ======
+                     <resultValue>
+                           [ q'.2.0 < $Placeholder ]
+                        |
+                     Q' |
+                        |
+                (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
+                                    |
+                                 M' |
+                                    |
+                                   <M'>
+
+             on N':
+             ======
+                    <resultValue>
+                           [ r'.3 < $Placeholder, r'.1 < $Placeholder ]
+                        |
+                     R' |
+                        |
+                 ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
+                                |
+                             N' |
+                                |
+                               <N'>
+         */
+
+        final var pAlias = CorrelationIdentifier.of("P");
+        final var p_Alias = CorrelationIdentifier.of("P'");
+        final var p = qov(pAlias, tv.getResultType());
+        final var qAlias = CorrelationIdentifier.of("Q");
+        final var q_Alias = CorrelationIdentifier.of("Q'");
+        final var q = qov(qAlias, mv.getResultType());
+        final var rAlias = CorrelationIdentifier.of("R");
+        final var r_Alias = CorrelationIdentifier.of("R'");
+        final var r = qov(rAlias, nv.getResultType());
+
+        // p.0 + q.0.0 < n.0 - n.1.0
+        final var predicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(add(fv(p, 0), fv(q, 0, 0)), add(fv(r, 0), fv(r, 1, 0))));
+
+
+        final var l2TranslatorForPValue = Translator.builder().ofCorrelations(pAlias, p_Alias).using(l1m3ForTValue).build();
+        final var l2TranslatorForQValue = Translator.builder().ofCorrelations(qAlias, q_Alias).using(l1m3ForMValue).build();
+        final var l2TranslatorForRValue = Translator.builder().ofCorrelations(rAlias, r_Alias).using(l1m3ForNValue).build();
+        final var compositeTranslator = Translator.builder().compose(List.of(l2TranslatorForPValue, l2TranslatorForQValue, l2TranslatorForRValue)).build();
+        final var translatedPredicate = compositeTranslator.translate(predicate);
+
+        final var p_ = qov(p_Alias, t_v.getResultType());
+        final var q_ = qov(q_Alias, m_v.getResultType());
+        final var r_ = qov(r_Alias, n_v.getResultType());
+
+        final var expectedTranslatedPredicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(add(fv(p_, 0, 0), fv(q_, 2)), add(fv(r_, 2, 2), fv(r_, 1))));
+
+        Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
+    }
+
+    @Test
+    void validTranslatorCompositions() {
+        final var tv = rcv(
+                fv(t, "a", "q"),
+                add(s, fv(t, "a", "r")),
+                add(s, u)
+        );
+
+        // s R s ≡ s R s R s .... R s
+        {
+            final var translator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+            final var compositeTranslator = Translator.builder().compose(List.of(translator, translator, translator, translator)).build();
+            final var translatedValue = compositeTranslator.translate(tv);
+            final var expectedTranslatedValue = rcv(
+                    fv(t_, "a", "q"),
+                    add(s, fv(t_, "a", "r")),
+                    add(s, u)
+            );
+            Assertions.assertEquals(expectedTranslatedValue, translatedValue);
+        }
+
+        // t R s ≡ s R t
+        {
+            // t R s
+            final var tTranslator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+            final var sTranslator = Translator.builder().ofCorrelations(sAlias, s_Alias).build();
+            final var compositeTranslator = Translator.builder().compose(List.of(tTranslator, sTranslator)).build();
+            final var translatedValue = compositeTranslator.translate(tv);
+            final var expectedTranslatedValue = rcv(
+                    fv(t_, "a", "q"),
+                    add(s_, fv(t_, "a", "r")),
+                    add(s_, u)
+            );
+            Assertions.assertEquals(expectedTranslatedValue, translatedValue);
+
+            // s R t
+            final var symmetricTranslator = Translator.builder().compose(List.of(sTranslator, tTranslator)).build();
+            final var identicalTranslatedValue = symmetricTranslator.translate(tv);
+            Assertions.assertEquals(identicalTranslatedValue, expectedTranslatedValue);
+        }
+
+        // (t R s) R u ≡ t R (s R u)
+        {
+            final var tTranslator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+            final var sTranslator = Translator.builder().ofCorrelations(sAlias, s_Alias).build();
+            final var uTranslator = Translator.builder().ofCorrelations(uAlias, u_Alias).build();
+            final var tsTranslator = Translator.builder().compose(List.of(tTranslator, sTranslator)).build();
+
+            // (t R s) R u
+            final var ts_uTranslator = Translator.builder().compose(List.of(tsTranslator, uTranslator)).build();
+            final var translatedValue = ts_uTranslator.translate(tv);
+            final var expectedTranslatedValue = rcv(
+                    fv(t_, "a", "q"),
+                    add(s_, fv(t_, "a", "r")),
+                    add(s_, u_)
+            );
+            Assertions.assertEquals(expectedTranslatedValue, translatedValue);
+
+            // t R (s R u)
+            final var suTranslator = Translator.builder().compose(List.of(sTranslator, uTranslator)).build();
+            final var t_suTranslator = Translator.builder().compose(List.of(suTranslator, tTranslator)).build();
+            final var identicalTranslatedValue = t_suTranslator.translate(tv);
+            Assertions.assertEquals(identicalTranslatedValue, translatedValue);
+        }
+    }
+
+    @Test
+    public void maxMatchDifferentCompositions() throws Exception {
+        /*
+             1st level:
+             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
+                    |                                                 |
+                  T |                                              T' |
+                    |                                                 |
+                   <T>                                               <T'>
+
+            ((m.m1.m11), m.m2.m21)               (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
+                   |                                                 |
+                M  |                                              M' |
+                   |                                                 |
+                  <M>                                               <M'>
+
+            (n.n2.n21, (n.n1.n12, n.n3.n32))     ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
+                   |                                                 |
+                 N |                                              N' |
+                   |                                                 |
+                  <N>                                               <N'>
+         */
+
+        final var tv = rcv(
+                fv(t, "a", "q"),
+                fv(t, "a", "r"),
+                rcv(fv(t, "b", "t")),
+                fv(t, "j", "s")
+        );
+        final var t_v = rcv(
+                rcv(fv(t_, "a", "q"),
+                        fv(t_, "a", "r")),
+                rcv(fv(t_, "b", "t"),
+                        fv(t_, "b", "m")),
+                fv(t_, "j", "s"),
+                fv(t_, "j", "q"),
+                fv(t_, "b", "t")
+        );
+
+        final var mv = rcv(
+                rcv(fv(m, "m1", "m11")),
+                fv(m, "m2", "m21")
+        );
+
+        final var m_v = rcv(
+                fv(m_, "m3", "m31"),
+                rcv(fv(m_, "m2", "m21")),
+                fv(m_, "m1", "m11")
+        );
+
+        final var nv = rcv(
+                fv(n, "n2", "n21"),
+                rcv(fv(n, "n1", "n12"), fv(n, "n3", "n32"))
+        );
+
+        final var n_v = rcv(
+                rcv(fv(n_, "n3", "n32")),
+                fv(n_, "n1", "n12"),
+                rcv(fv(n_, "n3", "n31"), fv(n_, "n2", "n22"), fv(n_, "n2", "n21"))
+        );
+
+        /*
+           translation of (t.a.q, t.a.r, (t.b.t), t.j.s) with correlation mapping of t -> t' (and no m3) should merely
+           replace t with t', i.e. the result should be (t'.a.q, t'.a.r, (t'.b.t), t'.j.s), same applies for translation
+           of ((m.m1.m11), m.m2.m21) and (n.n2.n21, (n.n1.n12, n.n3.n32)); i.e. m -> m', resp. n -> n'.
+         */
+
+        final var l1TranslatorTValue = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+        final var l1TranslatedQueryTValue = l1TranslatorTValue.translate(tv);
+        final var l1TranslatorMValue = Translator.builder().ofCorrelations(mAlias, m_Alias).build();
+        final var l1TranslatedQueryMValue = l1TranslatorMValue.translate(mv);
+        final var l1TranslatorNValue = Translator.builder().ofCorrelations(nAlias, n_Alias).build();
+        final var l1TranslatedQueryNValue = l1TranslatorNValue.translate(nv);
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value, for tv, mv, and nv.
+         */
+
+        final var l1m3ForTValue = l1TranslatorTValue.calculateMaxMatches(l1TranslatedQueryTValue, t_v);
+        final var l1m3ForMValue = l1TranslatorMValue.calculateMaxMatches(l1TranslatedQueryMValue, m_v);
+        final var l1m3ForNValue = l1TranslatorNValue.calculateMaxMatches(l1TranslatedQueryNValue, n_v);
+
+        // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
+        // quantifier in a non-joined index candidate.
+
+        /*
+             2nd level:
+                  (p.2.0)
+                       [ p.0 + q.0.0 < r.0 + s + u ]
+                    |   |           |     |    |
+                    |   |           |     |    ---------------------------------------------------------------------------------
+                    |   |           | R   ---------------------------------------------------------------------------------    |
+                    |   | Q         --------------------------------------------------                                    |    |
+                  P |   -------------------------------                              |                                   <S>  <U>
+                    |                                 |                              |
+             (t.a.q, t.a.r, (t.b.t), t.j.s)    ((m.m1.m11), m.m2.m21)       (n.n2.n21, (n.n1.n12, n.n3.n32))
+                    |                                |                                  |
+                  T |                              M |                                N |
+                    |                                |                                  |
+                   <T>                              <M>                                <N>
+
+             Candidates at 2nd level:
+             on T':
+             ======
+                       <resultValue>
+                           [ p'.0.0 < $Placeholder ]
+                        |
+                     P' |
+                        |
+               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+                        |
+                     T' |
+                        |
+                       <T'>
+
+             on M':
+             ======
+                     <resultValue>
+                           [ q'.2.0 < $Placeholder ]
+                        |
+                     Q' |
+                        |
+                (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
+                                    |
+                                 M' |
+                                    |
+                                   <M'>
+
+             on N':
+             ======
+                    <resultValue>
+                           [ r'.3 < $Placeholder, r'.1 < $Placeholder ]
+                        |
+                     R' |
+                        |
+                 ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
+                                |
+                             N' |
+                                |
+                               <N'>
+             Having (flat) candidate correlations corresponding to SimpleTranslators
+             S':
+                   QOV(int)
+             U':
+                   QOV(int)
+         */
+
+        final var pAlias = CorrelationIdentifier.of("P");
+        final var p_Alias = CorrelationIdentifier.of("P'");
+        final var p = qov(pAlias, tv.getResultType());
+        final var qAlias = CorrelationIdentifier.of("Q");
+        final var q_Alias = CorrelationIdentifier.of("Q'");
+        final var q = qov(qAlias, mv.getResultType());
+        final var rAlias = CorrelationIdentifier.of("R");
+        final var r_Alias = CorrelationIdentifier.of("R'");
+        final var r = qov(rAlias, nv.getResultType());
+
+        // p.0 + q.0.0 < r.0 + s + u
+        final var predicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(add(fv(p, 0), fv(q, 0, 0)), add(add(fv(r, 0), s), u)));
+
+        final var translators = new ArrayList<Translator>();
+        translators.add(Translator.builder().ofCorrelations(pAlias, p_Alias).using(l1m3ForTValue).build());
+        translators.add(Translator.builder().ofCorrelations(qAlias, q_Alias).using(l1m3ForMValue).build());
+        translators.add(Translator.builder().ofCorrelations(rAlias, r_Alias).using(l1m3ForNValue).build());
+        translators.add(Translator.builder().ofCorrelations(sAlias, s_Alias).build());
+        translators.add(Translator.builder().ofCorrelations(uAlias, u_Alias).build());
+
+        final var p_ = qov(p_Alias, t_v.getResultType());
+        final var q_ = qov(q_Alias, m_v.getResultType());
+        final var r_ = qov(r_Alias, n_v.getResultType());
+
+        final var expectedTranslatedPredicate = (Value)new RelOpValue.LtFn().encapsulate(List.of(add(fv(p_, 0, 0), fv(q_, 2)), add(add(fv(r_, 2, 2), s_), u_)));
+
+        final var random = new Random(42);
+        for (int i = 0; i < 10; i++) {
+            Collections.shuffle(translators, random);
+            final var compositeTranslator = Translator.builder().compose(translators).build();
+            final var translatedPredicate = compositeTranslator.translate(predicate);
+            Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
+        }
     }
 }

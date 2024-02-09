@@ -1,0 +1,101 @@
+/*
+ * ComposableTranslator.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.cascades.values.translation;
+
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
+
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Optional;
+
+/**
+ * This class represents a functional composition of a number of {@link Translator}s.
+ * It supports the
+ *
+ */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+public class CompositeTranslator extends Translator {
+
+    @Nonnull
+    private final Optional<SimpleTranslator> simpleTranslatorMaybe;
+
+    @Nonnull
+    private final Optional<MaxMatchMapTranslator> maxMatchMapTranslatorMaybe;
+
+    public CompositeTranslator(@Nonnull final Collection<Translator> translators) {
+        super(collectAliasMap(translators));
+        Verify.verify(!translators.isEmpty());
+        final var compositeTranslationAliasMapBuilder = AliasMap.builder();
+        final var compositeTranslationMapBuilder = TranslationMap.builder();
+        for (final var translator : translators) {
+            if (translator instanceof SimpleTranslator) {
+                compositeTranslationAliasMapBuilder.putAll(((SimpleTranslator)translator).getTranslationAliasMap());
+            } else if (translator instanceof MaxMatchMapTranslator) {
+                compositeTranslationMapBuilder.absorb(((MaxMatchMapTranslator)translator).getTranslationMapBuilder());
+            } else if (translator instanceof CompositeTranslator) {
+                final var compositeTranslator = (CompositeTranslator)translator;
+                compositeTranslator.simpleTranslatorMaybe.map(simpleTranslator -> compositeTranslationAliasMapBuilder.putAll(simpleTranslator.getTranslationAliasMap()));
+                compositeTranslator.maxMatchMapTranslatorMaybe.map(maxMatchMapTranslator -> compositeTranslationMapBuilder.absorb(maxMatchMapTranslator.getTranslationMapBuilder()));
+            } else {
+                throw new RecordCoreException(String.format("Unexpected translator type %s", translator.getClass().getSimpleName()));
+            }
+        }
+
+        final var compositeTranslationAliasMap = compositeTranslationAliasMapBuilder.build();
+        final var compositeTranslationMap = compositeTranslationMapBuilder.build();
+
+
+        if (compositeTranslationAliasMap != AliasMap.emptyMap()) {
+            simpleTranslatorMaybe = Optional.of(new SimpleTranslator(getAliasMap(), compositeTranslationAliasMap));
+        } else {
+            simpleTranslatorMaybe = Optional.empty();
+        }
+
+        if (compositeTranslationMap != TranslationMap.empty()) {
+            maxMatchMapTranslatorMaybe = Optional.of(new MaxMatchMapTranslator(getAliasMap(), compositeTranslationMapBuilder));
+        } else {
+            maxMatchMapTranslatorMaybe = Optional.empty();
+        }
+    }
+
+    private static AliasMap collectAliasMap(@Nonnull final Collection<Translator> translators) {
+        final var aliasMapBuilder = AliasMap.builder();
+        translators.forEach(translator -> aliasMapBuilder.putAll(translator.getAliasMap()));
+        return aliasMapBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Value translate(@Nonnull final Value value) {
+        var result = value;
+        if (simpleTranslatorMaybe.isPresent()) {
+            result = simpleTranslatorMaybe.get().translate(result);
+        }
+        if (maxMatchMapTranslatorMaybe.isPresent()) {
+            result = maxMatchMapTranslatorMaybe.get().translate(result);
+        }
+        return result;
+    }
+}

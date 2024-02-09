@@ -20,78 +20,81 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Collection;
 
 /**
- * Translates values.
+ * This encapsulates a set of algorithms responsible for translating a given {@link Value} into another {@link Value} under
+ * a set of given assumptions.
+ * <br>
+ * for example, suppose we have the following {@link RecordConstructorValue}s:
+ * <ul>
+ *     <li>{@code P = RCV(a, b)}</li>
+ *     <li>{@code R = RCV(RCV(s, t), u, v)}</li>
+ * </ul>
+ * for a given {@code Value} such as {@code V = RCV(P.0, R.0.1)}, the translator can translate {@code V} in terms of <i>other</i>
+ * {@code Value}s, e.g. if we also have something like:
+ * <ul>
+ *     <li>{@code P` = RCV(RCV(c, a), RCV(p, b))}</li>
+ *     <li>{@code R` = RCV(w, x, RCV(RCV(t)))}</li>
+ * </ul>
+ * it can translate {@code V} into {@code RCV(P`.0.0, R`.2.0.0)}.
+ * <br>
+ * For certain shapes of {@code Value}s, multiple translations can be found, the {@code Translator} finds a translation
+ * that matches the maximum part of the {@code Value} with sub-{@code Value} on the other side. For example:
+ * <ul>
+ *     <li>{@code R = RCV(s+t, s, t)}</li>
+ * </ul>
+ * for a given {@code Value} such as {@code V = RCV(R.0)}, the translator can translate {@code V} in terms of <i>other</i>
+ * {@code Value}s, e.g. if we also have something like:
+ * <ul>
+ *     <li>{@code R` = RCV(s, t, (s+t))}</li>
+ * </ul>
+ * We could have the following translations for {@code V}:
+ * <ul>
+ *     <li>{@code RCV(R`.0 + R`.1}</li>
+ *     <li>{@code RCV(R`.0.0}</li>
+ * </ul>
+ * The translator is guaranteed to choose the second instead of the first one, i.e. it finds the maximum match possible.
+ * This property is very useful in the context of index matching where we want the query {@code Value} to be translated
+ * by means of the index {@code Value}, the query {@code Value} should reuse as many sub-{@code Value}s as possible from
+ * the index.
  */
-public class Translator {
-
-    @Nullable
-    private final Value holyValue;
-
-    @Nonnull
-    private final CorrelationIdentifier queryCorrelation;
-
-    @Nonnull
-    private final CorrelationIdentifier candidateCorrelation;
+public abstract class Translator {
 
     @Nonnull
     private final AliasMap aliasMap;
 
-    private Translator(@Nullable final MaxMatchMap maxMatchMapBelow,
-                       @Nonnull final CorrelationIdentifier queryCorrelation,
-                       @Nonnull final CorrelationIdentifier candidateCorrelation,
-                       @Nonnull final AliasMap aliasMap) {
-        this.queryCorrelation = queryCorrelation;
-        this.candidateCorrelation = candidateCorrelation;
-        this.aliasMap = aliasMap.derived().put(candidateCorrelation, candidateCorrelation).build();
-        this.holyValue = maxMatchMapBelow != null ? createHolyValue(maxMatchMapBelow) : null;
+    public Translator(@Nonnull final AliasMap aliasMap) {
+        this.aliasMap = aliasMap;
     }
 
+    /**
+     * Translates the {@link Value} {@code value} into another equivalent {@link Value} by means of the translation
+     * rules.
+     *
+     * @param value The {@code Value} to translate.
+     * @return an equivalent translated {@code Value}.
+     */
     @Nonnull
-    private Value createHolyValue(@Nonnull final MaxMatchMap maxMatchMap) {
-        final var belowMapping = maxMatchMap.getMapping();
-        final var belowCandidateResultValue = maxMatchMap.getCandidateResultValue();
-        final Map<Value, Value> pulledUpMaxMatchMap = belowMapping.entrySet().stream().map(entry -> {
-            final var queryPart = entry.getKey();
-            final var candidatePart = entry.getValue();
-            final var pulledUpCandidatesMap = belowCandidateResultValue.pullUp(List.of(candidatePart), aliasMap, Set.of(), candidateCorrelation);
-            final var pulledUpdateCandidatePart = pulledUpCandidatesMap.get(candidatePart);
-            if (pulledUpdateCandidatePart == null) {
-                throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
-            }
-            return Map.entry(queryPart, pulledUpdateCandidatePart);
-        }).collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    public abstract Value translate(@Nonnull final Value value);
 
-        final var translatedQueryValueFromBelow = maxMatchMap.getQueryResultValue();
-        return Verify.verifyNotNull(translatedQueryValueFromBelow.replace(valuePart ->
-                pulledUpMaxMatchMap
-                        .entrySet()
-                        .stream()
-                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, aliasMap))
-                        .map(Map.Entry::getValue)
-                        .findAny()
-                        .orElse(valuePart)));
-    }
-
+    /**
+     * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the {@code candidateValue}.
+     * @param rewrittenQueryValue the query {@code Value}, it must be translated using {@code this} translator.
+     * @param candidateValue the candidate {@code Value} we want to search for maximum matches.
+     * @return A {@code Map} of all maximum matches.
+     */
     @Nonnull
     public MaxMatchMap calculateMaxMatches(@Nonnull final Value rewrittenQueryValue,
                                            @Nonnull final Value candidateValue) {
@@ -100,11 +103,11 @@ public class Translator {
         rewrittenQueryValue.preOrderPruningIterator(queryValuePart -> {
             // now that we have rewritten this query value part using candidate value(s) we proceed to look it up in the candidate value.
             final var match = Streams.stream(candidateValue
-                    // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                    // from the top expression. For example, RCV's components can be referenced however an Arithmetic
-                    // operator's children can not be referenced.
-                    .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, aliasMap))
+                            // when traversing the candidate in pre-order, only descend into structures that can be referenced
+                            // from the top expression. For example, RCV's components can be referenced however an Arithmetic
+                            // operator's children can not be referenced.
+                            .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
+                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, getAliasMap()))
                     .findAny();
             match.ifPresent(value -> newMapping.put(queryValuePart, value));
             return match.isEmpty();
@@ -114,15 +117,8 @@ public class Translator {
     }
 
     @Nonnull
-    public Value translate(@Nonnull final Value value) {
-        // the value can be null if this is a base translator that will trigger cascading translations and is the one
-        // responsible for creating the initial max match map.
-        if (holyValue == null) {
-            return value.translateCorrelations(TranslationMap.rebaseWithAliasMap(AliasMap.of(queryCorrelation, candidateCorrelation)));
-        }
-        final var result = value.translateCorrelations(
-                TranslationMap.builder().when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> holyValue).build());
-        return result.simplify(AliasMap.emptyMap(), result.getCorrelatedTo());
+    public AliasMap getAliasMap() {
+        return aliasMap;
     }
 
     @Nonnull
@@ -131,47 +127,76 @@ public class Translator {
     }
 
     /**
-     * Fluent builder for {@link Translator} objects.
+     * Fluent builder of {@link Translator} objects.
      */
     public static class Builder {
-
-        protected CorrelationIdentifier queryCorrelation;
-
-        protected  CorrelationIdentifier candidateCorrelation;
-
-        protected AliasMap aliasMap;
 
         /**
          * Fluent builder of {@link Translator} objects.
          */
-        public static class WithCorrelationsBuilder extends Builder {
+        public static class CompositeBuilder {
 
-            @Nullable
-            private MaxMatchMap maxMatchMap;
+            @Nonnull
+            private final ImmutableList.Builder<Translator> translatorsBuilder;
 
-            private WithCorrelationsBuilder(@Nonnull CorrelationIdentifier queryCorrelation,
-                                            @Nonnull CorrelationIdentifier candidateCorrelation) {
+            public CompositeBuilder(@Nonnull Collection<Translator> translators) {
+                this.translatorsBuilder = ImmutableList.builder();
+                translatorsBuilder.addAll(translators);
+            }
+
+            @Nonnull
+            public CompositeBuilder add(@Nonnull final Translator translator) {
+                this.translatorsBuilder.add(translator);
+                return this;
+            }
+
+            @Nonnull
+            public CompositeBuilder addAll(@Nonnull final Collection<Translator> translators) {
+                this.translatorsBuilder.addAll(translators);
+                return this;
+            }
+
+            @Nonnull
+            public CompositeTranslator build() {
+                return new CompositeTranslator(translatorsBuilder.build());
+            }
+        }
+
+        /**
+         * Fluent builder of {@link Translator} objects.
+         */
+        public static class NonCompositeBuilder {
+
+            protected CorrelationIdentifier queryCorrelation;
+
+            protected  CorrelationIdentifier candidateCorrelation;
+
+            protected AliasMap aliasMap;
+
+            protected MaxMatchMap maxMatchMap;
+
+            public NonCompositeBuilder(final CorrelationIdentifier queryCorrelation,
+                                       final CorrelationIdentifier candidateCorrelation) {
                 this.queryCorrelation = queryCorrelation;
                 this.candidateCorrelation = candidateCorrelation;
                 this.aliasMap = AliasMap.emptyMap();
             }
 
             @Nonnull
-            public WithCorrelationsBuilder using(@Nonnull final MaxMatchMap maxMatchMap) {
+            public NonCompositeBuilder using(@Nonnull final MaxMatchMap maxMatchMap) {
                 this.maxMatchMap = maxMatchMap;
                 return this;
             }
 
             @Nonnull
-            public WithCorrelationsBuilder withConstantAliaMap(@Nonnull final AliasMap aliasMap) {
+            public NonCompositeBuilder withConstantAliasMap(@Nonnull final AliasMap aliasMap) {
                 this.aliasMap = aliasMap;
                 return this;
             }
 
             @Nonnull
-            @Override
-            public WithCorrelationsBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
-                                                          @Nonnull final CorrelationIdentifier candidateCorrelation) {
+            public NonCompositeBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
+                                                      @Nonnull final CorrelationIdentifier candidateCorrelation) {
                 this.queryCorrelation = queryCorrelation;
                 this.candidateCorrelation = candidateCorrelation;
                 return this;
@@ -179,14 +204,23 @@ public class Translator {
 
             @Nonnull
             public Translator build() {
-                return new Translator(maxMatchMap, queryCorrelation, candidateCorrelation, aliasMap);
+                if (maxMatchMap == null) {
+                    return new SimpleTranslator(queryCorrelation, candidateCorrelation, aliasMap);
+                } else {
+                    return new MaxMatchMapTranslator(maxMatchMap, queryCorrelation, candidateCorrelation, aliasMap);
+                }
             }
         }
 
         @Nonnull
-        public WithCorrelationsBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
-                                                      @Nonnull final CorrelationIdentifier candidateCorrelation) {
-            return new WithCorrelationsBuilder(queryCorrelation, candidateCorrelation);
+        public NonCompositeBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
+                                                  @Nonnull final CorrelationIdentifier candidateCorrelation) {
+            return new NonCompositeBuilder(queryCorrelation, candidateCorrelation);
+        }
+
+        @Nonnull
+        public CompositeBuilder compose(@Nonnull final Collection<Translator> translators) {
+            return new CompositeBuilder(translators);
         }
     }
 }
