@@ -240,10 +240,11 @@ public interface TreeLike<T extends TreeLike<T>> {
      *                            necessary for replacement algorithm to avoid unnecessary allocations.
      * @return potentially a new tree which originates from {@code this} but having its nodes replaced with new ones,
      *         if no changes are made, {@code this} is returned.
-     *
-     * @implNote this can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
+     * <br>
+     * Note: this can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
      *           function domain is of the same type because that enables us to perform copy-on-write optimization.
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
     @Nullable
     default T replace(@Nonnull final UnaryOperator<T> replacementOperator) {
         final var self = getThis();
