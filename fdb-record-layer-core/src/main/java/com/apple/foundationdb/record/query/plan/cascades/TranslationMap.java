@@ -81,6 +81,11 @@ public class TranslationMap {
     }
 
     @Nonnull
+    public Builder toBuilder() {
+        return new Builder(aliasToTargetMap);
+    }
+
+    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
@@ -161,14 +166,29 @@ public class TranslationMap {
             this.translationMapBuilder = ImmutableMap.builder();
         }
 
+        Builder(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> translationMap) {
+            this.translationMapBuilder = ImmutableMap.builder();
+            this.translationMapBuilder.putAll(translationMap);
+        }
+
         @Nonnull
         public TranslationMap build() {
-            return new TranslationMap(translationMapBuilder.build());
+            final var translationMap = translationMapBuilder.build();
+            if (translationMap.isEmpty()) {
+                return TranslationMap.empty();
+            }
+            return new TranslationMap(translationMap);
         }
 
         @Nonnull
         public Builder.When when(@Nonnull final CorrelationIdentifier sourceAlias) {
             return new When(sourceAlias);
+        }
+
+        @Nonnull
+        public Builder absorb(@Nonnull final Builder other) {
+            translationMapBuilder.putAll(other.translationMapBuilder.build());
+            return this;
         }
 
         /**
