@@ -847,27 +847,38 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         //      1. Multiple groups
         //      2. When the size of first partition is exactly highWatermark+repartitionCount
         return Stream.concat(
-                // at the time of writing, 13 isn't special, but it gives us one seed, the other two found issues
                 Stream.of(
-                        Arguments.of(13L),
-                        Arguments.of(-644766138635622644L),
-                        Arguments.of(-1089113174774589435L),
-                        Arguments.of(6223372946177329440L),
-                        Arguments.of(-4003151658223916927L)),
-                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())));
+                        // there's not much special about which flags are enabled and the numbers are used, it's just
+                        // to make sure we have some variety, and make sure we have a test with each boolean true, and
+                        // false.
+                        // For partitionHighWatermark vs repartitionCount it is important to have both an even factor,
+                        // and not.
+                        Arguments.of(true, false, false, 13, 3, 20, 9237590782644L),
+                        Arguments.of(true, true, true, 10, 2, 23, -644766138635622644L),
+                        Arguments.of(false, true, true, 11, 4, 20, -1089113174774589435L),
+                        Arguments.of(false, false, false, 5, 1, 18, 6223372946177329440L)),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextInt(20) + 2,
+                                random.nextInt(10) + 1,
+                                0,
+                                random.nextLong())));
     }
 
     @ParameterizedTest
     @MethodSource
-    void randomizedRepartitionTest(long seed) throws IOException {
+    void randomizedRepartitionTest(boolean isGrouped,
+                                   boolean isSynthetic,
+                                   boolean primaryKeySegmentIndexEnabled,
+                                   int partitionHighWatermark,
+                                   int repartitionCount,
+                                   int minDocumentCount,
+                                   long seed) throws IOException {
         Random random = new Random(seed);
         Consumer<FDBRecordContext> schemaSetup;
-        final boolean isGrouped = random.nextBoolean();
-        final boolean isSynthetic = random.nextBoolean();
         final boolean optimizedStoredFields = random.nextBoolean();
-        final boolean primaryKeySegmentIndexEnabled = random.nextBoolean();
-        final int partitionHighWatermark = random.nextInt(15) + 2;
-        final int repartitionCount = random.nextInt(15) + 1;
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
@@ -907,7 +918,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final int transactionCount = random.nextInt(15) + 1;
         final long start = Instant.now().toEpochMilli();
         Map<Integer, Set<Long>> allExistingTimestamps = new HashMap<>();
-        for (int i = 0; i < transactionCount; i++) {
+        int i = 0;
+        while (i < transactionCount ||
+                // keep inserting data until at least two groups have at least minDocumentCount
+                ids.entrySet().stream()
+                        .map(entry -> entry.getValue().size())
+                        .sorted(Comparator.reverseOrder())
+                        .limit(2).skip(isGrouped ? 1 : 0).findFirst()
+                        .orElse(0) < minDocumentCount) {
             final int docCount = random.nextInt(10) + 1;
             try (FDBRecordContext context = openContext(contextProps)) {
                 schemaSetup.accept(context);
@@ -921,7 +939,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     while (!existingTimestamps.add(timestamp)) {
                         timestamp++;
                     }
-                    TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+                    ComplexDocument cd = ComplexDocument.newBuilder()
                             .setGroup(group)
                             .setDocId(1000L + countInGroup)
                             .setIsSeen(true)
@@ -949,6 +967,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 }
                 commit(context);
             }
+            i++;
         }
 
         explicitMergeIndex(index, contextProps, schemaSetup);
