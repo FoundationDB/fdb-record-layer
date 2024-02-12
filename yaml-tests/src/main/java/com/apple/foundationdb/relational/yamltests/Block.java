@@ -34,12 +34,15 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -258,6 +261,7 @@ public abstract class Block {
         static final String OPTION_EXECUTION_MODE = "mode";
         static final String OPTION_EXECUTION_MODE_ORDERED = "ordered";
         static final String OPTION_EXECUTION_MODE_RANDOMIZED = "randomized";
+        static final String OPTION_EXECUTION_MODE_PARALLELIZED = "parallelized";
         static final String OPTION_REPETITION = "repetition";
         static final String OPTION_SEED = "seed";
         static final String OPTION_CHECK_CACHE = "check_cache";
@@ -267,7 +271,8 @@ public abstract class Block {
 
         enum ExecutionMode {
             RANDOMIZED,
-            ORDERED
+            ORDERED,
+            PARALLELIZED
         }
 
         enum ConnectionLifecycle {
@@ -285,6 +290,7 @@ public abstract class Block {
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         @Nonnull
         private final List<Consumer<RelationalConnection>> executableTests = new ArrayList<>();
+        private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck = new ArrayList<>();
 
         private TestBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
             super(((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "test_block").getKey()).getStartMark().getLine() + 1, executionContext);
@@ -297,41 +303,69 @@ public abstract class Block {
 
         @Override
         public void execute() {
+            logger.info("⚪️ Executing `test` block at line {} with options {}", getLineNumber(), printOptions());
             try {
-                if (connectionLifecycle == ConnectionLifecycle.BLOCK) {
-                    connectToDatabaseAndExecute(connection -> {
-                        for (var t : executableTests) {
-                            t.accept(connection);
-                            if (this.throwable != null) {
-                                break;
-                            }
-                        }
-                    });
-                } else if (connectionLifecycle == ConnectionLifecycle.TEST) {
-                    for (var t : executableTests) {
-                        connectToDatabaseAndExecute(t);
-                        if (this.throwable != null) {
-                            break;
-                        }
-                    }
+                if (mode == ExecutionMode.PARALLELIZED) {
+                    executeInParallelizedMode(executableTests);
+                    executeInNonParallelizedMode(executableTestsWithCacheCheck);
+                } else {
+                    final var allExecutables = new ArrayList<Consumer<RelationalConnection>>();
+                    allExecutables.addAll(executableTests);
+                    allExecutables.addAll(executableTestsWithCacheCheck);
+                    executeInNonParallelizedMode(allExecutables);
                 }
             } catch (Exception e) {
                 this.throwable = new RuntimeException("‼️ Test Block failed at line " + getLineNumber() + " with option " + printOptions(), e);
             }
         }
 
-        private void setTestBlockOptions(@Nullable Object options) {
-            if (options == null) {
-                return;
+        private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
+            if (connectionLifecycle == ConnectionLifecycle.BLOCK) {
+                connectToDatabaseAndExecute(connection -> testsToExecute.forEach(t -> t.accept(connection)));
+            } else if (connectionLifecycle == ConnectionLifecycle.TEST) {
+                testsToExecute.forEach(this::connectToDatabaseAndExecute);
             }
-            final var optionsMap = Matchers.map(options);
-            setOptionExecutionModeAndSeed(optionsMap);
-            setOptionRepetition(optionsMap);
+        }
+
+        private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws Exception {
+            final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
+            testsToExecute.forEach(t -> executorService.submit(() -> {
+                if (throwable != null) {
+                    logger.debug("⚠️ Aborting test as one of the test has failed.");
+                    return;
+                }
+                // connection lifecycle is irrelevant as we run a suite comprising only a single test.
+                executeInNonParallelizedMode(List.of(t));
+            }));
+            executorService.shutdown();
+            if (!executorService.awaitTermination(15, TimeUnit.MINUTES)) {
+                this.throwable = new RuntimeException("Parallel executor did not terminate before the 15 minutes timeout.");
+            }
+        }
+
+        private void setTestBlockOptions(@Nullable Object options) {
+            final var optionsMap = overrideWithExecutionContext(options == null ? Map.of() : (Map<String, String>) Matchers.map(options));
+            setOptionExecutionModeAndRepetition(optionsMap);
+            setOptionSeed(optionsMap);
             setOptionCheckCache(optionsMap);
             setOptionConnectionLifecycle(optionsMap);
         }
 
-        private void setOptionExecutionModeAndSeed(Map<?, ?> optionsMap) {
+        private Map<?, ?> overrideWithExecutionContext(Map<String, String> optionsMap) {
+            // Use the system-provided seed if that is available from the context.
+            executionContext.getSeed().ifPresent(s -> optionsMap.put(OPTION_SEED, s));
+            if (executionContext.isNightly() ) {
+                // If the test is for nightly, nightlyRepetition is provided and the repetition provided in the
+                // test_block is not 1, then use the nightlyRepetition value. We explicitly check for the provided
+                // repetition to not being 1 because a repetition of 1 means that the tests are non-idempotent.
+                if (optionsMap.containsKey(OPTION_REPETITION) && !optionsMap.get(OPTION_REPETITION).equals("1")) {
+                    executionContext.getNightlyRepetition().ifPresent(s -> optionsMap.put(OPTION_SEED, s));
+                }
+            }
+            return optionsMap;
+        }
+
+        private void setOptionExecutionModeAndRepetition(Map<?, ?> optionsMap) {
             if (optionsMap.containsKey(OPTION_EXECUTION_MODE)) {
                 final var value = Matchers.string(optionsMap.get(OPTION_EXECUTION_MODE));
                 switch (value) {
@@ -341,21 +375,29 @@ public abstract class Block {
                     case OPTION_EXECUTION_MODE_RANDOMIZED:
                         this.mode = ExecutionMode.RANDOMIZED;
                         break;
+                    case OPTION_EXECUTION_MODE_PARALLELIZED:
+                        this.mode = ExecutionMode.PARALLELIZED;
+                        break;
                     default:
                         Assert.failUnchecked("Illegal Format: Unknown value for option mode: " + value);
                         break;
                 }
             }
-            if (optionsMap.containsKey(OPTION_SEED)) {
-                this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
-            } else if (mode == ExecutionMode.RANDOMIZED) {
-                this.seed = System.currentTimeMillis();
-            }
-        }
-
-        private void setOptionRepetition(Map<?, ?> optionsMap) {
             if (optionsMap.containsKey(OPTION_REPETITION)) {
                 this.repetition = Matchers.intValue(optionsMap.get(OPTION_REPETITION));
+            }
+            Assert.thatUnchecked(repetition > 0, "Illegal repetition value provided. Should be greater than equal to 1");
+        }
+
+        private void setOptionSeed(Map<?, ?> optionsMap) {
+            // Note that the seed is only used if the test_block is not executing in mode 'ordered'. However, we try to
+            // determine the seed irrespective of that.
+            if (optionsMap.containsKey(OPTION_SEED)) {
+                // See if the seed is provided in the current test_block
+                this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
+            } else {
+                // Next, use System time as the seed for executing this test_block.
+                this.seed = System.currentTimeMillis();
             }
         }
 
@@ -388,7 +430,7 @@ public abstract class Block {
             }
             final var tests = Matchers.arrayList(testsObject, "tests");
             executableTests.clear();
-            final var executableTestsWithCacheCheck = new ArrayList<Consumer<RelationalConnection>>();
+            executableTestsWithCacheCheck.clear();
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
                 final var testQuery = Matchers.firstEntry(Matchers.first(test, "test query"), "test query command");
@@ -401,10 +443,9 @@ public abstract class Block {
                     executableTestsWithCacheCheck.add(createTestExecutable(test, getCommandLineNumber(testQuery), true));
                 }
             }
-            if (mode == ExecutionMode.RANDOMIZED) {
+            if (mode != ExecutionMode.ORDERED) {
                 Collections.shuffle(executableTests, new Random(seed));
             }
-            executableTests.addAll(executableTestsWithCacheCheck);
         }
 
         private Consumer<RelationalConnection> createTestExecutable(List<?> test, int lineNumber, boolean checkCache) {
@@ -424,7 +465,7 @@ public abstract class Block {
         }
 
         private String printOptions() {
-            return String.format("{mode: %s, repetition: %d, seed: %d}", mode, repetition, seed);
+            return String.format("{mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s}", mode, repetition, seed, checkCache, connectionLifecycle);
         }
     }
 }

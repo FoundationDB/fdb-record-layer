@@ -52,7 +52,7 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
   options:
-    mode: randomized
+    mode: parallelized
     repetition: 1
   tests:
     -
@@ -105,7 +105,7 @@ test_block:
 test_block:
   connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
   options:
-    mode: randomized
+    mode: parallelized
     repetition: 1
   tests:
     -

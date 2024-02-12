@@ -40,8 +40,8 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/CASE_WHEN_YAML?schema=TEST"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
     check_cache: true
   tests:
     -
@@ -58,8 +58,8 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/CASE_WHEN_YAML?schema=TEST"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
     check_cache: true
   tests:
     -
@@ -76,8 +76,8 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/CASE_WHEN_YAML?schema=TEST"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
     check_cache: true
   tests:
     -
@@ -94,8 +94,8 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/CASE_WHEN_YAML?schema=TEST"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
     check_cache: true
   tests:
     -

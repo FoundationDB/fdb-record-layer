@@ -133,9 +133,9 @@ test_block:
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   options:
     # defines if the tests can be permuted.
-    mode: randomized
+    mode: parallelized
     # defines how many times a particular tests should be scheduled.
-    repetition: 2
+    repetition: 5
   tests:
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause

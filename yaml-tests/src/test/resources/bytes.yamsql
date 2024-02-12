@@ -36,8 +36,8 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
     check_cache: true
   tests:
     -
@@ -60,8 +60,8 @@ test_block:
 test_block:
   connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
   options:
-    mode: randomized
-    repetition: 2
+    mode: parallelized
+    repetition: 5
   tests:
     -
       # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)

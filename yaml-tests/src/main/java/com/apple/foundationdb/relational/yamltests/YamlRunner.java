@@ -57,6 +57,11 @@ public final class YamlRunner {
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
+    private static final String TEST_NIGHTLY = "yaml_testing_nightly";
+    private static final String TEST_SEED = "yaml_testing_seed";
+    private static final String TEST_NIGHTLY_REPETITION = "yaml_testing_nightly_repetition";
+    private static final String TEST_MAX_THREADS = "yaml_testing_max_threads";
+
     @Nonnull
     private final String resourcePath;
 
@@ -71,15 +76,18 @@ public final class YamlRunner {
 
         @Nullable
         private final List<String> editedFileStream;
-
         private boolean isDirty;
-
         @Nonnull
         private final YamlConnectionFactory connectionFactory;
 
         private YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
             this.connectionFactory = factory;
             this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
+            if (isNightly()) {
+                logger.info("ℹ️ Running in the NIGHTLY context.");
+                logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
+                getNightlyRepetition().ifPresent(rep -> logger.info("ℹ️ Running with high repetition value set to " + rep));
+            }
         }
 
         @Nonnull
@@ -102,6 +110,27 @@ public final class YamlRunner {
             } catch (Exception e) {
                 return false;
             }
+        }
+
+        boolean isNightly() {
+            return System.getProperties().stringPropertyNames().contains(TEST_NIGHTLY);
+        }
+
+        Optional<String> getSeed() {
+            return Optional.ofNullable(System.getProperty(TEST_SEED, null));
+        }
+
+        Optional<String> getNightlyRepetition() {
+            return Optional.ofNullable(System.getProperty(TEST_NIGHTLY_REPETITION, null));
+        }
+
+        int getNumThreads() {
+            var numThreads = 1;
+            if (System.getProperties().stringPropertyNames().contains(TEST_MAX_THREADS)) {
+                numThreads = Integer.parseInt(System.getProperty(TEST_MAX_THREADS));
+                Assert.thatUnchecked(numThreads > 0, "Invalid number of threads provided in the YamlExecutionContext");
+            }
+            return numThreads;
         }
     }
 

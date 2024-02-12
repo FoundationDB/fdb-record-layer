@@ -22,6 +22,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -51,24 +52,7 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
     }
 
     @Override
-    @Disabled("The subquery-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
-    public void subqueryTests() throws Exception {
-        super.subqueryTests();
-    }
-
-    @Override
-    @Disabled("The primary-key-tests.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
-    public void primaryKey() throws Exception {
-        super.primaryKey();
-    }
-
-    @Override
-    @Disabled("The boolean.yaml file has 'inserts' which need DynamicBuilder on client-side; not supported")
-    void booleanTypes() throws Exception {
-        super.booleanTypes();
-    }
-
-    @Override
+    @Test
     @Disabled("TODO: Need to work on supporting labels")
     public void limit() throws Exception {
         super.limit();

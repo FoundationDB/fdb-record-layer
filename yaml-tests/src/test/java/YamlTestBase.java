@@ -20,16 +20,49 @@
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public abstract class YamlTestBase {
 
     private static final Logger logger = LogManager.getLogger(YamlTestBase.class);
+
+    @Nullable
+    private static FRL frl;
+
+    @BeforeAll
+    public static void beforeAll() throws RelationalException {
+        frl = new FRL();
+    }
+
+    @AfterAll
+    public static void afterAll() throws Exception {
+        if (frl != null) {
+            frl.close();
+            frl = null;
+        }
+    }
+
+    YamlRunner.YamlConnectionFactory createConnectionFactory() {
+        return connectPath -> {
+            try {
+                return Relational.connect(connectPath, Options.NONE);
+            } catch (RelationalException ve) {
+                throw ve.toSqlException();
+            }
+        };
+    }
 
     public YamlTestBase() {
         if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
@@ -51,6 +84,4 @@ public abstract class YamlTestBase {
             throw e;
         }
     }
-
-    abstract YamlRunner.YamlConnectionFactory createConnectionFactory();
 }
