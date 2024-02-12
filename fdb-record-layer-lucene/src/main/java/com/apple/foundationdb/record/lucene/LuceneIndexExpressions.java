@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -158,14 +159,14 @@ public class LuceneIndexExpressions {
         public PointsConfig getPointsConfig() {
             switch (type) {
                 case INT:
-                    return new PointsConfig(NumberFormat.getInstance(), Integer.class);
+                    return new PointsConfig(NumberFormat.getInstance(Locale.ROOT), Integer.class);
                 case LONG:
-                    return new PointsConfig(NumberFormat.getInstance(), Long.class);
+                    return new PointsConfig(NumberFormat.getInstance(Locale.ROOT), Long.class);
                 case DOUBLE:
-                    return new PointsConfig(NumberFormat.getInstance(), Double.class);
+                    return new PointsConfig(NumberFormat.getInstance(Locale.ROOT), Double.class);
                 case BOOLEAN:
                     //booleans are weird, they are put in here to allow us to catch boolean fields in the parser
-                    return new BooleanPointsConfig(NumberFormat.getInstance());
+                    return new BooleanPointsConfig(NumberFormat.getInstance(Locale.ROOT));
                 case STRING:
                 case TEXT:
                 default:
