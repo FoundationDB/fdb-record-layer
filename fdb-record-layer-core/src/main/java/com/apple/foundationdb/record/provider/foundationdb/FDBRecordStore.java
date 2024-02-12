@@ -1763,28 +1763,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return;
             }
             for (IndexMaintainer index : indexMaintainers) {
-                boolean canDelete;
-                if (recordType == null) {
-                    canDelete = index.canDeleteWhere(matcher, evaluated);
-                } else {
-                    if (Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
-                        canDelete = index.canDeleteWhere(matcher, evaluated);
-                    } else {
-                        if (recordMetaData.recordTypesForIndex(index.state.index).size() > 1) {
-                            throw recordCoreException("Index " + index.state.index.getName() +
-                                                      " applies to more record types than just " + recordType.getName());
-                        }
-                        if (indexMatcher != null) {
-                            canDelete = index.canDeleteWhere(indexMatcher, indexEvaluated);
-                        } else {
-                            canDelete = true;
-                        }
-                    }
-                }
+                final QueryToKeyMatcher m = matcherForIndex(index);
+                boolean canDelete = (m == null) || index.canDeleteWhere(m, evaluated);
                 if (!canDelete) {
                     throw new Query.InvalidExpressionException("deleteRecordsWhere not supported by index " +
                                                                index.state.index.getName());
                 }
+            }
+        }
+
+        @Nullable
+        private QueryToKeyMatcher matcherForIndex(final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            if (recordType == null || (Key.Expressions.hasRecordTypePrefix(index.getRootExpression()))) {
+                return matcher;
+            } else if (recordMetaData.recordTypesForIndex(index).size() > 1) {
+                throw recordCoreException("Index " + index.getName() +
+                        " applies to more record types than just " + recordType.getName());
+            } else {
+                return indexMatcher;
             }
         }
 
