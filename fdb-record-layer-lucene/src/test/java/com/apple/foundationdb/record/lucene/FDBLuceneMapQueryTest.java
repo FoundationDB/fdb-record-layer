@@ -195,11 +195,9 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Arguments function: construct argument list for queries with the predicate value in the query.
-     * The method returns a stream of Arguments, each consisting of a query filter a boolean and an index name, where
-     * the boolean indicates whether
-     * the query should match a document or not.
      *
-     * @return Pair of query and an expected value (boolean)
+     * @return a stream of Arguments, each consisting of a query filter a boolean and an expected index name, where
+     * the boolean indicates whether the query should match a document or not.
      */
     public static Stream<Arguments> valueQueryParameters() {
         return Stream.of(
@@ -236,11 +234,9 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Arguments function: construct argument list for queries with the predicate value as a parameter.
-     * The method returns a stream of Arguments, each consisting of query filter, a boolean a value to compare and the
-     * expected index, where the boolean indicates whether
-     * the query should match a document or not.
      *
-     * @return Pair of query and an expected value (boolean)
+     * @return a stream of Arguments, each consisting of query filter, a boolean a value to compare and the
+     * expected index, where the boolean indicates whether the query should match a document or not.
      */
     public static Stream<Arguments> parameterQueryParameters() {
         return Stream.of(
@@ -324,6 +320,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("value").equalsValue(1L))))
                     .build();
             RecordQueryPlan plan = planQuery(query);
+            assertTrue(plan.getUsedIndexes().isEmpty());
             try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan)) {
                 List<Long> primaryKeys = recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 final Set<Long> expected = Set.of(1L);
@@ -361,7 +358,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                 .build());
         // add a document with no entries at all
         result.add(TestRecordsTextProto.MapDocument.newBuilder()
-                .setDocId(1000)
+                .setDocId(1001)
                 .build());
 
         return result;
