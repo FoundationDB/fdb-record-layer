@@ -344,22 +344,22 @@ public abstract class Block {
         }
 
         private void setTestBlockOptions(@Nullable Object options) {
-            final var optionsMap = overrideWithExecutionContext(options == null ? Map.of() : (Map<String, String>) Matchers.map(options));
+            final var optionsMap = overrideWithExecutionContext(options == null ? Map.of() : (Map<String, Object>) Matchers.map(options));
             setOptionExecutionModeAndRepetition(optionsMap);
             setOptionSeed(optionsMap);
             setOptionCheckCache(optionsMap);
             setOptionConnectionLifecycle(optionsMap);
         }
 
-        private Map<?, ?> overrideWithExecutionContext(Map<String, String> optionsMap) {
+        private Map<?, ?> overrideWithExecutionContext(Map<String, Object> optionsMap) {
             // Use the system-provided seed if that is available from the context.
             executionContext.getSeed().ifPresent(s -> optionsMap.put(OPTION_SEED, s));
             if (executionContext.isNightly() ) {
                 // If the test is for nightly, nightlyRepetition is provided and the repetition provided in the
                 // test_block is not 1, then use the nightlyRepetition value. We explicitly check for the provided
                 // repetition to not being 1 because a repetition of 1 means that the tests are non-idempotent.
-                if (optionsMap.containsKey(OPTION_REPETITION) && !optionsMap.get(OPTION_REPETITION).equals("1")) {
-                    executionContext.getNightlyRepetition().ifPresent(s -> optionsMap.put(OPTION_SEED, s));
+                if (optionsMap.containsKey(OPTION_REPETITION) && !optionsMap.get(OPTION_REPETITION).equals(1)) {
+                    executionContext.getNightlyRepetition().ifPresent(s -> optionsMap.put(OPTION_REPETITION, s));
                 }
             }
             return optionsMap;

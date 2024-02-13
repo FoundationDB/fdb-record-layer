@@ -113,15 +113,19 @@ public final class YamlRunner {
         }
 
         boolean isNightly() {
-            return System.getProperties().stringPropertyNames().contains(TEST_NIGHTLY);
+            return Boolean.parseBoolean(System.getProperty(TEST_NIGHTLY, "false"));
         }
 
         Optional<String> getSeed() {
             return Optional.ofNullable(System.getProperty(TEST_SEED, null));
         }
 
-        Optional<String> getNightlyRepetition() {
-            return Optional.ofNullable(System.getProperty(TEST_NIGHTLY_REPETITION, null));
+        Optional<Integer> getNightlyRepetition() {
+            final var maybeValue = System.getProperty(TEST_NIGHTLY_REPETITION, null);
+            if (maybeValue != null) {
+                return Optional.of(Integer.parseInt(maybeValue));
+            }
+            return Optional.empty();
         }
 
         int getNumThreads() {
