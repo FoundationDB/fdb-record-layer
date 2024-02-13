@@ -2083,6 +2083,21 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
             }
 
+            /**
+             * Returns a new field with a new name.
+             * @param newName The new name.
+             * @return if the name is different from the current field name, returns a new {@code Field} with the new name,
+             *         the same {@link Type}, and index, otherwise it returns {@code this} {@link Field}.
+             */
+            @Nonnull
+            public Field withName(@Nonnull final String newName) {
+                if (fieldNameOptional.map(fieldName -> fieldName.equals(newName)).orElse(false)) {
+                    return this;
+                } else {
+                    return Field.of(getFieldType(), Optional.of(newName), getFieldIndexOptional());
+                }
+            }
+
             @Override
             public boolean equals(final Object o) {
                 if (o == null) {
