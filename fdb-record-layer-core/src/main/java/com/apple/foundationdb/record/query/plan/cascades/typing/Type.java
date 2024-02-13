@@ -1830,7 +1830,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 fieldsBuilder.add(Field.fromProto(serializationContext, recordTypeProto.getFields(i)));
             }
             final ImmutableList<Field> fields = fieldsBuilder.build();
-            Verify.verify(!fields.isEmpty());
             return new Record(recordTypeProto.hasName() ? recordTypeProto.getName() : null, recordTypeProto.getIsNullable(), fields);
         }
 

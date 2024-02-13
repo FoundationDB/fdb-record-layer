@@ -35,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
 
 /**
  * A (relational) expression that has a predicate on it.
@@ -99,16 +98,11 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                                                               @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
-                .flatMap(predicate -> {
-                    final Iterable<? extends QueryPredicate> filters =
-                            predicate.filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p));
-                    return StreamSupport.stream(filters.spliterator(), false)
-                            .map(p -> (PredicateWithValue)p)
-                            .flatMap(predicateWithValue ->
-                                    StreamSupport.stream(predicateWithValue.getValue()
-                                            .filter(v -> v instanceof FieldValue).spliterator(), false))
-                            .map(value -> (FieldValue)value);
-                })
+                .flatMap(predicate -> predicate.preOrderStream()
+                        .filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p))
+                        .map(p -> (PredicateWithValue)p)
+                        .flatMap(predicateWithValue -> predicateWithValue.getValue().preOrderStream().filter(FieldValue.class::isInstance))
+                        .map(value -> (FieldValue)value))
                 .map(fieldValue -> {
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
                     // TODO make better as the field can currently only handle exactly one correlated alias

@@ -101,8 +101,8 @@ public class PatternForLikeValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(patternChild, escapeChild);
+    protected Iterable<? extends Value> computeChildren() {
+        return  ImmutableList.of(patternChild, escapeChild);
     }
 
     @Nonnull

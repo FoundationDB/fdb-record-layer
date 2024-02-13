@@ -59,28 +59,35 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
     public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
-        final var mergedMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var resultingMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
-        for (int i = 0; i < recordConstructorValue.getColumns().size(); ++i) {
-            final var column = recordConstructorValue.getColumns().get(i);
-            final var childResultPair = call.getResult(column.getValue());
-            if (childResultPair == null) {
-                continue;
-            }
+        final var recordConstructorValueResult = call.getResult(recordConstructorValue);
+        final var matchedCompensation = recordConstructorValueResult == null
+                                        ? null : recordConstructorValueResult.getValue().get(recordConstructorValue);
+        if (matchedCompensation != null) {
+            resultingMatchedValuesMap.put(recordConstructorValue, matchedCompensation);
+        } else {
+            for (int i = 0; i < recordConstructorValue.getColumns().size(); ++i) {
+                final var column = recordConstructorValue.getColumns().get(i);
+                final var childResultPair = call.getResult(column.getValue());
+                if (childResultPair == null) {
+                    continue;
+                }
 
-            //
-            // No we have a column and the result we computed for all columns that do have results associated with them,
-            // i.e. the columns flowing results of values we care about.
-            //
-            for (final var childValueEntry : childResultPair.getRight().entrySet()) {
-                final var argumentValue = childValueEntry.getKey();
-                final var argumentValueCompensation = childValueEntry.getValue();
-                final var field = column.getField();
-                mergedMatchedValuesMap.putIfAbsent(argumentValue,
-                        new FieldValueCompensation(FieldValue.FieldPath.ofSingle(field.getFieldNameOptional().orElse(null), field.getFieldType(), i), argumentValueCompensation));
+                //
+                // At this point we have a column and the result we computed for all columns that do have results
+                // associated with them, i.e. the columns flowing results of values we care about.
+                //
+                for (final var childValueEntry : childResultPair.getRight().entrySet()) {
+                    final var argumentValue = childValueEntry.getKey();
+                    final var argumentValueCompensation = childValueEntry.getValue();
+                    final var field = column.getField();
+                    resultingMatchedValuesMap.putIfAbsent(argumentValue,
+                            new FieldValueCompensation(FieldValue.FieldPath.ofSingle(field.getFieldNameOptional().orElse(null), field.getFieldType(), i), argumentValueCompensation));
+                }
             }
         }
 
-        call.yieldValue(recordConstructorValue, mergedMatchedValuesMap);
+        call.yieldValue(recordConstructorValue, resultingMatchedValuesMap);
     }
 }

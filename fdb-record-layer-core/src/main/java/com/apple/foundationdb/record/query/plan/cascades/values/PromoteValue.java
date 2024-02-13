@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -185,8 +186,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
         this.isSimplePromotion = promoteToType.isPrimitive() ||
-                                 (promoteToType instanceof Type.Array &&
-                                  Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
+                (promoteToType instanceof Type.Array &&
+                         Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
 
     @Nonnull
@@ -227,11 +228,17 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         return promoteToType;
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, promoteToType);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, inValue, promoteToType);

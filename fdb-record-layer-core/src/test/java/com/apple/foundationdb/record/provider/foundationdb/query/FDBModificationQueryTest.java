@@ -486,7 +486,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             fetchResultValues(context, plan, Function.identity(), c -> {
             });
 
-            plan = verifySerialization(cascadesPlanner.planGraph(
+            plan = planGraph(
                     () -> {
                         final var restaurantType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
 
@@ -521,10 +521,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 ImmutableMap.of(updatePath, updateValue))));
 
                         return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                    },
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan());
+                    });
 
             assertMatchesExactly(plan,
                     updatePlan(unorderedPrimaryKeyDistinctPlan(

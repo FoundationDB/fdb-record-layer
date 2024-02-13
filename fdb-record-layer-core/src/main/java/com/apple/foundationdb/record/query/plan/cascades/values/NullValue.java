@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -153,6 +154,12 @@ public class NullValue extends AbstractValue implements LeafValue {
     @Nonnull
     public static NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNullValue nullValueProto) {
         return new NullValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(nullValueProto.getResultType())));
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     /**

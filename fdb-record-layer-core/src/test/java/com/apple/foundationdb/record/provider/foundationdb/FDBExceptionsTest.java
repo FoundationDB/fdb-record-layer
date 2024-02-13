@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
@@ -34,8 +35,10 @@ import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,6 +50,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,19 +59,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBExceptions}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBExceptionsTest {
+class FDBExceptionsTest {
     private static final String EXCEPTION_CAUSE_MESSAGE = "the failure cause";
     private static final String PARENT_EXCEPTION_MESSAGE = "something failed asynchronously";
 
     @Test
-    public void wrapRuntimeException() {
+    void wrapRuntimeException() {
         Exception cause = createRuntimeException();
         final String methodName = "createRuntimeException";
         testWrappedStackTrace(cause, methodName);
     }
 
     @Test
-    public void loggableTimeoutException() {
+    void loggableTimeoutException() {
         CompletableFuture<Void> delayed = new CompletableFuture<Void>();
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         FDBDatabase database = factory.getDatabase();
@@ -86,10 +90,30 @@ public class FDBExceptionsTest {
     }
 
     @Test
-    public void wrapCheckedException() {
+    void wrapCheckedException() {
         Exception cause = createCheckedException();
         final String methodName = "createCheckedException";
         testWrappedStackTrace(cause, methodName);
+    }
+
+    @Test
+    void wrapInterruptedException() {
+        final InterruptedException err = createInterruptedException();
+        RuntimeException wrappedErr = FDBExceptions.wrapException(err);
+        assertThat(wrappedErr, instanceOf(RecordCoreInterruptedException.class));
+        assertThat(wrappedErr.getCause(), sameInstance(err));
+
+        final CompletionException completionErr = new CompletionException(PARENT_EXCEPTION_MESSAGE, err);
+        RuntimeException wrappedCompletion = FDBExceptions.wrapException(completionErr);
+        assertThat(wrappedCompletion, instanceOf(RecordCoreInterruptedException.class));
+        assertThat(wrappedCompletion.getCause(), sameInstance(err));
+        assertThat(List.of(err.getSuppressed()), contains(completionErr));
+
+        final ExecutionException executionErr = new ExecutionException(PARENT_EXCEPTION_MESSAGE, err);
+        RuntimeException wrappedExecution = FDBExceptions.wrapException(executionErr);
+        assertThat(wrappedExecution, instanceOf(RecordCoreInterruptedException.class));
+        assertThat(wrappedExecution.getCause(), sameInstance(err));
+        assertThat(List.of(err.getSuppressed()), contains(completionErr, executionErr));
     }
 
     private void testWrappedStackTrace(Exception cause, String methodName) {
@@ -107,7 +131,7 @@ public class FDBExceptionsTest {
     }
 
     @Test
-    public void tooManySuppressedExceptions() {
+    void tooManySuppressedExceptions() {
         try {
             CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(2);
             final Exception base = createRuntimeException();
@@ -145,7 +169,7 @@ public class FDBExceptionsTest {
     }
 
     @Test
-    public void countSuppressedExceptions() {
+    void countSuppressedExceptions() {
         try {
             CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(0);
             final Exception base = createRuntimeException();
@@ -165,7 +189,7 @@ public class FDBExceptionsTest {
     }
 
     @Test
-    public void negativeSuppressedExceptionLimit() {
+    void negativeSuppressedExceptionLimit() {
         try {
             assertThrows(RecordCoreArgumentException.class, () ->
                     CompletionExceptionLogHelper.forceSetMaxSuppressedCountForTesting(-1));
@@ -178,12 +202,19 @@ public class FDBExceptionsTest {
         return new CompletionException(PARENT_EXCEPTION_MESSAGE, cause);
     }
 
+    @Nonnull
     private Exception createRuntimeException() {
         return new RuntimeException(EXCEPTION_CAUSE_MESSAGE);
     }
 
+    @Nonnull
     private Exception createCheckedException() {
         return new Exception(EXCEPTION_CAUSE_MESSAGE);
+    }
+
+    @Nonnull
+    private InterruptedException createInterruptedException() {
+        return new InterruptedException(EXCEPTION_CAUSE_MESSAGE);
     }
 
     private static class CountingCompletionException extends CompletionException {

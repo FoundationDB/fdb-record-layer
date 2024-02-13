@@ -39,10 +39,10 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -55,7 +55,7 @@ import java.util.Optional;
  * A value that flips the output of its boolean child.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue extends AbstractValue implements BooleanValue {
+public class NotValue extends AbstractValue implements BooleanValue, ValueWithChild {
     /**
      * The hash value of this expression.
      */
@@ -98,15 +98,20 @@ public class NotValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return ImmutableList.of(child);
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     @Nonnull
     @Override
-    public NotValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) == 1);
-        return new NotValue(Iterables.get(newChildren, 0));
+    public Value getChild() {
+        return child;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+        return new NotValue(rebasedChild);
     }
 
     @Nullable
@@ -124,7 +129,7 @@ public class NotValue extends AbstractValue implements BooleanValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
