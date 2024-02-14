@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -73,7 +75,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                                           @Nonnull String suggestion, @Nonnull Tuple groupingKey) {
         final KeyExpression expression = root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getWholeKey() : root;
         LuceneIndexExpressions.getFieldsRecursively(expression, new PartialRecordBuildSource(null, descriptor, builder),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     if (groupingKeyIndex > - 1) {
                         if (groupingKeyIndex > groupingKey.size() - 1) {
                             throw new RecordCoreException("Invalid grouping value tuple given a grouping key")
@@ -89,7 +91,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
 
     public static void populatePrimaryKey(@Nonnull KeyExpression primaryKey, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Tuple tuple) {
         LuceneIndexExpressions.getFields(primaryKey, new PartialRecordBuildSource(null, descriptor, builder),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     source.buildMessage(tuple.get(keyIndex), (String) value, null, null, false);
                 }, null);
     }
@@ -299,8 +301,23 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
-        public Iterable<Object> getValues(@Nonnull FieldKeyExpression fieldExpression) {
-            return Collections.singletonList(fieldExpression.getFieldName());
+        public Iterable<Object> getValues(@Nonnull KeyExpression keyExpression) {
+            List<Object> result = new ArrayList<>();
+            KeyExpression current = keyExpression;
+            while (current != null) {
+                if (current instanceof NestingKeyExpression) {
+                    NestingKeyExpression expression = (NestingKeyExpression)current;
+                    result.add(expression.getParent().getFieldName());
+                    current = expression.getChild();
+                } else if (current instanceof FieldKeyExpression) {
+                    result.add(((FieldKeyExpression)current).getFieldName());
+                    current = null;
+                } else {
+                    throw new RecordCoreArgumentException("Nested key type not supported for values")
+                            .addLogInfo("keyType", current.getClass().getName());
+                }
+            }
+            return result;
         }
 
         public void buildMessage(@Nullable Object value, @Nonnull String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {

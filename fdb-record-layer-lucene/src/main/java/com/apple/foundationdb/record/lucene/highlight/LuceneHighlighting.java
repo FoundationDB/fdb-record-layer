@@ -143,7 +143,7 @@ public class LuceneHighlighting {
 
         List<HighlightedTerm> result = new ArrayList<>();
         LuceneIndexExpressions.getFields(expression, new LuceneDocumentFromRecord.FDBRecordSource<>(rec, message),
-                (source, fieldName, value, type, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
+                (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     if (type != LuceneIndexExpressions.DocumentFieldType.TEXT) {
                         return;
                     }
