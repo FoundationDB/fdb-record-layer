@@ -73,6 +73,8 @@ public class LuceneLocaleTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, COMPLEX_DOC, TEXT_AND_STORED_COMPLEX);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 5, 1_234_097, false, 8.123));
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", -110_000_000, 999_999, false, 4.134059823));
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello record layer", "Hello record layer 2", 51_000, 2_000_000, false, 9.2));
 
                 Assertions.assertAll(
                         () -> assertHighlightMatches("text: record AND group: [-12,340,984 TO 42,938]"),
