@@ -480,7 +480,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
         correlatedTos.forEach(correlatedToIntersection::retainAll);
 
-        final var equivalenceMap = aliasMap.derived()
+        final var equivalenceMap = aliasMap.toBuilder()
                 .identitiesFor(correlatedToIntersection)
                 .build();
 

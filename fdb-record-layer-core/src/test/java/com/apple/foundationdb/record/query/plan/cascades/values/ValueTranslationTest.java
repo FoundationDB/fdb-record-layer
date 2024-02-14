@@ -1,5 +1,5 @@
 /*
- * ValueMaxMatch2Test.java
+ * ValueTranslationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *

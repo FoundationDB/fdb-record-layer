@@ -249,10 +249,13 @@ public interface TreeLike<T extends TreeLike<T>> {
     default T replace(@Nonnull final UnaryOperator<T> replacementOperator) {
         final var self = getThis();
         final var maybeReplaced = replacementOperator.apply(self);
-        if (maybeReplaced != self) {
+        if (maybeReplaced == null) {
+            return null;
+        }
+        if (Iterables.isEmpty(maybeReplaced.getChildren())) {
             return maybeReplaced;
         }
-        final Iterable<? extends T> children = getChildren();
+        final Iterable<? extends T> children = maybeReplaced.getChildren();
         int childrenCount = Iterables.size(children);
         boolean isAdding = false;
         // the build is initialized to null, so no allocation is made, it is lazily allocated iff a child is replaced.
@@ -278,7 +281,7 @@ public interface TreeLike<T extends TreeLike<T>> {
                 }
             }
         }
-        return replacedChildren != null ? self.withChildren(replacedChildren.build()) : self;
+        return replacedChildren != null ? maybeReplaced.withChildren(replacedChildren.build()) : maybeReplaced;
     }
 
     /**

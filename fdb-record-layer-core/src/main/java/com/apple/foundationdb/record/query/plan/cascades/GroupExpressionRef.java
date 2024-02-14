@@ -559,7 +559,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                                 return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
                             }));
         } else {
-            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.derived(quantifiers.size());
+            final AliasMap.Builder aliasMapBuilder = combinedEquivalenceMap.toBuilder(quantifiers.size());
             for (int i = 0; i < quantifiers.size(); i++) {
                 final Quantifier quantifier = Objects.requireNonNull(quantifiers.get(i));
                 final Quantifier otherQuantifier = Objects.requireNonNull(otherQuantifiers.get(i));

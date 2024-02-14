@@ -440,7 +440,7 @@ public class Quantifiers {
                     while (iterator.hasNext()) {
                         final List<AliasMap> next = iterator.next();
 
-                        AliasMap nestedAliasMap = aliasMap.derived(next.size()).build();
+                        AliasMap nestedAliasMap = aliasMap.toBuilder(next.size()).build();
 
                         // reduce-left the alias maps in the list, but skip if needed
                         int i;

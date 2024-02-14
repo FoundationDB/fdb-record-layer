@@ -37,7 +37,7 @@ import java.util.Optional;
 public class CompositeTranslator extends Translator {
 
     @Nonnull
-    private final Optional<SimpleTranslator> simpleTranslatorMaybe;
+    private final Optional<TrivialTranslator> simpleTranslatorMaybe;
 
     @Nonnull
     private final Optional<MaxMatchMapTranslator> maxMatchMapTranslatorMaybe;
@@ -54,14 +54,14 @@ public class CompositeTranslator extends Translator {
         final var compositeTranslationAliasMapBuilder = AliasMap.builder();
         final var compositeTranslationMapBuilder = TranslationMap.builder();
         for (final var translator : translators) {
-            if (translator instanceof SimpleTranslator) {
-                compositeTranslationAliasMapBuilder.putAll(((SimpleTranslator)translator).getTranslationAliasMap());
+            if (translator instanceof TrivialTranslator) {
+                compositeTranslationAliasMapBuilder.putAll(((TrivialTranslator)translator).getTranslationAliasMap());
             } else if (translator instanceof MaxMatchMapTranslator) {
-                compositeTranslationMapBuilder.absorb(((MaxMatchMapTranslator)translator).getTranslationMapBuilder());
+                compositeTranslationMapBuilder.merge(((MaxMatchMapTranslator)translator).getTranslationMapBuilder());
             } else if (translator instanceof CompositeTranslator) {
                 final var compositeTranslator = (CompositeTranslator)translator;
-                compositeTranslator.simpleTranslatorMaybe.map(simpleTranslator -> compositeTranslationAliasMapBuilder.putAll(simpleTranslator.getTranslationAliasMap()));
-                compositeTranslator.maxMatchMapTranslatorMaybe.map(maxMatchMapTranslator -> compositeTranslationMapBuilder.absorb(maxMatchMapTranslator.getTranslationMapBuilder()));
+                compositeTranslator.simpleTranslatorMaybe.map(trivialTranslator -> compositeTranslationAliasMapBuilder.putAll(trivialTranslator.getTranslationAliasMap()));
+                compositeTranslator.maxMatchMapTranslatorMaybe.map(maxMatchMapTranslator -> compositeTranslationMapBuilder.merge(maxMatchMapTranslator.getTranslationMapBuilder()));
             } else {
                 throw new RecordCoreException(String.format("Unexpected translator type %s", translator.getClass().getSimpleName()));
             }
@@ -71,13 +71,13 @@ public class CompositeTranslator extends Translator {
         final var compositeTranslationMap = compositeTranslationMapBuilder.build();
 
         if (compositeTranslationAliasMap != AliasMap.emptyMap()) {
-            simpleTranslatorMaybe = Optional.of(new SimpleTranslator(getAliasMap(), compositeTranslationAliasMap));
+            simpleTranslatorMaybe = Optional.of(new TrivialTranslator(getConstantAliasMap(), compositeTranslationAliasMap));
         } else {
             simpleTranslatorMaybe = Optional.empty();
         }
 
         if (compositeTranslationMap != TranslationMap.empty()) {
-            maxMatchMapTranslatorMaybe = Optional.of(new MaxMatchMapTranslator(getAliasMap(), compositeTranslationMapBuilder));
+            maxMatchMapTranslatorMaybe = Optional.of(new MaxMatchMapTranslator(getConstantAliasMap(), compositeTranslationMapBuilder));
         } else {
             maxMatchMapTranslatorMaybe = Optional.empty();
         }
@@ -86,7 +86,7 @@ public class CompositeTranslator extends Translator {
     @Nonnull
     private static AliasMap collectAliasMap(@Nonnull final Collection<Translator> translators) {
         final var aliasMapBuilder = AliasMap.builder();
-        translators.forEach(translator -> aliasMapBuilder.putAll(translator.getAliasMap()));
+        translators.forEach(translator -> aliasMapBuilder.putAll(translator.getConstantAliasMap()));
         return aliasMapBuilder.build();
     }
 

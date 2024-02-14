@@ -247,7 +247,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
             return false;
         }
 
-        final var extendedEquivalencesMap = equivalencesMap.derived()
+        final var extendedEquivalencesMap = equivalencesMap.toBuilder()
                 .put(groupingKeyAlias, otherStreamingAggregationPlan.getGroupingKeyAlias())
                 .put(aggregateAlias, otherStreamingAggregationPlan.getAggregateAlias())
                 .build();

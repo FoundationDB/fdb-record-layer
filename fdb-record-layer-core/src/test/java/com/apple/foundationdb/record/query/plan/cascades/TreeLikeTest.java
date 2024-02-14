@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -277,6 +279,178 @@ public class TreeLikeTest {
                                 node("d'"),
                                 node("e'"))),
                 mappedTreeOptional.get());
+    }
+
+    @Test
+    void testReplace() {
+        /*
+         * replace can deform the tree, in this test, the tree is replaced with its leftmost root-to-leaf path by
+         * doing the following replacement: n -> n.withLeftChild, due to the pre-order traversal nature, we get
+         * the leftmost root-to-leaf path.
+         *            a             ----->       a
+         *        /      \                       |
+         *       b        c         ----->       b
+         *     /  \      / \                     |
+         *    d   e     f   g       ----->       d
+         */
+
+        final TreeNode t =
+                node("a",
+                        node("b",
+                                node("d"),
+                                node("e")),
+                        node("c",
+                                node("f"),
+                                node("g")));
+
+        TreeNode mappedTreeOptional = t.replace(n -> new TreeNode(n.contents, n.children.isEmpty() ? n.children : ImmutableList.of(Iterables.get(n.children, 0))));
+        assertEquals(
+                node("a", node("b", node("d"))),
+                mappedTreeOptional);
+
+        /*
+         * replace can deform the tree, in this test, the tree is replaced with its rightmost root-to-leaf path by
+         * doing the following replacement: n -> n.withLeftChild, due to the pre-order traversal nature, we get
+         * the rightmost root-to-leaf path.
+         *            a             ----->       a
+         *        /      \                       |
+         *       b        c         ----->       c
+         *     /  \      / \                     |
+         *    d   e     f   g       ----->       g
+         */
+        mappedTreeOptional = t.replace(n -> new TreeNode(n.contents, n.children.isEmpty() ? n.children : ImmutableList.of(Iterables.get(n.children, Iterables.size(n.children) - 1))));
+        assertEquals(
+                node("a", node("c", node("g"))),
+                mappedTreeOptional);
+
+        /*
+         * n -> node(Q) | n.contents = 'c'
+         *            a             ----->                a
+         *        /      \                            /      \
+         *       b        c         ----->           b        Q
+         *     /  \      / \                       /  \
+         *    d    e    f   g       ----->        d    e
+         */
+
+        mappedTreeOptional = t.replace(n -> n.contents.equals("c") ? node("Q") : n);
+        assertEquals(
+                node("a",
+                        node("b",
+                                node("d"),
+                                node("e")),
+                        node("Q")),
+                mappedTreeOptional);
+
+        /*
+         * n -> node(Q) | n.contents = 'c'
+         *            a             ----->                a
+         *        /      \                            /      \
+         *       b        c         ----->           S        Q
+         *     /  \      / \                       /  \
+         *    d    e    f   g       ----->        d    e
+         */
+
+        mappedTreeOptional = t.replace(n -> {
+            final var content = n.contents;
+            if (content.equals("b")) {
+                return new TreeNode("S", n.children);
+            } else if (content.equals("c")) {
+                return node("Q");
+            } else {
+                return n;
+            }
+        });
+        assertEquals(
+                node("a",
+                        node("S",
+                                node("d"),
+                                node("e")),
+                        node("Q")),
+                mappedTreeOptional);
+    }
+
+    @Test
+    void testReplaceCopyOnWrite() {
+        /*
+         * if the replacement predicate is a no-op, verify that the tree references are _not_ changed.
+         *            a
+         *        /      \
+         *       b        c
+         */
+
+        TreeNode t =
+                node("a",
+                        node("b"),
+                        node("c"));
+
+        TreeNode replaced = t.replace(n -> n);
+
+        assertEquals(
+                node("a",
+                        node("b"),
+                        node("c")),
+                replaced);
+
+        Assertions.assertNotNull(replaced);
+        Assertions.assertSame(replaced, t);
+        Assertions.assertEquals(replaced.children, t.children);
+        Assertions.assertSame(replaced.children, t.children);
+        Assertions.assertSame(Iterators.get(replaced.children.iterator(), 0), Iterators.get(t.children.iterator(), 0));
+        Assertions.assertSame(Iterators.get(replaced.children.iterator(), 1), Iterators.get(t.children.iterator(), 1));
+
+        /*
+         * changing a node, replaces the children of its parent with a new children list, but nothing else, and recursively
+         * all ancestors.
+         *              a              ----->            [a]
+         *        /         \                       /          \
+         *       b            c        ----->      [b            c]
+         *     /   \       /     \               /   \       /     \
+         *    d    e      f       g   ----->    d    e      [Q       g]
+         */
+
+        t = node("a",
+                 node("b",
+                         node("d"),
+                         node("e")),
+                 node("c",
+                         node("f"),
+                         node("g")));
+        replaced = t.replace(n -> n.contents.equals("f") ? node("Q") : n);
+
+        assertEquals(
+                node("a",
+                        node("b",
+                                node("d"),
+                                node("e")),
+                        node("c",
+                                node("Q"),
+                                node("g"))),
+                replaced);
+        Assertions.assertNotNull(replaced);
+        Assertions.assertNotSame(replaced, t); // "a" <--> "a"
+        Assertions.assertNotSame(replaced.children, t.children); // "b", "c" <--> "b", "c"
+        final var b = Iterators.get(replaced.children.iterator(), 0);
+        final var otherB = Iterators.get(t.children.iterator(), 0);
+        final var c = Iterators.get(replaced.children.iterator(), 1);
+        final var otherC = Iterators.get(t.children.iterator(), 1);
+
+        Assertions.assertSame(b, otherB);
+        Assertions.assertSame(b.children, otherB.children); // "d", "e" <--> "d", "e"
+        final var d = Iterators.get(b.children.iterator(), 0);
+        final var otherD = Iterators.get(b.children.iterator(), 0);
+        final var e = Iterators.get(otherB.children.iterator(), 1);
+        final var otherE = Iterators.get(otherB.children.iterator(), 1);
+        Assertions.assertSame(d, otherD);
+        Assertions.assertSame(e, otherE);
+
+        Assertions.assertNotSame(c, otherC);
+        Assertions.assertNotSame(c.children, otherC.children); // "f", "g" <--> "Q", "g"
+        final var f = Iterators.get(c.children.iterator(), 0);
+        final var Q = Iterators.get(otherC.children.iterator(), 0);
+        final var g = Iterators.get(c.children.iterator(), 1);
+        final var otherG = Iterators.get(otherC.children.iterator(), 1);
+        Assertions.assertNotSame(f, Q);
+        Assertions.assertSame(g, otherG);
     }
 
     private static class TreeNode implements TreeLike<TreeNode> {
