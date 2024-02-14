@@ -619,15 +619,19 @@ public class LucenePartitioner {
                     final Integer repartitionDocumentCount = Math.min(
                             Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)),
                             indexPartitionHighWatermark);
+                    long startTimeNanos = System.nanoTime();
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(
                             partitionInfo,
                             groupingKey,
                             repartitionDocumentCount + 1);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
-                            .thenApply(movedCount -> Pair.of(
-                                    movedCount,
-                                    Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0)));
+                            .thenApply(movedCount -> {
+                                state.context.record(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION, System.nanoTime() - startTimeNanos);
+                                return Pair.of(
+                                        movedCount,
+                                        Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0));
+                            });
                 }
             }
             // here: no partitions need re-balancing
@@ -739,13 +743,15 @@ public class LucenePartitioner {
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("Repartitioning Records",
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(KeyValueLogMessage.of("Repartitioning Records",
                             LuceneLogMessageKeys.GROUP, groupingKey,
                             LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
                             LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
                             LuceneLogMessageKeys.COUNT, records.size()));
                 }
+                state.context.increment(LuceneEvents.Counts.LUCENE_REBALANCE_PARTITION);
+                state.context.increment(LuceneEvents.Counts.LUCENE_REBALANCE_PARTITION_DOC_COUNT, records.size());
 
                 // value of the "destination" partition's `from` timestamp
                 final long overflowPartitionFromTimestamp = getPartitioningTimestampValue(records.get(0));

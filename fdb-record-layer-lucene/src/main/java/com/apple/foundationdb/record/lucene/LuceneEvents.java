@@ -68,7 +68,14 @@ public class LuceneEvents {
         LUCENE_MERGE("Lucene merge"),
         /** Number of find merge calls (calculation of lucene's required merges). */
         LUCENE_FIND_MERGES("Lucene find merges"),
-        ;
+        /**
+         * Amount of time spent in a transaction doing partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION_TRANSACTION("Lucene rebalance partition transaction"),
+        /**
+         * Amount of time spent moving documents during partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition");
 
         private final String title;
         private final String logKey;
@@ -229,7 +236,8 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
-        ;
+        LUCENE_REBALANCE_PARTITION("lucene rebalance partition", false),
+        LUCENE_REBALANCE_PARTITION_DOC_COUNT("lucene rebalance partition count", true);
 
         private final String title;
         private final boolean isSize;

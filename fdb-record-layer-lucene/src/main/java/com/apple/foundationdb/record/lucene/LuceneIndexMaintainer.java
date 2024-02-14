@@ -360,18 +360,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
-                        context -> storeBuilder.setContext(context).openAsync().thenCompose(store -> {
-                            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                            return getPartitioner(index, store).rebalancePartitions(continuation.get())
-                                    .thenApply(newContinuation -> {
-                                        if (newContinuation.isEnd()) {
-                                            return false;
-                                        } else {
-                                            continuation.set(newContinuation);
-                                            return true;
-                                        }
-                                    });
-                        })));
+                        context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
+                                storeBuilder.setContext(context).openAsync().thenCompose(store -> {
+                                    store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                                    return getPartitioner(index, store).rebalancePartitions(continuation.get())
+                                            .thenApply(newContinuation -> {
+                                                if (newContinuation.isEnd()) {
+                                                    return false;
+                                                } else {
+                                                    continuation.set(newContinuation);
+                                                    return true;
+                                                }
+                                            });
+                                }))));
     }
 
     @Nonnull

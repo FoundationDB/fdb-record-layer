@@ -19,7 +19,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Use Locale.ROOT when parsing lucene queries [(Issue #2503)](https://github.com/FoundationDB/fdb-record-layer/issues/2503)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Use metrics instead of info log when rebalancing lucene partitions [(Issue #2509)](https://github.com/FoundationDB/fdb-record-layer/issues/2509)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
