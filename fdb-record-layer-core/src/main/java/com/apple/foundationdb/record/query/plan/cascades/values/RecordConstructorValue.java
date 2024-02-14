@@ -380,8 +380,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             columnsBuilder.add(Column.fromProto(serializationContext, columnProto));
         }
         final ImmutableList<Column<? extends Value>> columns = columnsBuilder.build();
-        Verify.verify(!columns.isEmpty());
-        return new RecordConstructorValue(columnsBuilder.build(),
+        return new RecordConstructorValue(columns,
                 (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
     }
 

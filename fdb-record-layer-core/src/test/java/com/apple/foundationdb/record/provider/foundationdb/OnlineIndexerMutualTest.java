@@ -1371,4 +1371,30 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertReadable(indexes);
         assertAllValidated(indexes);
     }
+
+    @Test
+    void testMutualIndexingReverseScanException() {
+        // assert failure for reverse scan
+        final FDBStoreTimer timer = new FDBStoreTimer();
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        long numRecords = 80;
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing() // no boundaries mean self detection - which will be no boundaries
+                        .setReverseScanOrder(true)
+                        .build())
+                .build()) {
+            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+        }
+    }
 }

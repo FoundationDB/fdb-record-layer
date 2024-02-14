@@ -29,7 +29,10 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.test.BooleanSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -121,8 +124,9 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
-    @Test
-    void testIndexFromIndexContinuation() {
+    @ParameterizedTest
+    @BooleanSource
+    void testIndexFromIndexContinuation(boolean reverseScan) {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 107;
         final int chunkSize  = 17;
@@ -142,6 +146,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setReverseScanOrder(reverseScan)
                         .build())
                 .setLimit(chunkSize)
                 .setTimer(timer)
@@ -152,10 +157,12 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
-    @Test
-    void testNonIdempotentIndexFromIndex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testNonIdempotentIndexFromIndex(boolean reverseScan) {
         this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 8;
@@ -174,6 +181,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
+                        .setReverseScanOrder(reverseScan)
                         .build())
                 .build()) {
 
@@ -181,6 +189,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -213,10 +222,12 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
-    @Test
-    void testNonIdempotentIndexFromIndexOldFormatFallback() {
+    @ParameterizedTest
+    @BooleanSource
+    void testNonIdempotentIndexFromIndexOldFormatFallback(boolean reverseScan) {
         // Attempt to build a non-idempotent index at an older format version. This should fall back to a full record scan
         this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -236,6 +247,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
+                        .setReverseScanOrder(reverseScan)
                         .build())
                 .build()) {
 
@@ -243,6 +255,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords + otherRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -392,8 +405,9 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
     }
 
-    @Test
-    void testIndexFromIndexPersistentContinuation() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    void testIndexFromIndexPersistentContinuation(int reverseSeed) {
         // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 49;
@@ -410,17 +424,22 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
+        // test all 4 reverse combinations
+        boolean reverse1 = 0 != (reverseSeed & 1);
+        boolean reverse2 = 0 != (reverseSeed & 2);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
-                .setSourceIndex("src_index")
-                .forbidRecordScan()
-                .build());
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .setReverseScanOrder(reverse1)
+                        .build());
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setReverseScanOrder(reverse2)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -431,6 +450,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -488,6 +508,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -537,6 +558,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // counters should demonstrate a continuation to completion
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -588,6 +610,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // counters should demonstrate a continuation to completion
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -641,6 +664,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // counters should demonstrate a continuation to completion
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -678,6 +702,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -839,6 +864,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -904,6 +930,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -968,6 +995,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertAllValidated(List.of(tgtIndex));
     }
 
     @Test
@@ -1002,6 +1030,37 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertReadable(tgtIndex);
+        assertAllValidated(List.of(tgtIndex));
+    }
+
+    @Test
+    void testIndexFromIndexRebuildReverseScanException() {
+        // assert failure for reverse scan
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 80;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setSourceIndex("src_index")
+                            .forbidRecordScan()
+                            .setReverseScanOrder(true)
+                            .build())
+                    .build()) {
+                assertThrows(RecordCoreException.class, () -> indexBuilder.rebuildIndex(recordStore));
+            }
+            context.commit();
+        }
     }
 
     @Test
@@ -1089,5 +1148,6 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertReadable(tgtIndex);
+        assertAllValidated(List.of(tgtIndex));
     }
 }

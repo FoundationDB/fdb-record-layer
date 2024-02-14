@@ -112,7 +112,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
-        return new EmptyValue();
+        return EmptyValue.empty();
     }
 
     @Nonnull
