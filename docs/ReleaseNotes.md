@@ -28,7 +28,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Feature** Add map support for Maps in Lucene [(Issue #2488)](https://github.com/FoundationDB/fdb-record-layer/issues/2488)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Unnested record types now support range deletion via `deleteRecordsWhere` [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Disabled indexes no longer participate in `deleteRecordsWhere` operations [(Issue #2505)](https://github.com/FoundationDB/fdb-record-layer/issues/2505)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

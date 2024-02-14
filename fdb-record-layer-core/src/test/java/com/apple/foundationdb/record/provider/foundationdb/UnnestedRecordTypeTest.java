@@ -971,6 +971,35 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    void deleteWhereSucceedsWithDisabledIndex() {
+        final RecordMetaDataHook hook = setOuterPrimaryKey(concatenateFields("other_id", "rec_id"))
+                .andThen(addMapType())
+                .andThen(addKeyOtherIntValueIndex());
+        final RecordMetaData metaData = mapMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            final TestRecordsNestedMapProto.OuterRecord rec = sampleMapRecord();
+            final List<FDBStoredRecord<Message>> saved = saveRecordsForDeleteRecordsWhere(rec);
+            assertAllPresent(saved);
+
+            // Delete where initially fails because the index does not have the right prefix
+            assertDeleteRecordsWhereFails(null, Query.field("other_id").equalsValue(rec.getOtherId()), KEY_OTHER_INT_VALUE_INDEX);
+            assertAllPresent(saved);
+
+            recordStore.markIndexDisabled(KEY_OTHER_INT_VALUE_INDEX).join();
+
+            // Delete where should now succeed
+            recordStore.deleteRecordsWhere(Query.field("other_id").equalsValue(rec.getOtherId()));
+            assertAllAbsent(saved.subList(0, 2));
+            assertAllPresent(saved.subList(2, saved.size()));
+
+            commit(context);
+        }
+    }
+
+    @Test
     void deleteWhereWithTypeFilter() {
         // As types are specified, make sure the primary key of the outer record is prefixed by record type
         final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))

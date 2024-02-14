@@ -1639,8 +1639,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
+        }
+
         preloadCache.invalidateAll();
-        return new RecordsWhereDeleter(component).run();
+        recordStoreStateRef.get().beginRead();
+        boolean async = false;
+        try {
+            CompletableFuture<Void> future = new RecordsWhereDeleter(component).run();
+            async = true;
+            return future.whenComplete((ignore, err) -> recordStoreStateRef.get().endRead());
+        } finally {
+            if (!async) {
+                recordStoreStateRef.get().endRead();
+            }
+        }
     }
 
     /**
@@ -1722,7 +1736,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 typelessComponent = remainingComponent;
             }
 
-            indexMaintainers = allIndexes.stream().map(FDBRecordStore.this::getIndexMaintainer).collect(Collectors.toList());
+            indexMaintainers = allIndexes.stream()
+                    .filter(index -> !isIndexDisabled(index))
+                    .map(FDBRecordStore.this::getIndexMaintainer)
+                    .collect(Collectors.toList());
 
             evaluated = deleteRecordsWhereCheckRecordTypes();
             if (recordTypeKeyComparison == null) {
