@@ -56,7 +56,7 @@ public class MaxMatchMapTranslator extends Translator {
                                  @Nonnull final CorrelationIdentifier queryCorrelation,
                                  @Nonnull final CorrelationIdentifier candidateCorrelation,
                                  @Nonnull final AliasMap constantAliases) {
-        super(constantAliases.derived().put(candidateCorrelation, candidateCorrelation).build());
+        super(constantAliases.toBuilder().put(candidateCorrelation, candidateCorrelation).build());
         this.translationMapBuilder = TranslationMap.builder()
                 .when(queryCorrelation)
                 .then(candidateCorrelation, (src, tgt, quantifiedValue) -> getTranslatedQueryValue(maxMatchMapBelow, candidateCorrelation));
@@ -86,7 +86,7 @@ public class MaxMatchMapTranslator extends Translator {
         final Map<Value, Value> pulledUpMaxMatchMap = belowMapping.entrySet().stream().map(entry -> {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
-            final var pulledUpCandidatesMap = belowCandidateResultValue.pullUp(List.of(candidatePart), getAliasMap(), Set.of(), candidateCorrelation);
+            final var pulledUpCandidatesMap = belowCandidateResultValue.pullUp(List.of(candidatePart), getConstantAliasMap(), Set.of(), candidateCorrelation);
             final var pulledUpdateCandidatePart = pulledUpCandidatesMap.get(candidatePart);
             if (pulledUpdateCandidatePart == null) {
                 throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
@@ -99,7 +99,7 @@ public class MaxMatchMapTranslator extends Translator {
                 pulledUpMaxMatchMap
                         .entrySet()
                         .stream()
-                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, getAliasMap()))
+                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, getConstantAliasMap()))
                         .map(Map.Entry::getValue)
                         .findAny()
                         .orElse(valuePart)));

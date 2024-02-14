@@ -256,7 +256,7 @@ public class AliasMap {
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
-    public Builder derived() {
+    public Builder toBuilder() {
         return builder().putAll(this);
     }
 
@@ -267,7 +267,7 @@ public class AliasMap {
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
-    public Builder derived(final int expectedAdditionalElements) {
+    public Builder toBuilder(final int expectedAdditionalElements) {
         return builder(expectedAdditionalElements).putAll(this);
     }
 

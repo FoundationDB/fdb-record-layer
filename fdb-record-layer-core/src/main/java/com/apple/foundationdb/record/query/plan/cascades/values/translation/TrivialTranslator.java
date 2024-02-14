@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * A {@code Translator} that simply translates a given {@code Value} by replacing its {@code queryCorrelation} with the
  * specified {@code candidateCorrelation}. It does not perform any sub-{@link Value} replacement.
  */
-public class SimpleTranslator extends Translator {
+public class TrivialTranslator extends Translator {
 
     @Nonnull
     private final AliasMap translationAliasMap;
@@ -40,29 +40,29 @@ public class SimpleTranslator extends Translator {
     private final TranslationMap translationMap;
 
     /**
-     * Creates a new instance of the {@link SimpleTranslator}.
+     * Creates a new instance of the {@link TrivialTranslator}.
      * @param queryCorrelation The query correlation to be replaced in the {@link Value}.
      * @param candidateCorrelation The replacement correlation.
      * @param constantAliases A list of constant aliases, i.e. aliases the remain unchanged after translating a {@link Value}.
      */
-    public SimpleTranslator(@Nonnull final CorrelationIdentifier queryCorrelation,
-                            @Nonnull final CorrelationIdentifier candidateCorrelation,
-                            @Nonnull final AliasMap constantAliases) {
-        super(constantAliases.derived().put(candidateCorrelation, candidateCorrelation).build());
+    public TrivialTranslator(@Nonnull final CorrelationIdentifier queryCorrelation,
+                             @Nonnull final CorrelationIdentifier candidateCorrelation,
+                             @Nonnull final AliasMap constantAliases) {
+        super(constantAliases.toBuilder().put(candidateCorrelation, candidateCorrelation).build());
         this.translationAliasMap = AliasMap.of(queryCorrelation, candidateCorrelation);
         this.translationMap = TranslationMap.rebaseWithAliasMap(translationAliasMap);
     }
 
     /**
-     * Creates a new instance of the {@link SimpleTranslator}.
+     * Creates a new instance of the {@link TrivialTranslator}.
      * @param aliasMap The alias map, comprising both constant aliases <li>and</li> the candidate correlation identity mapping.
      * @param translationAliasMap The alias translation map used to translate the correlations in the given {@link Value}.
      * <br>
      * Note: This constructor is meant to be used in the context of creating {@link CompositeTranslator}, that is
      * why it has package-local visibility.
      */
-    SimpleTranslator(@Nonnull final AliasMap aliasMap,
-                     @Nonnull final AliasMap translationAliasMap) {
+    TrivialTranslator(@Nonnull final AliasMap aliasMap,
+                      @Nonnull final AliasMap translationAliasMap) {
         super(aliasMap);
         this.translationAliasMap = translationAliasMap;
         this.translationMap = TranslationMap.rebaseWithAliasMap(translationAliasMap);

@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 
 /**
@@ -72,11 +73,19 @@ import java.util.Collection;
  */
 public abstract class Translator {
 
+    /**
+     * a set of alias mappings that are assumed to be equivalent when translating a {@code Value}.
+     */
     @Nonnull
-    private final AliasMap aliasMap;
+    private final AliasMap constantAliasMap;
 
-    public Translator(@Nonnull AliasMap aliasMap) {
-        this.aliasMap = aliasMap;
+    /**
+     * Constructs a new instance of {@code Translator}.
+     *
+     * @param constantAliasMap a set of alias mappings that are assumed to be equivalent when translating a {@code Value}.
+     */
+    protected Translator(@Nonnull AliasMap constantAliasMap) {
+        this.constantAliasMap = constantAliasMap;
     }
 
     /**
@@ -107,7 +116,7 @@ public abstract class Translator {
                             // from the top expression. For example, RCV's components can be referenced however an Arithmetic
                             // operator's children can not be referenced.
                             .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, getAliasMap()))
+                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, getConstantAliasMap()))
                     .findAny();
             match.ifPresent(value -> newMapping.put(queryValuePart, value));
             return match.isEmpty();
@@ -117,8 +126,8 @@ public abstract class Translator {
     }
 
     @Nonnull
-    public AliasMap getAliasMap() {
-        return aliasMap;
+    public AliasMap getConstantAliasMap() {
+        return constantAliasMap;
     }
 
     @Nonnull
@@ -127,19 +136,26 @@ public abstract class Translator {
     }
 
     /**
-     * Fluent builder of {@link Translator} objects.
+     * Fluent builder of {@link Translator} objects, the builder assist creating the suitable {@link Translator} based
+     * on what the customer supplies.
+     * <br>
+     * <ul>
+     *    <li>a {@link TrivialTranslator} will be built if the customer provides a correlation mapping.</li>
+     *    <li>a {@link MaxMatchMapTranslator} will be built if the customer provides a correlation mapping and a {@link MaxMatchMap}.</li>
+     *    <li>a {@link CompositeTranslator} will be built if the customer wants to compose a series of other {@link Translator} object(s).</li>
+     * </ul>
      */
     public static class Builder {
 
         /**
-         * Fluent builder of {@link Translator} objects.
+         * Fluent builder of {@link CompositeTranslator} objects.
          */
         public static class CompositeBuilder {
 
             @Nonnull
             private final ImmutableList.Builder<Translator> translatorsBuilder;
 
-            public CompositeBuilder(@Nonnull Collection<Translator> translators) {
+            private CompositeBuilder(@Nonnull Collection<Translator> translators) {
                 this.translatorsBuilder = ImmutableList.builder();
                 translatorsBuilder.addAll(translators);
             }
@@ -162,60 +178,59 @@ public abstract class Translator {
             }
         }
 
-        /**
-         * Fluent builder of {@link Translator} objects.
-         */
-        public static class NonCompositeBuilder {
+        private Builder() {
+        }
 
+        /**
+         * Fluent builder of {@link TrivialTranslator} and {@link MaxMatchMapTranslator} objects.
+         */
+        public static class SimpleBuilder {
+
+            @Nonnull
             protected CorrelationIdentifier queryCorrelation;
 
-            protected  CorrelationIdentifier candidateCorrelation;
+            @Nonnull
+            protected CorrelationIdentifier candidateCorrelation;
 
-            protected AliasMap aliasMap;
+            @Nonnull
+            protected AliasMap constantAliasMap;
 
+            @Nullable
             protected MaxMatchMap maxMatchMap;
 
-            public NonCompositeBuilder(final CorrelationIdentifier queryCorrelation,
-                                       final CorrelationIdentifier candidateCorrelation) {
+            private SimpleBuilder(@Nonnull final CorrelationIdentifier queryCorrelation,
+                                  @Nonnull final CorrelationIdentifier candidateCorrelation) {
                 this.queryCorrelation = queryCorrelation;
                 this.candidateCorrelation = candidateCorrelation;
-                this.aliasMap = AliasMap.emptyMap();
+                this.constantAliasMap = AliasMap.emptyMap();
             }
 
             @Nonnull
-            public NonCompositeBuilder using(@Nonnull final MaxMatchMap maxMatchMap) {
+            public SimpleBuilder using(@Nonnull final MaxMatchMap maxMatchMap) {
                 this.maxMatchMap = maxMatchMap;
                 return this;
             }
 
             @Nonnull
-            public NonCompositeBuilder withConstantAliasMap(@Nonnull final AliasMap aliasMap) {
-                this.aliasMap = aliasMap;
-                return this;
-            }
-
-            @Nonnull
-            public NonCompositeBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
-                                                      @Nonnull final CorrelationIdentifier candidateCorrelation) {
-                this.queryCorrelation = queryCorrelation;
-                this.candidateCorrelation = candidateCorrelation;
+            public SimpleBuilder withConstantAliasMap(@Nonnull final AliasMap aliasMap) {
+                this.constantAliasMap = aliasMap;
                 return this;
             }
 
             @Nonnull
             public Translator build() {
                 if (maxMatchMap == null) {
-                    return new SimpleTranslator(queryCorrelation, candidateCorrelation, aliasMap);
+                    return new TrivialTranslator(queryCorrelation, candidateCorrelation, constantAliasMap);
                 } else {
-                    return new MaxMatchMapTranslator(maxMatchMap, queryCorrelation, candidateCorrelation, aliasMap);
+                    return new MaxMatchMapTranslator(maxMatchMap, queryCorrelation, candidateCorrelation, constantAliasMap);
                 }
             }
         }
 
         @Nonnull
-        public NonCompositeBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
-                                                  @Nonnull final CorrelationIdentifier candidateCorrelation) {
-            return new NonCompositeBuilder(queryCorrelation, candidateCorrelation);
+        public SimpleBuilder ofCorrelations(@Nonnull final CorrelationIdentifier queryCorrelation,
+                                            @Nonnull final CorrelationIdentifier candidateCorrelation) {
+            return new SimpleBuilder(queryCorrelation, candidateCorrelation);
         }
 
         @Nonnull

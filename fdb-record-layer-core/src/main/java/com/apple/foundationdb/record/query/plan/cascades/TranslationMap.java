@@ -186,7 +186,7 @@ public class TranslationMap {
         }
 
         @Nonnull
-        public Builder absorb(@Nonnull final Builder other) {
+        public Builder merge(@Nonnull final Builder other) {
             translationMapBuilder.putAll(other.translationMapBuilder.build());
             return this;
         }
